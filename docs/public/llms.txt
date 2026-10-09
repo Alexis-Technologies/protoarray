@@ -1,15 +1,27 @@
 # @alexify/protoarray
 
 > Zero-dependency, schema-based serialization for Node.js and browsers. Objects travel as
-> positional arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared by
+> positional JSON arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared by
 > the client and the server maps every position back to its key. A lightweight alternative to
 > Protocol Buffers, maintained by Alexis Technologies.
 
 Key facts:
-- Status: work in progress. The schema format and the API are being designed; `encode` and
-  `decode` are exported as placeholders that throw
 - Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, no code generation, no build step
-- The payload is plain JSON: smaller than keyed objects because keys are not repeated
-- Exports: `encode(schema, value)`, `decode(schema, array)`
+  with `Infer<D>` and `Input<D>` inferred from the definition literal
+- Zero runtime dependencies, no build step, about 7 KB min+gzip
+- The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
+  to parse and stringify (×1.5 encode, ×1.7 decode on a typical record in V8)
+- Definition DSL is a subset of `@alexify/metaschema`: `'string'`, `'?number'`, `'key?'`, nested
+  structs, `{ array: T }`, `{ enum: [...] }`, `{ flags: [...] }`, `'date'`, `'bigint'`, `'json'`,
+  tuples, `{ type, required, default }`, schemas by value or by name
+- Wire rules: one field per position in declaration order; missing/undefined/null travel as null;
+  trailing nulls are trimmed; enum → index, date → epoch ms, bigint → decimal string, flags →
+  bitmask; `{ sparse: true }` → `[mask, ...present]`; collections as rows, `flat` or `columns`
+- Schema evolution: append fields at the end, never reorder; older and newer versions interoperate;
+  `schema.id` fingerprints the canonical form
+- Two backends: generated code (`new Function`) by default, composed closures where code
+  generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge)
+- Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `SchemaDefinitionError`,
+  `EncodeError`, `DecodeError`
+- Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

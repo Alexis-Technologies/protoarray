@@ -1,0 +1,38 @@
+{
+  "node": "v24.14.1",
+  "date": "2026-10-09T12:59:33.327Z",
+  "results": [
+    {
+      "name": "JSON.stringify — flat object (4 fields)",
+      "opsPerSec": 5378998
+    },
+    {
+      "name": "JSON.stringify — flat positional array",
+      "opsPerSec": 7550291
+    },
+    {
+      "name": "JSON.parse — flat object (4 fields)",
+      "opsPerSec": 3855011
+    },
+    {
+      "name": "JSON.parse — flat positional array",
+      "opsPerSec": 7594779
+    },
+    {
+      "name": "JSON.stringify — nested object",
+      "opsPerSec": 1433795
+    },
+    {
+      "name": "JSON.stringify — nested positional array",
+      "opsPerSec": 2332426
+    },
+    {
+      "name": "JSON.parse — nested object",
+      "opsPerSec": 899989
+    },
+    {
+      "name": "JSON.parse — nested positional array",
+      "opsPerSec": 1655724
+    }
+  ]
+}

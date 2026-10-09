@@ -1,0 +1,15 @@
+# @alexify/protoarray
+
+> Zero-dependency, schema-based serialization for Node.js and browsers. Objects travel as
+> positional arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared by
+> the client and the server maps every position back to its key. A lightweight alternative to
+> Protocol Buffers, maintained by Alexis Technologies.
+
+Key facts:
+- Status: work in progress. The schema format and the API are being designed; `encode` and
+  `decode` are exported as placeholders that throw
+- Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray`
+- Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
+- Zero runtime dependencies, no code generation, no build step
+- The payload is plain JSON: smaller than keyed objects because keys are not repeated
+- Exports: `encode(schema, value)`, `decode(schema, array)`

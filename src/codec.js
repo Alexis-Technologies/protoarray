@@ -1,13 +1,21 @@
-// Placeholders until the protoarray format is designed: the package, its
-// typings, tests, bundle checks and docs are wired end to end around these two
-// names, and their signatures will change with the real API.
+// Functional entry points over a compiled Schema. They do not compile a
+// definition on the fly: compiling costs more than a call, and a literal in a
+// hot loop would pay it every time.
 
-const notImplemented = (name) => {
-  throw new Error(`${name} is not implemented yet`);
+const { SchemaDefinitionError } = require('./errors.js');
+const { isSchema } = require('./plan.js');
+
+const expect = (schema) => {
+  if (isSchema(schema)) return schema;
+  throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
 };
 
-const encode = (schema, value) => notImplemented('encode');
+const encode = (schema, value) => expect(schema).encode(value);
 
-const decode = (schema, array) => notImplemented('decode');
+const decode = (schema, array, options) => expect(schema).decode(array, options);
 
-module.exports = { encode, decode };
+const stringify = (schema, value) => expect(schema).stringify(value);
+
+const parse = (schema, text, options) => expect(schema).parse(text, options);
+
+module.exports = { encode, decode, stringify, parse };

@@ -1,0 +1,776 @@
+{
+  "date": "2026-10-09T19:41:44.579Z",
+  "node": "v24.14.1",
+  "v8": "13.6.233.17-node.44",
+  "cpu": "Apple M3 Max",
+  "scenarios": [
+    {
+      "name": "single",
+      "description": "one record: 10 fields, nested address, tags, 2 orders",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 1384218,
+          "decode": 982920,
+          "bytes": {
+            "raw": 266,
+            "gzip": 212,
+            "brotli": 178
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 2054885,
+          "decode": 1660983,
+          "bytes": {
+            "raw": 135,
+            "gzip": 134,
+            "brotli": 110
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 1569149,
+          "decode": 1007181,
+          "bytes": {
+            "raw": 135,
+            "gzip": 134,
+            "brotli": 110
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 1412521,
+          "decode": 1463368,
+          "bytes": {
+            "raw": 115,
+            "gzip": 127,
+            "brotli": 117
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 1727757,
+          "decode": 1820438,
+          "bytes": {
+            "raw": 97,
+            "gzip": 111,
+            "brotli": 101
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 1239073,
+          "decode": 749388,
+          "bytes": {
+            "raw": 206,
+            "gzip": 207,
+            "brotli": 173
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 1494853,
+          "decode": 2621503,
+          "bytes": {
+            "raw": 108,
+            "gzip": 124,
+            "brotli": 112
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 752678,
+          "decode": 693406,
+          "bytes": {
+            "raw": 198,
+            "gzip": 200,
+            "brotli": 166
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 783765,
+          "decode": 676246,
+          "bytes": {
+            "raw": 215,
+            "gzip": 218,
+            "brotli": 187
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 1742098,
+          "decode": 948524,
+          "bytes": {
+            "raw": 266,
+            "gzip": 212,
+            "brotli": 178
+          }
+        }
+      ]
+    },
+    {
+      "name": "records",
+      "description": "1000 records of the same shape",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 1528,
+          "decode": 921,
+          "bytes": {
+            "raw": 271215,
+            "gzip": 33793,
+            "brotli": 29133
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 2006,
+          "decode": 1491,
+          "bytes": {
+            "raw": 140738,
+            "gzip": 30666,
+            "brotli": 26946
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 1445,
+          "decode": 945,
+          "bytes": {
+            "raw": 140738,
+            "gzip": 30666,
+            "brotli": 26946
+          }
+        },
+        {
+          "id": "protoarray-columns",
+          "name": "protoarray (columns)",
+          "version": "1.0.0",
+          "encode": 2058,
+          "decode": 1530,
+          "bytes": {
+            "raw": 138758,
+            "gzip": 27412,
+            "brotli": 21053
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 1298,
+          "decode": 1370,
+          "bytes": {
+            "raw": 120459,
+            "gzip": 31414,
+            "brotli": 28985
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 1423,
+          "decode": 1790,
+          "bytes": {
+            "raw": 101839,
+            "gzip": 29895,
+            "brotli": 27334
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 1231,
+          "decode": 760,
+          "bytes": {
+            "raw": 210061,
+            "gzip": 34139,
+            "brotli": 30555
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 1529,
+          "decode": 2894,
+          "bytes": {
+            "raw": 112274,
+            "gzip": 30957,
+            "brotli": 28370
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 792,
+          "decode": 715,
+          "bytes": {
+            "raw": 202061,
+            "gzip": 33895,
+            "brotli": 30367
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 1395,
+          "decode": 2360,
+          "bytes": {
+            "raw": 125051,
+            "gzip": 31582,
+            "brotli": 29016
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 1570,
+          "decode": 906,
+          "bytes": {
+            "raw": 271215,
+            "gzip": 33793,
+            "brotli": 29133
+          }
+        }
+      ]
+    },
+    {
+      "name": "sparse",
+      "description": "20 optional fields, 3 present",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 6896853,
+          "decode": 4633576,
+          "bytes": {
+            "raw": 33,
+            "gzip": 53,
+            "brotli": 36
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 7282813,
+          "decode": 7541947,
+          "bytes": {
+            "raw": 23,
+            "gzip": 43,
+            "brotli": 27
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 3150554,
+          "decode": 2597281,
+          "bytes": {
+            "raw": 23,
+            "gzip": 43,
+            "brotli": 27
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 5579042,
+          "decode": 9572425,
+          "bytes": {
+            "raw": 11,
+            "gzip": 31,
+            "brotli": 15
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 1432564,
+          "decode": 3623596,
+          "bytes": {
+            "raw": 28,
+            "gzip": 35,
+            "brotli": 23
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 6028754,
+          "decode": 6598373,
+          "bytes": {
+            "raw": 21,
+            "gzip": 41,
+            "brotli": 25
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 5800894,
+          "decode": 12147954,
+          "bytes": {
+            "raw": 9,
+            "gzip": 29,
+            "brotli": 13
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 5162258,
+          "decode": 3387991,
+          "bytes": {
+            "raw": 19,
+            "gzip": 39,
+            "brotli": 23
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 3060841,
+          "decode": 3642644,
+          "bytes": {
+            "raw": 27,
+            "gzip": 47,
+            "brotli": 31
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 14348947,
+          "decode": 4746363,
+          "bytes": {
+            "raw": 33,
+            "gzip": 53,
+            "brotli": 36
+          }
+        }
+      ]
+    },
+    {
+      "name": "typed",
+      "description": "enum, boolean and date heavy record",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 836214,
+          "decode": 2704009,
+          "bytes": {
+            "raw": 123,
+            "gzip": 120,
+            "brotli": 94
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 3864842,
+          "decode": 4897878,
+          "bytes": {
+            "raw": 36,
+            "gzip": 46,
+            "brotli": 36
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 2989771,
+          "decode": 2835458,
+          "bytes": {
+            "raw": 36,
+            "gzip": 46,
+            "brotli": 36
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 3849274,
+          "decode": 12342299,
+          "bytes": {
+            "raw": 13,
+            "gzip": 33,
+            "brotli": 17
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 2128499,
+          "decode": 7918165,
+          "bytes": {
+            "raw": 12,
+            "gzip": 32,
+            "brotli": 16
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 2845816,
+          "decode": 2826156,
+          "bytes": {
+            "raw": 73,
+            "gzip": 96,
+            "brotli": 72
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 3472617,
+          "decode": 5345007,
+          "bytes": {
+            "raw": 24,
+            "gzip": 45,
+            "brotli": 28
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 1174602,
+          "decode": 1566486,
+          "bytes": {
+            "raw": 71,
+            "gzip": 92,
+            "brotli": 71
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 1777404,
+          "decode": 1547828,
+          "bytes": {
+            "raw": 79,
+            "gzip": 100,
+            "brotli": 80
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 4791577,
+          "decode": 2791370,
+          "bytes": {
+            "raw": 110,
+            "gzip": 107,
+            "brotli": 83
+          }
+        }
+      ]
+    },
+    {
+      "name": "strings",
+      "description": "long Cyrillic strings",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 1568646,
+          "decode": 1345380,
+          "bytes": {
+            "raw": 816,
+            "gzip": 266,
+            "brotli": 229
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 1798348,
+          "decode": 1665480,
+          "bytes": {
+            "raw": 785,
+            "gzip": 230,
+            "brotli": 207
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 1699083,
+          "decode": 1543882,
+          "bytes": {
+            "raw": 785,
+            "gzip": 230,
+            "brotli": 207
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 585065,
+          "decode": 510432,
+          "bytes": {
+            "raw": 777,
+            "gzip": 233,
+            "brotli": 211
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 495006,
+          "decode": 773970,
+          "bytes": {
+            "raw": 774,
+            "gzip": 231,
+            "brotli": 210
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 832573,
+          "decode": 211753,
+          "bytes": {
+            "raw": 800,
+            "gzip": 263,
+            "brotli": 234
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 850079,
+          "decode": 236990,
+          "bytes": {
+            "raw": 775,
+            "gzip": 230,
+            "brotli": 206
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 374203,
+          "decode": 687164,
+          "bytes": {
+            "raw": 798,
+            "gzip": 260,
+            "brotli": 233
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 694815,
+          "decode": 239985,
+          "bytes": {
+            "raw": 806,
+            "gzip": 269,
+            "brotli": 241
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 1291589,
+          "decode": 1332118,
+          "bytes": {
+            "raw": 816,
+            "gzip": 266,
+            "brotli": 229
+          }
+        }
+      ]
+    },
+    {
+      "name": "numeric",
+      "description": "32 doubles (where binary formats shine)",
+      "results": [
+        {
+          "id": "json",
+          "name": "JSON",
+          "version": "v24.14.1",
+          "encode": 316109,
+          "decode": 479129,
+          "bytes": {
+            "raw": 764,
+            "gzip": 406,
+            "brotli": 392
+          }
+        },
+        {
+          "id": "protoarray",
+          "name": "protoarray (codegen)",
+          "version": "1.0.0",
+          "encode": 401959,
+          "decode": 716742,
+          "bytes": {
+            "raw": 582,
+            "gzip": 309,
+            "brotli": 295
+          }
+        },
+        {
+          "id": "protoarray-closures",
+          "name": "protoarray (closures)",
+          "version": "1.0.0",
+          "encode": 366874,
+          "decode": 574273,
+          "bytes": {
+            "raw": 582,
+            "gzip": 309,
+            "brotli": 295
+          }
+        },
+        {
+          "id": "protobufjs",
+          "name": "protobufjs",
+          "version": "8.8.0",
+          "encode": 723174,
+          "decode": 1955692,
+          "bytes": {
+            "raw": 305,
+            "gzip": 328,
+            "brotli": 304
+          }
+        },
+        {
+          "id": "avsc",
+          "name": "avsc",
+          "version": "5.7.9",
+          "encode": 1953218,
+          "decode": 3133766,
+          "bytes": {
+            "raw": 256,
+            "gzip": 279,
+            "brotli": 260
+          }
+        },
+        {
+          "id": "msgpackr",
+          "name": "msgpackr",
+          "version": "2.1.0",
+          "encode": 1112073,
+          "decode": 449914,
+          "bytes": {
+            "raw": 409,
+            "gzip": 429,
+            "brotli": 376
+          }
+        },
+        {
+          "id": "msgpackr-records",
+          "name": "msgpackr (records, shared structures)",
+          "version": "2.1.0",
+          "encode": 1415683,
+          "decode": 3347943,
+          "bytes": {
+            "raw": 289,
+            "gzip": 312,
+            "brotli": 280
+          }
+        },
+        {
+          "id": "msgpack",
+          "name": "@msgpack/msgpack",
+          "version": "3.1.3",
+          "encode": 746062,
+          "decode": 190479,
+          "bytes": {
+            "raw": 409,
+            "gzip": 429,
+            "brotli": 376
+          }
+        },
+        {
+          "id": "cbor-x",
+          "name": "cbor-x (records)",
+          "version": "1.6.6",
+          "encode": 716233,
+          "decode": 425511,
+          "bytes": {
+            "raw": 416,
+            "gzip": 435,
+            "brotli": 355
+          }
+        },
+        {
+          "id": "fast-json-stringify",
+          "name": "fast-json-stringify (encode) + JSON.parse",
+          "version": "7.0.1",
+          "encode": 1839211,
+          "decode": 488843,
+          "bytes": {
+            "raw": 764,
+            "gzip": 406,
+            "brotli": 392
+          }
+        }
+      ]
+    }
+  ]
+}

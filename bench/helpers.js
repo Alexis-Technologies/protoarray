@@ -15,15 +15,11 @@ const bench = (name, fn, options = {}) => {
   const elapsed = performance.now() - start;
   const opsPerSec = Math.round((iterations / elapsed) * 1000);
   const ops = opsPerSec.toLocaleString('en-US').padStart(12);
-  if (!quiet) console.log(`${name.padEnd(52)} ${ops} ops/sec`);
+  if (!quiet) console.log(`${name.padEnd(60)} ${ops} ops/sec`);
   return { name, opsPerSec };
 };
 
-// The same payloads in both shapes: a keyed object, as JSON sends it, and the
-// positional array protoarray will send for it (values in schema order, keys
-// left to the schema both sides share).
 const FLAT_OBJECT = { name: 'Alex', age: 27, email: 'alex@example.com', active: true };
-const FLAT_ARRAY = ['Alex', 27, 'alex@example.com', true];
 
 const NESTED_OBJECT = {
   id: 1024,
@@ -35,15 +31,38 @@ const NESTED_OBJECT = {
     { sku: 'B-7', quantity: 1, price: 24.5 },
   ],
 };
-const NESTED_ARRAY = [
-  1024,
-  ['Alex', 'Dolid'],
-  ['Kyiv', 'Khreshchatyk', '1'],
-  ['admin', 'editor'],
-  [
-    ['A-1', 2, 9.99],
-    ['B-7', 1, 24.5],
-  ],
-];
 
-module.exports = { bench, FLAT_OBJECT, FLAT_ARRAY, NESTED_OBJECT, NESTED_ARRAY };
+const SPARSE_OBJECT = { field0: 'value', field7: 42, field15: true };
+
+const TYPED_OBJECT = {
+  id: 7,
+  active: true,
+  verified: false,
+  role: 'editor',
+  status: 'active',
+  createdAt: new Date(1700000000000),
+  perms: { read: true, admin: true },
+};
+
+const rnd = (
+  (seed) => () =>
+    (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
+)(42);
+const pick = (list) => list[Math.floor(rnd() * list.length)];
+const CITIES = ['Kyiv', 'Lviv', 'Odesa', 'Kharkiv', 'Dnipro'];
+const ROLES = ['admin', 'editor', 'viewer', 'owner'];
+
+const RECORDS = Array.from({ length: 1000 }, (_, i) => ({
+  id: 100000 + i,
+  name: `User ${i} ${pick(['Alex', 'Olena', 'Taras', 'Maria'])}`,
+  email: `user${i}@example.com`,
+  age: 18 + Math.floor(rnd() * 60),
+  active: rnd() > 0.3,
+  balance: Math.round(rnd() * 1e6) / 100,
+  role: pick(ROLES),
+  createdAt: 1700000000000 + Math.floor(rnd() * 1e9),
+  address: { city: pick(CITIES), street: `Street ${Math.floor(rnd() * 200)}`, zip: `0${1000 + i}` },
+  tags: [pick(ROLES), pick(CITIES)],
+}));
+
+module.exports = { bench, FLAT_OBJECT, NESTED_OBJECT, SPARSE_OBJECT, TYPED_OBJECT, RECORDS };

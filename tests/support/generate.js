@@ -1,6 +1,6 @@
 // Seeded random definitions and matching values for the parity suite: wide
 // enough to reach every node kind, every optionality and nesting.
-const SCALARS = ['string', 'number', 'boolean', 'json', 'date', 'bigint'];
+const SCALARS = ['string', 'number', 'boolean', 'json', 'date', 'bigint', 'bytes'];
 // More names than one 31-bit word holds.
 const WIDE_FLAGS = Array.from({ length: 40 }, (_, i) => `n${i}`);
 const STRINGS = [
@@ -57,6 +57,9 @@ const scalarValue = (random, type) => {
   if (type === 'boolean') return random() < 0.5;
   if (type === 'date') return new Date(Math.floor(random() * 2e12));
   if (type === 'bigint') return BigInt(Math.floor(random() * 1e15)) * 1000n;
+  if (type === 'bytes') {
+    return Uint8Array.from({ length: Math.floor(random() * 6) }, () => Math.floor(random() * 256));
+  }
   return pick(random, [null, 1, 'json', [1, { a: 2 }], { nested: [true] }]);
 };
 

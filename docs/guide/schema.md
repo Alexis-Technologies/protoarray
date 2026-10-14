@@ -29,7 +29,7 @@ const User = new Schema('User', {
 
 | Form | Example | Meaning |
 | --- | --- | --- |
-| Type name | `'string'` | A scalar: `string`, `number`, `boolean`, `bigint`, `date`, `json` |
+| Type name | `'string'` | A scalar: `string`, `number`, `boolean`, `bigint`, `date`, `bytes`, `json` |
 | Optional type | `'?number'` | Optional: may be missing, `undefined` or `null` |
 | Optional key | `'email?': 'string'` | The same, written on the key |
 | Long form | `{ type: 'string', required: false, default: 'x' }` | Options on the field; `default` fills a missing slot on decode |
@@ -147,3 +147,21 @@ A definition both libraries read means the same thing in both, or one of them re
 | `set`, `map`, `object`, `tuple` shorthands | ✓ | `ERR_UNKNOWN_TYPE` |
 | `date` | ✓ | ✓, epoch milliseconds |
 | `{ flags: [...] }` | not a metaschema type | ✓ |
+| `bytes` | `ERR_UNKNOWN_TYPE` until registered as a custom type (below) | ✓, base64 |
+
+To validate a definition with `bytes` in metaschema too, register the type there:
+
+```js
+const { Model } = require('@alexify/metaschema');
+const types = {
+  bytes: {
+    construct() {},
+    checkType: (value) => Object.prototype.toString.call(value) === '[object Uint8Array]',
+    metadata: { jsonSchema: { type: 'string', contentEncoding: 'base64' } },
+  },
+};
+const entities = new Map([['Blob', { Struct: {}, id: 'number', data: 'bytes' }]]);
+const model = new Model(types, entities);
+model.entities.get('Blob').check({ id: 1, data: [1] }).errors;
+// ['Field "Blob.data" not of expected type: bytes']
+```

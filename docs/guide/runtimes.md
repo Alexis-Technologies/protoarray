@@ -48,5 +48,13 @@ payload is identical either way.
 
 Node.js 18 and newer; the test matrix runs 18, 20, 22 and 24. Browsers need `Symbol.for`,
 `Object.create(null)`, spread and `??`, which every evergreen browser has had for years. The
-browser bundle is the same code: `package.json` maps `index.js` to `browser.js`, and nothing in
-the package requires a Node builtin.
+browser bundle is the same code: `package.json` maps `index.js` to `browser.js`.
+
+One file differs between the two: the base64 of the `bytes` type. In Node.js,
+`src/runtime/node.js` uses `Buffer` from `node:buffer`; the `browser` field of `package.json`
+maps it to `src/runtime/browser.js`, which uses `Uint8Array.prototype.toBase64` and
+`Uint8Array.fromBase64` where the platform has them and `btoa`/`atob` elsewhere (every browser,
+Deno, Bun, Workers, React Native 0.74+). It looks them up when a `bytes` value is converted, so a
+realm without them loads the package and fails only on `bytes`. Bundlers that read the `browser`
+field or the `browser` export condition (esbuild, webpack, Vite, Rollup with its node-resolve
+plugin, Wrangler) pick the browser half; Deno and Bun run the Node half.

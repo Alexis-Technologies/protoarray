@@ -18,7 +18,8 @@
   "packageManager": "pnpm@10.34.5",
   "main": "index.js",
   "browser": {
-    "./index.js": "./browser.js"
+    "./index.js": "./browser.js",
+    "./src/runtime/node.js": "./src/runtime/browser.js"
   },
   "types": "index.d.ts",
   "exports": {

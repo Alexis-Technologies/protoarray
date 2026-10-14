@@ -18,6 +18,7 @@ examples on these pages come from there.
 | `{ enum: [...] }` | the index, any number of values; an unknown value → `null` |
 | `date` | epoch milliseconds; an invalid date → `null` |
 | `bigint` | a decimal string |
+| `bytes` | base64, standard alphabet with padding (RFC 4648 §4); decoded as a plain `Uint8Array` |
 | `{ type: 'number', decimals: n }` | `Math.round(value × 10ⁿ)`, a safe integer; decoded as that integer ÷ 10ⁿ |
 | `{ flags: [...] }` | an integer; bit *i* is name *i*; past 31 names an array of 31-bit words (word *i* / 31, bit *i* % 31), still one integer while only the first word has bits set |
 | `{ union: [...], discriminator }` | `[tag, ...the branch's other fields]`; the tag is the index of the discriminator value among the values of all branches; trailing optionals trimmed down to `[tag]` |

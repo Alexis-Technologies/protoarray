@@ -20,14 +20,15 @@ const bundle = async (entry, options) => {
   return result.outputFiles[0].text;
 };
 
-const loadBrowser = async (minify) => {
+// A browser realm has btoa and atob; a bare vm context has neither.
+const loadBrowser = async (minify, globals = { btoa, atob }) => {
   const code = await bundle('browser.js', {
     platform: 'browser',
     format: 'iife',
     globalName: 'protoarray',
     minify,
   });
-  const context = vm.createContext({});
+  const context = vm.createContext(globals);
   vm.runInContext(code, context);
   return context.protoarray;
 };
@@ -63,6 +64,10 @@ const checkBundle = ({ Schema, encode, decode, stringify, parse }) => {
       '{"name":"Bob","age":null,"tags":null,"home":null}',
     );
     assert.throws(() => decode(schema, [1]), { code: 'type', path: 'name' });
+    const Blob = Schema.from({ data: 'bytes' }, { codegen });
+    const blob = Blob.encode({ data: new Uint8Array([137, 80, 78, 71, 0, 255]) });
+    assert.strictEqual(JSON.stringify(blob), '["iVBORwD/"]');
+    assert.deepStrictEqual(Array.from(Blob.decode(blob).data), [137, 80, 78, 71, 0, 255]);
   }
 };
 
@@ -71,3 +76,11 @@ for (const minify of [false, true]) {
   test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify)));
   test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify)));
 }
+
+// The browser runtime looks base64 up when it is used, not when it loads.
+test('Bundle: the browser entry loads in a realm without btoa', async () => {
+  const { Schema } = await loadBrowser(true, {});
+  assert.strictEqual(JSON.stringify(Schema.from({ a: 'number' }).encode({ a: 1 })), '[1]');
+  const Blob = Schema.from({ data: 'bytes' });
+  assert.throws(() => Blob.encode({ data: new Uint8Array(1) }), { name: 'ReferenceError' });
+});

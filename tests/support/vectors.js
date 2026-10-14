@@ -171,6 +171,12 @@ const VECTORS = [
     decoded: { price: 19.99, total: 0.3 },
   },
   {
+    name: 'bytes travel as base64',
+    definition: { id: 'number', avatar: 'bytes' },
+    value: { id: 1, avatar: new Uint8Array([137, 80, 78, 71]) },
+    wire: [1, 'iVBORw=='],
+  },
+  {
     name: 'flags travel as a bitmask',
     definition: { perms: { flags: ['read', 'write', 'admin'] } },
     value: { perms: { read: true, admin: true } },

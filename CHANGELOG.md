@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sparse records past 31 fields**: one `[mask, ...present values]` segment per 31 fields,
   trailing empty segments left off. Up to 31 fields the wire is the 1.0 form, so a sparse record
   can grow past 31 fields without breaking older decoders, which read the first segment.
+- **`bytes`**: a `Uint8Array` (a `Buffer` too) travels as standard base64 with padding and decodes
+  as a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers. Node.js converts
+  through `Buffer`, browsers through `Uint8Array.prototype.toBase64` where they have it and
+  `btoa`/`atob` elsewhere: a runtime twin, `src/runtime/node.js` and `src/runtime/browser.js`,
+  mapped by the package.json `browser` field.
 - **Decimals**: `{ type: 'number', decimals: n }` (n from 0 to 15) travels as
   `Math.round(value × 10ⁿ)` and decodes as that integer ÷ 10ⁿ, so `19.99` is `1999` on the wire
   and `0.1 + 0.2` is `30`. It is a valid metaschema long form; 1.0 ignores the option, so a field

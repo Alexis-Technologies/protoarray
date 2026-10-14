@@ -2,7 +2,11 @@
 // they are), how it is checked on the wire and how it is converted. Both
 // backends read it, so they can never disagree on a type.
 
+const { toBase64, fromBase64 } = require('./runtime/node.js');
+
 const DIGITS = /^-?\d+$/;
+// Standard base64 with padding (RFC 4648 §4).
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 // Tags rather than instanceof: a value may come from another realm.
 const TAG = Object.prototype.toString;
 
@@ -16,6 +20,8 @@ const ms = (value) => {
 // An object parsed from a literal has the hidden class a literal would have.
 const literal = (keys, value) =>
   JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
+
+const isBytes = (v) => TAG.call(v) === '[object Uint8Array]';
 
 const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
@@ -44,6 +50,15 @@ const SCALARS = Object.assign(Object.create(null), {
         (typeof v === 'number' || TAG.call(v) === '[object Date]') && Number.isFinite(+v),
       pack: ms,
       unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
+    }),
+  bytes: () =>
+    scalar('bytes', {
+      check: (v) => typeof v === 'string' && BASE64.test(v),
+      accept: isBytes,
+      pack: (v) => (isBytes(v) ? toBase64(v) : v),
+      // The pattern guards the conversion too: Buffer reads invalid base64
+      // leniently where atob throws, so neither of them ever sees it.
+      unpack: (v) => (typeof v === 'string' && BASE64.test(v) ? fromBase64(v) : v),
     }),
   bigint: () =>
     scalar('bigint', {

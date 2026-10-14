@@ -4,7 +4,7 @@
  */
 
 /** Scalar type names of the definition DSL. */
-export type ScalarType = 'string' | 'number' | 'boolean' | 'bigint' | 'date' | 'json';
+export type ScalarType = 'string' | 'number' | 'boolean' | 'bigint' | 'date' | 'bytes' | 'json';
 
 /** A type name, optionally prefixed with `?`, or the capitalised name of a referenced schema. */
 export type TypeName = ScalarType | `?${ScalarType}` | (string & {});
@@ -71,6 +71,7 @@ type Scalars = {
   boolean: boolean;
   bigint: bigint;
   date: Date;
+  bytes: Uint8Array;
   json: unknown;
 };
 

@@ -162,6 +162,50 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Loose.decode([19.99]).price, 0.1999);
   });
 
+  test(`Types (${backend}): bytes travel as base64`, () => {
+    const B = Schema.from({ data: 'bytes', list: { array: '?bytes', required: false } }, options);
+    const cases = [
+      [[], ''],
+      [[1], 'AQ=='],
+      [[1, 2], 'AQI='],
+      [[1, 2, 3], 'AQID'],
+      [[0, 255, 254, 62, 63], 'AP/+Pj8='],
+    ];
+    for (const [bytes, text] of cases) {
+      assert.deepStrictEqual(B.encode({ data: new Uint8Array(bytes) }), [text]);
+      const decoded = B.decode([text]).data;
+      assert.strictEqual(Object.getPrototypeOf(decoded), Uint8Array.prototype);
+      assert.deepStrictEqual(Array.from(decoded), bytes);
+    }
+    // A Buffer or a view into a larger buffer goes in; a plain array of its own comes out.
+    const big = new Uint8Array(65536).map((_, i) => i % 251);
+    const view = new Uint8Array(big.buffer, 10, 1000);
+    const wire = B.encode({ data: Buffer.from(big), list: [view, null] });
+    const back = B.decode(wire);
+    assert.deepStrictEqual(back.data, big);
+    assert.deepStrictEqual(back.list[0], view.slice());
+    assert.strictEqual(back.list[0].buffer.byteLength, 1000);
+    assert.strictEqual(back.list[1], null);
+    assert.ok(!Buffer.isBuffer(back.data));
+    for (const bad of [[1, 2], new Uint16Array(2), new ArrayBuffer(2), 'AQI=', {}]) {
+      assert.throws(() => B.encode({ data: bad }), {
+        code: 'type',
+        path: 'data',
+        message: 'Field "data" is not of expected type: bytes',
+      });
+    }
+    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 5, ['AQI=']]) {
+      assert.throws(() => B.decode([bad]), { code: 'type', path: 'data' });
+    }
+    assert.throws(() => B.decode([null]), { code: 'required', path: 'data' });
+    // Without validation a value with no wire form of its type stays as it is.
+    const Loose = Schema.from(B.definition, { ...options, validate: false });
+    assert.deepStrictEqual(Loose.encode({ data: 'AQI=' }), ['AQI=']);
+    assert.strictEqual(Loose.decode(['AQI']).data, 'AQI');
+    assert.strictEqual(Loose.decode([5]).data, 5);
+    assert.deepStrictEqual(Array.from(Loose.decode(['AQI=']).data), [1, 2]);
+  });
+
   test(`Types (${backend}): json is never required`, () => {
     const J = Schema.from({ j: 'json', k: { type: 'json' }, n: 'number' }, options);
     assert.deepStrictEqual(J.decode([null, undefined, 1]), { j: null, k: null, n: 1 });

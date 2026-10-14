@@ -12,6 +12,7 @@ out and back.
 | `json` | anything JSON | as is, by reference | none; never required |
 | `date` | `Date` (or a timestamp) | epoch milliseconds | number |
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
+| `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | standard base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
 | `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer |
 | tuple `['number', 'number']` | `[1, 2]` | `[1, 2]`, fixed length | length and each element |
@@ -42,6 +43,24 @@ S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20
 A number is accepted too (`{ at: 1700000000000 }`). An invalid date, `NaN` or anything else is an
 `EncodeError`; with `validate: false` an invalid date travels as `null`.
 Epoch milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
+
+## Bytes
+
+Binary data travels as a base64 string, standard alphabet with padding (RFC 4648 §4), the same as
+`btoa`, `Buffer`'s `'base64'` and JSON Schema's `contentEncoding: 'base64'`:
+
+```js
+const S = Schema.from({ id: 'number', avatar: 'bytes' });
+S.encode({ id: 1, avatar: new Uint8Array([137, 80, 78, 71]) }); // [1, 'iVBORw==']
+S.decode([1, 'iVBORw==']);                                     // { id: 1, avatar: Uint8Array(4) [137, 80, 78, 71] }
+```
+
+Encoding takes any `Uint8Array`, a `Buffer` or a view into a larger buffer included; other typed
+arrays and `ArrayBuffer` are a `type` error (wrap them in a `Uint8Array` first). Decoding always
+returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a `Buffer`
+or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
+separate binary channel beats any JSON. metaschema has no `bytes` type: register one to share a
+definition (see [Defining a Schema](/guide/schema#metaschema-compatibility)).
 
 ## Decimals
 
@@ -162,6 +181,6 @@ the default.
 `NaN` and `Infinity` have no JSON form: `JSON.stringify` would write `null`, so encoding rejects
 them as `type` errors (with `validate: false` they travel as `null` and a required field fails to
 decode as missing). Integers beyond 2⁵³ lose precision in JSON as they do in
-JavaScript; use `bigint`. `-0` becomes `0`. A `Map`, a `Set`, a `Buffer` or a typed array has no
-positional form in this version: under `json` they serialize the way `JSON.stringify` would, which
+JavaScript; use `bigint`. `-0` becomes `0`. Binary data is `bytes`. A `Map` or a `Set` has no
+positional form in this version: under `json` it serializes the way `JSON.stringify` would, which
 is rarely what you want.

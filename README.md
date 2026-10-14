@@ -80,7 +80,7 @@ Requires Node.js 18 or newer. Works in browsers through any bundler.
 | Defaults | `{ type: 'number', default: 0 }` fills a missing slot on decode |
 | Nested records | `address: { city: 'string' }` → a nested array |
 | Collections | `{ array: 'string' }` travels as is; `{ array: Record }` becomes an array of arrays; `User.list` |
-| Compact types | `{ enum: [...] }` → index, `{ flags: [...] }` → bitmask, `['number', 'number']` tuples |
+| Compact types | `{ enum: [...] }` → index, `{ flags: [...] }` → bitmask, `{ type: 'number', decimals: 2 }` → scaled integer, `'bytes'` → base64, `['number', 'number']` tuples |
 | Unions | `{ union: [Call, Event], discriminator: 'type' }` → `[tag, ...fields]`, metaschema's discriminated union |
 | Sparse records | `{ sparse: true }` → `[mask, ...present values]` for records with many optional fields |
 | Layouts | `{ layout: 'flat' }` (one array, fixed stride) or `'columns'` (transposed, best for compression) |

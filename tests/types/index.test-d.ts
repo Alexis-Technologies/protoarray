@@ -195,3 +195,9 @@ expectError(check({ id: 'number' }, {}));
 // Decimals are numbers.
 const Price = Schema.from({ price: { type: 'number', decimals: 2 } });
 expectType<{ price: number }>(Price.decode([1999]));
+
+// Bytes are a Uint8Array in and out; a Buffer is one too.
+const Blob = Schema.from({ data: 'bytes', thumb: '?bytes' });
+expectType<{ data: Uint8Array; thumb: Uint8Array | null }>(Blob.decode([]));
+Blob.encode({ data: new Uint8Array(2) });
+expectError(Blob.encode({ data: [1, 2] }));

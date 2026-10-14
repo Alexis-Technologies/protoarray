@@ -13,7 +13,9 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(S.encode({ a: 1 }), [1, 1]);
     assert.deepStrictEqual(S.encode({ a: 1, c: 'x' }), [5, 1, 'x']);
     assert.deepStrictEqual(S.encode({ a: 1, b: null, c: 'x' }), [5, 1, 'x']);
-    assert.deepStrictEqual(S.encode({}), [0]);
+    assert.throws(() => S.encode({}), { code: 'required', path: 'a' });
+    const Loose = Schema.from(S.definition, { ...options, sparse: true, validate: false });
+    assert.deepStrictEqual(Loose.encode({}), [0]);
     assert.deepStrictEqual(S.decode([5, 1, 'x']), { a: 1, b: null, c: 'x' });
     assert.deepStrictEqual(S.decode([5, 1, 'x', 'ignored']), { a: 1, b: null, c: 'x' });
     assert.throws(() => S.decode([5, 1, 'x', 'ignored'], { strict: true }), {
@@ -73,7 +75,13 @@ for (const [backend, options] of BACKENDS) {
     ]);
     assert.deepStrictEqual(F.encode([]), []);
     assert.deepStrictEqual(F.decode([]), []);
-    assert.deepStrictEqual(F.encode([null]), [null, null, null]);
+    assert.throws(() => F.encode([{ a: 1, c: { x: 1 } }, null]), {
+      code: 'type',
+      path: '[1]',
+      message: 'Field "[1]" is not of expected type: object',
+    });
+    const LooseF = Schema.from(F.definition, { ...options, layout: 'flat', validate: false });
+    assert.deepStrictEqual(LooseF.encode([null]), [null, null, null]);
     assert.throws(() => F.decode([null, null, null]), { code: 'required', path: '[0].a' });
     assert.throws(() => F.decode([1]), {
       code: 'structure',
@@ -111,7 +119,9 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(C.encode([]), [[], []]);
     assert.deepStrictEqual(C.decode([]), []);
     assert.deepStrictEqual(C.decode([[], []]), []);
-    assert.deepStrictEqual(C.encode([null]), [[null], [null]]);
+    assert.throws(() => C.encode([null]), { code: 'type', path: '[0]' });
+    const LooseC = Schema.from(C.definition, { ...options, layout: 'columns', validate: false });
+    assert.deepStrictEqual(LooseC.encode([null]), [[null], [null]]);
     assert.throws(() => C.decode([[null], [null]]), { code: 'required', path: '[0].a' });
     assert.deepStrictEqual(C.decode([[1, 2]]), [
       { a: 1, b: null },

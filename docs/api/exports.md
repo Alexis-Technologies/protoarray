@@ -38,14 +38,13 @@ class Schema<const D extends Definition> {
 ```
 
 Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries the codec.
-`encode` throws `EncodeError` for a record that is not an object or a collection that is not an
-array; `decode` and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken
+`encode` throws `EncodeError` for a value of the wrong shape or one validation rejects; `decode` and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken
 definition or option throws `SchemaDefinitionError` from the constructor.
 
 ```ts
 interface SchemaOptions {
   codegen?: boolean;   // true: require generated code; false: closures; default: what the runtime allows
-  validate?: boolean;  // check the wire on decode (default true)
+  validate?: boolean;  // check values on encode and the wire on decode (default true)
   sparse?: boolean;    // [mask, ...present values] for a struct of up to 31 fields
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name

@@ -84,7 +84,7 @@ Requires Node.js 18 or newer. Works in browsers through any bundler.
 | Sparse records | `{ sparse: true }` → `[mask, ...present values]` for records with many optional fields |
 | Layouts | `{ layout: 'flat' }` (one array, fixed stride) or `'columns'` (transposed, best for compression) |
 | References | a `Schema` by value, or by name (`'User'`) through `schemas` and for recursion; it keeps its own options and layout |
-| Validation | on by default on decode, with `DecodeError` codes, paths like `orders[1].sku` and the schema name; `EncodeError` for a record that is not an object or a list that is not an array |
+| Validation | on by default in both directions: `EncodeError` and `DecodeError` with codes, paths like `orders[1].sku` and the schema name |
 | Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart |
 
 See the [guide](https://protoarray.vercel.app/guide/schema) for every form.

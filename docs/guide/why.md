@@ -43,8 +43,8 @@ small. The payload is still plain JSON.
   End to end, on a record with ten fields, a nested address, tags and two orders: ×1.5 faster to
   encode and ×1.7 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. See
   [Benchmarks](/guide/benchmarks).
-- **Typed, validated, evolvable.** The schema checks the wire on decode, reports problems with a
-  path, and lets you add fields without breaking older peers. JSON alone gives you none of that.
+- **Typed, validated, evolvable.** The schema checks values on encode and the wire on decode,
+  reports problems with a path, and lets you add fields without breaking older peers. JSON alone gives you none of that.
 - **Same transport.** The result is JSON, so it goes through HTTP, WebSocket, message brokers and
   storage that already handle JSON, and compresses the same way.
 

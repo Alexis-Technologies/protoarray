@@ -28,8 +28,20 @@ examples on these pages come from there.
 | --- | --- |
 | Struct, `{ sparse: true }` | `[mask, ...present values]`; bit *i* of the mask marks field *i*; up to 31 fields |
 | Collection, `rows` | `[[...], [...]]` |
-| Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s |
+| Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s (without validation) |
 | Collection, `columns` | `[column0, column1, ...]`, one array per field, each as long as the list; a missing or `null` column is a column of `null`s |
+
+## Encoding
+
+| Case | Result |
+| --- | --- |
+| A required field or tuple element is `null` or missing | `EncodeError` `required` (with validation); `null` without |
+| A scalar of the wrong type, `NaN`, an infinity, an invalid date | `EncodeError` `type` (with validation); travels as it is (`null` for the last three) without |
+| A value outside the enum | `EncodeError` `enum` (with validation); `null` without |
+| A `null` element of an array of required items, a `null` record in `flat` or `columns` | `EncodeError` `type` (with validation); `null` (a run of `null`s) without |
+| A record that is not an object, a collection or tuple that is not an array | `EncodeError` `object` / `array`, always |
+| A cyclic value, or one nested deeper than the call stack | `EncodeError` `depth`, always |
+| Keys not in the schema, tuple elements beyond its length | ignored |
 
 ## Decoding
 

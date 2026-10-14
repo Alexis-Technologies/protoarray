@@ -1,19 +1,35 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { Schema, DecodeError } = require('../../index.js');
+const { Schema, DecodeError, EncodeError } = require('../../index.js');
 const { normalize } = require('../support/backends.js');
 const { generate } = require('../support/generate.js');
 
 const SEEDS = 120;
 const GARBAGE = ['oops', 1.5, [], {}, null, true, -1];
+const BAD_VALUES = [...GARBAGE, undefined, NaN, new Date(NaN), 1n, 'b', [null]];
 
 const outcome = (fn) => {
   try {
     return { value: normalize(fn()) };
   } catch (error) {
-    if (!(error instanceof DecodeError)) return { name: error.name, message: error.message };
-    return { code: error.code, path: error.path, message: error.message };
+    if (!(error instanceof DecodeError || error instanceof EncodeError)) {
+      return { name: error.name, message: error.message };
+    }
+    return { name: error.name, code: error.code, path: error.path, message: error.message };
   }
+};
+
+// A copy of the value with one slot, at any depth, replaced by garbage.
+const corrupt = (value, random) => {
+  const copy = Array.isArray(value) ? value.slice() : { ...value };
+  const keys = Object.keys(copy);
+  if (keys.length === 0) return copy;
+  const key = keys[Math.floor(random() * keys.length)];
+  const inner = copy[key];
+  const deeper = inner !== null && typeof inner === 'object' && !(inner instanceof Date);
+  if (deeper && random() < 0.5) copy[key] = corrupt(inner, random);
+  else copy[key] = BAD_VALUES[Math.floor(random() * BAD_VALUES.length)];
+  return copy;
 };
 
 // Both backends must be indistinguishable on random schemas: same wire, same
@@ -40,6 +56,14 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
         normalize(B.parse(B.stringify(value))),
         label,
       );
+      for (let round = 0; round < 4; round++) {
+        const bad = corrupt(value, random);
+        assert.deepStrictEqual(
+          outcome(() => A.encode(bad)),
+          outcome(() => B.encode(bad)),
+          `${label} encode ${round}`,
+        );
+      }
       for (let round = 0; round < 4; round++) {
         const broken = JSON.parse(JSON.stringify(wire));
         const index = Math.floor(random() * (broken.length + 1));

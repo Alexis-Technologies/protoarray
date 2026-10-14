@@ -10,6 +10,7 @@ import {
   stringify,
   type Backend,
   type DecodeErrorCode,
+  type EncodeErrorCode,
   type Infer,
   type Input,
   type SchemaErrorCode,
@@ -138,7 +139,10 @@ expectType<string>(definitionError.schema);
 expectType<string>(definitionError.field);
 expectAssignable<TypeError>(definitionError);
 const encodeError = new EncodeError();
-expectType<'object' | 'array'>(encodeError.code);
+expectType<EncodeErrorCode>(encodeError.code);
+expectAssignable<EncodeErrorCode>('required');
+expectAssignable<EncodeErrorCode>('depth');
+expectNotAssignable<EncodeErrorCode>('extra');
 expectType<string>(encodeError.path);
 expectType<string>(encodeError.schema);
 const decodeError = new DecodeError();

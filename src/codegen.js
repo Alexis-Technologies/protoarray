@@ -56,35 +56,77 @@ const build = (plan, options) => {
     return `if(!(${test}))F(${str(node.code)},${path},${str(node.expected)});`;
   };
 
-  // Statements that set `dst` to the wire form of `src`; nullish src → null.
-  // A slot (a reference by name or an embedded schema) is called as it is.
-  const encodeInto = (node, src, dst, path) => {
-    if (node.kind === 'scalar') return `${dst}=${src}==null?null:${pack(node, src)};`;
+  // The encode-side twin of `check`: true when a value given to encode is not
+  // of the type. A nullish value fails it too, so a required identity slot
+  // needs one test, not two.
+  const rejects = (node, v) => {
+    if (node.pack !== null) return `!${slot(node)}.accept(${v})`;
+    // v-v is NaN for NaN and the infinities, which have no JSON form.
+    if (node.type === 'number') return `typeof ${v}!=='number'||${v}-${v}!==0`;
+    return `typeof ${v}!=='${node.type}'`;
+  };
+
+  // Statements that set `dst` to the wire form of `src`. Under validation a
+  // nullish src with a `nullCode` (`required`, or `type` for an array item)
+  // throws it; otherwise it becomes null. Without validation nothing is
+  // checked, so a trusting codec pays nothing. A slot (a reference by name or
+  // an embedded schema) is called as it is.
+  const encodeInto = (node, src, dst, path, nullCode = null) => {
+    const scalar = node.kind === 'scalar';
+    const expected = str(scalar ? node.expected : EXPECTED[node.kind]);
+    const nil =
+      validate && nullCode !== null ? `E(${str(nullCode)},${path},${expected});` : `${dst}=null;`;
+    if (scalar) {
+      if (!validate || node.accept === null) {
+        return `${dst}=${src}==null?null:${pack(node, src)};`;
+      }
+      const code = str(node.code);
+      if (node.pack === null && nullCode !== null) {
+        const which = nullCode === node.code ? code : `${src}==null?${str(nullCode)}:${code}`;
+        return `if(${rejects(node, src)})E(${which},${path},${expected});${dst}=${src};`;
+      }
+      return (
+        `if(${src}==null)${nil}else{if(${rejects(node, src)})E(${code},${path},${expected});` +
+        `${dst}=${pack(node, src)};}`
+      );
+    }
     if (node.slot !== undefined || node.kind === 'struct') {
       const callee =
         node.slot !== undefined ? `${slot(node.slot)}.codec.encode` : structFns(node).e;
       return (
-        `if(${src}==null)${dst}=null;else try{${dst}=${callee}(${src});}` +
+        `if(${src}==null)${nil}else try{${dst}=${callee}(${src});}` +
         `catch(error){throw N(error,${path});}`
       );
     }
     const isArray = `if(!Array.isArray(${src}))E('array',${path});`;
     if (node.kind === 'tuple') {
-      const parts = node.items.map(
-        (item, i) => `${src}[${i}]==null?null:${pack(item.node, `${src}[${i}]`)}`,
-      );
-      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=[${parts}];}`;
+      const out = [];
+      const parts = node.items.map((item, i) => {
+        const t = uid('t');
+        const at = `${path}+${str(`[${i}]`)}`;
+        const required = item.required ? 'required' : null;
+        out.push(`let ${t};${encodeInto(item.node, `${src}[${i}]`, t, at, required)}`);
+        return t;
+      });
+      return `if(${src}==null)${nil}else{${isArray}${out.join('')}${dst}=[${parts}];}`;
     }
     const { item } = node;
-    if (item.kind === 'scalar' && item.pack === null) {
-      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=${src};}`;
-    }
-    const [n, i, r, x] = [uid('n'), uid('i'), uid('r'), uid('x')];
+    const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
     const at = `${path}+"["+${i}+"]"`;
+    const itemNull = node.itemRequired ? 'type' : null;
+    if (item.kind === 'scalar' && item.pack === null) {
+      // Identity items travel in the same array: at most a checking pass.
+      const pass =
+        validate && (item.accept !== null || node.itemRequired)
+          ? `for(let ${i}=0;${i}<${src}.length;${i}++){const ${e}=${src}[${i}];let ${x};` +
+            `${encodeInto(item, e, x, at, itemNull)}}`
+          : '';
+      return `if(${src}==null)${nil}else{${isArray}${pass}${dst}=${src};}`;
+    }
     return (
-      `if(${src}==null)${dst}=null;else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
-      `for(let ${i}=0;${i}<${n};${i}++){let ${x};${encodeInto(item, `${src}[${i}]`, x, at)}` +
-      `${r}[${i}]=${x};}${dst}=${r};}`
+      `if(${src}==null)${nil}else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
+      `for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
+      `${encodeInto(item, `${src}[${i}]`, x, at, itemNull)}${r}[${i}]=${x};}${dst}=${r};}`
     );
   };
 
@@ -168,12 +210,9 @@ const build = (plan, options) => {
     for (const field of node.fields) {
       const v = uid('v');
       const w = uid('w');
-      enc.push(`const ${v}=o[${str(field.key)}];`);
-      if (field.node.kind === 'scalar') {
-        enc.push(`const ${w}=${v}==null?null:${pack(field.node, v)};`);
-      } else {
-        enc.push(`let ${w};${encodeInto(field.node, v, w, str(field.key))}`);
-      }
+      const key = str(field.key);
+      const required = field.required ? 'required' : null;
+      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key, required)}`);
       values.push(w);
     }
     if (node.sparse) {
@@ -220,8 +259,9 @@ const build = (plan, options) => {
     encodeBody = `return v==null?null:${fns.e}(v);`;
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
-    const req = plan.kind === 'scalar' && validate && plan.required ? `F('required',"");` : '';
-    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""')}return w;`;
+    const required = plan.kind === 'scalar' && plan.required;
+    const req = required && validate ? `F('required',"");` : '';
+    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', required ? 'required' : null)}return w;`;
     decodeBody =
       plan.kind === 'scalar'
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`

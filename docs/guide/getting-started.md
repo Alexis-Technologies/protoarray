@@ -66,8 +66,9 @@ User.parse(text);                  // the object again
 ```
 
 Send the text over HTTP, a WebSocket, a queue, or store it. On the other side, the same definition
-decodes it. Decoding validates the wire by default: a wrong type or a missing required field throws
-a `DecodeError` with a path such as `address.city`.
+decodes it. Both directions validate by default: a wrong type or a missing required field throws
+an `EncodeError` on the sender and a `DecodeError` on the receiver, with a path such as
+`address.city`.
 
 ## Lists of records
 

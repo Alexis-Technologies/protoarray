@@ -181,7 +181,11 @@ export type Layout = 'rows' | 'flat' | 'columns';
 export interface SchemaOptions {
   /** `true` to require code generation, `false` to force closures; by default the runtime decides. */
   readonly codegen?: boolean;
-  /** Check the wire on decode (default `true`). */
+  /**
+   * Check the values given to encode and the wire on decode (default `true`):
+   * types, required fields and enum values. `false` trusts both sides; the
+   * array structure is always checked.
+   */
   readonly validate?: boolean;
   /** Encode a struct as `[mask, ...present values]` (up to 31 fields). */
   readonly sparse?: boolean;
@@ -297,8 +301,11 @@ export type SchemaErrorCode =
   | 'ERR_CODEGEN_UNAVAILABLE'
   | 'ERR_SCHEMA_EXPECTED';
 
-/** What the value is not: an object for a record, an array for a collection or a tuple. */
-export type EncodeErrorCode = 'object' | 'array';
+/**
+ * `object`/`array`: what the value is not; `depth`: a cyclic value or one nested
+ * deeper than the call stack; `required`, `type` and `enum`: what validation found.
+ */
+export type EncodeErrorCode = 'object' | 'array' | 'depth' | 'required' | 'type' | 'enum';
 
 export type DecodeErrorCode = 'structure' | 'required' | 'type' | 'enum' | 'extra' | 'json';
 
@@ -311,7 +318,7 @@ export class SchemaDefinitionError extends TypeError {
   readonly field: string;
 }
 
-/** A value that cannot be encoded: not an object or not an array where the schema needs one. */
+/** A value that cannot be encoded: the wrong shape, or a value validation rejects. */
 export class EncodeError extends TypeError {
   readonly code: EncodeErrorCode;
   /** Where the problem is, as `orders[1]`, or `''` for the value itself. */

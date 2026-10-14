@@ -68,7 +68,7 @@ for (const [backend, options] of BACKENDS) {
         },
       );
     }
-    assert.deepStrictEqual(Schema.from('string', options).encode(undefined), null);
+    assert.deepStrictEqual(Schema.from('?string', options).encode(undefined), null);
   });
 
   test(`Codec (${backend}): schema references by name allow recursion`, () => {

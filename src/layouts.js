@@ -5,10 +5,13 @@
 
 const { fail, nest, refuse } = require('./errors.js');
 
-// A row of exactly `size` slots; a null record is a run of nulls.
-const padded = (item, record, size, index) => {
+// A row of exactly `size` slots; a null record is a run of nulls, which only
+// a trusting codec writes: it would not decode as null.
+const padded = (item, record, size, index, validate) => {
   let row = [];
-  if (record != null) {
+  if (record == null) {
+    if (validate) refuse('type', `[${index}]`, 'object');
+  } else {
     try {
       row = item.encode(record);
     } catch (error) {
@@ -31,11 +34,11 @@ const records = (item, count, read, strict) => {
   return out;
 };
 
-const flat = (item, size) => ({
+const flat = (item, size, validate) => ({
   encode: (list) => {
     if (!Array.isArray(list)) refuse('array', '');
     const out = [];
-    for (let i = 0; i < list.length; i++) out.push(...padded(item, list[i], size, i));
+    for (let i = 0; i < list.length; i++) out.push(...padded(item, list[i], size, i, validate));
     return out;
   },
   decode: (array, strict) => {
@@ -46,13 +49,13 @@ const flat = (item, size) => ({
   },
 });
 
-const columns = (item, size) => ({
+const columns = (item, size, validate) => ({
   encode: (list) => {
     if (!Array.isArray(list)) refuse('array', '');
     const out = [];
     for (let j = 0; j < size; j++) out.push(new Array(list.length));
     for (let i = 0; i < list.length; i++) {
-      const row = padded(item, list[i], size, i);
+      const row = padded(item, list[i], size, i, validate);
       for (let j = 0; j < size; j++) out[j][i] = row[j];
     }
     return out;

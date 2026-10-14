@@ -98,7 +98,7 @@ alias of the referenced schema.
 | Option | Default | Effect |
 | --- | --- | --- |
 | `codegen` | runtime | `true` requires generated code (throws `ERR_CODEGEN_UNAVAILABLE` where blocked), `false` forces closures. See [Runtimes](/guide/runtimes) |
-| `validate` | `true` | Check types, required fields and enum ranges on decode. `false` trusts the wire; the array structure is always checked |
+| `validate` | `true` | Check types, required fields and enum values on encode and on decode. `false` trusts both the values and the wire; shapes and the array structure are always checked. See [Errors](/guide/errors#what-is-validated) |
 | `sparse` | `false` | Encode the struct as `[mask, ...present values]`. See [Optional Fields](/guide/optional-fields#sparse-records) |
 | `layout` | `'rows'` | For a collection of records: `'rows'`, `'flat'` or `'columns'`. See [Collections](/guide/collections) |
 | `schemas` | `{}` | Schemas a field may reference by name |

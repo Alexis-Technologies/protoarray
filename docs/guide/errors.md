@@ -6,7 +6,7 @@ involved (`schema`, `''` for a nameless one), so a log line says which contract 
 | Class | When | Properties |
 | --- | --- | --- |
 | `SchemaDefinitionError` | the definition or the options are wrong, when the schema is built | `code`, `schema` (the name), `field` (`address.city`) |
-| `EncodeError` | `encode` gets a record that is not an object, or a collection or tuple that is not an array | `code: 'object' \| 'array'`, `path`, `schema` |
+| `EncodeError` | `encode` gets a value of the wrong shape, or one validation rejects | `code`, `path`, `schema` |
 | `DecodeError` | the wire does not match the schema, or `parse` gets text that is not JSON | `code`, `path`, `schema`, `cause` |
 
 ## Decode errors
@@ -35,6 +35,16 @@ try {
 }
 ```
 
+## Encode errors
+
+| Code | Meaning | Example message |
+| --- | --- | --- |
+| `object`, `array` | a record that is not an object, a collection or tuple that is not an array (always checked) | `Field "orders[1]" is not an object` |
+| `depth` | a cyclic value, or one nested deeper than the call stack (always) | `Value is nested too deeply` |
+| `required` | a required field or tuple element is `null` or missing | `Field "address.city" is required` |
+| `type` | a value of the wrong type (`NaN` and the infinities are not numbers here), or a `null` element where the item is required | `Field "tags[1]" is not of expected type: string` |
+| `enum` | a value outside the enum | `Field "role" is not of enum: admin, editor` |
+
 ## What is validated
 
 With the default `validate: true`, decoding checks the array structure, the type of every scalar,
@@ -46,11 +56,18 @@ rather than an accidental `TypeError` from inside the decoder. A value that has 
 its type (a non-digit string in a `bigint` slot, a string in an `enum` slot) is then left as it
 is: not converted, not rejected.
 
-Encoding checks shape, not types: a record that is not an object, or a collection or a tuple that
-is not an array, throws `EncodeError` with the path (`Field "orders[1]" is not an object`), so a
-producer's bug fails at the producer. Scalars are read as they are and trusted; to validate values
-before sending them, run the same definition through
-[`@alexify/metaschema`](https://metaschema.vercel.app/guide/validation)'s `check`.
+Encoding validates by default too, so a producer's bug fails at the producer instead of as a
+`DecodeError` on the other side: every scalar is checked against its type, required fields and
+tuple elements must be present, enum values must be in the list (an exact match: `'20'` is not
+`20`), and `NaN`, the infinities and invalid dates are rejected, since JSON would turn them into
+`null`. A `date` takes a `Date` or a timestamp, a `bigint` a BigInt, a safe integer or a string of
+digits. Keys the schema does not have and tuple elements past its length are ignored: a schema is
+a projection. The checks are compiled into the codec, so they cost a few percent of `stringify`
+with generated code. With `validate: false` encoding trusts its input as 1.0 did: an unknown enum
+value travels as `null` and a value of the wrong type travels as it is. The shape checks
+(`object`, `array`) and `depth` stay on either way.
+
+A schema used inside another one keeps its own `validate`, in both directions.
 
 ## Definition errors
 

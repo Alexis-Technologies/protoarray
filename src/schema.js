@@ -87,7 +87,9 @@ class Schema {
       }
     }
     if (codec === null) codec = backend.build(target, { validate: settings.validate });
-    if (target !== plan) codec = layouts[plan.layout](codec, plan.item.fields.length);
+    if (target !== plan) {
+      codec = layouts[plan.layout](codec, plan.item.fields.length, settings.validate);
+    }
     selfSlot.codec = codec;
     Object.defineProperty(this, BRAND, { value: true });
     Object.defineProperty(this, PLAN, { value: plan });
@@ -135,7 +137,7 @@ class Schema {
     const { kind } = this[PLAN];
     if (kind !== 'scalar' && (value === null || typeof value !== 'object')) {
       const code = kind === 'array' || kind === 'tuple' ? 'array' : 'object';
-      throw new EncodeError(code, '', this.name);
+      throw boundary(new EncodeError(code), this.name, false);
     }
     try {
       return this[CODEC].encode(value);

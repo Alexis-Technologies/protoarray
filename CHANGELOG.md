@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Encoding validates by default.** `validate` (default `true`) now covers encode as well as
+  decode: a missing required field or tuple element throws `EncodeError` `required`, a value of the
+  wrong type (including `NaN`, the infinities and invalid dates) `type`, a value outside an enum
+  `enum`, and a `null` record in a `flat` or `columns` collection `type`, each with a path such as
+  `orders[1].sku`. Under 1.0 these travelled as `null` or as they were and failed only on the
+  receiving side. `{ validate: false }` keeps the 1.0 behaviour; the checks are compiled out of a
+  trusting codec.
+- A cyclic value, or one nested deeper than the call stack, throws `EncodeError` `depth` instead
+  of a `RangeError`.
+
+### Fixed
+
+- Decoding without validation no longer throws a `TypeError` for a BigInt in a `date` or `flags`
+  slot, and leaves a non-number in a `date` slot as it is instead of making an invalid `Date`.
+
 ## [1.0.0] - 2026-10-14
 
 The first release of the format: objects travel as positional JSON arrays under a schema both

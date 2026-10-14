@@ -1,22 +1,36 @@
 const { performance } = require('node:perf_hooks');
 
 const WARMUP_ITERATIONS = 2_000;
-const MEASURE_MS = 1_000;
+const ROUNDS = 5;
+const ROUND_MS = 300;
 
+// The median of several short rounds: one long sample moves with GC pauses
+// and CPU frequency, the median of five does not. `spread` is the distance
+// between the slowest and the fastest round, as a percentage of the median.
 const bench = (name, fn, options = {}) => {
-  const { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS, quiet = false } = options;
+  const {
+    warmup = WARMUP_ITERATIONS,
+    rounds = ROUNDS,
+    roundMs = ROUND_MS,
+    quiet = false,
+  } = options;
   for (let i = 0; i < warmup; i++) fn();
-  let iterations = 0;
-  const start = performance.now();
-  while (performance.now() - start < measureMs) {
-    fn();
-    iterations++;
+  const samples = [];
+  for (let round = 0; round < rounds; round++) {
+    let iterations = 0;
+    const start = performance.now();
+    while (performance.now() - start < roundMs) {
+      fn();
+      iterations++;
+    }
+    samples.push((iterations / (performance.now() - start)) * 1000);
   }
-  const elapsed = performance.now() - start;
-  const opsPerSec = Math.round((iterations / elapsed) * 1000);
+  samples.sort((a, b) => a - b);
+  const opsPerSec = Math.round(samples[Math.floor(rounds / 2)]);
+  const spread = Math.round(((samples[rounds - 1] - samples[0]) / opsPerSec) * 100);
   const ops = opsPerSec.toLocaleString('en-US').padStart(12);
-  if (!quiet) console.log(`${name.padEnd(60)} ${ops} ops/sec`);
-  return { name, opsPerSec };
+  if (!quiet) console.log(`${name.padEnd(60)} ${ops} ops/sec  ±${spread}%`);
+  return { name, opsPerSec, spread };
 };
 
 const FLAT_OBJECT = { name: 'Alex', age: 27, email: 'alex@example.com', active: true };

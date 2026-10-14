@@ -7,8 +7,9 @@
  * `pnpm bench decode`. `--json` prints the results as JSON, `--save` writes
  * them to bench/baseline.json, and `--compare` prints the change against
  * that baseline (numbers are machine-specific: compare on one machine, before
- * and after a change). Manual only, not part of CI. `pnpm bench:compare` is
- * the comparison against other libraries.
+ * and after a change). Every number is the median of five rounds and comes
+ * with its spread, so a change inside the spread is noise. Manual only, not
+ * part of CI. `pnpm bench:compare` is the comparison against other libraries.
  *
  * Every protoarray scenario has its JSON reference next to it: the same value
  * through JSON.stringify/JSON.parse as a keyed object.

@@ -5,6 +5,8 @@ All notable changes to **`@alexify/protoarray`** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [1.0.0] - 2026-10-14
 
 The first release of the format: objects travel as positional JSON arrays under a schema both
@@ -64,7 +66,7 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 
 - The placeholder `encode(schema, value)` and `decode(schema, array)` now take a `Schema`
   instance; `stringify` and `parse` join them.
-- The bundle-size gate moved from 4 KB to 8 KB min+gzip; the library is 7.1 KB.
+- The bundle-size gate moved from 4 KB to 8 KB min+gzip; the library is 7.7 KB.
 
 ## [0.0.1] - 2026-10-09
 
@@ -79,5 +81,6 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 - **CI** on GitHub Actions and a VitePress documentation site at
   [protoarray.vercel.app](https://protoarray.vercel.app/).
 
+[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/Alexis-Technologies/protoarray/releases/tag/v0.0.1

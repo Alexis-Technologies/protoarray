@@ -180,7 +180,7 @@ time.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
 - Bundle budget: 8 KB min+gzip for either entry (`pnpm size --max-gzip 8` in CI); the library is
-  about 7 KB. Measure after any change to `src/`.
+  7.7 KB, so there are about 0.3 KB of headroom. Measure after any change to `src/`.
 
 ## Skills
 

@@ -57,7 +57,7 @@ Both sides share the schema, so the keys never travel: position `0` is `id`, pos
 - **Evolves safely.** Append fields at the end and old and new versions keep understanding each
   other; a fingerprint (`schema.id`) tells versions apart in a handshake.
 - **Typed.** Hand-written TypeScript typings infer the object type from the definition literal.
-- **Zero dependencies, about 7 KB min+gzip.** CommonJS with ESM named imports, no build step, one
+- **Zero dependencies, under 8 KB min+gzip.** CommonJS with ESM named imports, no build step, one
   package for Node.js 18+ and browsers. Generated code where the runtime allows it, a closures
   fallback under a strict CSP or on edge runtimes.
 

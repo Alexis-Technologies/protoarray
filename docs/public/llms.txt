@@ -9,7 +9,7 @@ Key facts:
 - Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
   with `Infer<D>` and `Input<D>` inferred from the definition literal
-- Zero runtime dependencies, no build step, about 7 KB min+gzip
+- Zero runtime dependencies, no build step, under 8 KB min+gzip
 - The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
   to parse and stringify (×1.5 encode, ×1.7 decode on a typical record in V8)
 - Definition DSL is a subset of `@alexify/metaschema`: `'string'`, `'?number'`, `'key?'`, nested

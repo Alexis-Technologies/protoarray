@@ -196,6 +196,9 @@ test('Schema: option errors', () => {
     'x',
     { codegen: 'yes' },
     { validate: 1 },
+    { validate: 'nope' },
+    { validate: 'BOTH' },
+    { validate: null },
     { sparse: 'x' },
     { layout: 'rowz' },
     { schemas: null },
@@ -227,7 +230,64 @@ test('Schema: option errors', () => {
     'codegen',
   );
   assert.strictEqual(Schema.from({ a: 'string' }, null).backend, 'codegen');
+  // Only own keys are options: a prototype member is not one.
+  invalid({ a: 'string' }, { code: 'ERR_INVALID_OPTIONS' }, { constructor: true });
+  invalid({ a: 'string' }, { code: 'ERR_INVALID_OPTIONS' }, { hasOwnProperty: true });
 });
+
+// `validate` picks the direction that is checked. The default checks the wire
+// on decode and trusts the values given to encode, as 1.0 did; 'both' checks
+// both, 'encode' only the values, false nothing but the structure.
+for (const [backend, options] of BACKENDS) {
+  test(`Schema (${backend}): validate modes`, () => {
+    const definition = { id: 'number', tags: { array: 'string', required: false } };
+    const modes = [
+      [true, false, true],
+      ['decode', false, true],
+      ['encode', true, false],
+      ['both', true, true],
+      [false, false, false],
+    ];
+    for (const [mode, values, wire] of modes) {
+      const label = String(mode);
+      const schema = Schema.from(definition, { ...options, validate: mode });
+      const bad = { id: 'x' };
+      if (values) assert.throws(() => schema.encode(bad), { code: 'type', path: 'id' }, label);
+      else assert.deepStrictEqual(schema.encode(bad), ['x'], label);
+      if (wire) assert.throws(() => schema.decode(['x']), { code: 'type', path: 'id' }, label);
+      else assert.deepStrictEqual(schema.decode(['x']), { id: 'x', tags: null }, label);
+      // The shape is checked in every mode, and check() validates in every mode.
+      assert.throws(() => schema.encode(5), { code: 'object' }, label);
+      assert.throws(() => schema.decode('x'), { code: 'structure' }, label);
+      assert.strictEqual(schema.check(bad).code, 'type', label);
+      assert.strictEqual(schema.check({ id: 1 }), null, label);
+      // The list inherits the mode.
+      const rows = schema.list;
+      if (values) assert.throws(() => rows.encode([bad]), { path: '[0].id' }, label);
+      else assert.deepStrictEqual(rows.encode([bad]), [['x']], label);
+      if (wire) assert.throws(() => rows.decode([['x']]), { path: '[0].id' }, label);
+      else assert.deepStrictEqual(rows.decode([['x']]), [{ id: 'x', tags: null }], label);
+    }
+    // A schema by value or by name keeps its own mode inside another.
+    const Inner = new Schema('Inner', { n: 'number' }, options);
+    const Strict = new Schema('Strict', { n: 'number' }, { ...options, validate: 'both' });
+    const Outer = Schema.from(
+      { a: Inner, b: Strict, c: 'Inner' },
+      { ...options, validate: 'both', schemas: { Inner } },
+    );
+    assert.deepStrictEqual(Outer.encode({ a: { n: 'x' }, b: { n: 1 }, c: { n: 'y' } }), [
+      ['x'],
+      [1],
+      ['y'],
+    ]);
+    assert.throws(() => Outer.encode({ a: { n: 1 }, b: { n: 'x' }, c: { n: 1 } }), {
+      code: 'type',
+      path: 'b.n',
+    });
+    const Trusting = Schema.from({ b: Strict }, { ...options, validate: false });
+    assert.throws(() => Trusting.encode({ b: { n: 'x' } }), { code: 'type', path: 'b.n' });
+  });
+}
 
 // Definition content reaches generated source only through JSON.stringify:
 // keys, enum values and defaults that would break a string literal or name a

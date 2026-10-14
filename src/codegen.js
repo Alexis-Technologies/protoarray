@@ -27,6 +27,8 @@ try {
 }
 
 const build = (plan, options) => {
+  // Which direction is checked: `validate.encode` the values given to encode,
+  // `validate.decode` the wire.
   const { validate } = options;
   // A checking codec (Schema#check) calls the checking codecs of the schemas
   // it embeds.
@@ -55,7 +57,7 @@ const build = (plan, options) => {
   const pack = (node, v) => (node.pack === null ? v : `${slot(node)}.pack(${v})`);
   const unpack = (node, v) => (node.unpack === null ? v : `${slot(node)}.unpack(${v})`);
   const check = (node, v, path) => {
-    if (!validate || node.check === null) return '';
+    if (!validate.decode || node.check === null) return '';
     const test = node.pack === null ? `typeof ${v}==='${node.type}'` : `${slot(node)}.check(${v})`;
     return `if(!(${test}))F(${str(node.code)},${path},${str(node.expected)});`;
   };
@@ -79,9 +81,11 @@ const build = (plan, options) => {
     const scalar = node.kind === 'scalar';
     const expected = str(scalar ? node.expected : EXPECTED[node.kind]);
     const nil =
-      validate && nullCode !== null ? `E(${str(nullCode)},${path},${expected});` : `${dst}=null;`;
+      validate.encode && nullCode !== null
+        ? `E(${str(nullCode)},${path},${expected});`
+        : `${dst}=null;`;
     if (scalar) {
-      if (!validate || node.accept === null) {
+      if (!validate.encode || node.accept === null) {
         return `${dst}=${src}==null?null:${pack(node, src)};`;
       }
       const code = str(node.code);
@@ -126,7 +130,7 @@ const build = (plan, options) => {
     if (item.kind === 'scalar' && item.pack === null) {
       // Identity items travel in the same array: at most a checking pass.
       const pass =
-        validate && (item.accept !== null || node.itemRequired)
+        validate.encode && (item.accept !== null || node.itemRequired)
           ? `for(let ${i}=0;${i}<${src}.length;${i}++){const ${e}=${src}[${i}];let ${x};` +
             `${encodeInto(item, e, x, at, itemNull)}}`
           : '';
@@ -151,7 +155,9 @@ const build = (plan, options) => {
     const out = [`if(!Array.isArray(${src}))F('structure',${path},'array');`];
     if (node.kind === 'tuple') {
       const size = node.items.length;
-      if (validate) out.push(`if(${src}.length!==${size})F('structure',${path},'length');`);
+      if (validate.decode) {
+        out.push(`if(${src}.length!==${size})F('structure',${path},'length');`);
+      }
       const parts = node.items.map((item, i) => {
         const v = uid('v');
         out.push(`const ${v}=${src}[${i}];`);
@@ -164,7 +170,8 @@ const build = (plan, options) => {
     const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
     const at = `${path}+"["+${i}+"]"`;
     const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
-    const nullCheck = node.itemRequired && validate ? `F('type',${at},${str(expected)});` : '';
+    const nullCheck =
+      node.itemRequired && validate.decode ? `F('type',${at},${str(expected)});` : '';
     const loop = `const ${n}=${src}.length;for(let ${i}=0;${i}<${n};${i}++){const ${e}=${src}[${i}];`;
     if (item.kind === 'scalar' && item.pack === null) {
       const chk = check(item, e, at);
@@ -188,7 +195,7 @@ const build = (plan, options) => {
   // One slot (a field or a tuple element): the required check, the wire
   // check, the default and the conversion. Returns the expression to use.
   const slotValue = (node, required, def, v, path, out) => {
-    const req = required && validate ? `F('required',${path});` : '';
+    const req = required && validate.decode ? `F('required',${path});` : '';
     const fallback = def === null ? 'null' : str(def);
     if (node.kind === 'scalar') {
       const chk = check(node, v, path);
@@ -325,7 +332,7 @@ const build = (plan, options) => {
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
     const required = plan.kind === 'scalar' && plan.required;
-    const req = required && validate ? `F('required',"");` : '';
+    const req = required && validate.decode ? `F('required',"");` : '';
     encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', required ? 'required' : null)}return w;`;
     decodeBody =
       plan.kind === 'scalar'

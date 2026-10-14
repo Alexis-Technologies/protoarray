@@ -245,15 +245,18 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => Flat.encode([{ at: 1n }]), foreign);
     const Cols = Schema.from({ array: { at: 'date' } }, { ...loose, layout: 'columns' });
     assert.throws(() => Cols.encode([{ at: 1n }]), foreign);
-    const strict = Schema.from(definition, options);
+    // By default the values are trusted too: the conversion throws on its own.
+    assert.throws(() => Schema.from(definition, options).encode({ inner: { at: 1n } }), foreign);
+    const both = { ...options, validate: 'both' };
+    const strict = Schema.from(definition, both);
     assert.throws(() => strict.encode({ inner: { at: 1n } }), { code: 'type', path: 'inner.at' });
     assert.throws(() => strict.encode({ list: [{ at: 1n }] }), { path: 'list[0].at' });
     assert.throws(() => strict.encode({ pair: [1n, 1] }), { path: 'pair[0]' });
-    const StrictFlat = Schema.from({ array: { at: 'date' } }, { ...options, layout: 'flat' });
+    const StrictFlat = Schema.from({ array: { at: 'date' } }, { ...both, layout: 'flat' });
     assert.throws(() => StrictFlat.encode([{ at: 1n }]), { code: 'type', path: '[0].at' });
   });
 
-  test(`Errors (${backend}): encode validates the values it is given`, () => {
+  test(`Errors (${backend}): encode validates the values it is given under 'both'`, () => {
     const User = new Schema(
       'User',
       {
@@ -274,7 +277,7 @@ for (const [backend, options] of BACKENDS) {
         pair: { type: 'json', required: false },
         point: ['number', '?string'],
       },
-      options,
+      { ...options, validate: 'both' },
     );
     const ok = {
       id: 1,
@@ -386,67 +389,91 @@ for (const [backend, options] of BACKENDS) {
     ]);
     assert.deepStrictEqual(User.encode({ ...ok, n: 7 })[6], '7');
     assert.deepStrictEqual(User.encode({ ...ok, at: new Date(9) })[5], 9);
-    // Without validation every case above encodes as it did in 1.0.
-    const Trusting = new Schema('User', User.definition, { ...options, validate: false });
-    for (const [patch] of cases) assert.ok(Array.isArray(Trusting.encode({ ...ok, ...patch })));
-    assert.deepStrictEqual(Trusting.encode({ ...ok, role: 'root', id: '1' }).slice(0, 4), [
-      '1',
-      'Alex',
-      true,
-      null,
-    ]);
+    // By default, and with `validate: false`, every case above encodes as it did in 1.0.
+    for (const mode of [true, 'decode', false]) {
+      const Trusting = new Schema('User', User.definition, { ...options, validate: mode });
+      for (const [patch] of cases) assert.ok(Array.isArray(Trusting.encode({ ...ok, ...patch })));
+      assert.deepStrictEqual(Trusting.encode({ ...ok, role: 'root', id: '1' }).slice(0, 4), [
+        '1',
+        'Alex',
+        true,
+        null,
+      ]);
+      assert.deepStrictEqual(Trusting.encode(ok), User.encode(ok));
+    }
+    // 'encode' checks the values and trusts the wire.
+    const Encoder = new Schema('User', User.definition, { ...options, validate: 'encode' });
+    assert.throws(() => Encoder.encode({ ...ok, id: '1' }), { code: 'type', path: 'id' });
+    assert.strictEqual(Encoder.decode(['1']).id, '1');
+    assert.throws(() => User.decode(['1']), { code: 'type', path: 'id' });
   });
 
-  test(`Errors (${backend}): encode validates roots and collections`, () => {
-    assert.throws(() => Schema.from('string', options).encode(undefined), {
+  test(`Errors (${backend}): encode validates roots and collections under 'both'`, () => {
+    const both = { ...options, validate: 'both' };
+    assert.throws(() => Schema.from('string', both).encode(undefined), {
       code: 'required',
       path: '',
       message: 'Value is required',
     });
-    assert.throws(() => Schema.from('number', options).encode(NaN), { code: 'type', path: '' });
-    assert.strictEqual(Schema.from('?number', options).encode(null), null);
+    assert.throws(() => Schema.from('number', both).encode(NaN), { code: 'type', path: '' });
+    assert.strictEqual(Schema.from('?number', both).encode(null), null);
     const blob = { any: [1] };
-    assert.strictEqual(Schema.from('json', options).encode(blob), blob);
+    assert.strictEqual(Schema.from('json', both).encode(blob), blob);
     assert.strictEqual(Schema.from('string', { ...options, validate: false }).encode(5), 5);
-    const Ids = Schema.from({ array: 'number' }, options);
+    assert.strictEqual(Schema.from('string', options).encode(5), 5);
+    assert.strictEqual(Schema.from('string', options).encode(undefined), null);
+    const Ids = Schema.from({ array: 'number' }, both);
     const ids = [1, 2];
     assert.strictEqual(Ids.encode(ids), ids);
     assert.throws(() => Ids.encode([1, '2']), { code: 'type', path: '[1]' });
     assert.throws(() => Ids.encode([1, null]), { code: 'type', path: '[1]' });
-    const Any = Schema.from({ array: 'json' }, options);
+    const Any = Schema.from({ array: 'json' }, both);
     const any = [1, null, 'x'];
     assert.strictEqual(Any.encode(any), any);
-    const Rows = Schema.from({ id: 'number' }, options).list;
+    const Rows = Schema.from({ id: 'number' }, both).list;
     assert.throws(() => Rows.encode([{ id: 1 }, {}]), { code: 'required', path: '[1].id' });
     assert.throws(() => Rows.encode([{ id: 1 }, null]), { code: 'type', path: '[1]' });
     for (const layout of ['flat', 'columns']) {
-      const Grid = Schema.from({ array: { id: 'number' } }, { ...options, layout });
+      const Grid = Schema.from({ array: { id: 'number' } }, { ...both, layout });
       assert.throws(() => Grid.encode([{ id: 1 }, { id: 'x' }]), { code: 'type', path: '[1].id' });
     }
-    const Pair = Schema.from(['number', 'string'], options);
+    const Pair = Schema.from(['number', 'string'], both);
     assert.throws(() => Pair.encode([1]), { code: 'required', path: '[1]' });
-    const Sparse = Schema.from({ a: 'number', b: '?string' }, { ...options, sparse: true });
+    const Sparse = Schema.from({ a: 'number', b: '?string' }, { ...both, sparse: true });
     assert.throws(() => Sparse.encode({ b: 'x' }), { code: 'required', path: 'a' });
     assert.throws(() => Sparse.encode({ a: 1, b: 2 }), { code: 'type', path: 'b' });
   });
 
-  test(`Errors (${backend}): a trusting codec carries no encode checks`, () => {
+  // Checks are compiled out of a codec that does not ask for them: the
+  // default codec carries the decode checks only, a trusting one none.
+  test(`Errors (${backend}): a codec carries only the checks its mode asks for`, () => {
     const definition = {
       id: 'number',
       role: { enum: ['a'] },
       list: { array: 'string' },
       rows: { array: { at: 'date' } },
       pair: ['number', 'string'],
+      perms: { flags: ['a'] },
     };
-    const codec = Schema.from(definition, { ...options, validate: false })[
-      Symbol.for('alexify.protoarray.codec')
-    ];
+    const CODEC = Symbol.for('alexify.protoarray.codec');
+    const codec = Schema.from(definition, { ...options, validate: false })[CODEC];
     if (backend === 'codegen') {
-      for (const needle of ["'required'", "'type'", "'enum'", '.accept(']) {
+      // E throws an encode error, F a decode error.
+      const encodeChecks = ['E("required"', 'E("type"', 'E("enum"', '.accept(', '.checkedPack('];
+      const decodeChecks = ["F('required'", 'F("type"', 'F("enum"', '.check('];
+      for (const needle of [...encodeChecks, ...decodeChecks]) {
         assert.ok(!codec.source.includes(needle), needle);
       }
-      const strict = Schema.from(definition, options)[Symbol.for('alexify.protoarray.codec')];
-      assert.ok(strict.source.includes("'required'"));
+      const byDefault = Schema.from(definition, options)[CODEC];
+      for (const needle of encodeChecks) assert.ok(!byDefault.source.includes(needle), needle);
+      for (const needle of decodeChecks) assert.ok(byDefault.source.includes(needle), needle);
+      const both = Schema.from(definition, { ...options, validate: 'both' })[CODEC];
+      for (const needle of [...encodeChecks, ...decodeChecks]) {
+        assert.ok(both.source.includes(needle), needle);
+      }
+      const encoder = Schema.from(definition, { ...options, validate: 'encode' })[CODEC];
+      for (const needle of decodeChecks) assert.ok(!encoder.source.includes(needle), needle);
+      for (const needle of encodeChecks) assert.ok(encoder.source.includes(needle), needle);
     }
     assert.deepStrictEqual(codec.encode({ id: 'x', role: 'b', list: [1], rows: [{}], pair: [] }), [
       'x',
@@ -454,6 +481,7 @@ for (const [backend, options] of BACKENDS) {
       [1],
       [[null]],
       [null, null],
+      null,
     ]);
   });
 

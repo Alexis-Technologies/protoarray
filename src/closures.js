@@ -15,6 +15,8 @@ const mismatch = (type, value) =>
   typeof value !== type || (type === 'number' && value - value !== 0);
 
 const build = (plan, options) => {
+  // Which direction is checked: `validate.encode` the values given to encode,
+  // `validate.decode` the wire.
   const { validate } = options;
   // A checking codec (Schema#check) calls the checking codecs of the schemas
   // it embeds.
@@ -22,7 +24,7 @@ const build = (plan, options) => {
 
   // Identity scalars are checked in the loops that read them, without a call.
   const inlineType = (node) =>
-    validate && node.kind === 'scalar' && node.pack === null && node.accept !== null
+    validate.encode && node.kind === 'scalar' && node.pack === null && node.accept !== null
       ? node.type
       : null;
 
@@ -31,7 +33,7 @@ const build = (plan, options) => {
   // an index, formatted only on error), so callers need no try/catch.
   const scalarEncoder = (node, path) => {
     const { accept, pack, checkedPack, code, expected } = node;
-    if (!validate || accept === null) return pack;
+    if (!validate.encode || accept === null) return pack;
     if (checkedPack !== undefined) {
       return (value) => {
         const wire = checkedPack(value);
@@ -58,7 +60,7 @@ const build = (plan, options) => {
     const identity = scalar && item.pack === null;
     const type = inlineType(item);
     const encode = identity ? null : scalar ? scalarEncoder(item, '') : encoder(item);
-    const nullType = validate && node.itemRequired;
+    const nullType = validate.encode && node.itemRequired;
     const expected = scalar ? item.expected : EXPECTED[item.kind];
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
@@ -90,7 +92,7 @@ const build = (plan, options) => {
   const tupleEncoder = (node) => {
     const size = node.items.length;
     const encoders = node.items.map((item, i) => scalarEncoder(item.node, i));
-    const required = node.items.map((item) => validate && item.required);
+    const required = node.items.map((item) => validate.encode && item.required);
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
       const out = new Array(size);
@@ -119,7 +121,7 @@ const build = (plan, options) => {
       if (types[i] !== null) return null;
       return field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node);
     });
-    const required = node.fields.map((field) => validate && field.required);
+    const required = node.fields.map((field) => validate.encode && field.required);
     return (object, t) => {
       if (typeof object !== 'object') refuse('object', '');
       const out = sparse ? [0] : new Array(width);
@@ -136,7 +138,7 @@ const build = (plan, options) => {
         let wire = null;
         if (value != null) {
           if (encode === null) {
-            if (validate && types[i] !== null && mismatch(types[i], value)) {
+            if (types[i] !== null && mismatch(types[i], value)) {
               refuse('type', keys[i], types[i]);
             }
             wire = value;
@@ -230,11 +232,11 @@ const build = (plan, options) => {
   // conversion; anything else → the nested decoder with the path prefixed.
   const slotDecoder = (node, required, def) => {
     const scalar = node.kind === 'scalar';
-    const check = scalar && validate ? node.check : null;
+    const check = scalar && validate.decode ? node.check : null;
     const decode = scalar ? null : decoder(node);
     return (value, path, strict) => {
       if (value == null) {
-        if (required && validate) fail('required', at(path));
+        if (required && validate.decode) fail('required', at(path));
         return def;
       }
       if (scalar) {
@@ -259,9 +261,9 @@ const build = (plan, options) => {
     const fields = node.fields.map((field) => {
       const scalar = field.node.kind === 'scalar';
       return {
-        required: field.required && validate,
+        required: field.required && validate.decode,
         def: field.def,
-        check: scalar && validate ? field.node.check : null,
+        check: scalar && validate.decode ? field.node.check : null,
         code: field.node.code,
         expected: field.node.expected,
         convert: scalar ? field.node.unpack : null,
@@ -311,7 +313,7 @@ const build = (plan, options) => {
     const size = slots.length;
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
-      if (validate && array.length !== size) fail('structure', '', 'length');
+      if (validate.decode && array.length !== size) fail('structure', '', 'length');
       const out = new Array(size);
       for (let i = 0; i < size; i++) out[i] = slots[i](array[i], i, strict);
       return out;
@@ -321,9 +323,9 @@ const build = (plan, options) => {
   const arrayDecoder = (node) => {
     const { item } = node;
     const identity = item.kind === 'scalar' && item.pack === null;
-    const required = node.itemRequired && validate;
+    const required = node.itemRequired && validate.decode;
     const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
-    if (identity && !required && (!validate || item.check === null)) {
+    if (identity && !required && (!validate.decode || item.check === null)) {
       return (array) => {
         if (!Array.isArray(array)) fail('structure', '', 'array');
         return array;
@@ -346,15 +348,17 @@ const build = (plan, options) => {
 
   const encode = plan.kind === 'scalar' ? scalarEncoder(plan, '') : encoder(plan);
   const decode = decoder(plan);
-  const required = plan.kind === 'scalar' && validate && plan.required;
+  const required = plan.kind === 'scalar' && plan.required;
+  const requiredIn = required && validate.encode;
+  const requiredOut = required && validate.decode;
   return {
     encode: (value) => {
-      if (value == null && required) refuse('required', '');
+      if (value == null && requiredIn) refuse('required', '');
       return value == null ? null : encode === null ? value : encode(value);
     },
     decode: (value, strict) => {
       if (plan.kind !== 'scalar' || value != null) return decode(value, strict);
-      if (required) fail('required', '');
+      if (requiredOut) fail('required', '');
       return null;
     },
   };

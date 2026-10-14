@@ -208,11 +208,14 @@ export interface SchemaOptions {
   /** `true` to require code generation, `false` to force closures; by default the runtime decides. */
   readonly codegen?: boolean;
   /**
-   * Check the values given to encode and the wire on decode (default `true`):
-   * types, required fields and enum values. `false` trusts both sides; the
-   * array structure is always checked.
+   * What is validated: `true` (the default) or `'decode'` checks the wire on
+   * decode and trusts the values given to encode, as 1.0 did; `'both'` also
+   * checks those values (types, required fields, enum values, with a path);
+   * `'encode'` checks only them; `false` trusts both sides. The shape of a
+   * value, a union's discriminator and the array structure of the wire are
+   * always checked. `check()` validates a value whatever this says.
    */
-  readonly validate?: boolean;
+  readonly validate?: boolean | 'decode' | 'encode' | 'both';
   /** Encode a struct as `[mask, ...present values]`, one such segment per 31 fields. */
   readonly sparse?: boolean;
   /** Layout of a collection of records (default `'rows'`). */

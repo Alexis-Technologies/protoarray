@@ -120,6 +120,11 @@ Schema.from(
   { codegen: false, validate: false, sparse: true, schemas: { Address } },
 );
 Schema.from({ a: 'string' }, { fingerprint: (canonical: string) => canonical.toUpperCase() });
+Schema.from({ a: 'string' }, { validate: 'both' });
+Schema.from({ a: 'string' }, { validate: 'encode' });
+Schema.from({ a: 'string' }, { validate: 'decode' });
+Schema.from({ a: 'string' }, { validate: true });
+expectError(Schema.from({ a: 'string' }, { validate: 'nope' }));
 expectError(Schema.from({ a: 'string' }, { layout: 'rowz' }));
 expectError(Schema.from({ a: 'string' }, { unknown: true }));
 expectError(Schema.from({ a: 'string' }, { fingerprint: 'sha256' }));

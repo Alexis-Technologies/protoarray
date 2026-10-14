@@ -9,7 +9,18 @@ const closures = require('./closures.js');
 const layouts = require('./layouts.js');
 
 const LAYOUTS = ['rows', 'flat', 'columns'];
-const OPTIONS = ['codegen', 'validate', 'sparse', 'layout', 'schemas', 'fingerprint'];
+const MODES = ['decode', 'encode', 'both'];
+const isBoolean = (value) => typeof value === 'boolean';
+
+// What each option accepts; a key not in the table is not an option.
+const VALID = Object.assign(Object.create(null), {
+  codegen: isBoolean,
+  validate: (value) => isBoolean(value) || MODES.includes(value),
+  sparse: isBoolean,
+  layout: (value) => LAYOUTS.includes(value),
+  schemas: (value) => value !== null && typeof value === 'object',
+  fingerprint: (value) => typeof value === 'function',
+});
 
 const readOptions = (options, name) => {
   const settings = {
@@ -30,16 +41,9 @@ const readOptions = (options, name) => {
   }
   for (const key of Object.keys(source)) {
     const value = source[key];
-    if (value === undefined && OPTIONS.includes(key)) continue;
-    const valid =
-      key === 'layout'
-        ? LAYOUTS.includes(value)
-        : key === 'schemas'
-          ? value !== null && typeof value === 'object'
-          : key === 'fingerprint'
-            ? typeof value === 'function'
-            : OPTIONS.includes(key) && typeof value === 'boolean';
-    if (!valid) {
+    const valid = VALID[key];
+    if (value === undefined && valid !== undefined) continue;
+    if (valid === undefined || !valid(value)) {
       throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', `Invalid option "${key}"`, name);
     }
     settings[key] = value;
@@ -47,11 +51,19 @@ const readOptions = (options, name) => {
   return settings;
 };
 
+// What each direction checks. `true`, the default, is the 1.0 setting: the
+// wire is validated on decode and the values given to encode are trusted, so
+// a codec that only encodes pays nothing for checks it did not ask for.
+const checks = (validate, checking) => ({
+  encode: checking || validate === 'encode' || validate === 'both',
+  decode: checking || validate === true || validate === 'decode' || validate === 'both',
+});
+
 // The codec of a plan, compiled by a backend and wrapped in a layout for a
-// collection. A checking codec validates whatever the options say and calls
-// the checking codecs of the schemas it embeds (see Schema#check).
+// collection. A checking codec validates both directions and calls the
+// checking codecs of the schemas it embeds (see Schema#check).
 const build = (plan, backend, settings, checking) => {
-  const validate = settings.validate || checking;
+  const validate = checks(settings.validate, checking);
   const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
   let codec = null;
   if (target.slot !== undefined) {
@@ -68,7 +80,9 @@ const build = (plan, backend, settings, checking) => {
     }
   }
   if (codec === null) codec = backend.build(target, { validate, checking });
-  if (target !== plan) codec = layouts[plan.layout](codec, plan.item.fields.length, validate);
+  if (target !== plan) {
+    codec = layouts[plan.layout](codec, plan.item.fields.length, validate.encode);
+  }
   return { codec, backend };
 };
 

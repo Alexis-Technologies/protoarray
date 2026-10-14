@@ -38,7 +38,7 @@ const corrupt = (value, random) => {
 test('Parity: codegen and closures agree on generated schemas and values', () => {
   for (let seed = 1; seed <= SEEDS; seed++) {
     const { definition, value, random } = generate(seed);
-    for (const extra of [{}, { sparse: true }, { validate: false }]) {
+    for (const extra of [{}, { sparse: true }, { validate: false }, { validate: 'both' }]) {
       const label = `seed ${seed} ${JSON.stringify(extra)}`;
       const A = Schema.from(definition, { codegen: true, ...extra });
       const B = Schema.from(definition, { codegen: false, ...extra });

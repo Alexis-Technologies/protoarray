@@ -4,18 +4,20 @@ const { Schema } = require('../../index.js');
 const { BACKENDS } = require('../support/backends.js');
 
 for (const [backend, options] of BACKENDS) {
+  // Encode errors below need the values checked: 'both'.
+  const both = { ...options, validate: 'both' };
+
   test(`Layouts (${backend}): sparse records carry a presence mask`, () => {
-    const S = Schema.from(
-      { a: 'number', b: '?string', c: '?string' },
-      { ...options, sparse: true },
-    );
+    const S = Schema.from({ a: 'number', b: '?string', c: '?string' }, { ...both, sparse: true });
     assert.strictEqual(S.layout, 'sparse');
     assert.deepStrictEqual(S.encode({ a: 1 }), [1, 1]);
     assert.deepStrictEqual(S.encode({ a: 1, c: 'x' }), [5, 1, 'x']);
     assert.deepStrictEqual(S.encode({ a: 1, b: null, c: 'x' }), [5, 1, 'x']);
     assert.throws(() => S.encode({}), { code: 'required', path: 'a' });
-    const Loose = Schema.from(S.definition, { ...options, sparse: true, validate: false });
-    assert.deepStrictEqual(Loose.encode({}), [0]);
+    for (const validate of [false, true]) {
+      const Loose = Schema.from(S.definition, { ...options, sparse: true, validate });
+      assert.deepStrictEqual(Loose.encode({}), [0]);
+    }
     assert.deepStrictEqual(S.decode([5, 1, 'x']), { a: 1, b: null, c: 'x' });
     assert.deepStrictEqual(S.decode([5, 1, 'x', 'ignored']), { a: 1, b: null, c: 'x' });
     assert.throws(() => S.decode([5, 1, 'x', 'ignored'], { strict: true }), {
@@ -64,7 +66,7 @@ for (const [backend, options] of BACKENDS) {
     const definition = {};
     for (let i = 0; i < 70; i++) definition[`f${i}`] = '?number';
     definition.f1 = 'number';
-    const S = Schema.from(definition, { ...options, sparse: true });
+    const S = Schema.from(definition, { ...both, sparse: true });
     // [mask0, ...values0, mask1, ...values1, mask2, ...values2], trailing empty segments trimmed.
     assert.deepStrictEqual(S.encode({ f1: 1, f3: 2, f35: 3 }), [10, 1, 2, 16, 3]);
     assert.deepStrictEqual(S.encode({ f1: 1 }), [2, 1]);
@@ -93,7 +95,7 @@ for (const [backend, options] of BACKENDS) {
   test(`Layouts (${backend}): flat concatenates fixed-width rows`, () => {
     const F = Schema.from(
       { array: { a: 'number', b: '?string', c: { x: 'number' } } },
-      { ...options, layout: 'flat' },
+      { ...both, layout: 'flat' },
     );
     assert.strictEqual(F.layout, 'flat');
     const list = [
@@ -113,8 +115,10 @@ for (const [backend, options] of BACKENDS) {
       path: '[1]',
       message: 'Field "[1]" is not of expected type: object',
     });
-    const LooseF = Schema.from(F.definition, { ...options, layout: 'flat', validate: false });
-    assert.deepStrictEqual(LooseF.encode([null]), [null, null, null]);
+    for (const validate of [false, true]) {
+      const LooseF = Schema.from(F.definition, { ...options, layout: 'flat', validate });
+      assert.deepStrictEqual(LooseF.encode([null]), [null, null, null]);
+    }
     assert.throws(() => F.decode([null, null, null]), { code: 'required', path: '[0].a' });
     assert.throws(() => F.decode([1]), {
       code: 'structure',
@@ -135,10 +139,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Layouts (${backend}): columns transpose the rows`, () => {
-    const C = Schema.from(
-      { array: { a: 'number', b: '?string' } },
-      { ...options, layout: 'columns' },
-    );
+    const C = Schema.from({ array: { a: 'number', b: '?string' } }, { ...both, layout: 'columns' });
     assert.strictEqual(C.layout, 'columns');
     const wire = C.encode([{ a: 1 }, { a: 2, b: 'y' }]);
     assert.deepStrictEqual(wire, [
@@ -153,8 +154,10 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(C.decode([]), []);
     assert.deepStrictEqual(C.decode([[], []]), []);
     assert.throws(() => C.encode([null]), { code: 'type', path: '[0]' });
-    const LooseC = Schema.from(C.definition, { ...options, layout: 'columns', validate: false });
-    assert.deepStrictEqual(LooseC.encode([null]), [[null], [null]]);
+    for (const validate of [false, true]) {
+      const LooseC = Schema.from(C.definition, { ...options, layout: 'columns', validate });
+      assert.deepStrictEqual(LooseC.encode([null]), [[null], [null]]);
+    }
     assert.throws(() => C.decode([[null], [null]]), { code: 'required', path: '[0].a' });
     assert.deepStrictEqual(C.decode([[1, 2]]), [
       { a: 1, b: null },

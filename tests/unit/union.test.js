@@ -136,7 +136,7 @@ for (const [backend, options] of BACKENDS) {
         ],
         discriminator: 'type',
       },
-      options,
+      { ...options, validate: 'both' },
     );
     const tree = {
       type: 'pair',
@@ -214,7 +214,9 @@ for (const [backend, options] of BACKENDS) {
     // Without validation the fields themselves are trusted, as in any struct.
     assert.deepStrictEqual(loose.decode([0, 1]), { type: 'call', id: 1, method: null, args: null });
     assert.deepStrictEqual(loose.encode({ type: 'call' }), [0, null, null]);
-    assert.throws(() => Packet.encode({ type: 'call' }), { code: 'required', path: 'id' });
+    assert.deepStrictEqual(Packet.encode({ type: 'call' }), [0, null, null]);
+    const strict = new Schema('Packet', Packet.definition, { ...options, validate: 'both' });
+    assert.throws(() => strict.encode({ type: 'call' }), { code: 'required', path: 'id' });
     assert.throws(() => Packet.decode([0, 1, 'm']), { code: 'type', path: 'id' });
   });
 
@@ -248,7 +250,10 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Union (${backend}): errors inside a branch carry their path`, () => {
-    const Envelope = Schema.from({ batch: { array: Packet } }, options);
+    // A schema by value keeps its own mode: the packets check their values too.
+    const both = { ...options, validate: 'both' };
+    const Strict = new Schema('Packet', Packet.definition, both);
+    const Envelope = Schema.from({ batch: { array: Strict } }, both);
     assert.throws(
       () =>
         Envelope.decode([

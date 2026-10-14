@@ -29,12 +29,14 @@ examples on these pages come from there.
 
 | Layout | On the wire |
 | --- | --- |
-| Struct, `{ sparse: true }` | `[mask, ...present values]`; bit *i* of the mask marks field *i*; past 31 fields one such segment per 31 fields, trailing empty segments left off |
+| Struct, `{ sparse: true }` | `[mask, ...present values]`; the mask is a non-negative 31-bit integer, bit *i* marks field *i*; past 31 fields one such segment per 31 fields, trailing empty segments left off |
 | Collection, `rows` | `[[...], [...]]` |
-| Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s (without validation) |
+| Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s (without encode validation) |
 | Collection, `columns` | `[column0, column1, ...]`, one array per field, each as long as the list; a missing or `null` column is a column of `null`s |
 
 ## Encoding
+
+"With validation" here is `validate: 'both'` or `'encode'`; by default the values are trusted.
 
 | Case | Result |
 | --- | --- |
@@ -42,12 +44,14 @@ examples on these pages come from there.
 | A scalar of the wrong type, `NaN`, an infinity, an invalid date | `EncodeError` `type` (with validation); travels as it is (`null` for the last three) without |
 | A value outside the enum | `EncodeError` `enum` (with validation); `null` without |
 | A `null` element of an array of required items, a `null` record in `flat` or `columns` | `EncodeError` `type` (with validation); `null` (a run of `null`s) without |
-| A record that is not an object, a collection or tuple that is not an array | `EncodeError` `object` / `array`, always |
+| A record that is not an object (an array is not one), a collection or tuple that is not an array | `EncodeError` `object` / `array`, always |
 | A union value whose discriminator is not one of its values | `EncodeError` `union`, always |
 | A cyclic value, or one nested deeper than the call stack | `EncodeError` `depth`, always |
 | Keys not in the schema, tuple elements beyond its length | ignored |
 
 ## Decoding
+
+"With validation" here is the default `validate: true` (or `'decode'` and `'both'`).
 
 | Case | Result |
 | --- | --- |
@@ -55,7 +59,7 @@ examples on these pages come from there.
 | An optional field is `null` or missing | `null`, the key is present |
 | A field with a `default` is `null` or missing | the default |
 | A scalar of the wrong type, an enum index out of range | `DecodeError` `type` / `enum` (with validation); passed through without |
-| Not an array where one is expected | `DecodeError` `structure`, always |
+| Not an array where one is expected, a sparse mask that is not a non-negative 31-bit integer | `DecodeError` `structure`, always |
 | A union tag that is not an integer index of its values | `DecodeError` `union`, always |
 | Elements beyond the schema | ignored; `DecodeError` `extra` with `{ strict: true }` |
 | A `null` element of an array of required items | `DecodeError` `type` (with validation); `null` without |

@@ -1,7 +1,8 @@
 # TypeScript
 
-The package ships hand-written typings. A definition literal is enough to type the object a schema
-decodes to and the value it accepts:
+The package ships hand-written typings, for TypeScript 5.0 or newer (the definition is read as a
+`const` type parameter). A definition literal is enough to type the object a schema decodes to and
+the value it accepts:
 
 ```ts
 import { Schema, type Infer, type Input } from '@alexify/protoarray';

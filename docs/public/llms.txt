@@ -25,10 +25,12 @@ Key facts:
   `schema.id` fingerprints the canonical form (FNV-1a 32-bit, or the `fingerprint` option)
 - Two backends: generated code (`new Function`) by default, composed closures where code
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge)
-- Validation in both directions by default (`{ validate: false }` trusts both): `EncodeError` and
-  `DecodeError` with `code`, `path` (`orders[1].sku`) and `schema`; `schema.check(value)` returns
-  the `EncodeError` or `null`; `SchemaDefinitionError` for a broken definition
+- Validation: `validate: true` (default) or `'decode'` checks the wire on decode and trusts the
+  values given to encode, `'both'` checks the values too, `'encode'` only them, `false` neither;
+  `EncodeError` and `DecodeError` with `code`, `path` (`orders[1].sku`) and `schema`;
+  `schema.check(value)` returns the `EncodeError` a validated encode would throw, or `null`,
+  whatever the mode; `SchemaDefinitionError` for a broken definition
 - Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `check`, `SchemaDefinitionError`,
   `EncodeError`, `DecodeError`
-- wrpc: a union of wrpc's packet types makes a packet codec (`docs/guide/wrpc`)
+- wrpc: a union of wrpc's packet types makes a packet codec (https://protoarray.vercel.app/guide/wrpc)
 - Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

@@ -49,25 +49,35 @@ try {
 
 ## What is validated
 
-With the default `validate: true`, decoding checks the array structure, the type of every scalar,
-required fields, enum ranges, tuple lengths and `flat`/`columns` shapes. It costs a few percent
-of the decode time, and it is the only error path: whatever the input, `decode` and `parse` throw
-`DecodeError` and nothing else. `{ validate: false }` skips the type and required checks and
-trusts the wire, but still checks the array structure, so a bad payload fails with `structure`
-rather than an accidental `TypeError` from inside the decoder. A value that has no wire form of
-its type (a non-digit string in a `bigint` slot, a string in an `enum` slot) is then left as it
-is: not converted, not rejected.
+`validate` picks the direction that is checked:
 
-Encoding validates by default too, so a producer's bug fails at the producer instead of as a
-`DecodeError` on the other side: every scalar is checked against its type, required fields and
-tuple elements must be present, enum values must be in the list (an exact match: `'20'` is not
-`20`), and `NaN`, the infinities and invalid dates are rejected, since JSON would turn them into
-`null`. A `date` takes a `Date` or a timestamp, a `bigint` a BigInt, a safe integer or a string of
-digits. Keys the schema does not have and tuple elements past its length are ignored: a schema is
-a projection. The checks are compiled into the codec, so they cost a few percent of `stringify`
-with generated code. With `validate: false` encoding trusts its input as 1.0 did: an unknown enum
-value travels as `null` and a value of the wrong type travels as it is. The shape checks
-(`object`, `array`) and `depth` stay on either way.
+| `validate` | Values given to `encode` | The wire, on `decode` |
+| --- | --- | --- |
+| `true` (default) or `'decode'` | trusted, as in 1.0 | checked |
+| `'both'` | checked | checked |
+| `'encode'` | checked | trusted |
+| `false` | trusted | trusted |
+
+Decoding with validation checks the array structure, the type of every scalar, required fields,
+enum ranges, tuple lengths and `flat`/`columns` shapes. It costs a few percent of the decode time,
+and it is the only error path: whatever the input, `decode` and `parse` throw `DecodeError` and
+nothing else. Trusting the wire (`'encode'` or `false`) skips the type and required checks, but
+still checks the array structure, a sparse mask and a union tag, so a bad payload fails with
+`structure` or `union` rather than an accidental `TypeError` from inside the decoder. A value that
+has no wire form of its type (a non-digit string in a `bigint` slot, a string in an `enum` slot)
+is then left as it is: not converted, not rejected.
+
+Checking the values on encode (`'both'` or `'encode'`) makes a producer's bug fail at the producer
+instead of as a `DecodeError` on the other side: every scalar is checked against its type, required
+fields and tuple elements must be present, enum values must be in the list (an exact match: `'20'`
+is not `20`), and `NaN`, the infinities and invalid dates are rejected, since JSON would turn them
+into `null`. A `date` takes a `Date` or a timestamp, a `bigint` a BigInt, a safe integer or a
+string of digits. Keys the schema does not have and tuple elements past its length are ignored: a
+schema is a projection. The checks are compiled into the codec, so they cost a few percent of
+`stringify` with generated code and about a tenth with closures; a codec that does not ask for
+them carries none. By default encoding trusts its input as 1.0 did: an unknown enum value travels
+as `null` and a value of the wrong type travels as it is. The shape checks (`object`, `array`,
+and an array is not a record), a union's discriminator and `depth` stay on in every mode.
 
 A schema used inside another one keeps its own `validate`, in both directions.
 
@@ -89,9 +99,9 @@ It runs every check even when the schema, or a schema it embeds, was built with
 
 | Code | Cause |
 | --- | --- |
-| `ERR_INVALID_DEFINITION` | not a definition, an empty struct or tuple, a duplicate key, a bad default, a non-scalar tuple element |
+| `ERR_INVALID_DEFINITION` | not a definition, an empty struct or tuple, a duplicate key, a bad default, a non-scalar tuple element, a `decimals` outside 0–15 or on anything but a number |
 | `ERR_UNKNOWN_TYPE` | an unknown type name, a metaschema shorthand protoarray does not support (a `union` without a `discriminator` too), or a struct starting with a type name |
-| `ERR_INVALID_UNION` | an empty union, a branch that is not a dense struct with the discriminator as an enum without a default, the same value in two branches |
+| `ERR_INVALID_UNION` | an empty union, a branch that is not a dense struct with the discriminator as a required enum without a default, the same value in two branches |
 | `ERR_INVALID_ENUM`, `ERR_INVALID_FLAGS` | an empty list, duplicates, wrong value types (neither has a size limit) |
 | `ERR_UNKNOWN_REFERENCE` | a capitalised name that is neither the schema's own name nor in `options.schemas` |
 | `ERR_RESERVED_KEY` | `__proto__` as a key |

@@ -96,6 +96,12 @@ need hand-written version ids, keep a map from id to schema in the application i
 
 ### Past 31 fields or names
 
-A sparse record and a `flags` field grow past 31 slots without breaking anyone: the first 31 keep
-the 1.0 form (one integer), and the rest follow in extra segments or words that an older decoder
-ignores. Only a strict decoder notices them, as `extra`.
+A sparse record grows past 31 fields without breaking anyone: the first 31 fields keep the 1.0
+form (one segment), and the rest follow in extra segments that an older decoder ignores. Only a
+strict decoder notices them, as `extra`.
+
+A `flags` field grows past 31 names, but the wire changes shape once a name past 31 is set: from
+one integer to an array of words, which a 1.1 decoder reads and a 1.0 decoder does not (it rejects
+the array as `type`, or without validation reads every flag as `false`). While no such name is
+set the wire stays the one integer of 1.0. So deploy decoders first, as for a new enum value, and
+only then set the new names.

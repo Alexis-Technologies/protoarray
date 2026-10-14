@@ -14,7 +14,7 @@ out and back.
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
 | `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | canonical base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
-| `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer |
+| `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer, or an array of them past 31 names |
 | tuple `['number', 'number']` | `[1, 2]` | `[1, 2]`, fixed length | length and each element |
 | `{ union: [...], discriminator }` | `{ type: 'event', name: 'x' }` | `[tag, ...the branch's other fields]`, `[1, 'x']` | the tag, always; then the branch |
 
@@ -29,8 +29,8 @@ S.decode([7]);                // DecodeError: Field "role" is not of enum: admin
 ```
 
 Values can be strings or numbers, as many as needed; add new ones at the end only, since the index
-is what travels. The value must match exactly (`'1'` is not `1`); with `validate: false` an
-unknown value travels as `null`.
+is what travels. With `validate: 'both'` the value must match exactly (`'1'` is not `1`); without
+encode validation, the default, an unknown value travels as `null`.
 
 ## Date
 
@@ -40,8 +40,8 @@ S.encode({ at: new Date('2023-11-14T22:13:20Z') }); // [1700000000000]
 S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20.000Z }
 ```
 
-A number is accepted too (`{ at: 1700000000000 }`). An invalid date, `NaN` or anything else is an
-`EncodeError`; with `validate: false` an invalid date travels as `null`.
+A number is accepted too (`{ at: 1700000000000 }`). With `validate: 'both'` an invalid date, `NaN`
+or anything else is an `EncodeError`; by default an invalid date travels as `null`.
 Epoch milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
 
 ## Bytes
@@ -55,13 +55,13 @@ S.encode({ id: 1, avatar: new Uint8Array([137, 80, 78, 71]) }); // [1, 'iVBORw==
 S.decode([1, 'iVBORw==']);                                     // { id: 1, avatar: Uint8Array(4) [137, 80, 78, 71] }
 ```
 
-Encoding takes any `Uint8Array`, a `Buffer` or a view into a larger buffer included; other typed
-arrays and `ArrayBuffer` are a `type` error (wrap them in a `Uint8Array` first). Decoding accepts
-canonical base64 only, the text an encoder writes: missing padding, whitespace or stray bits in
-the last character are a `type` error (without validation such a string stays as it is). Decoding
-always
-returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a `Buffer`
-or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
+Encoding takes any `Uint8Array`, a `Buffer`, a subclass or a view into a larger buffer included;
+other typed arrays and `ArrayBuffer` are a `type` error with `validate: 'both'` (wrap them in a
+`Uint8Array` first) and travel as they are without. Decoding accepts canonical base64 only, the
+text an encoder writes: missing padding, whitespace, the URL-safe alphabet or stray bits in the
+last character are a `type` error (without validation such a string stays as it is). Decoding
+always returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a
+`Buffer` or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
 separate binary channel beats any JSON. metaschema has no `bytes` type: register one to share a
 definition (see [Defining a Schema](/guide/schema#metaschema-compatibility)).
 
@@ -105,8 +105,10 @@ S.decode([5]);                                    // { perms: { read: true, writ
 
 Any number of names. Past 31 the bitmask takes an array of 31-bit words, written as one integer
 while only the first word has bits set: `[[1, 16]]` is names 0 and 35. A decoder reads either
-form. Add new names at the end: an older decoder ignores bits it does not know, and a newer one
-reads a missing word as zero.
+form, and a missing word as zero. Add new names at the end: a decoder ignores bits it has no
+name for. A 1.0 decoder reads the one-integer form only, so a set name past 31 needs 1.1 on the
+decoding side (see [Schema Evolution](/guide/evolution#past-31-fields-or-names)). An array is
+not a set of flags; any other object is read by name.
 
 ## Tuples
 
@@ -181,9 +183,9 @@ the default.
 
 ## Numbers, strings and what JSON cannot carry
 
-`NaN` and `Infinity` have no JSON form: `JSON.stringify` would write `null`, so encoding rejects
-them as `type` errors (with `validate: false` they travel as `null` and a required field fails to
-decode as missing). Integers beyond 2⁵³ lose precision in JSON as they do in
+`NaN` and `Infinity` have no JSON form: `JSON.stringify` would write `null`, so with
+`validate: 'both'` encoding rejects them as `type` errors (by default they travel as `null` and
+a required field fails to decode as missing). Integers beyond 2⁵³ lose precision in JSON as they do in
 JavaScript; use `bigint`. `-0` becomes `0`. Binary data is `bytes`. A `Map` or a `Set` has no
 positional form in this version: under `json` it serializes the way `JSON.stringify` would, which
 is rarely what you want.

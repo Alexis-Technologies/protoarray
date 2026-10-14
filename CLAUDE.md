@@ -24,7 +24,7 @@ Package manager is **pnpm** (pinned in `packageManager`).
 pnpm test                          # node --test tests/unit/*.test.js
 node --test tests/unit/codec.test.js   # a single file
 node --test --test-name-pattern="Layouts" tests/unit/*.test.js   # filter by name
-pnpm run test:coverage             # c8 over src/, gated at 98 lines/statements, 90 branches, 100 functions
+pnpm run test:coverage             # c8 over src/, gated at 100 lines/statements/branches/functions per file
 pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
@@ -122,10 +122,15 @@ docs/               VitePress site (protoarray.vercel.app), not published
    in automatic mode a `codegen.build` that throws for one schema falls back to closures. Both
    backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values,
    corrupted values and corrupted wires, and every behavioural suite loops over
-   `tests/support/backends.js`. Encode checks are emitted only under `validate` (codegen decides
-   at generation time, closures through build-time flags), so a trusting codec costs what 1.0
-   did. The codegen codec keeps its source as `codec.source` (reachable through
-   `schema[Symbol.for('alexify.protoarray.codec')]`, not public API) for debugging.
+   `tests/support/backends.js`. `validate` is a direction (`schema.js` turns `true`/`'decode'`,
+   `'encode'`, `'both'` and `false` into `{ encode, decode }` flags): decode checks are emitted
+   only under `validate.decode`, encode checks only under `validate.encode` (codegen decides at
+   generation time, closures through build-time flags), so a codec that does not ask for a check
+   carries none and the default encode costs what 1.0 did. The codegen codec's source is
+   reachable as `codec.source` through `schema[Symbol.for('alexify.protoarray.codec')]` (not
+   public API), generated again on each read so a codec does not hold the text. In automatic
+   mode the error that made `codegen.build` fall back to closures is kept behind
+   `schema[Symbol.for('alexify.protoarray.fallback')]`.
 3. **`layouts.js`** wraps the record codec when a collection uses `flat` or `columns`; `rows` is the
    codec of `{ array: Record }` itself. `schema.list` is `{ array: schema }` over the slot, so it
    compiles only the loop.
@@ -137,12 +142,17 @@ built on first use from the same plan with validation on and `checking` set: it 
 
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
 on `EncodeError`/`DecodeError` and turns a stack overflow (a recursive payload nested deeper than
-the call stack, a cyclic value) into `DecodeError` `structure`/`depth` or `EncodeError` `depth`.
-Nothing else may escape `decode`: `types.js` conversions are total (a value with no wire form of
-its type passes through under `validate: false`), and every check starts with `typeof` so
-in-process values (a BigInt mask, a Symbol index) fail like wire values. Encode always checks
-shape (`object`/`array`) and a union's discriminator (`union`); under `validate` it also checks
-`required`, `type` and `enum`, with paths built on error branches like decode's.
+the call stack, a cyclic value; told by the engine's message, so another `RangeError` passes
+through) into `DecodeError` `structure`/`depth` or `EncodeError` `depth`. Nothing else may escape
+`decode`: `types.js` conversions are total (a value with no wire form of its type passes through
+without decode validation), and every check starts with `typeof` so in-process values (a BigInt
+mask, a Symbol index) fail like wire values; a sparse mask is a non-negative 31-bit integer and a
+union tag is checked in every mode. A converted type checks and converts in one call
+(`checkedUnpack` on the wire, `checkedPack` on a value where the two share their work); an
+identity type is checked inline. Encode always checks shape (`object`/`array`, an array is not a
+record) and a union's discriminator (`union`); under `validate.encode` it also checks `required`,
+`type` and `enum`, with paths built on error branches like decode's. An enum or union lookup
+never turns the value into a property key, so `check()` throws nothing over the data.
 
 Wire rules (normative in `docs/guide/wire-format.md`, as data in `tests/support/vectors.js`):
 one field per position in declaration order; `undefined`, `null` and a missing key travel as
@@ -154,10 +164,12 @@ such segment per 31 fields;
 decode assigns every key in schema order and gives `null` (or the default) for what was missing;
 extra trailing elements are ignored unless `{ strict: true }`.
 
-Both directions validate by default (`validate` covers encode and decode) and throw
-`EncodeError`/`DecodeError` with a path like `orders[1].sku`. Paths are built only on error branches: generated code embeds
-static keys and loop indices in the throw, nested calls re-throw through `nest()` which prepends
-the key. `{ validate: false }` skips type checks but never the `Array.isArray` structure checks.
+By default the wire is validated on decode and the values given to encode are trusted (1.0's
+behaviour); `{ validate: 'both' }` validates the values too. Errors are
+`EncodeError`/`DecodeError` with a path like `orders[1].sku`. Paths are built only on error
+branches: generated code embeds static keys and loop indices in the throw, nested calls re-throw
+through `nest()` which prepends the key. `{ validate: false }` skips type checks but never the
+`Array.isArray` structure checks.
 
 ## Platform
 
@@ -241,11 +253,12 @@ change. **This file wins** if they ever disagree.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
   and not) and round-trips a schema through both backends, comparing as JSON because the browser
   bundle runs in another realm. That realm is a `vm` context, which has no `btoa`/`atob` unless
-  the test passes them in; one test loads the bundle without them. It runs in `pnpm test` on every
-  matrix leg.
+  the test passes them in; one test loads the bundle without them, deleting the realm's native
+  `Uint8Array` base64 too, so the `btoa`/`atob` branch stays the one under test on a Node that
+  ships the native methods. It runs in `pnpm test` on every matrix leg.
 - `platform.test.js` checks the runtime twins: same keys, the same base64 (and the same `null` for
   non-canonical text) from both, the browser one with a stand-in for `Uint8Array`'s native base64
-  as well, which Node does not have yet.
+  as well, which Node does not have yet; the missing-`atob` test deletes the native method too.
 - `tests/unit/scripts.test.js` runs `scripts/size.js` with a budget it always meets and one it
   never can.
 - New behavior needs a test that fails without the change. Coverage is 100% and there are no

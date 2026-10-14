@@ -47,7 +47,7 @@ encoding the value with validation would throw, or `null`, without throwing over
 ```ts
 interface SchemaOptions {
   codegen?: boolean;   // true: require generated code; false: closures; default: what the runtime allows
-  validate?: boolean;  // check values on encode and the wire on decode (default true)
+  validate?: boolean | 'decode' | 'encode' | 'both';  // true (default) = 'decode': the wire is checked, the values trusted; 'both' checks the values too
   sparse?: boolean;    // [mask, ...present values], a segment per 31 fields
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
@@ -97,8 +97,8 @@ function parse<D>(schema: Schema<D>, text: string, options?: DecodeOptions): Inf
 function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
 ```
 
-`schema.check(value)`: the problem encoding would find, or `null`. It validates even when the
-schema, or one it embeds, was built with `validate: false`.
+`schema.check(value)`: the problem a validated encode would find, or `null`. It validates whatever
+`validate` the schema, or one it embeds, was built with.
 
 ## Errors
 
@@ -112,7 +112,7 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 
 | Type | Meaning |
 | --- | --- |
-| `Definition`, `FieldDefinition`, `StructDefinition`, `LongForm`, `TupleElement` | the definition DSL |
+| `Definition`, `FieldDefinition`, `StructDefinition`, `LongForm`, `TupleElement`, `ScalarType`, `TypeName` | the definition DSL |
 | `AnySchema` | any `Schema` instance, what a field or `options.schemas` accepts |
 | `Infer<D>` | the decoded object type |
 | `Input<D>` | the value `encode` accepts |

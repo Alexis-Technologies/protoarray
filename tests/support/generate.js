@@ -24,7 +24,16 @@ const fieldType = (random, depth) => {
   if (depth > 0 && roll < 0.3) return { array: fieldType(random, depth - 1) };
   if (roll < 0.38) return { enum: ['a', 'b', 'c'] };
   if (roll < 0.46) return { flags: ['x', 'y', 'z'] };
-  if (roll < 0.54) return ['number', '?string'];
+  if (roll < 0.5) return ['number', '?string'];
+  if (roll < 0.54) {
+    return {
+      union: [
+        { k: { enum: ['a'] }, x: 'number', y: '?string' },
+        { z: '?boolean', k: { enum: ['b', 'c'] } },
+      ],
+      discriminator: 'k',
+    };
+  }
   if (roll < 0.6) return { type: 'number', default: 7 };
   const scalar = pick(random, SCALARS);
   return random() < 0.3 ? `?${scalar}` : scalar;
@@ -53,6 +62,11 @@ const valueFor = (random, type) => {
   if (typeof type === 'string') return scalarValue(random, type.replace('?', ''));
   if (Array.isArray(type)) return random() < 0.5 ? [1, 's'] : [2];
   if (type.enum) return pick(random, type.enum);
+  if (type.union) {
+    const roll = random();
+    if (roll < 0.5) return random() < 0.5 ? { k: 'a', x: 1 } : { k: 'a', x: 2, y: 'Олена' };
+    return roll < 0.75 ? { k: 'b' } : { k: 'c', z: true };
+  }
   if (type.flags) return { x: random() < 0.5, z: random() < 0.5 };
   if (type.type) return scalarValue(random, type.type);
   if (type.array) {

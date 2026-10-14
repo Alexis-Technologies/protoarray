@@ -71,7 +71,7 @@ const enumeration = (values) => {
     values,
     check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
     // The lookup coerces its key ('20' finds 20); validation wants the value itself.
-    accept: (v) => values[dict[v]] === v,
+    accept: (v) => dict[v] !== undefined && values[dict[v]] === v,
     pack: (v) => (dict[v] === undefined ? null : dict[v]),
     unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
   });

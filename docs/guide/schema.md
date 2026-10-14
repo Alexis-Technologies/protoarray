@@ -40,6 +40,7 @@ const User = new Schema('User', {
 | Enum | `{ enum: ['admin', 'editor'] }` | One of the listed strings or numbers; travels as its index |
 | Flags | `{ flags: ['read', 'write'] }` | An object of booleans; travels as one integer |
 | Tuple | `['number', 'number']` | Fixed-length array of scalars; `[{ x: 'number' }, { y: 'number' }]` names them |
+| Union | `{ union: [Call, Event], discriminator: 'type' }` | One of several structs, picked by an enum field they share; travels as `[tag, ...fields]` (see [Types](/guide/types#unions)) |
 | Calculated | `total: (record) => …` | Ignored: a function has no position on the wire |
 
 Arrays and enums take `required: false` next to the shorthand key:
@@ -133,6 +134,6 @@ schema was given. Renaming a key changes it, and so does the optionality of a ro
 
 ## Not in protoarray
 
-metaschema's `set`, `map`, `object` and `tuple` shorthands have no positional form yet and throw
-`ERR_UNKNOWN_TYPE`; its `length`, `unique` and `validate` options are accepted and ignored. The
+metaschema's `set`, `map`, `object` and `tuple` shorthands, and a `union` without a
+`discriminator`, have no positional form yet and throw `ERR_UNKNOWN_TYPE`; its `length`, `unique` and `validate` options are accepted and ignored. The
 two types protoarray adds, `date` and `flags`, are not metaschema types.

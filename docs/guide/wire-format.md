@@ -19,6 +19,7 @@ examples on these pages come from there.
 | `date` | epoch milliseconds; an invalid date → `null` |
 | `bigint` | a decimal string |
 | `{ flags: [...] }` | an integer; bit *i* is name *i*; up to 31 names |
+| `{ union: [...], discriminator }` | `[tag, ...the branch's other fields]`; the tag is the index of the discriminator value among the values of all branches; trailing optionals trimmed down to `[tag]` |
 | `json` | the value, by reference; never required |
 | `string`, `number`, `boolean` | as is |
 
@@ -40,6 +41,7 @@ examples on these pages come from there.
 | A value outside the enum | `EncodeError` `enum` (with validation); `null` without |
 | A `null` element of an array of required items, a `null` record in `flat` or `columns` | `EncodeError` `type` (with validation); `null` (a run of `null`s) without |
 | A record that is not an object, a collection or tuple that is not an array | `EncodeError` `object` / `array`, always |
+| A union value whose discriminator is not one of its values | `EncodeError` `union`, always |
 | A cyclic value, or one nested deeper than the call stack | `EncodeError` `depth`, always |
 | Keys not in the schema, tuple elements beyond its length | ignored |
 
@@ -52,6 +54,7 @@ examples on these pages come from there.
 | A field with a `default` is `null` or missing | the default |
 | A scalar of the wrong type, an enum index out of range | `DecodeError` `type` / `enum` (with validation); passed through without |
 | Not an array where one is expected | `DecodeError` `structure`, always |
+| A union tag that is not an integer index of its values | `DecodeError` `union`, always |
 | Elements beyond the schema | ignored; `DecodeError` `extra` with `{ strict: true }` |
 | A `null` element of an array of required items | `DecodeError` `type` (with validation); `null` without |
 | A value with no wire form of its type, without validation | passed through as it is, not converted |
@@ -61,7 +64,8 @@ examples on these pages come from there.
 ## Canonical form
 
 `schema.toString()` prints the schema as `{key:type,key:?type=default,...}` with `[item]` for
-arrays, `(a,b)` for tuples, `enum(a|b)`, `flags(a|b)`, `@Name` for a reference, a `sparse` prefix
+arrays, `(a,b)` for tuples, `enum(a|b)`, `flags(a|b)`, `union(key)[{…}|{…}]` for a union (its branches with their discriminators), `@Name`
+for a reference, a `sparse` prefix
 for sparse structs, a `flat` or `columns` prefix for layouts and a `?` prefix for an optional root
 scalar. `schema.id` is the FNV-1a 32-bit hash of that string as eight hex digits, unless the
 `fingerprint` option supplies another function of it.

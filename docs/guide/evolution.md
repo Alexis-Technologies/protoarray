@@ -14,8 +14,8 @@ understanding each other.
 3. **Retire a field by keeping its slot** and making it optional; senders put `null` there.
 4. **Safe type changes:** required → optional; appending values to an `enum` or names to `flags`.
    Anything else is breaking.
-5. **Deploy decoders before encoders** when you append enum values: an old decoder rejects an
-   index it does not know.
+5. **Deploy decoders before encoders** when you append enum values or union branches: an old
+   decoder rejects an index or a tag it does not know.
 
 ```js
 const V1 = Schema.from({ id: 'number', name: 'string' });
@@ -40,6 +40,13 @@ come after the ones an older decoder knows. Columns are appended at the end; an 
 ignores them, a newer one reads `null`s where a column is missing. The one exception is the
 `flat` layout, whose fixed width changes with every field: use it only where both sides deploy
 together.
+
+## Unions
+
+A union's tags follow the order of its branches and of the values in them, so new branches go at
+the end, and a new discriminator value only into the last branch; anything inserted before moves
+every later tag. A branch is a struct and grows like one: append optional fields, and an older
+decoder reads the branch without them.
 
 ## Strict decoding
 

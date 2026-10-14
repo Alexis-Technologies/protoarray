@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Unions**, in metaschema's spelling: `{ union: [Call, Event], discriminator: 'type' }`, where
+  every branch is a struct whose `type` field is an enum. A value travels as `[tag, ...the other
+  fields of its branch]`, the tag being the index of the discriminator value among the values of
+  all branches, so wrpc-style packets (`{ type: 'call', id, method, args }`) lose both their keys
+  and the repeated discriminator. A union can be the whole schema, a field or an array item;
+  branches can be inline, `Schema` instances or names; `Infer` gives the union of the branches,
+  narrowed by the discriminator. An unknown discriminator or tag is an `EncodeError` /
+  `DecodeError` with code `union`, with or without validation; a broken union is
+  `SchemaDefinitionError` `ERR_INVALID_UNION`.
+
 ### Changed
 
 - **Encoding validates by default.** `validate` (default `true`) now covers encode as well as
@@ -18,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trusting codec.
 - A cyclic value, or one nested deeper than the call stack, throws `EncodeError` `depth` instead
   of a `RangeError`.
+- A struct whose first key is `union` holding an array is now a union, as metaschema reads it, and
+  one whose first key is `union` holding anything else throws `ERR_UNKNOWN_TYPE` like any struct
+  starting with a type name.
 
 ### Fixed
 

@@ -100,6 +100,50 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => E1.decode(E2.encode({ r: 'c' })), { code: 'enum', path: 'r' });
   });
 
+  test(`Evolution (${backend}): a union grows at the end, its branches like structs`, () => {
+    const call = { Struct: {}, type: { enum: ['call'] }, id: 'string' };
+    const U1 = Schema.from({ union: [call], discriminator: 'type' }, options);
+    const U2 = Schema.from(
+      {
+        union: [
+          { ...call, timeout: '?number' },
+          { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+        ],
+        discriminator: 'type',
+      },
+      options,
+    );
+    // A newer decoder reads every older packet; an older one reads the old
+    // branches of a newer sender and ignores their new fields.
+    assert.deepStrictEqual(U2.decode(U1.encode({ type: 'call', id: '1' })), {
+      type: 'call',
+      id: '1',
+      timeout: null,
+    });
+    assert.deepStrictEqual(U1.decode(U2.encode({ type: 'call', id: '1', timeout: 5 })), {
+      type: 'call',
+      id: '1',
+    });
+    // A new branch needs the decoders first, like an appended enum value.
+    assert.throws(() => U1.decode(U2.encode({ type: 'event', name: 'x' })), {
+      code: 'union',
+      path: 'type',
+    });
+    // A branch inserted before the others moves every later tag: breaking.
+    const Moved = Schema.from(
+      {
+        union: [{ Struct: {}, type: { enum: ['event'] }, name: 'string' }, call],
+        discriminator: 'type',
+      },
+      options,
+    );
+    assert.deepStrictEqual(Moved.decode(U1.encode({ type: 'call', id: '1' })), {
+      type: 'event',
+      name: '1',
+    });
+    assert.notStrictEqual(Moved.id, U2.id);
+  });
+
   test(`Evolution (${backend}): renaming keeps the wire and changes the id`, () => {
     const Old = Schema.from({ name: 'string' }, options);
     const New = Schema.from({ fullName: 'string' }, options);

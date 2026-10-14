@@ -209,6 +209,57 @@ const VECTORS = [
     wire: [1],
   },
   {
+    name: 'union: the tag leads and the discriminator does not travel',
+    definition: {
+      union: [
+        { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: '?json' },
+        { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' },
+      ],
+      discriminator: 'type',
+    },
+    value: { type: 'call', id: '7', method: 'auth/signIn', args: ['alex', 'secret'] },
+    wire: [0, '7', 'auth/signIn', ['alex', 'secret']],
+  },
+  {
+    name: 'union: trailing optionals of a branch are trimmed',
+    definition: {
+      union: [
+        { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: '?json' },
+        { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' },
+      ],
+      discriminator: 'type',
+    },
+    value: { type: 'event', name: 'chat/message' },
+    wire: [1, 'chat/message'],
+    decoded: { type: 'event', name: 'chat/message', data: null },
+  },
+  {
+    name: 'union: a branch with several values',
+    definition: {
+      union: [
+        { r: 'number', kind: { enum: ['circle'] } },
+        { side: 'number', kind: { enum: ['square', 'diamond'] } },
+      ],
+      discriminator: 'kind',
+    },
+    value: { side: 2, kind: 'diamond' },
+    wire: [2, 2],
+  },
+  {
+    name: 'array of unions',
+    definition: {
+      array: {
+        union: [
+          { Struct: {}, type: { enum: ['ping'] } },
+          { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+        ],
+        discriminator: 'type',
+      },
+    },
+    value: [{ type: 'ping' }, { type: 'event', name: 'x' }],
+    wire: [[0], [1, 'x']],
+  },
+  {
     name: 'sparse record',
     definition: { a: 'number', b: '?string', c: '?string', d: '?number' },
     options: { sparse: true },

@@ -45,6 +45,11 @@ export type FieldDefinition =
       readonly default?: string | number;
     }
   | { readonly flags: readonly string[]; readonly required?: boolean }
+  | {
+      readonly union: readonly (StructDefinition | AnySchema | string)[];
+      readonly discriminator: string;
+      readonly required?: boolean;
+    }
   | LongForm
   | StructDefinition
   | ((...args: any[]) => unknown);
@@ -76,6 +81,7 @@ type Shorthand =
   | { readonly array: unknown }
   | { readonly enum: unknown }
   | { readonly flags: unknown }
+  | { readonly union: readonly unknown[] }
   | { readonly type: unknown };
 
 /** Whether a slot may be nullish on the wire. */
@@ -95,7 +101,21 @@ type Flatten<T> = { [K in keyof T]: T[K] } & {};
 
 type Strip<K> = K extends `${infer Name}?` ? Name : K;
 
-type FieldKeys<D> = { [K in keyof D]: D[K] extends Calculated ? never : K }[keyof D] & string;
+/**
+ * A capitalised key holding plain metadata is the struct's kind, as in
+ * `{ Struct: {}, type: … }`: it has no position. metaschema reads only the
+ * first key that way, which types cannot see.
+ */
+type IsKind<K, F> = K extends Uncapitalize<K & string>
+  ? false
+  : F extends Calculated | string | readonly unknown[] | Shorthand | { readonly backend: Backend }
+    ? false
+    : true;
+
+type FieldKeys<D> = {
+  [K in keyof D]: D[K] extends Calculated ? never : IsKind<K, D[K]> extends true ? never : K;
+}[keyof D] &
+  string;
 
 type RequiredKeys<D> = { [K in FieldKeys<D>]: Optional<K, D[K]> extends true ? never : K }[FieldKeys<D>];
 
@@ -130,11 +150,13 @@ type Value<F, M extends Mode> = F extends Schema<infer X>
               ? M extends 'out'
                 ? { [K in N]: boolean }
                 : { [K in N]?: boolean }
-              : F extends { readonly type: infer T extends string }
-                ? TypeOf<T>
-                : F extends object
-                  ? Shape<F, M>
-                  : unknown;
+              : F extends { readonly union: readonly (infer B)[] }
+                ? Shape<B, M>
+                : F extends { readonly type: infer T extends string }
+                  ? TypeOf<T>
+                  : F extends object
+                    ? Struct<F, M>
+                    : unknown;
 
 type Struct<D, M extends Mode> = M extends 'out'
   ? Flatten<
@@ -294,6 +316,7 @@ export type SchemaErrorCode =
   | 'ERR_UNKNOWN_TYPE'
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_FLAGS'
+  | 'ERR_INVALID_UNION'
   | 'ERR_UNKNOWN_REFERENCE'
   | 'ERR_RESERVED_KEY'
   | 'ERR_INTEGER_KEY'
@@ -303,11 +326,26 @@ export type SchemaErrorCode =
 
 /**
  * `object`/`array`: what the value is not; `depth`: a cyclic value or one nested
- * deeper than the call stack; `required`, `type` and `enum`: what validation found.
+ * deeper than the call stack; `union`: a discriminator outside the union;
+ * `required`, `type` and `enum`: what validation found.
  */
-export type EncodeErrorCode = 'object' | 'array' | 'depth' | 'required' | 'type' | 'enum';
+export type EncodeErrorCode =
+  | 'object'
+  | 'array'
+  | 'depth'
+  | 'required'
+  | 'type'
+  | 'enum'
+  | 'union';
 
-export type DecodeErrorCode = 'structure' | 'required' | 'type' | 'enum' | 'extra' | 'json';
+export type DecodeErrorCode =
+  | 'structure'
+  | 'required'
+  | 'type'
+  | 'enum'
+  | 'union'
+  | 'extra'
+  | 'json';
 
 /** A broken definition or invalid options; thrown while a schema is built. */
 export class SchemaDefinitionError extends TypeError {

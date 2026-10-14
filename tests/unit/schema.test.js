@@ -89,7 +89,15 @@ test('Schema: definition errors name the field', () => {
   invalid({ json: 'x', b: 'number' }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid(
     { n: { type: 1 } },
-    { code: 'ERR_INVALID_DEFINITION', message: 'The type must be a string at "n"' },
+    {
+      code: 'ERR_INVALID_DEFINITION',
+      message: 'The type must be a string; a struct starting with "type" needs a kind first at "n"',
+    },
+  );
+  invalid({ n: { type: { enum: ['a'] }, id: 'string' } }, { code: 'ERR_INVALID_DEFINITION' });
+  assert.deepStrictEqual(
+    Schema.from({ n: { Struct: {}, type: { enum: ['a'] }, id: 'string' } }).decode([[0, 'x']]),
+    { n: { type: 'a', id: 'x' } },
   );
   invalid({ n: { type: 'set' } }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid(JSON.parse('{"__proto__":"string"}'), {

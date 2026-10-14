@@ -16,12 +16,19 @@ const TEXT = {
   required: 'is required',
   type: 'is not of expected type: %',
   enum: 'is not of enum: %',
+  union: 'is not of union: %',
   extra: 'has extra elements',
   json: 'is not valid JSON',
 };
 
 // What a null element of an array of required items was expected to be.
-const EXPECTED = { struct: 'object', array: 'array', tuple: 'tuple', ref: 'object' };
+const EXPECTED = {
+  struct: 'object',
+  union: 'object',
+  array: 'array',
+  tuple: 'tuple',
+  ref: 'object',
+};
 
 const message = (code, path, detail) => {
   const text = TEXT[code].replace('%', code === 'structure' ? STRUCTURE[detail] : detail);

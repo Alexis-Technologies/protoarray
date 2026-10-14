@@ -40,6 +40,7 @@ const build = (plan, options) => {
   const encoder = (node) => {
     if (node.slot !== undefined) return (value) => node.slot.codec.encode(value);
     if (node.kind === 'struct') return structEncoder(node);
+    if (node.kind === 'union') return unionEncoder(node);
     if (node.kind === 'tuple') return tupleEncoder(node);
     const { item } = node;
     const scalar = item.kind === 'scalar';
@@ -95,18 +96,24 @@ const build = (plan, options) => {
     };
   };
 
+  // A branch of a union has a tag: it leads the wire, so every position moves
+  // one place to the right.
   const structEncoder = (node) => {
     const { keys, tail, sparse } = node;
     const size = keys.length;
+    const lead = node.tag === undefined ? 0 : 1;
+    const width = size + lead;
+    const end = tail + lead;
     const types = node.fields.map((field) => inlineType(field.node));
     const encoders = node.fields.map((field, i) => {
       if (types[i] !== null) return null;
       return field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node);
     });
     const required = node.fields.map((field) => validate && field.required);
-    return (object) => {
+    return (object, t) => {
       if (typeof object !== 'object') refuse('object', '');
-      const out = sparse ? [0] : new Array(size);
+      const out = sparse ? [0] : new Array(width);
+      if (lead === 1) out[0] = t;
       let mask = 0;
       for (let i = 0; i < size; i++) {
         const value = object[keys[i]];
@@ -126,7 +133,7 @@ const build = (plan, options) => {
             }
           }
         } else if (required[i]) refuse('required', keys[i]);
-        if (!sparse) out[i] = wire;
+        if (!sparse) out[i + lead] = wire;
         else if (wire !== null) {
           mask |= 1 << i;
           out.push(wire);
@@ -136,10 +143,47 @@ const build = (plan, options) => {
         out[0] = mask;
         return out;
       }
-      let length = size;
-      while (length > tail && out[length - 1] === null) length--;
-      if (length < size) out.length = length;
+      let length = width;
+      while (length > end && out[length - 1] === null) length--;
+      if (length < width) out.length = length;
       return out;
+    };
+  };
+
+  // The branch a tag belongs to: tags run through the branches in order.
+  const branchOf = (node) => {
+    const out = [];
+    node.branches.forEach((branch, b) => {
+      for (let i = 0; i < branch.count; i++) out.push(b);
+    });
+    return out;
+  };
+
+  // A union picks its branch by the discriminator on encode and by the tag on
+  // decode; either one outside the union is an error even without validation,
+  // since there is no branch to fall back to.
+  const unionEncoder = (node) => {
+    const { key, tag } = node;
+    const encoders = node.branches.map((branch) => structEncoder(branch.node));
+    const branches = branchOf(node);
+    return (object) => {
+      if (typeof object !== 'object') refuse('object', '');
+      const value = object[key];
+      if (!tag.accept(value)) refuse('union', key, tag.expected);
+      const t = tag.pack(value);
+      return encoders[branches[t]](object, t);
+    };
+  };
+
+  const unionDecoder = (node) => {
+    const { key, tag } = node;
+    const decoders = node.branches.map((branch) => structDecoder(branch.node));
+    const branches = branchOf(node);
+    return (array, strict) => {
+      if (!Array.isArray(array)) fail('structure', '', 'array');
+      const t = array[0];
+      if (!tag.check(t)) fail('union', key, tag.expected);
+      return decoders[branches[t]](array, strict, t);
     };
   };
 
@@ -152,6 +196,7 @@ const build = (plan, options) => {
     }
     if (node.slot !== undefined) return (value, strict) => node.slot.codec.decode(value, strict);
     if (node.kind === 'struct') return structDecoder(node);
+    if (node.kind === 'union') return unionDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);
     return arrayDecoder(node);
   };
@@ -183,8 +228,9 @@ const build = (plan, options) => {
   // record has the same hidden class, as an object literal would. Scalars are
   // handled in the loop; only nested values go through a call.
   const structDecoder = (node) => {
-    const { keys, sparse } = node;
+    const { keys, sparse, tag } = node;
     const size = keys.length;
+    const lead = tag === undefined ? 0 : 1;
     const fields = node.fields.map((field) => {
       const scalar = field.node.kind === 'scalar';
       return {
@@ -197,24 +243,26 @@ const build = (plan, options) => {
         decode: scalar ? null : slotDecoder(field.node, field.required, field.def),
       };
     });
-    const template = literal(keys, 'null');
-    return (array, strict) => {
+    // A branch's template has every key of the branch, its discriminator too.
+    const template = literal(lead === 0 ? keys : tag.keys, 'null');
+    return (array, strict, t) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const { length } = array;
       const object = { ...template };
+      if (lead === 1) object[tag.key] = tag.values[t];
       let mask = 0;
       let next = 1;
       if (sparse) {
         mask = array[0];
         if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
-      } else if (strict && length > size) {
+      } else if (strict && length > size + lead) {
         fail('extra', '');
       }
       for (let i = 0; i < size; i++) {
         const key = keys[i];
         const field = fields[i];
         let value = null;
-        if (!sparse) value = i < length ? array[i] : null;
+        if (!sparse) value = i + lead < length ? array[i + lead] : null;
         else if ((mask & (1 << i)) !== 0) value = array[next++];
         if (field.decode !== null) {
           object[key] = field.decode(value, key, strict);

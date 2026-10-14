@@ -152,3 +152,34 @@ expectType<string>(decodeError.schema);
 expectType<unknown>(decodeError.cause);
 expectAssignable<DecodeErrorCode>('extra');
 expectNotAssignable<DecodeErrorCode>('nope');
+
+// Unions: decoded values narrow on the discriminator; a kind key has no position.
+const Packet = Schema.from({
+  union: [
+    { Struct: {}, type: { enum: ['call'] }, id: 'string', args: '?json' },
+    { Struct: {}, type: { enum: ['event', 'notice'] }, name: 'string' },
+  ],
+  discriminator: 'type',
+});
+const packet = Packet.decode([0, '1']);
+expectType<
+  { type: 'call'; id: string; args: unknown } | { type: 'event' | 'notice'; name: string }
+>(packet);
+if (packet.type === 'call') expectType<string>(packet.id);
+else expectType<string>(packet.name);
+Packet.encode({ type: 'call', id: '1' });
+Packet.encode({ type: 'notice', name: 'n' });
+expectError(Packet.encode({ type: 'call', name: 'n' }));
+expectError(Packet.encode({ type: 'other', id: '1' }));
+expectType<
+  ({ type: 'call'; id: string; args: unknown } | { type: 'event' | 'notice'; name: string })[]
+>(Packet.list.decode([]));
+const Holder = Schema.from({
+  p: { union: [{ k: { enum: ['a'] }, x: 'number' }], discriminator: 'k', required: false },
+});
+expectType<{ p: { k: 'a'; x: number } | null }>(Holder.decode([]));
+const Kinded = Schema.from({ Entity: {}, a: 'number' });
+expectType<{ a: number }>(Kinded.decode([1]));
+expectAssignable<EncodeErrorCode>('union');
+expectAssignable<DecodeErrorCode>('union');
+expectAssignable<SchemaErrorCode>('ERR_INVALID_UNION');

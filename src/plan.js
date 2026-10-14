@@ -13,7 +13,7 @@ const CODEC = Symbol.for('alexify.protoarray.codec');
 const MAX_BITS = 31;
 // metaschema shorthands that have no positional form yet: rejected loudly so a
 // shared definition never silently changes meaning.
-const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many)$/;
+const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|boolean|json|enum)$/;
 
@@ -113,7 +113,12 @@ const compilePlan = (definition, context) => {
       if (type === 'enum') node = enumeration(list(source.enum, 'ERR_INVALID_ENUM', path));
       else if (type === 'flags') node = flags(list(source.flags, 'ERR_INVALID_FLAGS', path));
       else if (typeof type === 'string') node = typeNode(type, path);
-      else throw error('ERR_INVALID_DEFINITION', 'The type must be a string', path);
+      else {
+        // As in metaschema: a struct whose first key is `type` reads as the
+        // long form; a kind first (`{ Struct: {}, type: … }`) makes it a struct.
+        const text = 'The type must be a string; a struct starting with "type" needs a kind first';
+        throw error('ERR_INVALID_DEFINITION', text, path);
+      }
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
       // -0 has no JSON form and would tell the two backends apart.
       const def = hasDefault ? (source.default === 0 ? 0 : source.default) : null;
@@ -126,11 +131,64 @@ const compilePlan = (definition, context) => {
       }
       return { node, required: required && !hasDefault && node.type !== 'json', def };
     }
+    if (first === 'union' && Array.isArray(source.union)) {
+      return { node: union(source, path), required, def: null };
+    }
     if (first === undefined) throw error('ERR_INVALID_DEFINITION', 'An empty definition', path);
     if (SCALARS[first] !== undefined || UNSUPPORTED.test(first)) {
       throw error('ERR_UNKNOWN_TYPE', `A struct cannot start with the type name "${first}"`, path);
     }
     return { node: struct(source, keys, path), required: true, def: null };
+  };
+
+  // A discriminated union in metaschema's spelling: every branch is a struct
+  // whose `discriminator` field is an enum. The wire is `[tag, ...the other
+  // fields of the branch]`, the tag being the index of the discriminator value
+  // among the values of all branches. Branches are always built from their
+  // plans, so the options of the union apply to them.
+  const union = (source, path) => {
+    const key = source.discriminator;
+    if (typeof key !== 'string' || key === '') {
+      throw error('ERR_UNKNOWN_TYPE', 'A union needs a discriminator', path);
+    }
+    if (source.union.length === 0) {
+      throw error('ERR_INVALID_UNION', 'A union needs at least one branch', path);
+    }
+    const values = [];
+    const branches = source.union.map((branch, i) => {
+      const at = `${path}[${i}]`;
+      let node;
+      if (isSchema(branch)) node = branch[PLAN];
+      else if (typeof branch === 'string' && /^[A-Z]/.test(branch) && branch !== context.name) {
+        const target = context.schemas[branch];
+        if (!isSchema(target)) {
+          throw error('ERR_UNKNOWN_REFERENCE', `Unknown reference "${branch}"`, at);
+        }
+        node = target[PLAN];
+      } else node = field(branch, at).node;
+      const index = node.kind === 'struct' && !node.sparse ? node.keys.indexOf(key) : -1;
+      const tag = index === -1 ? null : node.fields[index];
+      if (tag === null || tag.node.type !== 'enum' || tag.def !== null) {
+        throw error(
+          'ERR_INVALID_UNION',
+          `A branch must be a struct with the enum "${key}" without a default`,
+          at,
+        );
+      }
+      const first = values.length;
+      values.push(...tag.node.values);
+      const fields = node.fields
+        .filter((item) => item !== tag)
+        .map((item, j) => ({ ...item, index: j }));
+      let tail = fields.length;
+      while (tail > 0 && !fields[tail - 1].required) tail--;
+      const keys = fields.map((item) => item.key);
+      const shape = { kind: 'struct', fields, keys, sparse: false, tail };
+      shape.tag = { key, position: index, keys: node.keys, values };
+      return { node: shape, first, count: tag.node.values.length, source: node };
+    });
+    const tag = enumeration(list(values, 'ERR_INVALID_UNION', path));
+    return { kind: 'union', key, tag, values, branches };
   };
 
   const struct = (source, keys, path) => {
@@ -216,6 +274,9 @@ const canonical = (node) => {
     return `(${node.items.map((item) => (item.required ? '' : '?') + canonical(item.node)).join(',')})`;
   }
   if (node.kind === 'ref') return `@${node.name}`;
+  if (node.kind === 'union') {
+    return `union(${node.key})[${node.branches.map((branch) => canonical(branch.source)).join('|')}]`;
+  }
   const values = node.values || node.names;
   const type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
   // Only a root scalar carries its own optionality; a field's is on the field.

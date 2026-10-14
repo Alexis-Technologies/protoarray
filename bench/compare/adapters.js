@@ -77,13 +77,30 @@ const ADAPTERS = {
       };
     },
   },
+  // The reference row with the values checked on encode too: what validation costs.
+  'protoarray-both': {
+    name: "protoarray (codegen, validate: 'both')",
+    setup: (scenario) => {
+      const schema = listOf(scenario, scenario.schema.definition, {
+        ...scenario.schema.options,
+        codegen: true,
+        validate: 'both',
+      });
+      return {
+        encode: (value) => schema.stringify(value),
+        decode: (text) => schema.parse(text),
+        bytes: (text) => Buffer.byteLength(text),
+        normalize: (value) => plain(value),
+      };
+    },
+  },
   'protoarray-columns': {
     name: 'protoarray (columns)',
     only: (scenario) => scenario.list === true && scenario.schema.definition.union === undefined,
     setup: (scenario) => {
       const schema = protoarray.Schema.from(
         { array: scenario.schema.definition },
-        { layout: 'columns' },
+        { ...scenario.schema.options, layout: 'columns' },
       );
       return {
         encode: (value) => schema.stringify(value),

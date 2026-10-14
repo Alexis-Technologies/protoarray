@@ -39,8 +39,10 @@ const render = (report, { scenarios, full }) => {
     lines.push('');
   }
   lines.push(
-    `_Node ${report.node} (V8 ${report.v8}), ${report.cpu}, ${report.date.slice(0, 10)}. Median of 5 runs; ` +
-      'bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._',
+    `_Node ${report.node} (V8 ${report.v8}), ${report.cpu}, ${report.date.slice(0, 10)}. ` +
+      'Median of 5 rounds in a fresh process per library and scenario (the spread of the rounds is ' +
+      'in bench/results/compare.json); bytes are the wire size of one payload (binary formats ' +
+      'before any text encoding), gzip at level 6, brotli at quality 5._',
   );
   return lines.join('\n');
 };

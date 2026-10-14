@@ -71,6 +71,20 @@ value travels as `null` and a value of the wrong type travels as it is. The shap
 
 A schema used inside another one keeps its own `validate`, in both directions.
 
+## Checking without encoding
+
+`schema.check(value)` returns the `EncodeError` that encoding the value with validation would
+throw, or `null`, and never throws over the data, so it fits a form or an API boundary:
+
+```js
+const error = User.check(input);
+if (error !== null) reply(400, { code: error.code, path: error.path, message: error.message });
+```
+
+It runs every check even when the schema, or a schema it embeds, was built with
+`validate: false`; that codec is compiled once, on the first call. A cyclic value is the error
+`depth`. `check(schema, value)` is the same as a function.
+
 ## Definition errors
 
 | Code | Cause |

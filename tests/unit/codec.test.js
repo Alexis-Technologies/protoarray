@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { Schema, encode, decode, stringify, parse, EncodeError } = require('../../index.js');
+const { Schema, encode, decode, stringify, parse, check, EncodeError } = require('../../index.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
 const { VECTORS } = require('../support/vectors.js');
 
@@ -210,6 +210,55 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => schema.decode([1, 'no']), { code: 'structure', path: 'inner' });
   });
 
+  test(`Codec (${backend}): check returns what encode would throw, or null`, () => {
+    const User = new Schema('User', { id: 'number', name: '?string' }, options);
+    assert.strictEqual(User.check({ id: 1 }), null);
+    const error = User.check({ id: 'x' });
+    assert.ok(error instanceof EncodeError);
+    assert.deepStrictEqual(
+      [error.code, error.path, error.schema, error.message],
+      ['type', 'id', 'User', 'Field "id" is not of expected type: number'],
+    );
+    assert.strictEqual(User.check(5).code, 'object');
+    assert.strictEqual(User.list.check([{ id: 1 }, {}]).path, '[1].id');
+    assert.strictEqual(User.list.check('x').code, 'array');
+    // It checks where `validate: false` trusts the value, in the schemas it embeds too.
+    const loose = { ...options, validate: false };
+    const Node = new Schema('Node', { v: 'number', kids: { array: 'Node' } }, loose);
+    assert.strictEqual(Node.check({ v: 1, kids: [{ v: 2, kids: [] }] }), null);
+    assert.strictEqual(Node.check({ v: 1, kids: [{ v: 'x', kids: [] }] }).path, 'kids[0].v');
+    assert.deepStrictEqual(Node.encode({ v: 'x', kids: [] }), ['x', []]);
+    const Inner = new Schema('Inner', { n: 'number' }, loose);
+    const Outer = Schema.from(
+      { s: Inner, list: { array: Inner }, named: 'Inner' },
+      { ...options, schemas: { Inner } },
+    );
+    const good = { s: { n: 1 }, list: [], named: { n: 1 } };
+    assert.strictEqual(Outer.check(good), null);
+    assert.strictEqual(Outer.check({ ...good, s: { n: 'x' } }).path, 's.n');
+    assert.strictEqual(Outer.check({ ...good, list: [{ n: 'x' }] }).path, 'list[0].n');
+    assert.strictEqual(Outer.check({ ...good, named: { n: 'x' } }).path, 'named.n');
+    assert.deepStrictEqual(Outer.encode({ ...good, s: { n: 'x' } }), [['x'], [], [1]]);
+    assert.strictEqual(Inner.list.check([{ n: 1 }, { n: 'q' }]).path, '[1].n');
+    const Flat = Schema.from({ array: Inner }, { ...loose, layout: 'flat' });
+    assert.strictEqual(Flat.check([{ n: 'x' }]).path, '[0].n');
+    assert.strictEqual(Flat.check([null]).code, 'type');
+    const Alias = Schema.from('Inner', { ...options, schemas: { Inner } });
+    assert.strictEqual(Alias.check({ n: 'x' }).path, 'n');
+    const cycle = { v: 1, kids: [] };
+    cycle.kids.push(cycle);
+    assert.strictEqual(Node.check(cycle).code, 'depth');
+    // The checking codec is compiled once, and a throwing getter is not a data problem.
+    const CHECKER = Symbol.for('alexify.protoarray.checker');
+    assert.strictEqual(Node[CHECKER], Node[CHECKER]);
+    const bad = {
+      get id() {
+        throw new SyntaxError('boom');
+      },
+    };
+    assert.throws(() => User.check(bad), SyntaxError);
+  });
+
   test(`Codec (${backend}): a root scalar`, () => {
     const schema = Schema.from('?string', options);
     assert.strictEqual(schema.encode('x'), 'x');
@@ -232,9 +281,11 @@ test('Codec: the functional entry points mirror the methods', () => {
   assert.deepStrictEqual(decode(schema, [1]), { id: 1, name: null });
   assert.strictEqual(stringify(schema, { id: 1 }), '[1]');
   assert.deepStrictEqual(parse(schema, '[1]'), { id: 1, name: null });
+  assert.strictEqual(check(schema, { id: 1 }), null);
+  assert.strictEqual(check(schema, {}).code, 'required');
   assert.throws(() => decode(schema, [1, 'x', 2], { strict: true }), { code: 'extra' });
   assert.throws(() => parse(schema, '[1, "x", 2]', { strict: true }), { code: 'extra' });
-  for (const fn of [encode, decode, stringify, parse]) {
+  for (const fn of [encode, decode, stringify, parse, check]) {
     assert.throws(() => fn({ id: 'number' }, {}), {
       code: 'ERR_SCHEMA_EXPECTED',
       message: 'Schema instance expected',

@@ -16,6 +16,9 @@ const mismatch = (type, value) =>
 
 const build = (plan, options) => {
   const { validate } = options;
+  // A checking codec (Schema#check) calls the checking codecs of the schemas
+  // it embeds.
+  const via = options.checking ? 'checker' : 'codec';
 
   // Identity scalars are checked in the loops that read them, without a call.
   const inlineType = (node) =>
@@ -38,7 +41,7 @@ const build = (plan, options) => {
   // Encoders of everything but scalars take a non-null value. A slot (a
   // reference by name or an embedded schema) is called as it is.
   const encoder = (node) => {
-    if (node.slot !== undefined) return (value) => node.slot.codec.encode(value);
+    if (node.slot !== undefined) return (value) => node.slot[via].encode(value);
     if (node.kind === 'struct') return structEncoder(node);
     if (node.kind === 'union') return unionEncoder(node);
     if (node.kind === 'tuple') return tupleEncoder(node);
@@ -194,7 +197,7 @@ const build = (plan, options) => {
       const slot = slotDecoder(node, false, null);
       return (value, strict) => slot(value, '', strict);
     }
-    if (node.slot !== undefined) return (value, strict) => node.slot.codec.decode(value, strict);
+    if (node.slot !== undefined) return (value, strict) => node.slot[via].decode(value, strict);
     if (node.kind === 'struct') return structDecoder(node);
     if (node.kind === 'union') return unionDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);

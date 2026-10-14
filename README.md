@@ -132,7 +132,7 @@ decodes small records faster; the full tables, including those, are in the
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse,
+  encode, decode, stringify, parse, check,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```

@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   narrowed by the discriminator. An unknown discriminator or tag is an `EncodeError` /
   `DecodeError` with code `union`, with or without validation; a broken union is
   `SchemaDefinitionError` `ERR_INVALID_UNION`.
+- **`schema.check(value)`** and `check(schema, value)`: the `EncodeError` that encoding the value
+  with validation would throw, or `null`, without throwing over the data. It validates even a
+  schema built with `validate: false` and the schemas it embeds, through a codec compiled once on
+  the first call.
 
 ### Changed
 

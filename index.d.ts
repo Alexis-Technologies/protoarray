@@ -30,6 +30,7 @@ export interface AnySchema {
   readonly id: string;
   encode(value: any): unknown;
   decode(array: any, options?: DecodeOptions): unknown;
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 
@@ -256,6 +257,12 @@ export class Schema<const D extends Definition = Definition> {
   decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
+  /**
+   * What encoding the value with validation would throw, as the error itself,
+   * or `null`. It checks even where `validate: false` is set, here and in the
+   * schemas this one embeds, and never throws over the data.
+   */
+  check(value: unknown): EncodeError | null;
   /** The canonical form: every position with its type. */
   toString(): string;
 }
@@ -274,6 +281,7 @@ export interface Collection<D extends Definition> {
   decode(array: readonly unknown[], options?: DecodeOptions): Infer<D>[];
   stringify(value: readonly Input<D>[]): string;
   parse(text: string, options?: DecodeOptions): Infer<D>[];
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 
@@ -310,6 +318,8 @@ export function parse<D extends Definition>(
   text: string,
   options?: DecodeOptions,
 ): Infer<D>[];
+
+export function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
 
 export type SchemaErrorCode =
   | 'ERR_INVALID_DEFINITION'

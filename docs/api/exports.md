@@ -3,7 +3,7 @@
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse,
+  encode, decode, stringify, parse, check,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```
@@ -33,13 +33,16 @@ class Schema<const D extends Definition> {
   decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 ```
 
 Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries the codec.
-`encode` throws `EncodeError` for a value of the wrong shape or one validation rejects; `decode` and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken
-definition or option throws `SchemaDefinitionError` from the constructor.
+`encode` throws `EncodeError` for a value of the wrong shape or one validation rejects; `decode`
+and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken definition or option
+throws `SchemaDefinitionError` from the constructor. `check` returns the `EncodeError` that
+encoding the value with validation would throw, or `null`, without throwing over the data.
 
 ```ts
 interface SchemaOptions {
@@ -88,11 +91,20 @@ function parse<D>(schema: Schema<D>, text: string, options?: DecodeOptions): Inf
 `schema.decode(JSON.parse(text), options)`; text that is not JSON throws `DecodeError` with code
 `json` and the `SyntaxError` as `cause`.
 
+## `check(schema, value)`
+
+```ts
+function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
+```
+
+`schema.check(value)`: the problem encoding would find, or `null`. It validates even when the
+schema, or one it embeds, was built with `validate: false`.
+
 ## Errors
 
 ```ts
 class SchemaDefinitionError extends TypeError { code: SchemaErrorCode; schema: string; field: string }
-class EncodeError extends TypeError { code: 'object' | 'array'; path: string; schema: string }
+class EncodeError extends TypeError { code: EncodeErrorCode; path: string; schema: string }
 class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown }
 ```
 

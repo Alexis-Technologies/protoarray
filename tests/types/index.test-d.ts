@@ -4,6 +4,7 @@ import {
   EncodeError,
   Schema,
   SchemaDefinitionError,
+  check,
   decode,
   encode,
   parse,
@@ -183,3 +184,10 @@ expectType<{ a: number }>(Kinded.decode([1]));
 expectAssignable<EncodeErrorCode>('union');
 expectAssignable<DecodeErrorCode>('union');
 expectAssignable<SchemaErrorCode>('ERR_INVALID_UNION');
+
+// check returns the error encode would throw, or null.
+expectType<EncodeError | null>(User.check({}));
+expectType<EncodeError | null>(User.list.check([{}]));
+expectType<EncodeError | null>(check(User, 5));
+expectType<EncodeError | null>(check(User.list, []));
+expectError(check({ id: 'number' }, {}));

@@ -3,7 +3,7 @@
 // is unavailable or switched off), and the instance carries both.
 
 const { SchemaDefinitionError, EncodeError, DecodeError, boundary } = require('./errors.js');
-const { BRAND, PLAN, CODEC, compilePlan, canonical, fingerprint } = require('./plan.js');
+const { BRAND, PLAN, CODEC, CHECKER, compilePlan, canonical, fingerprint } = require('./plan.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
@@ -47,11 +47,37 @@ const readOptions = (options, name) => {
   return settings;
 };
 
+// The codec of a plan, compiled by a backend and wrapped in a layout for a
+// collection. A checking codec validates whatever the options say and calls
+// the checking codecs of the schemas it embeds (see Schema#check).
+const build = (plan, backend, settings, checking) => {
+  const validate = settings.validate || checking;
+  const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
+  let codec = null;
+  if (target.slot !== undefined) {
+    // A layout over a compiled schema, or a root reference by name, reuses
+    // that codec: nothing new to compile.
+    codec = checking ? target.slot.checker : target.slot.codec;
+  } else if (backend === codegen && settings.codegen === undefined) {
+    // The probe only proves that source text compiles: a runtime that still
+    // rejects this one function (its size, a stricter policy) gets closures.
+    try {
+      codec = codegen.build(target, { validate, checking });
+    } catch {
+      backend = closures;
+    }
+  }
+  if (codec === null) codec = backend.build(target, { validate, checking });
+  if (target !== plan) codec = layouts[plan.layout](codec, plan.item.fields.length, validate);
+  return { codec, backend };
+};
+
 class Schema {
   #settings;
   #canonical = null;
   #id = null;
   #list = null;
+  #checker = null;
 
   constructor(name, definition, options) {
     if (typeof name !== 'string') {
@@ -60,7 +86,9 @@ class Schema {
       name = '';
     }
     const settings = readOptions(options, name);
+    // What a reference to the schema's own name calls, filled once built.
     const selfSlot = { codec: null };
+    Object.defineProperty(selfSlot, 'checker', { get: () => this[CHECKER] });
     const plan = compilePlan(definition, { ...settings, name, selfSlot });
     const useCodegen = settings.codegen === undefined ? codegen.available : settings.codegen;
     if (useCodegen && !codegen.available) {
@@ -70,26 +98,7 @@ class Schema {
         name,
       );
     }
-    let backend = useCodegen ? codegen : closures;
-    const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
-    let codec = null;
-    if (target.slot !== undefined) {
-      // A layout over a compiled schema, or a root reference by name, reuses
-      // that codec: nothing new to compile.
-      codec = target.slot.codec;
-    } else if (backend === codegen && settings.codegen === undefined) {
-      // The probe only proves that source text compiles: a runtime that still
-      // rejects this one function (its size, a stricter policy) gets closures.
-      try {
-        codec = codegen.build(target, { validate: settings.validate });
-      } catch {
-        backend = closures;
-      }
-    }
-    if (codec === null) codec = backend.build(target, { validate: settings.validate });
-    if (target !== plan) {
-      codec = layouts[plan.layout](codec, plan.item.fields.length, settings.validate);
-    }
+    const { codec, backend } = build(plan, useCodegen ? codegen : closures, settings, false);
     selfSlot.codec = codec;
     Object.defineProperty(this, BRAND, { value: true });
     Object.defineProperty(this, PLAN, { value: plan });
@@ -133,16 +142,42 @@ class Schema {
     return this.#list;
   }
 
-  encode(value) {
+  // The codec `check` runs, compiled when first asked for: it validates even
+  // where the options say not to, here and in the schemas this one embeds.
+  get [CHECKER]() {
+    if (this.#checker === null) {
+      const backend = this.backend === 'codegen' ? codegen : closures;
+      this.#checker = build(this[PLAN], backend, this.#settings, true).codec;
+    }
+    return this.#checker;
+  }
+
+  #encodeWith(codec, value) {
     const { kind } = this[PLAN];
     if (kind !== 'scalar' && (value === null || typeof value !== 'object')) {
       const code = kind === 'array' || kind === 'tuple' ? 'array' : 'object';
       throw boundary(new EncodeError(code), this.name, false);
     }
     try {
-      return this[CODEC].encode(value);
+      return codec.encode(value);
     } catch (error) {
       throw boundary(error, this.name, false);
+    }
+  }
+
+  encode(value) {
+    return this.#encodeWith(this[CODEC], value);
+  }
+
+  // What encoding this value with validation would throw, as the EncodeError
+  // itself, or null: a check that never throws over the data.
+  check(value) {
+    try {
+      this.#encodeWith(this[CHECKER], value);
+      return null;
+    } catch (error) {
+      if (error instanceof EncodeError) return error;
+      throw error;
     }
   }
 

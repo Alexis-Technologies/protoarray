@@ -27,6 +27,9 @@ try {
 
 const build = (plan, options) => {
   const { validate } = options;
+  // A checking codec (Schema#check) calls the checking codecs of the schemas
+  // it embeds.
+  const via = options.checking ? 'checker' : 'codec';
   const helpers = [];
   const slots = new Map();
   const functions = [];
@@ -91,7 +94,7 @@ const build = (plan, options) => {
       );
     }
     if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
-      const callee = node.slot !== undefined ? `${slot(node.slot)}.codec.encode` : record(node).e;
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.encode` : record(node).e;
       return (
         `if(${src}==null)${nil}else try{${dst}=${callee}(${src});}` +
         `catch(error){throw N(error,${path});}`
@@ -135,7 +138,7 @@ const build = (plan, options) => {
   const decodeInto = (node, src, dst, path) => {
     if (node.kind === 'scalar') return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
     if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
-      const callee = node.slot !== undefined ? `${slot(node.slot)}.codec.decode` : record(node).d;
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.decode` : record(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
     }
     const out = [`if(!Array.isArray(${src}))F('structure',${path},'array');`];

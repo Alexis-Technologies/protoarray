@@ -8,6 +8,7 @@ const { SCALARS, enumeration, flags } = require('./types.js');
 const BRAND = Symbol.for('alexify.protoarray.brand');
 const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');
+const CHECKER = Symbol.for('alexify.protoarray.checker');
 
 // Sparse masks and flags are 32-bit integers; bit 31 would make them negative.
 const MAX_BITS = 31;
@@ -18,6 +19,15 @@ const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
 const DEFAULTABLE = /^(string|number|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
+
+// A compiled schema in a slot: the codec it runs, and the codec that checks
+// values for Schema#check, compiled when first asked for.
+const slotOf = (schema) => ({
+  codec: schema[CODEC],
+  get checker() {
+    return schema[CHECKER];
+  },
+});
 
 const isPlain = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value) && !isSchema(value);
@@ -56,7 +66,7 @@ const compilePlan = (definition, context) => {
     if (!/^[A-Z]/.test(name)) throw error('ERR_UNKNOWN_TYPE', `Unknown type "${name}"`, path);
     if (name === context.name) return { kind: 'ref', name, slot: context.selfSlot };
     const target = context.schemas[name];
-    if (isSchema(target)) return { kind: 'ref', name, slot: { codec: target[CODEC] } };
+    if (isSchema(target)) return { kind: 'ref', name, slot: slotOf(target) };
     throw error('ERR_UNKNOWN_REFERENCE', `Unknown reference "${name}"`, path);
   };
 
@@ -78,7 +88,7 @@ const compilePlan = (definition, context) => {
       }
       // A compiled schema is used as it is, with its own options, exactly like
       // a reference by name: its codec is called through a slot.
-      return { node: { ...node, slot: { codec: source[CODEC] } }, required: true, def: null };
+      return { node: { ...node, slot: slotOf(source) }, required: true, def: null };
     }
     if (typeof source === 'string') return typed(source, path);
     if (Array.isArray(source)) {
@@ -294,4 +304,4 @@ const fingerprint = (text) => {
   return (hash >>> 0).toString(16).padStart(8, '0');
 };
 
-module.exports = { BRAND, PLAN, CODEC, isSchema, compilePlan, canonical, fingerprint };
+module.exports = { BRAND, PLAN, CODEC, CHECKER, isSchema, compilePlan, canonical, fingerprint };

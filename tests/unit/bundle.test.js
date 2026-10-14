@@ -40,13 +40,30 @@ const loadNode = async (minify) => {
   return module.exports;
 };
 
-const checkBundle = ({ encode, decode }) => {
-  assert.strictEqual(typeof encode, 'function');
-  assert.strictEqual(typeof decode, 'function');
-  assert.throws(() => encode({}, { name: 'Alex', age: 27 }), {
-    message: 'encode is not implemented yet',
-  });
-  assert.throws(() => decode({}, ['Alex', 27]), { message: 'decode is not implemented yet' });
+// A schema round trip through both backends, compared as JSON because the
+// browser bundle runs in another realm with its own Array and Object.
+const checkBundle = ({ Schema, encode, decode, stringify, parse }) => {
+  for (const fn of [encode, decode, stringify, parse]) assert.strictEqual(typeof fn, 'function');
+  for (const codegen of [true, false]) {
+    const schema = Schema.from(
+      { name: 'string', age: '?number', 'tags?': { array: 'string' }, 'home?': { city: 'string' } },
+      { codegen },
+    );
+    assert.strictEqual(schema.backend, codegen ? 'codegen' : 'closures');
+    const wire = schema.encode({ name: 'Alex', age: 27, tags: ['a'], home: { city: 'Kyiv' } });
+    assert.strictEqual(JSON.stringify(wire), '["Alex",27,["a"],["Kyiv"]]');
+    const decoded = schema.decode(wire);
+    assert.strictEqual(
+      JSON.stringify(decoded),
+      '{"name":"Alex","age":27,"tags":["a"],"home":{"city":"Kyiv"}}',
+    );
+    assert.strictEqual(stringify(schema, decoded), '["Alex",27,["a"],["Kyiv"]]');
+    assert.strictEqual(
+      JSON.stringify(parse(schema, '["Bob"]')),
+      '{"name":"Bob","age":null,"tags":null,"home":null}',
+    );
+    assert.throws(() => decode(schema, [1]), { code: 'type', path: 'name' });
+  }
 };
 
 for (const minify of [false, true]) {

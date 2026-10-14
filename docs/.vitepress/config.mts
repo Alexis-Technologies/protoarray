@@ -8,8 +8,8 @@ const { version } = createRequire(import.meta.url)('../../package.json') as { ve
 const ogTitle = 'protoarray — compact positional payloads for JavaScript';
 const ogDescription =
   'Zero-dependency, schema-based serialization for Node.js and browsers: objects travel as ' +
-  'positional arrays, and a shared schema maps every position back to its key. A lightweight ' +
-  'alternative to Protocol Buffers.';
+  'positional JSON arrays, and a shared schema maps every position back to its key. Smaller and ' +
+  'faster than JSON, a lightweight alternative to Protocol Buffers.';
 const repo = 'https://github.com/Alexis-Technologies/protoarray';
 const base = '/';
 const hostname = 'https://protoarray.vercel.app/';
@@ -113,6 +113,31 @@ export default defineConfig({
             { text: 'Why protoarray?', link: '/guide/why' },
             { text: 'Getting Started', link: '/guide/getting-started' },
           ],
+        },
+        {
+          text: 'Schemas',
+          items: [
+            { text: 'Defining a Schema', link: '/guide/schema' },
+            { text: 'Types', link: '/guide/types' },
+            { text: 'Optional Fields', link: '/guide/optional-fields' },
+            { text: 'Collections and Layouts', link: '/guide/collections' },
+          ],
+        },
+        {
+          text: 'Using protoarray',
+          items: [
+            { text: 'Schema Evolution', link: '/guide/evolution' },
+            { text: 'Errors and Validation', link: '/guide/errors' },
+            { text: 'TypeScript', link: '/guide/typescript' },
+            { text: 'Runtimes and CSP', link: '/guide/runtimes' },
+            { text: 'Compression', link: '/guide/compression' },
+            { text: 'With wrpc', link: '/guide/wrpc' },
+            { text: 'Benchmarks', link: '/guide/benchmarks' },
+          ],
+        },
+        {
+          text: 'Reference',
+          items: [{ text: 'Wire Format', link: '/guide/wire-format' }],
         },
       ],
       '/api/': [

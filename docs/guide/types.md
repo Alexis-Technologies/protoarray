@@ -62,7 +62,10 @@ S.encode({ perms: { read: true, admin: true } }); // [5]
 S.decode([5]);                                    // { perms: { read: true, write: false, admin: true } }
 ```
 
-Up to 31 names. Add new ones at the end: an older decoder ignores bits it does not know.
+Any number of names. Past 31 the bitmask takes an array of 31-bit words, written as one integer
+while only the first word has bits set: `[[1, 16]]` is names 0 and 35. A decoder reads either
+form. Add new names at the end: an older decoder ignores bits it does not know, and a newer one
+reads a missing word as zero.
 
 ## Tuples
 

@@ -3,7 +3,7 @@
 // is the reference the codegen backend is checked against in the test suite.
 
 const { EXPECTED, fail, nest, refuse } = require('./errors.js');
-const { literal } = require('./types.js');
+const { WORD, literal } = require('./types.js');
 
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
@@ -117,7 +117,12 @@ const build = (plan, options) => {
       if (typeof object !== 'object') refuse('object', '');
       const out = sparse ? [0] : new Array(width);
       if (lead === 1) out[0] = t;
+      // A sparse record is one [mask, ...present values] segment per 31
+      // fields: `start` is where the current mask goes, `keep` where the last
+      // segment with something in it ends (the first one is always kept).
       let mask = 0;
+      let start = 0;
+      let keep = 0;
       for (let i = 0; i < size; i++) {
         const value = object[keys[i]];
         const encode = encoders[i];
@@ -137,13 +142,24 @@ const build = (plan, options) => {
           }
         } else if (required[i]) refuse('required', keys[i]);
         if (!sparse) out[i + lead] = wire;
-        else if (wire !== null) {
-          mask |= 1 << i;
-          out.push(wire);
+        else {
+          if (i > 0 && i % WORD === 0) {
+            out[start] = mask;
+            if (start === 0 || mask !== 0) keep = out.length;
+            start = out.length;
+            out.push(0);
+            mask = 0;
+          }
+          if (wire !== null) {
+            mask |= 1 << (i % WORD);
+            out.push(wire);
+          }
         }
       }
       if (sparse) {
-        out[0] = mask;
+        out[start] = mask;
+        if (start === 0 || mask !== 0) keep = out.length;
+        if (keep < out.length) out.length = keep;
         return out;
       }
       let length = width;
@@ -254,19 +270,21 @@ const build = (plan, options) => {
       const object = { ...template };
       if (lead === 1) object[tag.key] = tag.values[t];
       let mask = 0;
-      let next = 1;
-      if (sparse) {
-        mask = array[0];
-        if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
-      } else if (strict && length > size + lead) {
-        fail('extra', '');
-      }
+      let next = 0;
+      if (!sparse && strict && length > size + lead) fail('extra', '');
       for (let i = 0; i < size; i++) {
         const key = keys[i];
         const field = fields[i];
         let value = null;
         if (!sparse) value = i + lead < length ? array[i + lead] : null;
-        else if ((mask & (1 << i)) !== 0) value = array[next++];
+        else {
+          // The first mask is required; a later segment may be missing.
+          if (i % WORD === 0) {
+            mask = i === 0 || next < length ? array[next++] : 0;
+            if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
+          }
+          if ((mask & (1 << (i % WORD))) !== 0) value = array[next++];
+        }
         if (field.decode !== null) {
           object[key] = field.decode(value, key, strict);
         } else if (value == null) {

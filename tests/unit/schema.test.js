@@ -152,14 +152,11 @@ test('Schema: enum, flags and default errors', () => {
     {
       code: 'ERR_INVALID_FLAGS',
       field: 'perms',
-      message: 'Expected up to 31 unique names at "perms"',
+      message: 'Expected unique names at "perms"',
     },
   );
   invalid({ perms: { flags: [1] } }, { code: 'ERR_INVALID_FLAGS' });
-  invalid(
-    { perms: { flags: Array.from({ length: 32 }, (_, i) => `f${i}`) } },
-    { code: 'ERR_INVALID_FLAGS' },
-  );
+  assert.ok(Schema.from({ perms: { flags: Array.from({ length: 70 }, (_, i) => `f${i}`) } }));
   invalid({ perms: { flags: ['a', '__proto__'] } }, { code: 'ERR_INVALID_FLAGS' });
   invalid({ perms: { type: 'flags', flags: ['a', 'a'] } }, { code: 'ERR_INVALID_FLAGS' });
   invalid({ n: { type: 'number', default: {} } }, { code: 'ERR_INVALID_DEFINITION', field: 'n' });
@@ -200,10 +197,16 @@ test('Schema: option errors', () => {
     { code: 'ERR_INVALID_OPTIONS' },
     { layout: 'flat' },
   );
+  invalid(
+    { array: 'number' },
+    { code: 'ERR_INVALID_OPTIONS', message: 'sparse needs a struct' },
+    {
+      sparse: true,
+    },
+  );
   const wide = {};
-  for (let i = 0; i < 32; i++) wide[`f${i}`] = 'number';
-  invalid(wide, { code: 'ERR_INVALID_OPTIONS' }, { sparse: true });
-  assert.strictEqual(Schema.from(wide).keys.length, 32);
+  for (let i = 0; i < 70; i++) wide[`f${i}`] = 'number';
+  assert.strictEqual(Schema.from(wide, { sparse: true }).layout, 'sparse');
   assert.strictEqual(
     Schema.from({ a: 'string' }, { codegen: undefined, layout: undefined }).backend,
     'codegen',

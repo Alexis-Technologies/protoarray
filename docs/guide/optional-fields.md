@@ -67,9 +67,22 @@ S.decode([9, 1, 4]);      // { a: 1, b: null, c: null, d: 4 }
 ```
 
 On twenty optional fields with three set, a sparse record is 46 bytes where the dense form is 114
-and keyed JSON is 86, and it decodes faster than either. A sparse struct takes up to 31 fields.
-It can be nested in other schemas by value, and used as the record of a `rows` collection, but
+and keyed JSON is 86, and it decodes faster than either. It can be nested in other schemas by value, and used as the record of a `rows` collection, but
 not with the `flat` or `columns` layouts.
+
+A mask holds 31 fields. A wider record takes one segment per 31 fields, each a mask followed by
+its present values, and trailing segments with nothing in them are left off:
+
+```js
+// 40 optional fields, f0, f3 and f35 set:
+S.encode(value); // [9, 1, 2, 16, 3]  — 9 marks f0 and f3, 16 marks f35 (bit 4 of fields 31–61)
+// only f3 set:   [8, 2]              — the second segment is empty, so it is not written
+```
+
+Up to 31 fields that is exactly the one-mask form, so a record can grow past 31 fields without
+breaking older decoders: they read the first segment and ignore the rest (`{ strict: true }`
+rejects it as `extra`). Past the first segment, an element where a segment starts must be a
+mask.
 
 ## Decoding strictly
 

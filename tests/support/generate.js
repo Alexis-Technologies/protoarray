@@ -1,6 +1,8 @@
 // Seeded random definitions and matching values for the parity suite: wide
 // enough to reach every node kind, every optionality and nesting.
 const SCALARS = ['string', 'number', 'boolean', 'json', 'date', 'bigint'];
+// More names than one 31-bit word holds.
+const WIDE_FLAGS = Array.from({ length: 40 }, (_, i) => `n${i}`);
 const STRINGS = [
   '',
   'a',
@@ -23,7 +25,7 @@ const fieldType = (random, depth) => {
   if (depth > 0 && roll < 0.15) return struct(random, depth - 1);
   if (depth > 0 && roll < 0.3) return { array: fieldType(random, depth - 1) };
   if (roll < 0.38) return { enum: ['a', 'b', 'c'] };
-  if (roll < 0.46) return { flags: ['x', 'y', 'z'] };
+  if (roll < 0.46) return random() < 0.25 ? { flags: WIDE_FLAGS } : { flags: ['x', 'y', 'z'] };
   if (roll < 0.5) return ['number', '?string'];
   if (roll < 0.54) {
     return {
@@ -67,6 +69,7 @@ const valueFor = (random, type) => {
     if (roll < 0.5) return random() < 0.5 ? { k: 'a', x: 1 } : { k: 'a', x: 2, y: 'Олена' };
     return roll < 0.75 ? { k: 'b' } : { k: 'c', z: true };
   }
+  if (type.flags === WIDE_FLAGS) return { n1: random() < 0.5, n35: random() < 0.5 };
   if (type.flags) return { x: random() < 0.5, z: random() < 0.5 };
   if (type.type) return scalarValue(random, type.type);
   if (type.array) {
@@ -88,9 +91,19 @@ const record = (random, definition) => {
   return value;
 };
 
+// A record of 32 to 70 fields, mostly optional: a sparse one takes several segments.
+const wide = (random) => {
+  const count = 32 + Math.floor(random() * 39);
+  const definition = {};
+  for (let i = 0; i < count; i++) {
+    definition[random() < 0.7 ? `f${i}?` : `f${i}`] = fieldType(random, 1);
+  }
+  return definition;
+};
+
 const generate = (seed) => {
   const random = prng(seed);
-  const definition = struct(random, 2);
+  const definition = seed % 5 === 0 ? wide(random) : struct(random, 2);
   return { definition, value: record(random, definition), random };
 };
 

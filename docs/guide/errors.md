@@ -92,11 +92,11 @@ It runs every check even when the schema, or a schema it embeds, was built with
 | `ERR_INVALID_DEFINITION` | not a definition, an empty struct or tuple, a duplicate key, a bad default, a non-scalar tuple element |
 | `ERR_UNKNOWN_TYPE` | an unknown type name, a metaschema shorthand protoarray does not support (a `union` without a `discriminator` too), or a struct starting with a type name |
 | `ERR_INVALID_UNION` | an empty union, a branch that is not a dense struct with the discriminator as an enum without a default, the same value in two branches |
-| `ERR_INVALID_ENUM`, `ERR_INVALID_FLAGS` | an empty list, duplicates, wrong value types, more than 31 flags (an enum has no size limit) |
+| `ERR_INVALID_ENUM`, `ERR_INVALID_FLAGS` | an empty list, duplicates, wrong value types (neither has a size limit) |
 | `ERR_UNKNOWN_REFERENCE` | a capitalised name that is neither the schema's own name nor in `options.schemas` |
 | `ERR_RESERVED_KEY` | `__proto__` as a key |
 | `ERR_INTEGER_KEY` | a key like `'1'`, which JavaScript would order first |
-| `ERR_INVALID_OPTIONS` | an unknown option, a wrong type, `sparse` on a non-struct or on more than 31 fields, a layout on a non-collection |
+| `ERR_INVALID_OPTIONS` | an unknown option, a wrong type, `sparse` on a non-struct, a layout on a non-collection |
 | `ERR_CODEGEN_UNAVAILABLE` | `{ codegen: true }` where `new Function` is blocked |
 | `ERR_SCHEMA_EXPECTED` | `encode(schema, …)` and friends called with something that is not a `Schema` |
 

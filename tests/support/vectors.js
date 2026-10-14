@@ -8,6 +8,12 @@ const Items = Schema.from({ array: { a: 'number', b: '?number' } }, { layout: 'f
 
 const AT = 1700000000000;
 
+// 40 optional fields: a sparse record takes two segments of masks.
+const WIDE = {};
+for (let i = 0; i < 40; i++) WIDE[`f${i}`] = '?number';
+const NAMES = Array.from({ length: 40 }, (_, i) => `n${i}`);
+const allFalse = Object.fromEntries(NAMES.map((name) => [name, false]));
+
 const VECTORS = [
   {
     name: 'flat record',
@@ -266,6 +272,41 @@ const VECTORS = [
     value: { a: 1, d: 4 },
     wire: [9, 1, 4],
     decoded: { a: 1, b: null, c: null, d: 4 },
+  },
+  {
+    name: 'a sparse record past 31 fields takes a segment per 31',
+    definition: WIDE,
+    options: { sparse: true },
+    value: { f0: 1, f3: 2, f35: 3 },
+    wire: [9, 1, 2, 16, 3],
+    decoded: {
+      ...Object.fromEntries(Object.keys(WIDE).map((key) => [key, null])),
+      f0: 1,
+      f3: 2,
+      f35: 3,
+    },
+  },
+  {
+    name: 'trailing empty segments are trimmed',
+    definition: WIDE,
+    options: { sparse: true },
+    value: { f3: 2 },
+    wire: [8, 2],
+    decoded: { ...Object.fromEntries(Object.keys(WIDE).map((key) => [key, null])), f3: 2 },
+  },
+  {
+    name: 'flags past 31 names take an array of words',
+    definition: { perms: { flags: NAMES } },
+    value: { perms: { n0: true, n35: true } },
+    wire: [[1, 16]],
+    decoded: { perms: { ...allFalse, n0: true, n35: true } },
+  },
+  {
+    name: 'wide flags stay one integer while the first word holds them all',
+    definition: { perms: { flags: NAMES } },
+    value: { perms: { n2: true } },
+    wire: [4],
+    decoded: { perms: { ...allFalse, n2: true } },
   },
   {
     name: 'root array of records',

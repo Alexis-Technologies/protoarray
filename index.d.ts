@@ -210,7 +210,7 @@ export interface SchemaOptions {
    * array structure is always checked.
    */
   readonly validate?: boolean;
-  /** Encode a struct as `[mask, ...present values]` (up to 31 fields). */
+  /** Encode a struct as `[mask, ...present values]`, one such segment per 31 fields. */
   readonly sparse?: boolean;
   /** Layout of a collection of records (default `'rows'`). */
   readonly layout?: Layout;

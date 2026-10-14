@@ -13,6 +13,7 @@
 // branch.
 
 const { EXPECTED, fail, nest, refuse } = require('./errors.js');
+const { WORD } = require('./types.js');
 
 const str = JSON.stringify;
 
@@ -222,12 +223,23 @@ const build = (plan, options) => {
       enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key, required)}`);
       values.push(w);
     }
-    if (node.sparse) {
+    if (node.sparse && size <= WORD) {
       enc.push('const r=[0];let m=0;');
       for (let i = 0; i < size; i++) {
         enc.push(`if(${values[i]}!==null){m|=${1 << i};r.push(${values[i]});}`);
       }
       enc.push('r[0]=m;return r;');
+    } else if (node.sparse) {
+      // One [mask, ...present values] segment per 31 fields; `l` is where the
+      // last segment with something in it ends, the first one always kept.
+      enc.push('const r=[0];let m=0,s=0,l=0;');
+      for (let i = 0; i < size; i++) {
+        if (i > 0 && i % WORD === 0) {
+          enc.push(`r[s]=m;${i === WORD ? '' : 'if(m!==0)'}l=r.length;s=r.length;r.push(0);m=0;`);
+        }
+        enc.push(`if(${values[i]}!==null){m|=${1 << (i % WORD)};r.push(${values[i]});}`);
+      }
+      enc.push('r[s]=m;if(m!==0)l=r.length;if(l<r.length)r.length=l;return r;');
     } else if (tail === width) {
       enc.push(`return [${values}];`);
     } else {
@@ -239,9 +251,10 @@ const build = (plan, options) => {
     functions.push(`function ${fns.e}(o${lead === 0 ? '' : ',t'}){${enc.join('')}}`);
     const dec = lead === 0 ? [`if(!Array.isArray(a))F('structure',"",'array');`] : [];
     let read;
+    const mask = `if(typeof m!=='number'||(m|0)!==m)F('structure',"",'mask');`;
     if (node.sparse) {
-      dec.push(`const m=a[0];if(typeof m!=='number'||(m|0)!==m)F('structure',"",'mask');let p=1;`);
-      read = (i) => `(m&${1 << i})!==0?a[p++]:null`;
+      dec.push(`${size <= WORD ? 'const' : 'let'} m=a[0];${mask}let p=1;`);
+      read = (i) => `(m&${1 << (i % WORD)})!==0?a[p++]:null`;
     } else {
       dec.push(`const n=a.length;if(strict&&n>${width})F('extra',"");`);
       read = (i) => `n>${i + lead}?a[${i + lead}]:null`;
@@ -249,6 +262,10 @@ const build = (plan, options) => {
     const parts = [];
     for (const field of node.fields) {
       const v = uid('v');
+      // A later segment may be missing: its fields are all null.
+      if (node.sparse && field.index > 0 && field.index % WORD === 0) {
+        dec.push(`m=p<a.length?a[p++]:0;${mask}`);
+      }
       dec.push(`const ${v}=${read(field.index)};`);
       const value = slotValue(field.node, field.required, field.def, v, str(field.key), dec);
       parts.push(`${str(field.key)}:${value}`);

@@ -10,8 +10,6 @@ const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');
 const CHECKER = Symbol.for('alexify.protoarray.checker');
 
-// Sparse masks and flags are 32-bit integers; bit 31 would make them negative.
-const MAX_BITS = 31;
 // metaschema shorthands that have no positional form yet: rejected loudly so a
 // shared definition never silently changes meaning.
 const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
@@ -43,18 +41,17 @@ const compilePlan = (definition, context) => {
     return new SchemaDefinitionError(code, message, context.name, path);
   };
 
-  // Enum values travel as an index, so their number is free; flags are bits.
+  // Enum values travel as an index and flags as bits, so their number is free.
   const list = (values, code, path) => {
     const bits = code === 'ERR_INVALID_FLAGS';
     const names = Array.isArray(values) ? values.map(String) : [];
     const valid =
       names.length > 0 &&
-      (!bits || names.length <= MAX_BITS) &&
       new Set(names).size === names.length &&
       !names.includes('__proto__') &&
       values.every((value) => typeof value === 'string' || (typeof value === 'number' && !bits));
     if (!valid) {
-      const expected = bits ? `up to ${MAX_BITS} unique names` : 'unique strings or numbers';
+      const expected = bits ? 'unique names' : 'unique strings or numbers';
       throw error(code, `Expected ${expected}`, path);
     }
     return values.slice();
@@ -248,8 +245,8 @@ const compilePlan = (definition, context) => {
     node = plain;
   }
   if (context.sparse) {
-    if (node.kind !== 'struct' || node.fields.length > MAX_BITS) {
-      throw error('ERR_INVALID_OPTIONS', `sparse needs a struct of up to ${MAX_BITS} fields`, '');
+    if (node.kind !== 'struct') {
+      throw error('ERR_INVALID_OPTIONS', 'sparse needs a struct', '');
     }
     node = { ...node, sparse: true };
   }

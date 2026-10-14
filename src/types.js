@@ -80,25 +80,45 @@ const enumeration = (values) => {
   return node;
 };
 
+// A word of a bitmask: 31 bits, since bit 31 would make it negative.
+const WORD = 31;
+
+const isWord = (v) => typeof v === 'number' && (v | 0) === v && v >= 0;
+
+// Up to 31 names travel as one integer. More take an array of 31-bit words,
+// written as one integer while only the first word has bits set, so a
+// decoder reads either form and ignores the bits it has no name for.
 const flags = (names) => {
   const size = names.length;
   const template = literal(names, 'false');
   return scalar('flags', {
     names,
-    check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0,
+    check: (v) => isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)),
     accept: (v) => typeof v === 'object',
     pack: (v) => {
       let mask = 0;
-      for (let i = 0; i < size; i++) if (v[names[i]]) mask |= 1 << i;
-      return mask;
+      for (let i = 0; i < size && i < WORD; i++) if (v[names[i]]) mask |= 1 << i;
+      if (size <= WORD) return mask;
+      const words = [mask];
+      for (let i = WORD; i < size; i++) {
+        if (!v[names[i]]) continue;
+        const at = (i / WORD) | 0;
+        while (words.length <= at) words.push(0);
+        words[at] |= 1 << (i % WORD);
+      }
+      return words.length === 1 ? mask : words;
     },
     unpack: (v) => {
-      if (typeof v !== 'number') return v;
+      const single = typeof v === 'number';
+      if (!single && !Array.isArray(v)) return v;
       const object = { ...template };
-      for (let i = 0; i < size; i++) object[names[i]] = (v & (1 << i)) !== 0;
+      for (let i = 0; i < size; i++) {
+        const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
+        object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
+      }
       return object;
     },
   });
 };
 
-module.exports = { SCALARS, enumeration, flags, literal };
+module.exports = { SCALARS, WORD, enumeration, flags, literal };

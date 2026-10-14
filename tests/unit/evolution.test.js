@@ -74,6 +74,34 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(S2.decode(S1.encode({ b: 2 })), { a: null, b: 2, c: null });
   });
 
+  test(`Evolution (${backend}): sparse records grow past 31 fields`, () => {
+    const narrow = {};
+    for (let i = 0; i < 31; i++) narrow[`f${i}`] = '?number';
+    const wide = { ...narrow };
+    for (let i = 31; i < 40; i++) wide[`f${i}`] = '?number';
+    const N = Schema.from(narrow, { ...options, sparse: true });
+    const W = Schema.from(wide, { ...options, sparse: true });
+    // An older decoder reads the first segment and ignores the next one.
+    const wire = W.encode({ f0: 1, f35: 2 });
+    assert.deepStrictEqual(wire, [1, 1, 16, 2]);
+    assert.strictEqual(N.decode(wire).f0, 1);
+    assert.throws(() => N.decode(wire, { strict: true }), { code: 'extra' });
+    // A newer decoder reads an older payload as is.
+    assert.deepStrictEqual(W.decode(N.encode({ f30: 7 })).f30, 7);
+    assert.deepStrictEqual(W.encode({ f30: 7 }), N.encode({ f30: 7 }));
+  });
+
+  test(`Evolution (${backend}): flags grow past 31 names`, () => {
+    const names = Array.from({ length: 40 }, (_, i) => `n${i}`);
+    const Narrow = Schema.from({ p: { flags: names.slice(0, 31) } }, options);
+    const Wide = Schema.from({ p: { flags: names } }, options);
+    assert.deepStrictEqual(Wide.encode({ p: { n1: true } }), Narrow.encode({ p: { n1: true } }));
+    const wire = Wide.encode({ p: { n1: true, n35: true } });
+    assert.deepStrictEqual(wire, [[2, 16]]);
+    assert.deepStrictEqual(Narrow.decode(wire).p.n1, true);
+    assert.deepStrictEqual(Wide.decode([2]).p.n35, false);
+  });
+
   test(`Evolution (${backend}): columns grow the same way`, () => {
     const C1 = Schema.from({ array: { a: 'number' } }, { ...options, layout: 'columns' });
     const C2 = Schema.from(

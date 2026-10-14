@@ -48,7 +48,7 @@ encoding the value with validation would throw, or `null`, without throwing over
 interface SchemaOptions {
   codegen?: boolean;   // true: require generated code; false: closures; default: what the runtime allows
   validate?: boolean;  // check values on encode and the wire on decode (default true)
-  sparse?: boolean;    // [mask, ...present values] for a struct of up to 31 fields
+  sparse?: boolean;    // [mask, ...present values], a segment per 31 fields
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
   fingerprint?: (canonical: string) => string;     // computes `id`; default: FNV-1a 32-bit, 8 hex digits

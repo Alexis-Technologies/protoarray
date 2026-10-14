@@ -92,7 +92,8 @@ it on their own from the same definition, which is what makes the handshake work
 time-based identifier (a cuid, a ulid) would differ between two copies of the same schema; if you
 need hand-written version ids, keep a map from id to schema in the application instead.
 
-### What cannot change inside 1.x
+### Past 31 fields or names
 
-A sparse record and a `flags` field carry at most 31 slots: the mask is one 32-bit integer. A
-wider mask would be a new wire format and a new major version, not an option.
+A sparse record and a `flags` field grow past 31 slots without breaking anyone: the first 31 keep
+the 1.0 form (one integer), and the rest follow in extra segments or words that an older decoder
+ignores. Only a strict decoder notices them, as `extra`.

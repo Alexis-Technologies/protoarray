@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with validation would throw, or `null`, without throwing over the data. It validates even a
   schema built with `validate: false` and the schemas it embeds, through a codec compiled once on
   the first call.
+- **Sparse records past 31 fields**: one `[mask, ...present values]` segment per 31 fields,
+  trailing empty segments left off. Up to 31 fields the wire is the 1.0 form, so a sparse record
+  can grow past 31 fields without breaking older decoders, which read the first segment.
+- **Flags past 31 names**: the bitmask becomes an array of 31-bit words, still written as one
+  integer while only the first word has bits set; decoders take either form.
 
 ### Changed
 

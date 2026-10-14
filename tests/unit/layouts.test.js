@@ -48,13 +48,46 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => Outer.decode([[1, 1], [[5, 2, 3]]]), { path: 'list[0].c' });
   });
 
-  test(`Layouts (${backend}): sparse records use up to 31 bits`, () => {
+  test(`Layouts (${backend}): a sparse mask is 31 bits`, () => {
     const definition = {};
     for (let i = 0; i < 31; i++) definition[`f${i}`] = '?number';
     const S = Schema.from(definition, { ...options, sparse: true });
     assert.deepStrictEqual(S.encode({ f30: 1 }), [1073741824, 1]);
     assert.strictEqual(S.decode([1073741824, 1]).f30, 1);
     assert.strictEqual(S.decode([1073741824, 1]).f0, null);
+    // Up to 31 fields the wire is one segment, as in 1.0: whatever follows is extra.
+    assert.deepStrictEqual(S.decode([1, 1, 'next']).f0, 1);
+    assert.throws(() => S.decode([1, 1, 'next'], { strict: true }), { code: 'extra' });
+  });
+
+  test(`Layouts (${backend}): wider sparse records take a segment per 31 fields`, () => {
+    const definition = {};
+    for (let i = 0; i < 70; i++) definition[`f${i}`] = '?number';
+    definition.f1 = 'number';
+    const S = Schema.from(definition, { ...options, sparse: true });
+    // [mask0, ...values0, mask1, ...values1, mask2, ...values2], trailing empty segments trimmed.
+    assert.deepStrictEqual(S.encode({ f1: 1, f3: 2, f35: 3 }), [10, 1, 2, 16, 3]);
+    assert.deepStrictEqual(S.encode({ f1: 1 }), [2, 1]);
+    assert.deepStrictEqual(S.encode({ f1: 1, f65: 9 }), [2, 1, 0, 8, 9]);
+    assert.deepStrictEqual(S.encode({ f1: 1, f61: 4, f62: 5 }), [2, 1, 1073741824, 4, 1, 5]);
+    const decoded = S.decode([10, 1, 2, 16, 3]);
+    assert.deepStrictEqual([decoded.f1, decoded.f3, decoded.f35, decoded.f36], [1, 2, 3, null]);
+    assert.strictEqual(Object.keys(decoded).length, 70);
+    assert.strictEqual(S.decode([2, 1, 0, 8, 9]).f65, 9);
+    // A missing segment is a segment of nulls; a strict decoder counts every element.
+    assert.strictEqual(S.decode([2, 1]).f35, null);
+    assert.deepStrictEqual(S.decode([2, 1, 0, 0], { strict: true }).f1, 1);
+    assert.throws(() => S.decode([2, 1, 0, 0, 0, 'x'], { strict: true }), { code: 'extra' });
+    // Past the first segment the next element must be a mask.
+    assert.throws(() => S.decode([2, 1, 'x']), {
+      code: 'structure',
+      path: '',
+      message: 'Value is not a sparse mask',
+    });
+    assert.throws(() => S.decode([2, 1, 1.5]), { code: 'structure' });
+    assert.throws(() => S.decode([0, 0]), { code: 'required', path: 'f1' });
+    assert.throws(() => S.decode([2, 1, 16, 'x']), { code: 'type', path: 'f35' });
+    assert.throws(() => S.encode({ f1: 1, f40: 'x' }), { code: 'type', path: 'f40' });
   });
 
   test(`Layouts (${backend}): flat concatenates fixed-width rows`, () => {

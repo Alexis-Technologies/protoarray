@@ -87,6 +87,34 @@ for (const [backend, options] of BACKENDS) {
     const Optional = Schema.from({ p: { flags: ['a'], required: false } }, options);
     assert.deepStrictEqual(Optional.encode({}), []);
     assert.deepStrictEqual(Optional.decode([]), { p: null });
+    // A decoder takes the array form too, and ignores the words it has no names for.
+    assert.deepStrictEqual(F.decode([[5, 7]]), { p: { a: true, b: false, c: true } });
+    for (const bad of [[], [1.5], [1, -1], ['1'], [null]]) {
+      assert.throws(() => F.decode([bad]), { code: 'type', path: 'p' });
+    }
+  });
+
+  test(`Types (${backend}): flags past 31 names take an array of words`, () => {
+    const names = Array.from({ length: 70 }, (_, i) => `n${i}`);
+    const W = Schema.from({ p: { flags: names } }, options);
+    assert.deepStrictEqual(W.encode({ p: {} }), [0]);
+    assert.deepStrictEqual(W.encode({ p: { n0: true, n30: true } }), [1073741825]);
+    assert.deepStrictEqual(W.encode({ p: { n31: true } }), [[0, 1]]);
+    assert.deepStrictEqual(W.encode({ p: { n0: true, n69: true } }), [[1, 0, 128]]);
+    const decoded = W.decode([[1, 0, 128]]).p;
+    assert.deepStrictEqual(Object.keys(decoded), names);
+    assert.deepStrictEqual(
+      names.filter((name) => decoded[name]),
+      ['n0', 'n69'],
+    );
+    assert.strictEqual(W.decode([1]).p.n0, true);
+    assert.strictEqual(W.decode([1]).p.n31, false);
+    assert.strictEqual(W.decode([[0, 1]]).p.n31, true);
+    // Without validation a stray value stays as it is and a stray word counts as 0.
+    const Loose = Schema.from(W.definition, { ...options, validate: false });
+    assert.strictEqual(Loose.decode(['x']).p, 'x');
+    assert.strictEqual(Loose.decode([[1, 'x', 1n]]).p.n0, true);
+    assert.strictEqual(Loose.decode([[1, 'x', 1n]]).p.n62, false);
   });
 
   test(`Types (${backend}): json is never required`, () => {

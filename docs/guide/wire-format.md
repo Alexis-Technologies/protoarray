@@ -18,7 +18,7 @@ examples on these pages come from there.
 | `{ enum: [...] }` | the index, any number of values; an unknown value → `null` |
 | `date` | epoch milliseconds; an invalid date → `null` |
 | `bigint` | a decimal string |
-| `{ flags: [...] }` | an integer; bit *i* is name *i*; up to 31 names |
+| `{ flags: [...] }` | an integer; bit *i* is name *i*; past 31 names an array of 31-bit words (word *i* / 31, bit *i* % 31), still one integer while only the first word has bits set |
 | `{ union: [...], discriminator }` | `[tag, ...the branch's other fields]`; the tag is the index of the discriminator value among the values of all branches; trailing optionals trimmed down to `[tag]` |
 | `json` | the value, by reference; never required |
 | `string`, `number`, `boolean` | as is |
@@ -27,7 +27,7 @@ examples on these pages come from there.
 
 | Layout | On the wire |
 | --- | --- |
-| Struct, `{ sparse: true }` | `[mask, ...present values]`; bit *i* of the mask marks field *i*; up to 31 fields |
+| Struct, `{ sparse: true }` | `[mask, ...present values]`; bit *i* of the mask marks field *i*; past 31 fields one such segment per 31 fields, trailing empty segments left off |
 | Collection, `rows` | `[[...], [...]]` |
 | Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s (without validation) |
 | Collection, `columns` | `[column0, column1, ...]`, one array per field, each as long as the list; a missing or `null` column is a column of `null`s |

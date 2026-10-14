@@ -194,7 +194,7 @@ for (const [backend, options] of BACKENDS) {
         message: 'Field "data" is not of expected type: bytes',
       });
     }
-    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 5, ['AQI=']]) {
+    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 'AB==', 5, ['AQI=']]) {
       assert.throws(() => B.decode([bad]), { code: 'type', path: 'data' });
     }
     assert.throws(() => B.decode([null]), { code: 'required', path: 'data' });

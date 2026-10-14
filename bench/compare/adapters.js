@@ -79,7 +79,7 @@ const ADAPTERS = {
   },
   'protoarray-columns': {
     name: 'protoarray (columns)',
-    only: (scenario) => scenario.list === true,
+    only: (scenario) => scenario.list === true && scenario.schema.definition.union === undefined,
     setup: (scenario) => {
       const schema = protoarray.Schema.from(
         { array: scenario.schema.definition },
@@ -100,8 +100,10 @@ const ADAPTERS = {
       const root = protobuf.Root.fromJSON(scenario.schema.proto);
       const Message = root.lookupType(scenario.message);
       const dates = dateFields(scenario);
+      // A tagged union travels as a oneof, which has its own shape.
+      const { toProto = (value) => value, fromProto = (value) => value } = scenario.schema;
       const toMessage = (value) => {
-        const copy = { ...value };
+        const copy = toProto({ ...value });
         for (const key of dates) copy[key] = value[key].getTime();
         return Message.fromObject(copy);
       };
@@ -115,14 +117,14 @@ const ADAPTERS = {
           encode: (value) => List.encode({ items: value.map(toMessage) }).finish(),
           decode: (buffer) => List.decode(buffer),
           bytes: (buffer) => buffer.length,
-          normalize: (message) => List.toObject(message, options).items,
+          normalize: (message) => List.toObject(message, options).items.map(fromProto),
         };
       }
       return {
         encode: (value) => Message.encode(toMessage(value)).finish(),
         decode: (buffer) => Message.decode(buffer),
         bytes: (buffer) => buffer.length,
-        normalize: (message) => Message.toObject(message, options),
+        normalize: (message) => fromProto(Message.toObject(message, options)),
       };
     },
   },
@@ -131,11 +133,15 @@ const ADAPTERS = {
     setup: (scenario) => {
       const avro = require('avsc');
       const dates = dateFields(scenario);
-      const record = avro.Type.forSchema(scenario.schema.avro, { wrapUnions: false });
+      // A union of records needs wrapped values: { Call: {...} }.
+      const wrapUnions = scenario.schema.wrapUnions === true;
+      const { toAvro, fromAvro = (value) => value } = scenario.schema;
+      const record = avro.Type.forSchema(scenario.schema.avro, { wrapUnions });
       const type = scenario.list
-        ? avro.Type.forSchema({ type: 'array', items: record }, { wrapUnions: false })
+        ? avro.Type.forSchema({ type: 'array', items: record }, { wrapUnions })
         : record;
       const prepare = (value) => {
+        if (toAvro !== undefined) return scenario.list ? value.map(toAvro) : toAvro(value);
         if (dates.length === 0 && scenario.name !== 'sparse') return value;
         const one = (item) => {
           const copy = {};
@@ -150,7 +156,10 @@ const ADAPTERS = {
         encode: (value) => type.toBuffer(prepare(value)),
         decode: (buffer) => type.fromBuffer(buffer),
         bytes: (buffer) => buffer.length,
-        normalize: (value) => JSON.parse(JSON.stringify(value)),
+        normalize: (value) => {
+          const json = JSON.parse(JSON.stringify(value));
+          return scenario.list ? json.map(fromAvro) : fromAvro(json);
+        },
       };
     },
   },
@@ -209,6 +218,7 @@ const ADAPTERS = {
   },
   'fast-json-stringify': {
     name: 'fast-json-stringify (encode) + JSON.parse',
+    only: (scenario) => scenario.schema.json !== undefined,
     setup: (scenario) => {
       const fjs = require('fast-json-stringify');
       const schema = scenario.list

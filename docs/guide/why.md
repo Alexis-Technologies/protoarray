@@ -52,7 +52,8 @@ small. The payload is still plain JSON.
 
 - **No toolchain.** No `.proto` files, no compiler, no generated files to commit. A schema is a
   plain JavaScript value, in the same DSL as [`@alexify/metaschema`](https://metaschema.vercel.app/).
-- **No dependencies, under 8 KB.** protobufjs is over 20 KB min+gzip, msgpackr about 10 KB.
+- **No dependencies, about 10 KB.** Both backends, validation and every type in about 10 KB
+  min+gzip; protobufjs is over 20 KB, msgpackr about 10 KB.
 - **Readable on the wire.** The payload can be logged, inspected and edited as is.
 - **Faster in JavaScript on real payloads.** Binary codecs written in JavaScript decode strings
   byte by byte; `JSON.parse` is native. On records and strings protoarray is ahead of protobufjs,

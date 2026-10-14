@@ -15,12 +15,26 @@ const toBase64 = (bytes) => {
   return btoa(binary);
 };
 
-const fromBase64 = (text) => {
+const decode = (text) => {
   if (typeof Uint8Array.fromBase64 === 'function') return Uint8Array.fromBase64(text);
   const binary = atob(text);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+};
+
+// The bytes of canonical base64, or null, as in ./node.js: both decoders here
+// forgive whitespace and missing padding, so the text must encode back to
+// itself. A missing atob is the platform's problem, not the data's.
+const fromBase64 = (text) => {
+  let bytes;
+  try {
+    bytes = decode(text);
+  } catch (error) {
+    if (error instanceof ReferenceError) throw error;
+    return null;
+  }
+  return toBase64(bytes) === text ? bytes : null;
 };
 
 module.exports = { toBase64, fromBase64 };

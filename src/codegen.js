@@ -85,6 +85,12 @@ const build = (plan, options) => {
         return `${dst}=${src}==null?null:${pack(node, src)};`;
       }
       const code = str(node.code);
+      if (node.checkedPack !== undefined) {
+        return (
+          `if(${src}==null)${nil}else{${dst}=${slot(node)}.checkedPack(${src});` +
+          `if(${dst}===undefined)E(${code},${path},${expected});}`
+        );
+      }
       if (node.pack === null && nullCode !== null) {
         const which = nullCode === node.code ? code : `${src}==null?${str(nullCode)}:${code}`;
         return `if(${rejects(node, src)})E(${which},${path},${expected});${dst}=${src};`;
@@ -298,7 +304,7 @@ const build = (plan, options) => {
     };
     functions.push(
       `function ${fns.e}(o){if(typeof o!=='object')E('object','');const v=o[${key}];` +
-        `const t=${tag}.accept(v)?${tag}.pack(v):-1;switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
+        `const t=${tag}.checkedPack(v);switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
         `E('union',${key},${expected});}`,
     );
     functions.push(

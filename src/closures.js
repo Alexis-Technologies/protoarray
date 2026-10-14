@@ -30,8 +30,15 @@ const build = (plan, options) => {
   // travels as it is with nothing to check. It knows its own path (a key or
   // an index, formatted only on error), so callers need no try/catch.
   const scalarEncoder = (node, path) => {
-    const { accept, pack, code, expected } = node;
+    const { accept, pack, checkedPack, code, expected } = node;
     if (!validate || accept === null) return pack;
+    if (checkedPack !== undefined) {
+      return (value) => {
+        const wire = checkedPack(value);
+        if (wire === undefined) refuse(code, at(path), expected);
+        return wire;
+      };
+    }
     return (value) => {
       if (!accept(value)) refuse(code, at(path), expected);
       return pack === null ? value : pack(value);
@@ -187,9 +194,8 @@ const build = (plan, options) => {
     const branches = branchOf(node);
     return (object) => {
       if (typeof object !== 'object') refuse('object', '');
-      const value = object[key];
-      if (!tag.accept(value)) refuse('union', key, tag.expected);
-      const t = tag.pack(value);
+      const t = tag.checkedPack(object[key]);
+      if (t === undefined) refuse('union', key, tag.expected);
       return encoders[branches[t]](object, t);
     };
   };

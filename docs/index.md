@@ -45,7 +45,7 @@ features:
     linkText: Compatibility rules
   - icon: 🪶
     title: Zero dependencies
-    details: "Under 8 KB min+gzip, no build step, generated code where the runtime allows it and a closures fallback under a strict CSP."
+    details: "Under 11 KB min+gzip, no build step, generated code where the runtime allows it and a closures fallback under a strict CSP."
     link: /guide/runtimes
     linkText: Runtimes
   - icon: 🌐

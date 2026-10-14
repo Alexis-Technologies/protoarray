@@ -7,11 +7,12 @@ const { Buffer } = require('node:buffer');
 const toBase64 = (bytes) =>
   Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
 
-// A fresh Uint8Array of its own, never a view of Buffer's shared pool.
+// The bytes of canonical base64, or null: text that does not encode back to
+// itself (bad characters, missing padding, stray bits) is not base64 here.
+// The copy has a buffer of its own, never a view of Buffer's shared pool.
 const fromBase64 = (text) => {
-  const bytes = new Uint8Array(Buffer.byteLength(text, 'base64'));
-  Buffer.from(bytes.buffer).write(text, 'base64');
-  return bytes;
+  const buffer = Buffer.from(text, 'base64');
+  return buffer.toString('base64') === text ? new Uint8Array(buffer) : null;
 };
 
 module.exports = { toBase64, fromBase64 };

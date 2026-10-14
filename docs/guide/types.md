@@ -12,7 +12,7 @@ out and back.
 | `json` | anything JSON | as is, by reference | none; never required |
 | `date` | `Date` (or a timestamp) | epoch milliseconds | number |
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
-| `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | standard base64 |
+| `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | canonical base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
 | `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer |
 | tuple `['number', 'number']` | `[1, 2]` | `[1, 2]`, fixed length | length and each element |
@@ -56,7 +56,10 @@ S.decode([1, 'iVBORw==']);                                     // { id: 1, avata
 ```
 
 Encoding takes any `Uint8Array`, a `Buffer` or a view into a larger buffer included; other typed
-arrays and `ArrayBuffer` are a `type` error (wrap them in a `Uint8Array` first). Decoding always
+arrays and `ArrayBuffer` are a `type` error (wrap them in a `Uint8Array` first). Decoding accepts
+canonical base64 only, the text an encoder writes: missing padding, whitespace or stray bits in
+the last character are a `type` error (without validation such a string stays as it is). Decoding
+always
 returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a `Buffer`
 or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
 separate binary channel beats any JSON. metaschema has no `bytes` type: register one to share a

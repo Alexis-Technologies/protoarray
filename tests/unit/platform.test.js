@@ -36,6 +36,17 @@ const RUNTIME = {
   browser: require(path.join(SRC, 'runtime/browser.js')),
 };
 
+// A realm without atob fails on bytes, loudly, instead of reading them as invalid.
+test('Platform: the browser runtime does not hide a missing atob', () => {
+  const { atob } = globalThis;
+  try {
+    delete globalThis.atob;
+    assert.throws(() => RUNTIME.browser.fromBase64('AQI='), ReferenceError);
+  } finally {
+    globalThis.atob = atob;
+  }
+});
+
 // The two halves of the twin must be indistinguishable, the browser one with
 // and without the platform's own Uint8Array base64.
 test('Platform: the runtime twins agree on base64', () => {
@@ -59,6 +70,22 @@ test('Platform: the runtime twins agree on base64', () => {
     }
     const view = samples[11].subarray(100, 200);
     assert.strictEqual(RUNTIME.browser.toBase64(view), RUNTIME.node.toBase64(view));
+    // Only canonical base64 decodes: what toBase64 would write, padding and all.
+    for (const text of [
+      'AQI',
+      'AQI==',
+      'A===',
+      'AB==',
+      'AQI= ',
+      ' AQI=',
+      'AQ\nI=',
+      '*AQI',
+      'AQ=A',
+      'é',
+    ]) {
+      assert.strictEqual(RUNTIME.node.fromBase64(text), null, text);
+      assert.strictEqual(RUNTIME.browser.fromBase64(text), null, text);
+    }
   };
   check();
   const proto = Uint8Array.prototype;
@@ -68,7 +95,12 @@ test('Platform: the runtime twins agree on base64', () => {
     proto.toBase64 = function toBase64() {
       return Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString('base64');
     };
-    Uint8Array.fromBase64 = (text) => new Uint8Array(Buffer.from(text, 'base64'));
+    Uint8Array.fromBase64 = (text) => {
+      // Like the platform's own: forgiving about whitespace, throwing on the rest.
+      const clean = text.replace(/\s/g, '');
+      if (/[^A-Za-z0-9+/=]/.test(clean)) throw new SyntaxError('not base64');
+      return new Uint8Array(Buffer.from(clean, 'base64'));
+    };
     check();
   } finally {
     if (native.toBase64 === undefined) delete proto.toBase64;

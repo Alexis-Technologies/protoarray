@@ -5,29 +5,42 @@
 const { toBase64, fromBase64 } = require('./runtime/node.js');
 
 const DIGITS = /^-?\d+$/;
-// Standard base64 with padding (RFC 4648 §4).
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-// Tags rather than instanceof: a value may come from another realm.
+// A value may come from another realm, where instanceof fails: the tag is the
+// fallback, instanceof the fast path.
 const TAG = Object.prototype.toString;
+
+// getTime is several times cheaper than `+value`, which goes through
+// Symbol.toPrimitive.
+const time = (value) => (value instanceof Date ? value.getTime() : +value);
 
 // A Date or a timestamp becomes epoch milliseconds; an invalid date has no
 // JSON form and travels as null.
 const ms = (value) => {
-  const time = +value;
-  return Number.isNaN(time) ? null : time;
+  const at = typeof value === 'number' ? value : time(value);
+  return Number.isNaN(at) ? null : at;
+};
+
+const isDate = (v) => v instanceof Date || TAG.call(v) === '[object Date]';
+
+// The epoch milliseconds of a valid date or a finite timestamp, or undefined.
+const timestamp = (v) => {
+  const at = typeof v === 'number' ? v : isDate(v) ? time(v) : NaN;
+  return Number.isFinite(at) ? at : undefined;
 };
 
 // An object parsed from a literal has the hidden class a literal would have.
 const literal = (keys, value) =>
   JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
 
-const isBytes = (v) => TAG.call(v) === '[object Uint8Array]';
+const isBytes = (v) => v instanceof Uint8Array || TAG.call(v) === '[object Uint8Array]';
 
 const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
 // `check` validates the wire form and `accept` the value given to encode;
 // `pack`/`unpack` convert, and are null for identity types, which travel as
-// they are. Without validation the wire is trusted, so `unpack` must be total:
+// they are. Where checking and converting share their work, `checkedPack`
+// replaces `accept`: the wire value, or undefined for a value of the wrong
+// type. Without validation the wire is trusted, so `unpack` must be total:
 // what has no wire form of the type stays as it is instead of throwing or
 // reading a prototype.
 const identity = (type) => {
@@ -46,19 +59,20 @@ const SCALARS = Object.assign(Object.create(null), {
   date: () =>
     scalar('date', {
       check: (v) => typeof v === 'number',
-      accept: (v) =>
-        (typeof v === 'number' || TAG.call(v) === '[object Date]') && Number.isFinite(+v),
+      checkedPack: timestamp,
       pack: ms,
       unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
     }),
   bytes: () =>
     scalar('bytes', {
-      check: (v) => typeof v === 'string' && BASE64.test(v),
+      // Canonical base64 with padding (RFC 4648 §4): what toBase64 writes.
+      check: (v) => typeof v === 'string' && fromBase64(v) !== null,
       accept: isBytes,
       pack: (v) => (isBytes(v) ? toBase64(v) : v),
-      // The pattern guards the conversion too: Buffer reads invalid base64
-      // leniently where atob throws, so neither of them ever sees it.
-      unpack: (v) => (typeof v === 'string' && BASE64.test(v) ? fromBase64(v) : v),
+      unpack: (v) => {
+        const bytes = typeof v === 'string' ? fromBase64(v) : null;
+        return bytes === null ? v : bytes;
+      },
     }),
   bigint: () =>
     scalar('bigint', {
@@ -86,8 +100,14 @@ const enumeration = (values) => {
     values,
     check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
     // The lookup coerces its key ('20' finds 20); validation wants the value itself.
-    accept: (v) => dict[v] !== undefined && values[dict[v]] === v,
-    pack: (v) => (dict[v] === undefined ? null : dict[v]),
+    checkedPack: (v) => {
+      const index = dict[v];
+      return index !== undefined && values[index] === v ? index : undefined;
+    },
+    pack: (v) => {
+      const index = dict[v];
+      return index === undefined ? null : index;
+    },
     unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
   });
   node.expected = values.join(', ');

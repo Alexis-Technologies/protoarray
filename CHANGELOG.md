@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-14
+
+Unions for tagged messages such as wrpc's packets, binary data, fixed-point numbers, records and
+flags past 31 slots, and validation on encode as well as decode. Every 1.0 payload decodes the same
+way, and a payload that uses none of the new constructs is byte for byte what 1.0 writes.
+
 ### Added
 
 - **Unions**, in metaschema's spelling: `{ union: [Call, Event], discriminator: 'type' }`, where
@@ -26,8 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trailing empty segments left off. Up to 31 fields the wire is the 1.0 form, so a sparse record
   can grow past 31 fields without breaking older decoders, which read the first segment.
 - **`bytes`**: a `Uint8Array` (a `Buffer` too) travels as standard base64 with padding and decodes
-  as a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers. Node.js converts
-  through `Buffer`, browsers through `Uint8Array.prototype.toBase64` where they have it and
+  as a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers. Only canonical
+  base64 decodes (the text must encode back to itself), the same on every platform. Node.js
+  converts through `Buffer`, browsers through `Uint8Array.prototype.toBase64` where they have it and
   `btoa`/`atob` elsewhere: a runtime twin, `src/runtime/node.js` and `src/runtime/browser.js`,
   mapped by the package.json `browser` field.
 - **Decimals**: `{ type: 'number', decimals: n }` (n from 0 to 15) travels as
@@ -36,9 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   using it needs 1.1 on both sides, and its canonical form (`number(2)`) gives it another id.
 - **Flags past 31 names**: the bitmask becomes an array of 31-bit words, still written as one
   integer while only the first word has bits set; decoders take either form.
+- **Docs**: a [wrpc guide](https://protoarray.vercel.app/guide/wrpc) with a packet codec built on
+  a union, and a `packets` scenario in the benchmarks (100 mixed wrpc packets).
 
 ### Changed
 
+- **The bundle** is 10.4 KB (Node.js entry) and 10.5 KB (browser entry) min+gzip, up from 7.7 KB;
+  the CI budget is 11 KB.
 - **Encoding validates by default.** `validate` (default `true`) now covers encode as well as
   decode: a missing required field or tuple element throws `EncodeError` `required`, a value of the
   wrong type (including `NaN`, the infinities and invalid dates) `type`, a value outside an enum
@@ -131,6 +142,7 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 - **CI** on GitHub Actions and a VitePress documentation site at
   [protoarray.vercel.app](https://protoarray.vercel.app/).
 
-[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/Alexis-Technologies/protoarray/releases/tag/v0.0.1

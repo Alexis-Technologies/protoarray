@@ -88,6 +88,35 @@ const TYPED = {
   perms: { flags: ['read', 'write', 'admin'] },
 };
 
+// A wrpc call packet, one branch of a union.
+const PACKET = {
+  union: [
+    {
+      Struct: {},
+      type: { enum: ['call'] },
+      id: 'string',
+      method: 'string',
+      args: { room: 'string', text: 'string' },
+    },
+    { Struct: {}, type: { enum: ['callback'] }, id: 'string', result: 'json' },
+    { Struct: {}, type: { enum: ['event'] }, name: 'string', data: 'json' },
+  ],
+  discriminator: 'type',
+};
+const PACKET_OBJECT = {
+  type: 'call',
+  id: '1042',
+  method: 'chat/send',
+  args: { room: 'general', text: 'Hello, world' },
+};
+const MONEY = {
+  price: { type: 'number', decimals: 2 },
+  qty: 'number',
+  total: { type: 'number', decimals: 2 },
+};
+const MONEY_OBJECT = { price: 19.99, qty: 3, total: 59.97 };
+const BLOB = Uint8Array.from({ length: 1024 }, (_, i) => (i * 31) % 256);
+
 // Each entry: [label, schema definition, options, value, json reference value]
 const pairs = (label, definition, options, value, reference = value) => {
   const codegen = Schema.from(definition, { ...options, codegen: true });
@@ -107,6 +136,15 @@ const pairs = (label, definition, options, value, reference = value) => {
 const main = () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const rows = Schema.from({ array: RECORD });
+  const trusting = {
+    flat: Schema.from(FLAT, { validate: false }),
+    nested: Schema.from(NESTED, { validate: false }),
+    rows: Schema.from({ array: RECORD }, { validate: false }),
+  };
+  const blob = Schema.from({ id: 'number', data: 'bytes' });
+  trusting.blob = Schema.from({ id: 'number', data: 'bytes' }, { validate: false });
+  const blobText = blob.stringify({ id: 1, data: BLOB });
+  const blobKeyed = JSON.stringify({ id: 1, data: Buffer.from(BLOB).toString('base64') });
   const flat = Schema.from({ array: RECORD }, { layout: 'flat' });
   const columns = Schema.from({ array: RECORD }, { layout: 'columns' });
   const recordsText = JSON.stringify(RECORDS);
@@ -123,6 +161,34 @@ const main = () => {
       ...TYPED_OBJECT,
       createdAt: TYPED_OBJECT.createdAt.toISOString(),
     }),
+    ...pairs('packet (union)', PACKET, {}, PACKET_OBJECT),
+    ...pairs('money (decimals)', MONEY, {}, MONEY_OBJECT),
+    // JSON has no bytes: the reference converts with Buffer as an application would.
+    [
+      'bytes (1 KB): JSON.stringify + base64 (reference)',
+      () => JSON.stringify({ id: 1, data: Buffer.from(BLOB).toString('base64') }),
+    ],
+    ['bytes (1 KB): stringify (codegen)', () => blob.stringify({ id: 1, data: BLOB })],
+    [
+      'bytes (1 KB): JSON.parse + base64 (reference)',
+      () => {
+        const value = JSON.parse(blobKeyed);
+        value.data = Buffer.from(value.data, 'base64');
+        return value;
+      },
+    ],
+    ['bytes (1 KB): parse (codegen)', () => blob.parse(blobText)],
+    ['bytes (1 KB): parse (codegen, validate: false)', () => trusting.blob.parse(blobText)],
+    // What validation costs: the same encodes from a schema that trusts its input.
+    [
+      'flat object (4 fields): stringify (codegen, validate: false)',
+      () => trusting.flat.stringify(FLAT_OBJECT),
+    ],
+    [
+      'nested object: stringify (codegen, validate: false)',
+      () => trusting.nested.stringify(NESTED_OBJECT),
+    ],
+    ['1000 records: stringify (rows, validate: false)', () => trusting.rows.stringify(RECORDS)],
     ['1000 records: JSON.stringify (keyed, reference)', () => JSON.stringify(RECORDS)],
     ['1000 records: stringify (rows)', () => rows.stringify(RECORDS)],
     ['1000 records: stringify (flat)', () => flat.stringify(RECORDS)],

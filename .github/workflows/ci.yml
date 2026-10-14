@@ -87,7 +87,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `shell: bash` turns on pipefail, so a failing run fails the step, not tee.
       - run: pnpm run test:coverage | tee coverage.txt
+        shell: bash
       - name: Coverage summary
         run: |
           { echo '### Coverage'; echo '```'; grep '|' coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

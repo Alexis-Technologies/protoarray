@@ -3,7 +3,7 @@
 // how a Schema used as a field is embedded in another one.
 
 const { SchemaDefinitionError } = require('./errors.js');
-const { SCALARS, enumeration, flags } = require('./types.js');
+const { SCALARS, enumeration, flags, decimal } = require('./types.js');
 
 const BRAND = Symbol.for('alexify.protoarray.brand');
 const PLAN = Symbol.for('alexify.protoarray.plan');
@@ -125,6 +125,18 @@ const compilePlan = (definition, context) => {
         // long form; a kind first (`{ Struct: {}, type: … }`) makes it a struct.
         const text = 'The type must be a string; a struct starting with "type" needs a kind first';
         throw error('ERR_INVALID_DEFINITION', text, path);
+      }
+      // A valid long form in metaschema too, where an unknown option is kept.
+      if (source.decimals !== undefined) {
+        const n = source.decimals;
+        if (node.type !== 'number' || !Number.isInteger(n) || n < 0 || n > 15) {
+          throw error(
+            'ERR_INVALID_DEFINITION',
+            'decimals is an integer from 0 to 15 on a number',
+            path,
+          );
+        }
+        node = decimal(n);
       }
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
       // -0 has no JSON form and would tell the two backends apart.
@@ -285,7 +297,8 @@ const canonical = (node) => {
     return `union(${node.key})[${node.branches.map((branch) => canonical(branch.source)).join('|')}]`;
   }
   const values = node.values || node.names;
-  const type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  let type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  if (node.decimals !== undefined) type = `${type}(${node.decimals})`;
   // Only a root scalar carries its own optionality; a field's is on the field.
   return node.required === false ? `?${type}` : type;
 };

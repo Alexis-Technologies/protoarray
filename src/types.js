@@ -80,6 +80,23 @@ const enumeration = (values) => {
   return node;
 };
 
+// A number with `n` decimals travels as an integer, scaled by 10ⁿ: 19.99 is
+// 1999 with two. Math.round rounds half up (1.005 * 100 is 100.49999…), and
+// dividing the integer by 10ⁿ gives back the double nearest to the decimal.
+const decimal = (n) => {
+  const scale = 10 ** n;
+  const node = scalar('number', {
+    decimals: n,
+    check: Number.isSafeInteger,
+    accept: (v) => Number.isFinite(v) && Math.abs(v * scale) <= Number.MAX_SAFE_INTEGER,
+    // + 0 turns -0 into 0, which is what JSON would write anyway.
+    pack: (v) => (typeof v === 'number' ? Math.round(v * scale) + 0 : v),
+    unpack: (v) => (typeof v === 'number' ? v / scale : v),
+  });
+  node.expected = `number(${n})`;
+  return node;
+};
+
 // A word of a bitmask: 31 bits, since bit 31 would make it negative.
 const WORD = 31;
 
@@ -121,4 +138,4 @@ const flags = (names) => {
   });
 };
 
-module.exports = { SCALARS, WORD, enumeration, flags, literal };
+module.exports = { SCALARS, WORD, enumeration, flags, decimal, literal };

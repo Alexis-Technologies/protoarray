@@ -7,6 +7,7 @@ out and back.
 | --- | --- | --- | --- |
 | `string` | string | as is | `typeof` |
 | `number` | number | as is | `typeof` |
+| `{ type: 'number', decimals: 2 }` | `19.99` | an integer scaled by 10ⁿ, `1999` | a safe integer |
 | `boolean` | boolean | as is | `typeof` |
 | `json` | anything JSON | as is, by reference | none; never required |
 | `date` | `Date` (or a timestamp) | epoch milliseconds | number |
@@ -41,6 +42,24 @@ S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20
 A number is accepted too (`{ at: 1700000000000 }`). An invalid date, `NaN` or anything else is an
 `EncodeError`; with `validate: false` an invalid date travels as `null`.
 Epoch milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
+
+## Decimals
+
+A number with a fixed count of decimals, such as an amount of money, travels as an integer:
+`decimals: n` multiplies by 10ⁿ and rounds on the way out, and divides on the way back.
+
+```js
+const S = Schema.from({ price: { type: 'number', decimals: 2 } });
+S.encode({ price: 19.99 });      // [1999]
+S.encode({ price: 0.1 + 0.2 });  // [30] — not 0.30000000000000004
+S.decode([1999]);                // { price: 19.99 }
+```
+
+`n` goes from 0 to 15. Rounding is `Math.round`, half up, on the double: `1.005` is stored as
+`1.00499999…` and becomes `100`. Decoding divides the integer by 10ⁿ, which gives back the double
+nearest to the decimal, so `19.99` comes back as the literal `19.99`. Encoding rejects a value
+whose scaled form passes 2⁵³, and decoding one that is not a safe integer. The long form is
+metaschema's own, which keeps an option it does not know (and lints it as `unknown-option`).
 
 ## BigInt
 

@@ -164,6 +164,13 @@ const VECTORS = [
     wire: ['12345678901234567890'],
   },
   {
+    name: 'decimals travel as scaled integers',
+    definition: { price: { type: 'number', decimals: 2 }, total: { type: 'number', decimals: 2 } },
+    value: { price: 19.99, total: 0.1 + 0.2 },
+    wire: [1999, 30],
+    decoded: { price: 19.99, total: 0.3 },
+  },
+  {
     name: 'flags travel as a bitmask',
     definition: { perms: { flags: ['read', 'write', 'admin'] } },
     value: { perms: { read: true, admin: true } },

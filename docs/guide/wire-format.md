@@ -18,6 +18,7 @@ examples on these pages come from there.
 | `{ enum: [...] }` | the index, any number of values; an unknown value → `null` |
 | `date` | epoch milliseconds; an invalid date → `null` |
 | `bigint` | a decimal string |
+| `{ type: 'number', decimals: n }` | `Math.round(value × 10ⁿ)`, a safe integer; decoded as that integer ÷ 10ⁿ |
 | `{ flags: [...] }` | an integer; bit *i* is name *i*; past 31 names an array of 31-bit words (word *i* / 31, bit *i* % 31), still one integer while only the first word has bits set |
 | `{ union: [...], discriminator }` | `[tag, ...the branch's other fields]`; the tag is the index of the discriminator value among the values of all branches; trailing optionals trimmed down to `[tag]` |
 | `json` | the value, by reference; never required |
@@ -64,7 +65,7 @@ examples on these pages come from there.
 ## Canonical form
 
 `schema.toString()` prints the schema as `{key:type,key:?type=default,...}` with `[item]` for
-arrays, `(a,b)` for tuples, `enum(a|b)`, `flags(a|b)`, `union(key)[{…}|{…}]` for a union (its branches with their discriminators), `@Name`
+arrays, `(a,b)` for tuples, `enum(a|b)`, `flags(a|b)`, `number(2)` for a number with decimals, `union(key)[{…}|{…}]` for a union (its branches with their discriminators), `@Name`
 for a reference, a `sparse` prefix
 for sparse structs, a `flat` or `columns` prefix for layouts and a `?` prefix for an optional root
 scalar. `schema.id` is the FNV-1a 32-bit hash of that string as eight hex digits, unless the

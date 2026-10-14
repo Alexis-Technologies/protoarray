@@ -13,7 +13,9 @@ understanding each other.
    the old side with the extra positions ignored.
 3. **Retire a field by keeping its slot** and making it optional; senders put `null` there.
 4. **Safe type changes:** required → optional; appending values to an `enum` or names to `flags`.
-   Anything else is breaking.
+   Anything else is breaking, adding or changing `decimals` included: the wire holds a different
+   number. A 1.0 peer ignores `decimals` altogether, so a field with it needs 1.1 on both sides;
+   the ids of the two definitions differ, which is how a handshake notices.
 5. **Deploy decoders before encoders** when you append enum values or union branches: an old
    decoder rejects an index or a tag it does not know.
 

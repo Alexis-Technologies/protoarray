@@ -191,3 +191,7 @@ expectType<EncodeError | null>(User.list.check([{}]));
 expectType<EncodeError | null>(check(User, 5));
 expectType<EncodeError | null>(check(User.list, []));
 expectError(check({ id: 'number' }, {}));
+
+// Decimals are numbers.
+const Price = Schema.from({ price: { type: 'number', decimals: 2 } });
+expectType<{ price: number }>(Price.decode([1999]));

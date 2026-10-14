@@ -33,6 +33,7 @@ const User = new Schema('User', {
 | Optional type | `'?number'` | Optional: may be missing, `undefined` or `null` |
 | Optional key | `'email?': 'string'` | The same, written on the key |
 | Long form | `{ type: 'string', required: false, default: 'x' }` | Options on the field; `default` fills a missing slot on decode |
+| Decimals | `{ type: 'number', decimals: 2 }` | A number that travels as an integer scaled by 10ⁿ: `19.99` is `1999` (see [Types](/guide/types#decimals)) |
 | Struct | `{ city: 'string', zip: '?string' }` | A nested record, encoded as a nested array |
 | Schema by value | `address: Address` | The other schema in that slot, with its own options and layout (see below) |
 | Schema by name | `manager: '?User'` | The same through a capitalised name: the schema's own name (recursion) or one from `options.schemas` |
@@ -132,8 +133,17 @@ schema was given. Renaming a key changes it, and so does the optionality of a ro
 (`'?string'` prints as `?string`). The `fingerprint` option replaces the hash (see
 [Schema Evolution](/guide/evolution#telling-versions-apart)).
 
-## Not in protoarray
+## metaschema compatibility
 
-metaschema's `set`, `map`, `object` and `tuple` shorthands, and a `union` without a
-`discriminator`, have no positional form yet and throw `ERR_UNKNOWN_TYPE`; its `length`, `unique` and `validate` options are accepted and ignored. The
-two types protoarray adds, `date` and `flags`, are not metaschema types.
+A definition both libraries read means the same thing in both, or one of them refuses it.
+
+| Construct | metaschema | protoarray |
+| --- | --- | --- |
+| scalars, structs, `?`, `required`, `default`, `{ array }`, `{ enum }`, tuples, references, the kind key | ✓ | ✓ |
+| `{ union: [...], discriminator }` | ✓ | ✓, as `[tag, ...fields]` |
+| `{ union: [...] }` without a discriminator | ✓ | `ERR_UNKNOWN_TYPE` |
+| `{ type: 'number', decimals: 2 }` | ✓, kept as an unknown option (lint: `unknown-option`) | ✓, a scaled integer |
+| `length`, `unique`, `validate` options | ✓ | accepted and ignored |
+| `set`, `map`, `object`, `tuple` shorthands | ✓ | `ERR_UNKNOWN_TYPE` |
+| `date` | ✓ | ✓, epoch milliseconds |
+| `{ flags: [...] }` | not a metaschema type | ✓ |

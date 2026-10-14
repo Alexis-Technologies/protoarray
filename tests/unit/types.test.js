@@ -117,6 +117,51 @@ for (const [backend, options] of BACKENDS) {
     assert.strictEqual(Loose.decode([[1, 'x', 1n]]).p.n62, false);
   });
 
+  test(`Types (${backend}): decimals travel as scaled integers`, () => {
+    const P = Schema.from(
+      {
+        price: { type: 'number', decimals: 2 },
+        rate: { type: 'number', decimals: 4, required: false },
+        whole: { type: 'number', decimals: 0, required: false },
+        list: { array: { type: 'number', decimals: 1 }, required: false },
+      },
+      options,
+    );
+    assert.deepStrictEqual(P.encode({ price: 19.99 }), [1999]);
+    assert.deepStrictEqual(P.decode([1999]).price, 19.99);
+    assert.deepStrictEqual(
+      P.encode({ price: 0.1 + 0.2, rate: 0.12345, whole: 2.5 }),
+      [30, 1235, 3],
+    );
+    assert.deepStrictEqual(P.decode([30, 1235, 3]), {
+      price: 0.3,
+      rate: 0.1235,
+      whole: 3,
+      list: null,
+    });
+    assert.deepStrictEqual(P.encode({ price: 1, list: [1.25, -0.04] }), [100, null, null, [13, 0]]);
+    assert.ok(Object.is(P.encode({ price: -0.001 })[0], 0));
+    assert.deepStrictEqual(P.decode([-1999]).price, -19.99);
+    // Math.round rounds half up, on the double: 1.005 is 1.00499999999999989…
+    assert.deepStrictEqual(P.encode({ price: 1.005 }), [100]);
+    assert.deepStrictEqual(P.encode({ price: -2.5 / 100 }), [-2]);
+    for (const bad of [19.99, '1999', 2 ** 53]) {
+      assert.throws(() => P.decode([bad]), {
+        code: 'type',
+        path: 'price',
+        message: 'Field "price" is not of expected type: number(2)',
+      });
+    }
+    for (const bad of ['19.99', NaN, Infinity, 1e14]) {
+      assert.throws(() => P.encode({ price: bad }), { code: 'type', path: 'price' });
+    }
+    assert.throws(() => P.encode({ price: 1, list: [1, 'x'] }), { code: 'type', path: 'list[1]' });
+    const Loose = Schema.from(P.definition, { ...options, validate: false });
+    assert.deepStrictEqual(Loose.encode({ price: 'x' }), ['x']);
+    assert.deepStrictEqual(Loose.decode(['x']).price, 'x');
+    assert.deepStrictEqual(Loose.decode([19.99]).price, 0.1999);
+  });
+
   test(`Types (${backend}): json is never required`, () => {
     const J = Schema.from({ j: 'json', k: { type: 'json' }, n: 'number' }, options);
     assert.deepStrictEqual(J.decode([null, undefined, 1]), { j: null, k: null, n: 1 });

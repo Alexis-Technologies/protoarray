@@ -158,6 +158,21 @@ test('Schema: enum, flags and default errors', () => {
   invalid({ perms: { flags: [1] } }, { code: 'ERR_INVALID_FLAGS' });
   assert.ok(Schema.from({ perms: { flags: Array.from({ length: 70 }, (_, i) => `f${i}`) } }));
   invalid({ perms: { flags: ['a', '__proto__'] } }, { code: 'ERR_INVALID_FLAGS' });
+  const decimals = 'decimals is an integer from 0 to 15 on a number at "n"';
+  for (const n of [-1, 16, 1.5, '2', null]) {
+    invalid(
+      { n: { type: 'number', decimals: n } },
+      { code: 'ERR_INVALID_DEFINITION', message: decimals },
+    );
+  }
+  invalid({ n: { type: 'string', decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION', field: 'n' });
+  invalid({ n: { type: 'bigint', decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION' });
+  invalid({ n: { enum: [1, 2], decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION' });
+  // The scale is part of the wire, so of the id; a default is a decoded value.
+  const money = Schema.from({ n: { type: 'number', decimals: 2, default: 0.5 } });
+  assert.strictEqual(money.toString(), '{n:?number(2)=0.5}');
+  assert.notStrictEqual(money.id, Schema.from({ n: { type: 'number', default: 0.5 } }).id);
+  assert.deepStrictEqual(money.decode([]), { n: 0.5 });
   invalid({ perms: { type: 'flags', flags: ['a', 'a'] } }, { code: 'ERR_INVALID_FLAGS' });
   invalid({ n: { type: 'number', default: {} } }, { code: 'ERR_INVALID_DEFINITION', field: 'n' });
   invalid({ n: { type: 'number', default: Infinity } }, { code: 'ERR_INVALID_DEFINITION' });

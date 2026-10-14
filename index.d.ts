@@ -16,6 +16,8 @@ export interface LongForm {
   readonly default?: string | number | boolean | null;
   readonly enum?: readonly (string | number)[];
   readonly flags?: readonly string[];
+  /** With `type: 'number'`: travel as an integer scaled by 10ⁿ, n from 0 to 15. */
+  readonly decimals?: number;
   readonly [option: string]: unknown;
 }
 

@@ -13,6 +13,7 @@
 // branch.
 
 const { EXPECTED, fail, nest, refuse } = require('./errors.js');
+const { WORD } = require('./types.js');
 
 const str = JSON.stringify;
 
@@ -25,8 +26,16 @@ try {
   available = false;
 }
 
-const build = (plan, options) => {
+// The source of a plan's codec and the helpers it reads through `H`. It is
+// deterministic, so the source can be generated again on demand instead of
+// being kept on every codec.
+const generate = (plan, options) => {
+  // Which direction is checked: `validate.encode` the values given to encode,
+  // `validate.decode` the wire.
   const { validate } = options;
+  // A checking codec (Schema#check) calls the checking codecs of the schemas
+  // it embeds.
+  const via = options.checking ? 'checker' : 'codec';
   const helpers = [];
   const slots = new Map();
   const functions = [];
@@ -50,41 +59,103 @@ const build = (plan, options) => {
   // table, as closures do.
   const pack = (node, v) => (node.pack === null ? v : `${slot(node)}.pack(${v})`);
   const unpack = (node, v) => (node.unpack === null ? v : `${slot(node)}.unpack(${v})`);
+  // The wire check of an identity scalar (json has none).
   const check = (node, v, path) => {
-    if (!validate || node.check === null) return '';
-    const test = node.pack === null ? `typeof ${v}==='${node.type}'` : `${slot(node)}.check(${v})`;
-    return `if(!(${test}))F(${str(node.code)},${path},${str(node.expected)});`;
+    if (!validate.decode || node.check === null) return '';
+    return `if(typeof ${v}!=='${node.type}')F(${str(node.code)},${path},${str(node.expected)});`;
   };
 
-  // Statements that set `dst` to the wire form of `src`; nullish src → null.
-  // A slot (a reference by name or an embedded schema) is called as it is.
-  const encodeInto = (node, src, dst, path) => {
-    if (node.kind === 'scalar') return `${dst}=${src}==null?null:${pack(node, src)};`;
-    if (node.slot !== undefined || node.kind === 'struct') {
-      const callee =
-        node.slot !== undefined ? `${slot(node.slot)}.codec.encode` : structFns(node).e;
+  // Statements that set `dst` to the decoded form of a non-null scalar `src`:
+  // a converted type checks and converts in one call, an identity type is
+  // checked inline and travels as it is.
+  const convert = (node, src, dst, path) => {
+    if (validate.decode && node.checkedUnpack !== undefined) {
       return (
-        `if(${src}==null)${dst}=null;else try{${dst}=${callee}(${src});}` +
+        `${dst}=${slot(node)}.checkedUnpack(${src});` +
+        `if(${dst}===undefined)F(${str(node.code)},${path},${str(node.expected)});`
+      );
+    }
+    return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
+  };
+
+  // The encode-side twin of `check`: true when a value given to encode is not
+  // of the type. A nullish value fails it too, so a required identity slot
+  // needs one test, not two.
+  const rejects = (node, v) => {
+    if (node.pack !== null) return `!${slot(node)}.accept(${v})`;
+    // v-v is NaN for NaN and the infinities, which have no JSON form.
+    if (node.type === 'number') return `typeof ${v}!=='number'||${v}-${v}!==0`;
+    return `typeof ${v}!=='${node.type}'`;
+  };
+
+  // Statements that set `dst` to the wire form of `src`. Under validation a
+  // nullish src with a `nullCode` (`required`, or `type` for an array item)
+  // throws it; otherwise it becomes null. Without validation nothing is
+  // checked, so a trusting codec pays nothing. A slot (a reference by name or
+  // an embedded schema) is called as it is.
+  const encodeInto = (node, src, dst, path, nullCode = null) => {
+    const scalar = node.kind === 'scalar';
+    const expected = str(scalar ? node.expected : EXPECTED[node.kind]);
+    const nil =
+      validate.encode && nullCode !== null
+        ? `E(${str(nullCode)},${path},${expected});`
+        : `${dst}=null;`;
+    if (scalar) {
+      if (!validate.encode || node.accept === null) {
+        return `${dst}=${src}==null?null:${pack(node, src)};`;
+      }
+      const code = str(node.code);
+      if (node.checkedPack !== undefined) {
+        return (
+          `if(${src}==null)${nil}else{${dst}=${slot(node)}.checkedPack(${src});` +
+          `if(${dst}===undefined)E(${code},${path},${expected});}`
+        );
+      }
+      if (node.pack === null && nullCode !== null) {
+        const which = nullCode === node.code ? code : `${src}==null?${str(nullCode)}:${code}`;
+        return `if(${rejects(node, src)})E(${which},${path},${expected});${dst}=${src};`;
+      }
+      return (
+        `if(${src}==null)${nil}else{if(${rejects(node, src)})E(${code},${path},${expected});` +
+        `${dst}=${pack(node, src)};}`
+      );
+    }
+    if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.encode` : record(node).e;
+      return (
+        `if(${src}==null)${nil}else try{${dst}=${callee}(${src});}` +
         `catch(error){throw N(error,${path});}`
       );
     }
     const isArray = `if(!Array.isArray(${src}))E('array',${path});`;
     if (node.kind === 'tuple') {
-      const parts = node.items.map(
-        (item, i) => `${src}[${i}]==null?null:${pack(item.node, `${src}[${i}]`)}`,
-      );
-      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=[${parts}];}`;
+      const out = [];
+      const parts = node.items.map((item, i) => {
+        const t = uid('t');
+        const at = `${path}+${str(`[${i}]`)}`;
+        const required = item.required ? 'required' : null;
+        out.push(`let ${t};${encodeInto(item.node, `${src}[${i}]`, t, at, required)}`);
+        return t;
+      });
+      return `if(${src}==null)${nil}else{${isArray}${out.join('')}${dst}=[${parts}];}`;
     }
     const { item } = node;
-    if (item.kind === 'scalar' && item.pack === null) {
-      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=${src};}`;
-    }
-    const [n, i, r, x] = [uid('n'), uid('i'), uid('r'), uid('x')];
+    const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
     const at = `${path}+"["+${i}+"]"`;
+    const itemNull = node.itemRequired ? 'type' : null;
+    if (item.kind === 'scalar' && item.pack === null) {
+      // Identity items travel in the same array: at most a checking pass.
+      const pass =
+        validate.encode && (item.accept !== null || node.itemRequired)
+          ? `for(let ${i}=0;${i}<${src}.length;${i}++){const ${e}=${src}[${i}];let ${x};` +
+            `${encodeInto(item, e, x, at, itemNull)}}`
+          : '';
+      return `if(${src}==null)${nil}else{${isArray}${pass}${dst}=${src};}`;
+    }
     return (
-      `if(${src}==null)${dst}=null;else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
-      `for(let ${i}=0;${i}<${n};${i}++){let ${x};${encodeInto(item, `${src}[${i}]`, x, at)}` +
-      `${r}[${i}]=${x};}${dst}=${r};}`
+      `if(${src}==null)${nil}else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
+      `for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
+      `${encodeInto(item, `${src}[${i}]`, x, at, itemNull)}${r}[${i}]=${x};}${dst}=${r};}`
     );
   };
 
@@ -92,16 +163,17 @@ const build = (plan, options) => {
   // expression evaluated only on error branches, relative to the enclosing
   // struct function: the caller prepends its own key through N.
   const decodeInto = (node, src, dst, path) => {
-    if (node.kind === 'scalar') return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
-    if (node.slot !== undefined || node.kind === 'struct') {
-      const callee =
-        node.slot !== undefined ? `${slot(node.slot)}.codec.decode` : structFns(node).d;
+    if (node.kind === 'scalar') return convert(node, src, dst, path);
+    if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.decode` : record(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
     }
     const out = [`if(!Array.isArray(${src}))F('structure',${path},'array');`];
     if (node.kind === 'tuple') {
       const size = node.items.length;
-      if (validate) out.push(`if(${src}.length!==${size})F('structure',${path},'length');`);
+      if (validate.decode) {
+        out.push(`if(${src}.length!==${size})F('structure',${path},'length');`);
+      }
       const parts = node.items.map((item, i) => {
         const v = uid('v');
         out.push(`const ${v}=${src}[${i}];`);
@@ -114,7 +186,8 @@ const build = (plan, options) => {
     const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
     const at = `${path}+"["+${i}+"]"`;
     const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
-    const nullCheck = node.itemRequired && validate ? `F('type',${at},${str(expected)});` : '';
+    const nullCheck =
+      node.itemRequired && validate.decode ? `F('type',${at},${str(expected)});` : '';
     const loop = `const ${n}=${src}.length;for(let ${i}=0;${i}<${n};${i}++){const ${e}=${src}[${i}];`;
     if (item.kind === 'scalar' && item.pack === null) {
       const chk = check(item, e, at);
@@ -124,10 +197,7 @@ const build = (plan, options) => {
       out.push(`${dst}=${src};`);
       return out.join('');
     }
-    const body =
-      item.kind === 'scalar'
-        ? `${check(item, e, at)}${x}=${unpack(item, e)};`
-        : decodeInto(item, e, x, at);
+    const body = decodeInto(item, e, x, at);
     out.push(
       `const ${r}=new Array(${src}.length);${loop}let ${x}=null;` +
         `if(${e}==null){${nullCheck}}else{${body}}${r}[${i}]=${x};}${dst}=${r};`,
@@ -138,18 +208,18 @@ const build = (plan, options) => {
   // One slot (a field or a tuple element): the required check, the wire
   // check, the default and the conversion. Returns the expression to use.
   const slotValue = (node, required, def, v, path, out) => {
-    const req = required && validate ? `F('required',${path});` : '';
+    const req = required && validate.decode ? `F('required',${path});` : '';
     const fallback = def === null ? 'null' : str(def);
     if (node.kind === 'scalar') {
-      const chk = check(node, v, path);
       if (node.pack === null) {
+        const chk = check(node, v, path);
         if (req !== '' || chk !== '') out.push(`if(${v}==null){${req}}else{${chk}}`);
         // A validated required slot is never nullish past its check; any other
         // slot normalises undefined to null (or to its default).
         return req !== '' ? v : `(${v}==null?${fallback}:${v})`;
       }
       const w = uid('w');
-      out.push(`let ${w}=${fallback};if(${v}==null){${req}}else{${chk}${w}=${unpack(node, v)};}`);
+      out.push(`let ${w}=${fallback};if(${v}==null){${req}}else{${convert(node, v, w, path)}}`);
       return w;
     }
     const w = uid('w');
@@ -163,65 +233,120 @@ const build = (plan, options) => {
     fns = { e: uid('e'), d: uid('d') };
     structs.set(node, fns);
     const size = node.fields.length;
-    const enc = [`if(typeof o!=='object')E('object','');`];
-    const values = [];
+    // A branch of a union: its tag `t` leads the wire and fills the
+    // discriminator; the union function has checked the value already.
+    const { tag } = node;
+    const lead = tag === undefined ? 0 : 1;
+    const width = size + lead;
+    const tail = node.tail + lead;
+    const enc = lead === 0 ? [`if(typeof o!=='object'||Array.isArray(o))E('object','');`] : [];
+    const values = lead === 0 ? [] : ['t'];
     for (const field of node.fields) {
       const v = uid('v');
       const w = uid('w');
-      enc.push(`const ${v}=o[${str(field.key)}];`);
-      if (field.node.kind === 'scalar') {
-        enc.push(`const ${w}=${v}==null?null:${pack(field.node, v)};`);
-      } else {
-        enc.push(`let ${w};${encodeInto(field.node, v, w, str(field.key))}`);
-      }
+      const key = str(field.key);
+      const required = field.required ? 'required' : null;
+      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key, required)}`);
       values.push(w);
     }
-    if (node.sparse) {
+    if (node.sparse && size <= WORD) {
       enc.push('const r=[0];let m=0;');
       for (let i = 0; i < size; i++) {
         enc.push(`if(${values[i]}!==null){m|=${1 << i};r.push(${values[i]});}`);
       }
       enc.push('r[0]=m;return r;');
-    } else if (node.tail === size) {
+    } else if (node.sparse) {
+      // One [mask, ...present values] segment per 31 fields; `l` is where the
+      // last segment with something in it ends, the first one always kept.
+      enc.push('const r=[0];let m=0,s=0,l=0;');
+      for (let i = 0; i < size; i++) {
+        if (i > 0 && i % WORD === 0) {
+          enc.push(`r[s]=m;${i === WORD ? '' : 'if(m!==0)'}l=r.length;s=r.length;r.push(0);m=0;`);
+        }
+        enc.push(`if(${values[i]}!==null){m|=${1 << (i % WORD)};r.push(${values[i]});}`);
+      }
+      enc.push('r[s]=m;if(m!==0)l=r.length;if(l<r.length)r.length=l;return r;');
+    } else if (tail === width) {
       enc.push(`return [${values}];`);
     } else {
       enc.push(
-        `const r=[${values}];let l=${size};while(l>${node.tail}&&r[l-1]===null)l--;` +
-          `if(l<${size})r.length=l;return r;`,
+        `const r=[${values}];let l=${width};while(l>${tail}&&r[l-1]===null)l--;` +
+          `if(l<${width})r.length=l;return r;`,
       );
     }
-    functions.push(`function ${fns.e}(o){${enc.join('')}}`);
-    const dec = [`if(!Array.isArray(a))F('structure',"",'array');`];
+    functions.push(`function ${fns.e}(o${lead === 0 ? '' : ',t'}){${enc.join('')}}`);
+    const dec = lead === 0 ? [`if(!Array.isArray(a))F('structure',"",'array');`] : [];
     let read;
+    const mask = `if(typeof m!=='number'||(m|0)!==m||m<0)F('structure',"",'mask');`;
     if (node.sparse) {
-      dec.push(`const m=a[0];if(typeof m!=='number'||(m|0)!==m)F('structure',"",'mask');let p=1;`);
-      read = (i) => `(m&${1 << i})!==0?a[p++]:null`;
+      dec.push(`${size <= WORD ? 'const' : 'let'} m=a[0];${mask}let p=1;`);
+      read = (i) => `(m&${1 << (i % WORD)})!==0?a[p++]:null`;
     } else {
-      dec.push(`const n=a.length;if(strict&&n>${size})F('extra',"");`);
-      read = (i) => `n>${i}?a[${i}]:null`;
+      dec.push(`const n=a.length;if(strict&&n>${width})F('extra',"");`);
+      read = (i) => `n>${i + lead}?a[${i + lead}]:null`;
     }
     const parts = [];
     for (const field of node.fields) {
       const v = uid('v');
+      // A later segment may be missing: its fields are all null.
+      if (node.sparse && field.index > 0 && field.index % WORD === 0) {
+        dec.push(`m=p<a.length?a[p++]:0;${mask}`);
+      }
       dec.push(`const ${v}=${read(field.index)};`);
       const value = slotValue(field.node, field.required, field.def, v, str(field.key), dec);
       parts.push(`${str(field.key)}:${value}`);
     }
+    if (lead === 1) parts.splice(tag.position, 0, `${str(tag.key)}:${slot(tag.values)}[t]`);
     if (node.sparse) dec.push(`if(strict&&p!==a.length)F('extra',"");`);
     dec.push(`return {${parts}};`);
-    functions.push(`function ${fns.d}(a,strict){${dec.join('')}}`);
+    functions.push(`function ${fns.d}(a,strict${lead === 0 ? '' : ',t'}){${dec.join('')}}`);
     return fns;
   };
 
+  // A union picks its branch by the discriminator on encode and by the tag on
+  // decode; either one outside the union is an error even without validation,
+  // since there is no branch to fall back to.
+  const unionFns = (node) => {
+    let fns = structs.get(node);
+    if (fns !== undefined) return fns;
+    fns = { e: uid('e'), d: uid('d') };
+    structs.set(node, fns);
+    const tag = slot(node.tag);
+    const key = str(node.key);
+    const expected = str(node.tag.expected);
+    const cases = (call) => {
+      const out = [];
+      for (const branch of node.branches) {
+        for (let i = 0; i < branch.count; i++) out.push(`case ${branch.first + i}:`);
+        out.push(`return ${call(structFns(branch.node))};`);
+      }
+      return out.join('');
+    };
+    functions.push(
+      `function ${fns.e}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');const v=o[${key}];` +
+        `const t=${tag}.checkedPack(v);switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
+        `E('union',${key},${expected});}`,
+    );
+    functions.push(
+      `function ${fns.d}(a,strict){if(!Array.isArray(a))F('structure',"",'array');const t=a[0];` +
+        `if(!${tag}.check(t))F('union',${key},${expected});` +
+        `switch(t){${cases((f) => `${f.d}(a,strict,t)`)}}}`,
+    );
+    return fns;
+  };
+
+  const record = (node) => (node.kind === 'union' ? unionFns(node) : structFns(node));
+
   let encodeBody;
   let decodeBody;
-  if (plan.kind === 'struct') {
-    const fns = structFns(plan);
+  if (plan.kind === 'struct' || plan.kind === 'union') {
+    const fns = record(plan);
     encodeBody = `return v==null?null:${fns.e}(v);`;
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
-    const req = plan.kind === 'scalar' && validate && plan.required ? `F('required',"");` : '';
-    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""')}return w;`;
+    const required = plan.kind === 'scalar' && plan.required;
+    const req = required && validate.decode ? `F('required',"");` : '';
+    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', required ? 'required' : null)}return w;`;
     decodeBody =
       plan.kind === 'scalar'
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`
@@ -234,11 +359,17 @@ const build = (plan, options) => {
     `function decode(v,strict){${decodeBody}}`,
     'return {encode,decode};',
   ].join('\n');
+  return { body, helpers };
+};
+
+const build = (plan, options) => {
+  const { body, helpers } = generate(plan, options);
   // oxlint-disable-next-line no-new-func
   const factory = new Function('H', 'F', 'N', 'E', body);
   const codec = factory(helpers, fail, nest, refuse);
-  // Off the public surface, for debugging through the codec symbol.
-  codec.source = body;
+  // Off the public surface, for debugging through the codec symbol: generated
+  // again when read, so a codec does not hold its source text.
+  Object.defineProperty(codec, 'source', { get: () => generate(plan, options).body });
   return codec;
 };
 

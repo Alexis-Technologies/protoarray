@@ -89,7 +89,15 @@ test('Schema: definition errors name the field', () => {
   invalid({ json: 'x', b: 'number' }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid(
     { n: { type: 1 } },
-    { code: 'ERR_INVALID_DEFINITION', message: 'The type must be a string at "n"' },
+    {
+      code: 'ERR_INVALID_DEFINITION',
+      message: 'The type must be a string; a struct starting with "type" needs a kind first at "n"',
+    },
+  );
+  invalid({ n: { type: { enum: ['a'] }, id: 'string' } }, { code: 'ERR_INVALID_DEFINITION' });
+  assert.deepStrictEqual(
+    Schema.from({ n: { Struct: {}, type: { enum: ['a'] }, id: 'string' } }).decode([[0, 'x']]),
+    { n: { type: 'a', id: 'x' } },
   );
   invalid({ n: { type: 'set' } }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid(JSON.parse('{"__proto__":"string"}'), {
@@ -144,15 +152,27 @@ test('Schema: enum, flags and default errors', () => {
     {
       code: 'ERR_INVALID_FLAGS',
       field: 'perms',
-      message: 'Expected up to 31 unique names at "perms"',
+      message: 'Expected unique names at "perms"',
     },
   );
   invalid({ perms: { flags: [1] } }, { code: 'ERR_INVALID_FLAGS' });
-  invalid(
-    { perms: { flags: Array.from({ length: 32 }, (_, i) => `f${i}`) } },
-    { code: 'ERR_INVALID_FLAGS' },
-  );
+  assert.ok(Schema.from({ perms: { flags: Array.from({ length: 70 }, (_, i) => `f${i}`) } }));
   invalid({ perms: { flags: ['a', '__proto__'] } }, { code: 'ERR_INVALID_FLAGS' });
+  const decimals = 'decimals is an integer from 0 to 15 on a number at "n"';
+  for (const n of [-1, 16, 1.5, '2', null]) {
+    invalid(
+      { n: { type: 'number', decimals: n } },
+      { code: 'ERR_INVALID_DEFINITION', message: decimals },
+    );
+  }
+  invalid({ n: { type: 'string', decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION', field: 'n' });
+  invalid({ n: { type: 'bigint', decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION' });
+  invalid({ n: { enum: [1, 2], decimals: 2 } }, { code: 'ERR_INVALID_DEFINITION' });
+  // The scale is part of the wire, so of the id; a default is a decoded value.
+  const money = Schema.from({ n: { type: 'number', decimals: 2, default: 0.5 } });
+  assert.strictEqual(money.toString(), '{n:?number(2)=0.5}');
+  assert.notStrictEqual(money.id, Schema.from({ n: { type: 'number', default: 0.5 } }).id);
+  assert.deepStrictEqual(money.decode([]), { n: 0.5 });
   invalid({ perms: { type: 'flags', flags: ['a', 'a'] } }, { code: 'ERR_INVALID_FLAGS' });
   invalid({ n: { type: 'number', default: {} } }, { code: 'ERR_INVALID_DEFINITION', field: 'n' });
   invalid({ n: { type: 'number', default: Infinity } }, { code: 'ERR_INVALID_DEFINITION' });
@@ -176,6 +196,9 @@ test('Schema: option errors', () => {
     'x',
     { codegen: 'yes' },
     { validate: 1 },
+    { validate: 'nope' },
+    { validate: 'BOTH' },
+    { validate: null },
     { sparse: 'x' },
     { layout: 'rowz' },
     { schemas: null },
@@ -192,16 +215,79 @@ test('Schema: option errors', () => {
     { code: 'ERR_INVALID_OPTIONS' },
     { layout: 'flat' },
   );
+  invalid(
+    { array: 'number' },
+    { code: 'ERR_INVALID_OPTIONS', message: 'sparse needs a struct' },
+    {
+      sparse: true,
+    },
+  );
   const wide = {};
-  for (let i = 0; i < 32; i++) wide[`f${i}`] = 'number';
-  invalid(wide, { code: 'ERR_INVALID_OPTIONS' }, { sparse: true });
-  assert.strictEqual(Schema.from(wide).keys.length, 32);
+  for (let i = 0; i < 70; i++) wide[`f${i}`] = 'number';
+  assert.strictEqual(Schema.from(wide, { sparse: true }).layout, 'sparse');
   assert.strictEqual(
     Schema.from({ a: 'string' }, { codegen: undefined, layout: undefined }).backend,
     'codegen',
   );
   assert.strictEqual(Schema.from({ a: 'string' }, null).backend, 'codegen');
+  // Only own keys are options: a prototype member is not one.
+  invalid({ a: 'string' }, { code: 'ERR_INVALID_OPTIONS' }, { constructor: true });
+  invalid({ a: 'string' }, { code: 'ERR_INVALID_OPTIONS' }, { hasOwnProperty: true });
 });
+
+// `validate` picks the direction that is checked. The default checks the wire
+// on decode and trusts the values given to encode, as 1.0 did; 'both' checks
+// both, 'encode' only the values, false nothing but the structure.
+for (const [backend, options] of BACKENDS) {
+  test(`Schema (${backend}): validate modes`, () => {
+    const definition = { id: 'number', tags: { array: 'string', required: false } };
+    const modes = [
+      [true, false, true],
+      ['decode', false, true],
+      ['encode', true, false],
+      ['both', true, true],
+      [false, false, false],
+    ];
+    for (const [mode, values, wire] of modes) {
+      const label = String(mode);
+      const schema = Schema.from(definition, { ...options, validate: mode });
+      const bad = { id: 'x' };
+      if (values) assert.throws(() => schema.encode(bad), { code: 'type', path: 'id' }, label);
+      else assert.deepStrictEqual(schema.encode(bad), ['x'], label);
+      if (wire) assert.throws(() => schema.decode(['x']), { code: 'type', path: 'id' }, label);
+      else assert.deepStrictEqual(schema.decode(['x']), { id: 'x', tags: null }, label);
+      // The shape is checked in every mode, and check() validates in every mode.
+      assert.throws(() => schema.encode(5), { code: 'object' }, label);
+      assert.throws(() => schema.decode('x'), { code: 'structure' }, label);
+      assert.strictEqual(schema.check(bad).code, 'type', label);
+      assert.strictEqual(schema.check({ id: 1 }), null, label);
+      // The list inherits the mode.
+      const rows = schema.list;
+      if (values) assert.throws(() => rows.encode([bad]), { path: '[0].id' }, label);
+      else assert.deepStrictEqual(rows.encode([bad]), [['x']], label);
+      if (wire) assert.throws(() => rows.decode([['x']]), { path: '[0].id' }, label);
+      else assert.deepStrictEqual(rows.decode([['x']]), [{ id: 'x', tags: null }], label);
+    }
+    // A schema by value or by name keeps its own mode inside another.
+    const Inner = new Schema('Inner', { n: 'number' }, options);
+    const Strict = new Schema('Strict', { n: 'number' }, { ...options, validate: 'both' });
+    const Outer = Schema.from(
+      { a: Inner, b: Strict, c: 'Inner' },
+      { ...options, validate: 'both', schemas: { Inner } },
+    );
+    assert.deepStrictEqual(Outer.encode({ a: { n: 'x' }, b: { n: 1 }, c: { n: 'y' } }), [
+      ['x'],
+      [1],
+      ['y'],
+    ]);
+    assert.throws(() => Outer.encode({ a: { n: 1 }, b: { n: 'x' }, c: { n: 1 } }), {
+      code: 'type',
+      path: 'b.n',
+    });
+    const Trusting = Schema.from({ b: Strict }, { ...options, validate: false });
+    assert.throws(() => Trusting.encode({ b: { n: 'x' } }), { code: 'type', path: 'b.n' });
+  });
+}
 
 // Definition content reaches generated source only through JSON.stringify:
 // keys, enum values and defaults that would break a string literal or name a
@@ -265,13 +351,21 @@ test('Schema: a failing code generation falls back to closures unless the backen
   codegen.build = () => {
     throw new EvalError('refused');
   };
+  const FALLBACK = Symbol.for('alexify.protoarray.fallback');
   try {
     const schema = Schema.from({ id: 'number' });
     assert.strictEqual(schema.backend, 'closures');
     assert.deepStrictEqual(schema.decode([1]), { id: 1 });
     assert.strictEqual(schema.list.backend, 'closures');
     assert.throws(() => Schema.from({ id: 'number' }, { codegen: true }), EvalError);
+    // The cause is kept, off the public surface, so a fallback can be told from a choice.
+    assert.ok(schema[FALLBACK] instanceof EvalError);
+    assert.strictEqual(schema[FALLBACK].message, 'refused');
+    assert.strictEqual(schema.list[FALLBACK].message, 'refused');
+    assert.ok(!Object.keys(schema).includes(FALLBACK));
   } finally {
     codegen.build = build;
   }
+  assert.strictEqual(Schema.from({ id: 'number' })[FALLBACK], undefined);
+  assert.strictEqual(Schema.from({ id: 'number' }, { codegen: false })[FALLBACK], undefined);
 });

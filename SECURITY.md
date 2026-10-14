@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest published minor version receives fixes.
+Only the latest published minor version of a supported major receives fixes.
 
 | Version | Supported |
 |---|---|
@@ -35,13 +35,17 @@ timeline once the report is confirmed.
   only from definitions you trust, the same as any other module you `require`.
 - **Payloads are untrusted data.** A payload can come from anywhere. What `decode` and `parse`
   guarantee for any input:
-  - With the default `validate: true`, the only error they throw is `DecodeError`: for any JSON
-    text, and for any in-process value as well (a `BigInt` as a sparse mask, a `Symbol` as an
-    enum index). A payload of a recursive schema nested deeper than the call stack is reported as
-    `DecodeError` with code `structure` ("nested too deeply"), not as a `RangeError`.
-  - The array structure is checked even with `validate: false`. In that mode values are trusted
-    and not checked; a value that has no wire form of its type is left as it is, never converted
-    into something else and never read from a prototype.
+  - Whatever `validate` is set to, the only error they throw is `DecodeError`: for any JSON text,
+    and for any in-process value as well (a `BigInt` as a sparse mask, a `Symbol` as an enum
+    index, an array as a bitmask, a negative mask). A payload of a recursive schema nested deeper
+    than the call stack is reported as `DecodeError` with code `structure` ("nested too deeply"),
+    not as a `RangeError`. The one exception is the platform's: a `bytes` field in a realm with
+    neither `Uint8Array.fromBase64` nor `atob` throws a `ReferenceError` (see
+    [Runtimes](https://protoarray.vercel.app/guide/runtimes)).
+  - The array structure, a sparse mask and a union tag are checked even with `validate: false`
+    or `'encode'`. In those modes values are trusted and not checked; a value that has no wire
+    form of its type is left as it is, never converted into something else and never read from a
+    prototype.
   - Nothing is written to `Object.prototype` or any other shared object. `__proto__` is rejected
     as a key, as an enum value and as a flag name when the schema is built, and decoded objects
     are built from literals with the schema's own keys.
@@ -58,6 +62,16 @@ timeline once the report is confirmed.
   parameters. Where `new Function` is blocked, or if compiling one schema's function fails, the
   closures backend is used instead. Both backends run through the same test suite and a
   differential suite on random schemas and corrupted payloads.
-- **Encoding** trusts the values it is given. It checks shape, not types: a record that is not an
-  object, or a collection or tuple that is not an array, throws `EncodeError` with the path. A
-  value nested deeper than the call stack throws a `RangeError`: it is the caller's own data.
+- **Encoding** trusts the values it is given by default (`validate: true` or `'decode'`), the
+  way 1.0 did: it checks shape, not types. A record that is not an object (an array is not one),
+  a collection or tuple that is not an array, and a union value whose discriminator is not one of
+  its values throw `EncodeError` with the path; a cyclic value, or one nested deeper than the call
+  stack, is `EncodeError` with code `depth`. With `validate: 'both'` or `'encode'` the values are
+  checked too (types, required fields, enum values), and a value that validation rejects is an
+  `EncodeError` with the path and the expected type, never the value. A conversion that throws on
+  its own over an unchecked value (`+value` on an object with a throwing `Symbol.toPrimitive`)
+  is the caller's own error and passes through as it is.
+- **`check(value)`** returns the `EncodeError` that a validated encode would throw, or `null`,
+  and throws nothing over the data itself: an enum or union lookup never turns the value into a
+  property key, and only a real `Uint8Array` view is bytes (`Symbol.toStringTag` cannot forge
+  one).

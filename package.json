@@ -1,6 +1,6 @@
 {
   "name": "@alexify/protoarray",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zero-dependency schema-based compact serialization for Node.js and browsers: objects travel as positional JSON arrays, a shared schema maps every position back to its key. A lightweight alternative to Protocol Buffers",
   "license": "MIT",
   "author": "Alex Dolid <dolid.sasha@gmail.com>",
@@ -18,7 +18,8 @@
   "packageManager": "pnpm@10.34.5",
   "main": "index.js",
   "browser": {
-    "./index.js": "./browser.js"
+    "./index.js": "./browser.js",
+    "./src/runtime/node.js": "./src/runtime/browser.js"
   },
   "types": "index.d.ts",
   "exports": {
@@ -26,8 +27,10 @@
       "types": "./index.d.ts",
       "browser": "./browser.js",
       "default": "./index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
+  "sideEffects": false,
   "directories": {
     "test": "tests"
   },
@@ -46,7 +49,7 @@
   },
   "scripts": {
     "test": "node --test tests/unit/*.test.js",
-    "test:coverage": "c8 --all --include 'src/**' --check-coverage --lines 98 --statements 98 --branches 90 --functions 100 --reporter text --reporter lcov node --test tests/unit/*.test.js",
+    "test:coverage": "c8 --all --include 'src/**' --100 --per-file --reporter text --reporter lcov node --test tests/unit/*.test.js",
     "test:types": "tsd",
     "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts",
     "lint": "oxlint src tests scripts bench",

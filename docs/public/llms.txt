@@ -9,22 +9,28 @@ Key facts:
 - Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
   with `Infer<D>` and `Input<D>` inferred from the definition literal
-- Zero runtime dependencies, no build step, under 8 KB min+gzip
+- Zero runtime dependencies, no build step, under 11 KB min+gzip
 - The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
   to parse and stringify (×1.5 encode, ×1.7 decode on a typical record in V8)
 - Definition DSL is a subset of `@alexify/metaschema`: `'string'`, `'?number'`, `'key?'`, nested
-  structs, `{ array: T }`, `{ enum: [...] }`, `{ flags: [...] }`, `'date'`, `'bigint'`, `'json'`,
-  tuples, `{ type, required, default }`, schemas by value or by name
+  structs, `{ array: T }`, `{ enum: [...] }`, `{ flags: [...] }`, `{ union: [...], discriminator }`,
+  `'date'`, `'bigint'`, `'bytes'`, `'json'`, tuples, `{ type, required, default, decimals }`,
+  schemas by value or by name
 - Wire rules: one field per position in declaration order; missing/undefined/null travel as null;
-  trailing nulls are trimmed; enum → index, date → epoch ms, bigint → decimal string, flags →
-  bitmask; `{ sparse: true }` → `[mask, ...present]`; collections as rows, `flat` or `columns`
+  trailing nulls are trimmed; enum → index, date → epoch ms, bigint → decimal string, bytes →
+  base64, decimals → scaled integer, flags → bitmask (an array of 31-bit words past 31 names),
+  union → `[tag, ...branch fields]`; `{ sparse: true }` → `[mask, ...present]` per 31 fields;
+  collections as rows, `flat` or `columns`
 - Schema evolution: append fields at the end, never reorder; older and newer versions interoperate;
   `schema.id` fingerprints the canonical form (FNV-1a 32-bit, or the `fingerprint` option)
 - Two backends: generated code (`new Function`) by default, composed closures where code
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge)
-- Errors: `DecodeError` (the only error `decode`/`parse` throw, with `code`, `path` and `schema`),
-  `EncodeError` for a record that is not an object or a list that is not an array,
-  `SchemaDefinitionError` for a broken definition
-- Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `SchemaDefinitionError`,
+- Validation: `validate: true` (default) or `'decode'` checks the wire on decode and trusts the
+  values given to encode, `'both'` checks the values too, `'encode'` only them, `false` neither;
+  `EncodeError` and `DecodeError` with `code`, `path` (`orders[1].sku`) and `schema`;
+  `schema.check(value)` returns the `EncodeError` a validated encode would throw, or `null`,
+  whatever the mode; `SchemaDefinitionError` for a broken definition
+- Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `check`, `SchemaDefinitionError`,
   `EncodeError`, `DecodeError`
+- wrpc: a union of wrpc's packet types makes a packet codec (https://protoarray.vercel.app/guide/wrpc)
 - Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

@@ -47,8 +47,9 @@ Both sides share the schema, so the keys never travel: position `0` is `id`, pos
   on the message size.
 - **Faster than JSON.** A positional array is less work for `JSON.parse` and `JSON.stringify`,
   and the object is rebuilt by generated code with one hidden class per schema: ×1.5 encode and
-  ×1.7 decode on a typical record, ahead of protobufjs, msgpackr and @msgpack/msgpack in
-  JavaScript (see [benchmarks](#benchmarks)).
+  ×1.7 decode on a typical record. It encodes faster than every binary codec in JavaScript and
+  decodes ahead of protobufjs and @msgpack/msgpack; msgpackr with shared structures and avsc
+  decode records faster (see [benchmarks](#benchmarks)).
 - **Still JSON.** The payload is a plain JSON array, so it goes through any transport and storage
   that already handle JSON, compresses with gzip, brotli and zstd like JSON, and stays readable in
   logs.
@@ -56,8 +57,9 @@ Both sides share the schema, so the keys never travel: position `0` is `id`, pos
   JavaScript value, in the same DSL as [`@alexify/metaschema`](https://metaschema.vercel.app/).
 - **Evolves safely.** Append fields at the end and old and new versions keep understanding each
   other; a fingerprint (`schema.id`) tells versions apart in a handshake.
-- **Typed.** Hand-written TypeScript typings infer the object type from the definition literal.
-- **Zero dependencies, under 8 KB min+gzip.** CommonJS with ESM named imports, no build step, one
+- **Typed.** Hand-written TypeScript typings (5.0 or newer) infer the object type from the
+  definition literal.
+- **Zero dependencies, under 11 KB min+gzip.** CommonJS with ESM named imports, no build step, one
   package for Node.js 18+ and browsers. Generated code where the runtime allows it, a closures
   fallback under a strict CSP or on edge runtimes.
 
@@ -75,16 +77,17 @@ Requires Node.js 18 or newer. Works in browsers through any bundler.
 
 | Feature | How |
 | --- | --- |
-| Scalars | `'string'`, `'number'`, `'boolean'`, `'bigint'`, `'date'` (epoch ms on the wire), `'json'` (anything) |
+| Scalars | `'string'`, `'number'`, `'boolean'`, `'bigint'`, `'date'` (epoch ms on the wire), `'bytes'` (base64), `'json'` (anything) |
 | Optional fields | `'?string'`, `'email?': 'string'` or `{ type: 'string', required: false }`; missing ones decode as `null` |
 | Defaults | `{ type: 'number', default: 0 }` fills a missing slot on decode |
 | Nested records | `address: { city: 'string' }` → a nested array |
 | Collections | `{ array: 'string' }` travels as is; `{ array: Record }` becomes an array of arrays; `User.list` |
-| Compact types | `{ enum: [...] }` → index, `{ flags: [...] }` → bitmask, `['number', 'number']` tuples |
+| Compact types | `{ enum: [...] }` → index, `{ flags: [...] }` → bitmask, `{ type: 'number', decimals: 2 }` → scaled integer, `'bytes'` → base64, `['number', 'number']` tuples |
+| Unions | `{ union: [Call, Event], discriminator: 'type' }` → `[tag, ...fields]`, metaschema's discriminated union |
 | Sparse records | `{ sparse: true }` → `[mask, ...present values]` for records with many optional fields |
 | Layouts | `{ layout: 'flat' }` (one array, fixed stride) or `'columns'` (transposed, best for compression) |
 | References | a `Schema` by value, or by name (`'User'`) through `schemas` and for recursion; it keeps its own options and layout |
-| Validation | on by default on decode, with `DecodeError` codes, paths like `orders[1].sku` and the schema name; `EncodeError` for a record that is not an object or a list that is not an array |
+| Validation | the wire on decode by default, the values on encode with `{ validate: 'both' }`: `EncodeError` and `DecodeError` with codes, paths like `orders[1].sku` and the schema name; `schema.check(value)` returns the error or `null` |
 | Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart |
 
 See the [guide](https://protoarray.vercel.app/guide/schema) for every form.
@@ -101,23 +104,23 @@ text or bytes and back.
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,389,299 (×1.00) | 956,204 (×1.00) | 266 | 212 | 178 |
-| protoarray (codegen) | 2,087,441 (×1.50) | 1,709,611 (×1.79) | 135 | 134 | 110 |
-| protobufjs | 1,432,630 (×1.03) | 1,464,340 (×1.53) | 115 | 127 | 117 |
-| avsc | 1,754,953 (×1.26) | 1,847,640 (×1.93) | 97 | 111 | 101 |
-| msgpackr (records, shared structures) | 1,511,474 (×1.09) | 2,637,199 (×2.76) | 108 | 124 | 112 |
+| JSON | 1,404,942 (×1.00) | 959,412 (×1.00) | 266 | 212 | 178 |
+| protoarray (codegen) | 2,067,707 (×1.47) | 1,695,065 (×1.77) | 135 | 134 | 110 |
+| protobufjs | 1,416,083 (×1.01) | 1,471,736 (×1.53) | 115 | 127 | 117 |
+| avsc | 1,755,981 (×1.25) | 1,836,788 (×1.91) | 97 | 111 | 101 |
+| msgpackr (records, shared structures) | 1,449,843 (×1.03) | 2,627,102 (×2.74) | 108 | 124 | 112 |
 
 **records** — 1000 records of the same shape
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,549 (×1.00) | 909 (×1.00) | 271,215 | 33,793 | 29,133 |
-| protoarray (codegen) | 2,027 (×1.31) | 1,545 (×1.70) | 140,738 | 30,666 | 26,946 |
-| protobufjs | 1,321 (×0.85) | 1,414 (×1.56) | 120,459 | 31,414 | 28,985 |
-| avsc | 1,426 (×0.92) | 1,833 (×2.02) | 101,839 | 29,895 | 27,334 |
-| msgpackr (records, shared structures) | 1,557 (×1.01) | 2,878 (×3.17) | 112,274 | 30,957 | 28,370 |
+| JSON | 1,534 (×1.00) | 931 (×1.00) | 271,215 | 33,793 | 29,133 |
+| protoarray (codegen) | 2,008 (×1.31) | 1,554 (×1.67) | 140,738 | 30,666 | 26,946 |
+| protobufjs | 1,318 (×0.86) | 1,383 (×1.49) | 120,459 | 31,414 | 28,985 |
+| avsc | 1,435 (×0.94) | 1,825 (×1.96) | 101,839 | 29,895 | 27,334 |
+| msgpackr (records, shared structures) | 1,554 (×1.01) | 2,826 (×3.04) | 112,274 | 30,957 | 28,370 |
 
-_Node v24.14.1 (V8 13.6.233.17-node.44), Apple M3 Max, 2026-10-14. Median of 5 runs; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._
+_Node v24.14.1 (V8 13.6.233.17-node.44), Apple M3 Max, 2026-10-14. Median of 5 rounds in a fresh process per library and scenario (the spread of the rounds is in bench/results/compare.json); bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._
 
 <!-- bench:compare:end -->
 
@@ -131,7 +134,7 @@ decodes small records faster; the full tables, including those, are in the
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse,
+  encode, decode, stringify, parse, check,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```

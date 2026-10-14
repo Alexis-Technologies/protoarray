@@ -8,6 +8,12 @@ const Items = Schema.from({ array: { a: 'number', b: '?number' } }, { layout: 'f
 
 const AT = 1700000000000;
 
+// 40 optional fields: a sparse record takes two segments of masks.
+const WIDE = {};
+for (let i = 0; i < 40; i++) WIDE[`f${i}`] = '?number';
+const NAMES = Array.from({ length: 40 }, (_, i) => `n${i}`);
+const allFalse = Object.fromEntries(NAMES.map((name) => [name, false]));
+
 const VECTORS = [
   {
     name: 'flat record',
@@ -158,6 +164,19 @@ const VECTORS = [
     wire: ['12345678901234567890'],
   },
   {
+    name: 'decimals travel as scaled integers',
+    definition: { price: { type: 'number', decimals: 2 }, total: { type: 'number', decimals: 2 } },
+    value: { price: 19.99, total: 0.1 + 0.2 },
+    wire: [1999, 30],
+    decoded: { price: 19.99, total: 0.3 },
+  },
+  {
+    name: 'bytes travel as base64',
+    definition: { id: 'number', avatar: 'bytes' },
+    value: { id: 1, avatar: new Uint8Array([137, 80, 78, 71]) },
+    wire: [1, 'iVBORw=='],
+  },
+  {
     name: 'flags travel as a bitmask',
     definition: { perms: { flags: ['read', 'write', 'admin'] } },
     value: { perms: { read: true, admin: true } },
@@ -209,12 +228,98 @@ const VECTORS = [
     wire: [1],
   },
   {
+    name: 'union: the tag leads and the discriminator does not travel',
+    definition: {
+      union: [
+        { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: '?json' },
+        { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' },
+      ],
+      discriminator: 'type',
+    },
+    value: { type: 'call', id: '7', method: 'auth/signIn', args: ['alex', 'secret'] },
+    wire: [0, '7', 'auth/signIn', ['alex', 'secret']],
+  },
+  {
+    name: 'union: trailing optionals of a branch are trimmed',
+    definition: {
+      union: [
+        { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: '?json' },
+        { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' },
+      ],
+      discriminator: 'type',
+    },
+    value: { type: 'event', name: 'chat/message' },
+    wire: [1, 'chat/message'],
+    decoded: { type: 'event', name: 'chat/message', data: null },
+  },
+  {
+    name: 'union: a branch with several values',
+    definition: {
+      union: [
+        { r: 'number', kind: { enum: ['circle'] } },
+        { side: 'number', kind: { enum: ['square', 'diamond'] } },
+      ],
+      discriminator: 'kind',
+    },
+    value: { side: 2, kind: 'diamond' },
+    wire: [2, 2],
+  },
+  {
+    name: 'array of unions',
+    definition: {
+      array: {
+        union: [
+          { Struct: {}, type: { enum: ['ping'] } },
+          { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+        ],
+        discriminator: 'type',
+      },
+    },
+    value: [{ type: 'ping' }, { type: 'event', name: 'x' }],
+    wire: [[0], [1, 'x']],
+  },
+  {
     name: 'sparse record',
     definition: { a: 'number', b: '?string', c: '?string', d: '?number' },
     options: { sparse: true },
     value: { a: 1, d: 4 },
     wire: [9, 1, 4],
     decoded: { a: 1, b: null, c: null, d: 4 },
+  },
+  {
+    name: 'a sparse record past 31 fields takes a segment per 31',
+    definition: WIDE,
+    options: { sparse: true },
+    value: { f0: 1, f3: 2, f35: 3 },
+    wire: [9, 1, 2, 16, 3],
+    decoded: {
+      ...Object.fromEntries(Object.keys(WIDE).map((key) => [key, null])),
+      f0: 1,
+      f3: 2,
+      f35: 3,
+    },
+  },
+  {
+    name: 'trailing empty segments are trimmed',
+    definition: WIDE,
+    options: { sparse: true },
+    value: { f3: 2 },
+    wire: [8, 2],
+    decoded: { ...Object.fromEntries(Object.keys(WIDE).map((key) => [key, null])), f3: 2 },
+  },
+  {
+    name: 'flags past 31 names take an array of words',
+    definition: { perms: { flags: NAMES } },
+    value: { perms: { n0: true, n35: true } },
+    wire: [[1, 16]],
+    decoded: { perms: { ...allFalse, n0: true, n35: true } },
+  },
+  {
+    name: 'wide flags stay one integer while the first word holds them all',
+    definition: { perms: { flags: NAMES } },
+    value: { perms: { n2: true } },
+    wire: [4],
+    decoded: { perms: { ...allFalse, n2: true } },
   },
   {
     name: 'root array of records',

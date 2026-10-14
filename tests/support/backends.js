@@ -5,10 +5,11 @@ const BACKENDS = [
   ['closures', { codegen: false }],
 ];
 
-// Dates and BigInts have no deepStrictEqual-friendly form; this turns them into
-// tagged objects while keeping key order.
+// Dates, BigInts and bytes have no deepStrictEqual-friendly form; this turns
+// them into tagged objects while keeping key order.
 const normalize = (value) => {
   if (value instanceof Date) return { $date: value.getTime() };
+  if (value instanceof Uint8Array) return { $bytes: Array.from(value) };
   if (typeof value === 'bigint') return { $bigint: value.toString() };
   if (Array.isArray(value)) return value.map(normalize);
   if (value !== null && typeof value === 'object') {

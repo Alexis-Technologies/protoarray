@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { Schema, encode, decode, stringify, parse, EncodeError } = require('../../index.js');
+const { Schema, encode, decode, stringify, parse, check, EncodeError } = require('../../index.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
 const { VECTORS } = require('../support/vectors.js');
 
@@ -68,7 +68,7 @@ for (const [backend, options] of BACKENDS) {
         },
       );
     }
-    assert.deepStrictEqual(Schema.from('string', options).encode(undefined), null);
+    assert.deepStrictEqual(Schema.from('?string', options).encode(undefined), null);
   });
 
   test(`Codec (${backend}): schema references by name allow recursion`, () => {
@@ -210,6 +210,55 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => schema.decode([1, 'no']), { code: 'structure', path: 'inner' });
   });
 
+  test(`Codec (${backend}): check returns what encode would throw, or null`, () => {
+    const User = new Schema('User', { id: 'number', name: '?string' }, options);
+    assert.strictEqual(User.check({ id: 1 }), null);
+    const error = User.check({ id: 'x' });
+    assert.ok(error instanceof EncodeError);
+    assert.deepStrictEqual(
+      [error.code, error.path, error.schema, error.message],
+      ['type', 'id', 'User', 'Field "id" is not of expected type: number'],
+    );
+    assert.strictEqual(User.check(5).code, 'object');
+    assert.strictEqual(User.list.check([{ id: 1 }, {}]).path, '[1].id');
+    assert.strictEqual(User.list.check('x').code, 'array');
+    // It checks where `validate: false` trusts the value, in the schemas it embeds too.
+    const loose = { ...options, validate: false };
+    const Node = new Schema('Node', { v: 'number', kids: { array: 'Node' } }, loose);
+    assert.strictEqual(Node.check({ v: 1, kids: [{ v: 2, kids: [] }] }), null);
+    assert.strictEqual(Node.check({ v: 1, kids: [{ v: 'x', kids: [] }] }).path, 'kids[0].v');
+    assert.deepStrictEqual(Node.encode({ v: 'x', kids: [] }), ['x', []]);
+    const Inner = new Schema('Inner', { n: 'number' }, loose);
+    const Outer = Schema.from(
+      { s: Inner, list: { array: Inner }, named: 'Inner' },
+      { ...options, schemas: { Inner } },
+    );
+    const good = { s: { n: 1 }, list: [], named: { n: 1 } };
+    assert.strictEqual(Outer.check(good), null);
+    assert.strictEqual(Outer.check({ ...good, s: { n: 'x' } }).path, 's.n');
+    assert.strictEqual(Outer.check({ ...good, list: [{ n: 'x' }] }).path, 'list[0].n');
+    assert.strictEqual(Outer.check({ ...good, named: { n: 'x' } }).path, 'named.n');
+    assert.deepStrictEqual(Outer.encode({ ...good, s: { n: 'x' } }), [['x'], [], [1]]);
+    assert.strictEqual(Inner.list.check([{ n: 1 }, { n: 'q' }]).path, '[1].n');
+    const Flat = Schema.from({ array: Inner }, { ...loose, layout: 'flat' });
+    assert.strictEqual(Flat.check([{ n: 'x' }]).path, '[0].n');
+    assert.strictEqual(Flat.check([null]).code, 'type');
+    const Alias = Schema.from('Inner', { ...options, schemas: { Inner } });
+    assert.strictEqual(Alias.check({ n: 'x' }).path, 'n');
+    const cycle = { v: 1, kids: [] };
+    cycle.kids.push(cycle);
+    assert.strictEqual(Node.check(cycle).code, 'depth');
+    // The checking codec is compiled once, and a throwing getter is not a data problem.
+    const CHECKER = Symbol.for('alexify.protoarray.checker');
+    assert.strictEqual(Node[CHECKER], Node[CHECKER]);
+    const bad = {
+      get id() {
+        throw new SyntaxError('boom');
+      },
+    };
+    assert.throws(() => User.check(bad), SyntaxError);
+  });
+
   test(`Codec (${backend}): a root scalar`, () => {
     const schema = Schema.from('?string', options);
     assert.strictEqual(schema.encode('x'), 'x');
@@ -232,9 +281,11 @@ test('Codec: the functional entry points mirror the methods', () => {
   assert.deepStrictEqual(decode(schema, [1]), { id: 1, name: null });
   assert.strictEqual(stringify(schema, { id: 1 }), '[1]');
   assert.deepStrictEqual(parse(schema, '[1]'), { id: 1, name: null });
+  assert.strictEqual(check(schema, { id: 1 }), null);
+  assert.strictEqual(check(schema, {}).code, 'required');
   assert.throws(() => decode(schema, [1, 'x', 2], { strict: true }), { code: 'extra' });
   assert.throws(() => parse(schema, '[1, "x", 2]', { strict: true }), { code: 'extra' });
-  for (const fn of [encode, decode, stringify, parse]) {
+  for (const fn of [encode, decode, stringify, parse, check]) {
     assert.throws(() => fn({ id: 'number' }, {}), {
       code: 'ERR_SCHEMA_EXPECTED',
       message: 'Schema instance expected',
@@ -316,3 +367,43 @@ test('Codec: a schema built from a schema keeps its definition', () => {
   assert.deepStrictEqual(Sparse.decode([3, 1, 'x']), { id: 1, note: 'x' });
   assert.strictEqual(new Schema(Base.definition).name, '');
 });
+
+// check() reaches every construct, however the schema was built.
+for (const [backend, options] of BACKENDS) {
+  test(`Codec (${backend}): check covers unions, layouts and roots`, () => {
+    const loose = { ...options, validate: false };
+    const Node = new Schema(
+      'Node',
+      {
+        union: [
+          { Struct: {}, type: { enum: ['leaf'] }, v: 'number' },
+          { Struct: {}, type: { enum: ['pair'] }, l: 'Node', r: 'Node' },
+        ],
+        discriminator: 'type',
+      },
+      loose,
+    );
+    const leaf = (v) => ({ type: 'leaf', v });
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf(1), r: leaf(2) }), null);
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf('x'), r: leaf(2) }).path, 'l.v');
+    assert.strictEqual(Node.check({ type: 'pair', l: { type: 'nope' }, r: null }).path, 'l.type');
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf(1) }).path, 'r');
+    assert.deepStrictEqual(Node.encode(leaf('x')), [0, 'x']);
+    const Cols = Schema.from({ array: { a: 'number' } }, { ...loose, layout: 'columns' });
+    assert.strictEqual(Cols.check([{ a: 1 }, { a: 'x' }]).path, '[1].a');
+    assert.strictEqual(Cols.check([{ a: 1 }, null]).code, 'type');
+    assert.deepStrictEqual(Cols.encode([{ a: 'x' }]), [['x']]);
+    const Sparse = Schema.from({ a: 'number', b: '?string' }, { ...loose, sparse: true });
+    assert.strictEqual(Sparse.check({ b: 'x' }).code, 'required');
+    assert.strictEqual(Sparse.check({ a: 1 }), null);
+    const Num = Schema.from('number', loose);
+    assert.strictEqual(Num.check('x').code, 'type');
+    assert.strictEqual(Num.check(undefined).code, 'required');
+    assert.strictEqual(Num.check(1), null);
+    assert.strictEqual(Schema.from('?number', loose).check(null), null);
+    const Pair = Schema.from(['number', 'string'], loose);
+    assert.strictEqual(Pair.check([1, 'x']), null);
+    assert.strictEqual(Pair.check([1]).path, '[1]');
+    assert.strictEqual(Pair.check({}).code, 'array');
+  });
+}

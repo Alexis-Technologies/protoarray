@@ -4,7 +4,7 @@
  */
 
 /** Scalar type names of the definition DSL. */
-export type ScalarType = 'string' | 'number' | 'boolean' | 'bigint' | 'date' | 'json';
+export type ScalarType = 'string' | 'number' | 'boolean' | 'bigint' | 'date' | 'bytes' | 'json';
 
 /** A type name, optionally prefixed with `?`, or the capitalised name of a referenced schema. */
 export type TypeName = ScalarType | `?${ScalarType}` | (string & {});
@@ -16,6 +16,8 @@ export interface LongForm {
   readonly default?: string | number | boolean | null;
   readonly enum?: readonly (string | number)[];
   readonly flags?: readonly string[];
+  /** With `type: 'number'`: travel as an integer scaled by 10ⁿ, n from 0 to 15. */
+  readonly decimals?: number;
   readonly [option: string]: unknown;
 }
 
@@ -30,6 +32,7 @@ export interface AnySchema {
   readonly id: string;
   encode(value: any): unknown;
   decode(array: any, options?: DecodeOptions): unknown;
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 
@@ -45,6 +48,11 @@ export type FieldDefinition =
       readonly default?: string | number;
     }
   | { readonly flags: readonly string[]; readonly required?: boolean }
+  | {
+      readonly union: readonly (StructDefinition | AnySchema | string)[];
+      readonly discriminator: string;
+      readonly required?: boolean;
+    }
   | LongForm
   | StructDefinition
   | ((...args: any[]) => unknown);
@@ -63,6 +71,7 @@ type Scalars = {
   boolean: boolean;
   bigint: bigint;
   date: Date;
+  bytes: Uint8Array;
   json: unknown;
 };
 
@@ -76,6 +85,7 @@ type Shorthand =
   | { readonly array: unknown }
   | { readonly enum: unknown }
   | { readonly flags: unknown }
+  | { readonly union: readonly unknown[] }
   | { readonly type: unknown };
 
 /** Whether a slot may be nullish on the wire. */
@@ -95,7 +105,21 @@ type Flatten<T> = { [K in keyof T]: T[K] } & {};
 
 type Strip<K> = K extends `${infer Name}?` ? Name : K;
 
-type FieldKeys<D> = { [K in keyof D]: D[K] extends Calculated ? never : K }[keyof D] & string;
+/**
+ * A capitalised key holding plain metadata is the struct's kind, as in
+ * `{ Struct: {}, type: … }`: it has no position. metaschema reads only the
+ * first key that way, which types cannot see.
+ */
+type IsKind<K, F> = K extends Uncapitalize<K & string>
+  ? false
+  : F extends Calculated | string | readonly unknown[] | Shorthand | { readonly backend: Backend }
+    ? false
+    : true;
+
+type FieldKeys<D> = {
+  [K in keyof D]: D[K] extends Calculated ? never : IsKind<K, D[K]> extends true ? never : K;
+}[keyof D] &
+  string;
 
 type RequiredKeys<D> = { [K in FieldKeys<D>]: Optional<K, D[K]> extends true ? never : K }[FieldKeys<D>];
 
@@ -130,11 +154,13 @@ type Value<F, M extends Mode> = F extends Schema<infer X>
               ? M extends 'out'
                 ? { [K in N]: boolean }
                 : { [K in N]?: boolean }
-              : F extends { readonly type: infer T extends string }
-                ? TypeOf<T>
-                : F extends object
-                  ? Shape<F, M>
-                  : unknown;
+              : F extends { readonly union: readonly (infer B)[] }
+                ? Shape<B, M>
+                : F extends { readonly type: infer T extends string }
+                  ? TypeOf<T>
+                  : F extends object
+                    ? Struct<F, M>
+                    : unknown;
 
 type Struct<D, M extends Mode> = M extends 'out'
   ? Flatten<
@@ -181,9 +207,16 @@ export type Layout = 'rows' | 'flat' | 'columns';
 export interface SchemaOptions {
   /** `true` to require code generation, `false` to force closures; by default the runtime decides. */
   readonly codegen?: boolean;
-  /** Check the wire on decode (default `true`). */
-  readonly validate?: boolean;
-  /** Encode a struct as `[mask, ...present values]` (up to 31 fields). */
+  /**
+   * What is validated: `true` (the default) or `'decode'` checks the wire on
+   * decode and trusts the values given to encode, as 1.0 did; `'both'` also
+   * checks those values (types, required fields, enum values, with a path);
+   * `'encode'` checks only them; `false` trusts both sides. The shape of a
+   * value, a union's discriminator and the array structure of the wire are
+   * always checked. `check()` validates a value whatever this says.
+   */
+  readonly validate?: boolean | 'decode' | 'encode' | 'both';
+  /** Encode a struct as `[mask, ...present values]`, one such segment per 31 fields. */
   readonly sparse?: boolean;
   /** Layout of a collection of records (default `'rows'`). */
   readonly layout?: Layout;
@@ -230,6 +263,12 @@ export class Schema<const D extends Definition = Definition> {
   decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
+  /**
+   * What encoding the value with validation would throw, as the error itself,
+   * or `null`. It checks even where `validate: false` is set, here and in the
+   * schemas this one embeds, and never throws over the data.
+   */
+  check(value: unknown): EncodeError | null;
   /** The canonical form: every position with its type. */
   toString(): string;
 }
@@ -248,6 +287,7 @@ export interface Collection<D extends Definition> {
   decode(array: readonly unknown[], options?: DecodeOptions): Infer<D>[];
   stringify(value: readonly Input<D>[]): string;
   parse(text: string, options?: DecodeOptions): Infer<D>[];
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 
@@ -285,11 +325,14 @@ export function parse<D extends Definition>(
   options?: DecodeOptions,
 ): Infer<D>[];
 
+export function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
+
 export type SchemaErrorCode =
   | 'ERR_INVALID_DEFINITION'
   | 'ERR_UNKNOWN_TYPE'
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_FLAGS'
+  | 'ERR_INVALID_UNION'
   | 'ERR_UNKNOWN_REFERENCE'
   | 'ERR_RESERVED_KEY'
   | 'ERR_INTEGER_KEY'
@@ -297,10 +340,28 @@ export type SchemaErrorCode =
   | 'ERR_CODEGEN_UNAVAILABLE'
   | 'ERR_SCHEMA_EXPECTED';
 
-/** What the value is not: an object for a record, an array for a collection or a tuple. */
-export type EncodeErrorCode = 'object' | 'array';
+/**
+ * `object`/`array`: what the value is not; `depth`: a cyclic value or one nested
+ * deeper than the call stack; `union`: a discriminator outside the union;
+ * `required`, `type` and `enum`: what validation found.
+ */
+export type EncodeErrorCode =
+  | 'object'
+  | 'array'
+  | 'depth'
+  | 'required'
+  | 'type'
+  | 'enum'
+  | 'union';
 
-export type DecodeErrorCode = 'structure' | 'required' | 'type' | 'enum' | 'extra' | 'json';
+export type DecodeErrorCode =
+  | 'structure'
+  | 'required'
+  | 'type'
+  | 'enum'
+  | 'union'
+  | 'extra'
+  | 'json';
 
 /** A broken definition or invalid options; thrown while a schema is built. */
 export class SchemaDefinitionError extends TypeError {
@@ -311,7 +372,7 @@ export class SchemaDefinitionError extends TypeError {
   readonly field: string;
 }
 
-/** A value that cannot be encoded: not an object or not an array where the schema needs one. */
+/** A value that cannot be encoded: the wrong shape, or a value validation rejects. */
 export class EncodeError extends TypeError {
   readonly code: EncodeErrorCode;
   /** Where the problem is, as `orders[1]`, or `''` for the value itself. */

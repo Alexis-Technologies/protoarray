@@ -29,10 +29,11 @@ const User = new Schema('User', {
 
 | Form | Example | Meaning |
 | --- | --- | --- |
-| Type name | `'string'` | A scalar: `string`, `number`, `boolean`, `bigint`, `date`, `json` |
+| Type name | `'string'` | A scalar: `string`, `number`, `boolean`, `bigint`, `date`, `bytes`, `json` |
 | Optional type | `'?number'` | Optional: may be missing, `undefined` or `null` |
 | Optional key | `'email?': 'string'` | The same, written on the key |
 | Long form | `{ type: 'string', required: false, default: 'x' }` | Options on the field; `default` fills a missing slot on decode |
+| Decimals | `{ type: 'number', decimals: 2 }` | A number that travels as an integer scaled by 10ⁿ: `19.99` is `1999` (see [Types](/guide/types#decimals)) |
 | Struct | `{ city: 'string', zip: '?string' }` | A nested record, encoded as a nested array |
 | Schema by value | `address: Address` | The other schema in that slot, with its own options and layout (see below) |
 | Schema by name | `manager: '?User'` | The same through a capitalised name: the schema's own name (recursion) or one from `options.schemas` |
@@ -40,6 +41,7 @@ const User = new Schema('User', {
 | Enum | `{ enum: ['admin', 'editor'] }` | One of the listed strings or numbers; travels as its index |
 | Flags | `{ flags: ['read', 'write'] }` | An object of booleans; travels as one integer |
 | Tuple | `['number', 'number']` | Fixed-length array of scalars; `[{ x: 'number' }, { y: 'number' }]` names them |
+| Union | `{ union: [Call, Event], discriminator: 'type' }` | One of several structs, picked by an enum field they share; travels as `[tag, ...fields]` (see [Types](/guide/types#unions)) |
 | Calculated | `total: (record) => …` | Ignored: a function has no position on the wire |
 
 Arrays and enums take `required: false` next to the shorthand key:
@@ -98,7 +100,7 @@ alias of the referenced schema.
 | Option | Default | Effect |
 | --- | --- | --- |
 | `codegen` | runtime | `true` requires generated code (throws `ERR_CODEGEN_UNAVAILABLE` where blocked), `false` forces closures. See [Runtimes](/guide/runtimes) |
-| `validate` | `true` | Check types, required fields and enum ranges on decode. `false` trusts the wire; the array structure is always checked |
+| `validate` | `true` | What is checked: `true` or `'decode'` checks the wire on decode and trusts the values given to encode, as 1.0 did; `'both'` checks the values too (types, required fields, enum values); `'encode'` checks only them; `false` trusts both sides. Shapes, a union's discriminator and the array structure are always checked. See [Errors](/guide/errors#what-is-validated) |
 | `sparse` | `false` | Encode the struct as `[mask, ...present values]`. See [Optional Fields](/guide/optional-fields#sparse-records) |
 | `layout` | `'rows'` | For a collection of records: `'rows'`, `'flat'` or `'columns'`. See [Collections](/guide/collections) |
 | `schemas` | `{}` | Schemas a field may reference by name |
@@ -131,8 +133,35 @@ schema was given. Renaming a key changes it, and so does the optionality of a ro
 (`'?string'` prints as `?string`). The `fingerprint` option replaces the hash (see
 [Schema Evolution](/guide/evolution#telling-versions-apart)).
 
-## Not in protoarray
+## metaschema compatibility
 
-metaschema's `set`, `map`, `object` and `tuple` shorthands have no positional form yet and throw
-`ERR_UNKNOWN_TYPE`; its `length`, `unique` and `validate` options are accepted and ignored. The
-two types protoarray adds, `date` and `flags`, are not metaschema types.
+A definition both libraries read means the same thing in both, or one of them refuses it.
+
+| Construct | metaschema | protoarray |
+| --- | --- | --- |
+| scalars, structs, `?`, `required`, `default`, `{ array }`, `{ enum }`, tuples, references, the kind key | ✓ | ✓ |
+| `{ union: [...], discriminator }` | ✓ | ✓, as `[tag, ...fields]` |
+| `{ union: [...] }` without a discriminator | ✓ | `ERR_UNKNOWN_TYPE` |
+| `{ type: 'number', decimals: 2 }` | ✓, kept as an unknown option (lint: `unknown-option`) | ✓, a scaled integer |
+| `length`, `unique`, `validate` options | ✓ | accepted and ignored |
+| `set`, `map`, `object`, `tuple` shorthands | ✓ | `ERR_UNKNOWN_TYPE` |
+| `date` | ✓ | ✓, epoch milliseconds |
+| `{ flags: [...] }` | not a metaschema type | ✓ |
+| `bytes` | `ERR_UNKNOWN_TYPE` until registered as a custom type (below) | ✓, base64 |
+
+To validate a definition with `bytes` in metaschema too, register the type there:
+
+```js
+const { Model } = require('@alexify/metaschema');
+const types = {
+  bytes: {
+    construct() {},
+    checkType: (value) => Object.prototype.toString.call(value) === '[object Uint8Array]',
+    metadata: { jsonSchema: { type: 'string', contentEncoding: 'base64' } },
+  },
+};
+const entities = new Map([['Blob', { Struct: {}, id: 'number', data: 'bytes' }]]);
+const model = new Model(types, entities);
+model.entities.get('Blob').check({ id: 1, data: [1] }).errors;
+// ['Field "Blob.data" not of expected type: bytes']
+```

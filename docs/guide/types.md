@@ -7,13 +7,16 @@ out and back.
 | --- | --- | --- | --- |
 | `string` | string | as is | `typeof` |
 | `number` | number | as is | `typeof` |
+| `{ type: 'number', decimals: 2 }` | `19.99` | an integer scaled by 10ⁿ, `1999` | a safe integer |
 | `boolean` | boolean | as is | `typeof` |
 | `json` | anything JSON | as is, by reference | none; never required |
 | `date` | `Date` (or a timestamp) | epoch milliseconds | number |
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
+| `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | canonical base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
-| `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer |
+| `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer, or an array of them past 31 names |
 | tuple `['number', 'number']` | `[1, 2]` | `[1, 2]`, fixed length | length and each element |
+| `{ union: [...], discriminator }` | `{ type: 'event', name: 'x' }` | `[tag, ...the branch's other fields]`, `[1, 'x']` | the tag, always; then the branch |
 
 ## Enum
 
@@ -21,12 +24,13 @@ out and back.
 const S = Schema.from({ role: { enum: ['admin', 'editor', 'viewer'] } });
 S.encode({ role: 'editor' }); // [1]
 S.decode([1]);                // { role: 'editor' }
-S.encode({ role: 'nope' });   // [null] — an unknown value is nothing
+S.encode({ role: 'nope' });   // EncodeError: Field "role" is not of enum: admin, editor, viewer
 S.decode([7]);                // DecodeError: Field "role" is not of enum: admin, editor, viewer
 ```
 
 Values can be strings or numbers, as many as needed; add new ones at the end only, since the index
-is what travels.
+is what travels. With `validate: 'both'` the value must match exactly (`'1'` is not `1`); without
+encode validation, the default, an unknown value travels as `null`.
 
 ## Date
 
@@ -36,9 +40,48 @@ S.encode({ at: new Date('2023-11-14T22:13:20Z') }); // [1700000000000]
 S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20.000Z }
 ```
 
-A number is accepted too (`{ at: 1700000000000 }`); an invalid date travels as `null`. A value
-that cannot be converted to a number at all (a `BigInt`) throws a `TypeError` from the conversion.
+A number is accepted too (`{ at: 1700000000000 }`). With `validate: 'both'` an invalid date, `NaN`
+or anything else is an `EncodeError`; by default an invalid date travels as `null`.
 Epoch milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
+
+## Bytes
+
+Binary data travels as a base64 string, standard alphabet with padding (RFC 4648 §4), the same as
+`btoa`, `Buffer`'s `'base64'` and JSON Schema's `contentEncoding: 'base64'`:
+
+```js
+const S = Schema.from({ id: 'number', avatar: 'bytes' });
+S.encode({ id: 1, avatar: new Uint8Array([137, 80, 78, 71]) }); // [1, 'iVBORw==']
+S.decode([1, 'iVBORw==']);                                     // { id: 1, avatar: Uint8Array(4) [137, 80, 78, 71] }
+```
+
+Encoding takes any `Uint8Array`, a `Buffer`, a subclass or a view into a larger buffer included;
+other typed arrays and `ArrayBuffer` are a `type` error with `validate: 'both'` (wrap them in a
+`Uint8Array` first) and travel as they are without. Decoding accepts canonical base64 only, the
+text an encoder writes: missing padding, whitespace, the URL-safe alphabet or stray bits in the
+last character are a `type` error (without validation such a string stays as it is). Decoding
+always returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a
+`Buffer` or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
+separate binary channel beats any JSON. metaschema has no `bytes` type: register one to share a
+definition (see [Defining a Schema](/guide/schema#metaschema-compatibility)).
+
+## Decimals
+
+A number with a fixed count of decimals, such as an amount of money, travels as an integer:
+`decimals: n` multiplies by 10ⁿ and rounds on the way out, and divides on the way back.
+
+```js
+const S = Schema.from({ price: { type: 'number', decimals: 2 } });
+S.encode({ price: 19.99 });      // [1999]
+S.encode({ price: 0.1 + 0.2 });  // [30] — not 0.30000000000000004
+S.decode([1999]);                // { price: 19.99 }
+```
+
+`n` goes from 0 to 15. Rounding is `Math.round`, half up, on the double: `1.005` is stored as
+`1.00499999…` and becomes `100`. Decoding divides the integer by 10ⁿ, which gives back the double
+nearest to the decimal, so `19.99` comes back as the literal `19.99`. Encoding rejects a value
+whose scaled form passes 2⁵³, and decoding one that is not a safe integer. The long form is
+metaschema's own, which keeps an option it does not know (and lints it as `unknown-option`).
 
 ## BigInt
 
@@ -60,7 +103,12 @@ S.encode({ perms: { read: true, admin: true } }); // [5]
 S.decode([5]);                                    // { perms: { read: true, write: false, admin: true } }
 ```
 
-Up to 31 names. Add new ones at the end: an older decoder ignores bits it does not know.
+Any number of names. Past 31 the bitmask takes an array of 31-bit words, written as one integer
+while only the first word has bits set: `[[1, 16]]` is names 0 and 35. A decoder reads either
+form, and a missing word as zero. Add new names at the end: a decoder ignores bits it has no
+name for. A 1.0 decoder reads the one-integer form only, so a set name past 31 needs 1.1 on the
+decoding side (see [Schema Evolution](/guide/evolution#past-31-fields-or-names)). An array is
+not a set of flags; any other object is read by name.
 
 ## Tuples
 
@@ -72,6 +120,42 @@ S.encode({ pair: [1] });   // [[1, null]]
 S.decode([[1, null]]);     // { pair: [1, null] }
 S.decode([[1]]);           // DecodeError: Field "pair" has a wrong length
 ```
+
+## Unions
+
+A discriminated union, in metaschema's spelling: each branch is a struct, and the `discriminator`
+field of every branch is an `enum`. The value of that field picks the branch; on the wire its
+index leads and the other fields of the branch follow, so the discriminator never travels twice.
+
+```js
+const Packet = Schema.from({
+  union: [
+    { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: '?json' },
+    { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' },
+  ],
+  discriminator: 'type',
+});
+Packet.encode({ type: 'call', id: '7', method: 'auth/signIn', args: ['alex', 'secret'] });
+// [0, '7', 'auth/signIn', ['alex', 'secret']]
+Packet.encode({ type: 'event', name: 'chat/message' }); // [1, 'chat/message']
+Packet.decode([1, 'chat/message']);                    // { type: 'event', name: 'chat/message', data: null }
+```
+
+- **The tag** is the index of the value among the values of all branches, in order: a branch
+  `{ kind: { enum: ['square', 'diamond'] } }` after a one-value branch owns tags `1` and `2`.
+- **A branch** is an inline struct, a `Schema` of a struct or a name from `options.schemas`. It is
+  built again from its definition, so the union's options apply to it. Each branch's trailing
+  optional fields are trimmed, down to `[tag]`, and a field may refer to the union by its own name.
+- **The kind key.** A struct whose first key is `type` reads as the long form `{ type: 'string' }`,
+  in metaschema as here, so a branch with `type` first names its kind before it: `{ Struct: {}, … }`.
+  A branch whose discriminator is not first needs nothing.
+- **Errors.** A discriminator outside the union is an `EncodeError` with code `union`, and a tag
+  outside the union a `DecodeError` `union`, even with `validate: false`: there is no branch to fall
+  back to. The decoded object has the branch's keys in the branch's order.
+
+A union can be the whole schema, a field or the item of an array: `Packet.list` encodes a batch as
+`[[0, …], [1, …]]`. It cannot be sparse or use the `flat` and `columns` layouts. A union without a
+`discriminator` (metaschema's `{ union: ['string', 'number'] }`) has no positional form yet.
 
 ## json
 
@@ -99,8 +183,9 @@ the default.
 
 ## Numbers, strings and what JSON cannot carry
 
-`NaN` and `Infinity` have no JSON form: `JSON.stringify` writes `null`, so a required number field
-holding them fails to decode as missing. Integers beyond 2⁵³ lose precision in JSON as they do in
-JavaScript; use `bigint`. `-0` becomes `0`. A `Map`, a `Set`, a `Buffer` or a typed array has no
-positional form in this version: under `json` they serialize the way `JSON.stringify` would, which
+`NaN` and `Infinity` have no JSON form: `JSON.stringify` would write `null`, so with
+`validate: 'both'` encoding rejects them as `type` errors (by default they travel as `null` and
+a required field fails to decode as missing). Integers beyond 2⁵³ lose precision in JSON as they do in
+JavaScript; use `bigint`. `-0` becomes `0`. Binary data is `bytes`. A `Map` or a `Set` has no
+positional form in this version: under `json` it serializes the way `JSON.stringify` would, which
 is rarely what you want.

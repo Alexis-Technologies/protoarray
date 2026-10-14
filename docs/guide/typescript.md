@@ -1,7 +1,8 @@
 # TypeScript
 
-The package ships hand-written typings. A definition literal is enough to type the object a schema
-decodes to and the value it accepts:
+The package ships hand-written typings, for TypeScript 5.0 or newer (the definition is read as a
+`const` type parameter). A definition literal is enough to type the object a schema decodes to and
+the value it accepts:
 
 ```ts
 import { Schema, type Infer, type Input } from '@alexify/protoarray';
@@ -50,7 +51,26 @@ User.encode({ id: 1, name: 'Alex', role: 'editor', address: { city: 'Kyiv' }, ta
 | `{ flags: ['x', 'y'] }` | `{ x: boolean; y: boolean }` |
 | `['number', '?string']` | `[number, string \| null]` |
 | a nested struct or a schema by value | the nested object type |
+| `{ union: [A, B], discriminator: 'type' }` | `Infer<A> \| Infer<B>`, narrowed by the discriminator |
 | a schema by name (`'User'`) | `unknown` — the registry is not visible to the type system |
+
+A union decodes to the union of its branches, so checking the discriminator narrows it:
+
+```ts
+const Packet = Schema.from({
+  union: [
+    { Struct: {}, type: { enum: ['call'] }, id: 'string' },
+    { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+  ],
+  discriminator: 'type',
+});
+const packet = Packet.decode(wire);
+if (packet.type === 'call') packet.id; // string
+```
+
+Branches declared as separate constants need `as const` to keep their enum literals. A struct's
+kind (`Struct: {}`, a capitalised first key holding an object) is not a field; the types, which
+cannot see key order, skip any capitalised key that holds plain metadata.
 
 `schema.list` is typed as a `Collection<D>` whose `decode` returns `Infer<D>[]`. The functional
 entry points (`encode(schema, value)` and friends) carry the same types.

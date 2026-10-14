@@ -4,12 +4,14 @@ import {
   EncodeError,
   Schema,
   SchemaDefinitionError,
+  check,
   decode,
   encode,
   parse,
   stringify,
   type Backend,
   type DecodeErrorCode,
+  type EncodeErrorCode,
   type Infer,
   type Input,
   type SchemaErrorCode,
@@ -118,6 +120,11 @@ Schema.from(
   { codegen: false, validate: false, sparse: true, schemas: { Address } },
 );
 Schema.from({ a: 'string' }, { fingerprint: (canonical: string) => canonical.toUpperCase() });
+Schema.from({ a: 'string' }, { validate: 'both' });
+Schema.from({ a: 'string' }, { validate: 'encode' });
+Schema.from({ a: 'string' }, { validate: 'decode' });
+Schema.from({ a: 'string' }, { validate: true });
+expectError(Schema.from({ a: 'string' }, { validate: 'nope' }));
 expectError(Schema.from({ a: 'string' }, { layout: 'rowz' }));
 expectError(Schema.from({ a: 'string' }, { unknown: true }));
 expectError(Schema.from({ a: 'string' }, { fingerprint: 'sha256' }));
@@ -138,7 +145,10 @@ expectType<string>(definitionError.schema);
 expectType<string>(definitionError.field);
 expectAssignable<TypeError>(definitionError);
 const encodeError = new EncodeError();
-expectType<'object' | 'array'>(encodeError.code);
+expectType<EncodeErrorCode>(encodeError.code);
+expectAssignable<EncodeErrorCode>('required');
+expectAssignable<EncodeErrorCode>('depth');
+expectNotAssignable<EncodeErrorCode>('extra');
 expectType<string>(encodeError.path);
 expectType<string>(encodeError.schema);
 const decodeError = new DecodeError();
@@ -148,3 +158,73 @@ expectType<string>(decodeError.schema);
 expectType<unknown>(decodeError.cause);
 expectAssignable<DecodeErrorCode>('extra');
 expectNotAssignable<DecodeErrorCode>('nope');
+
+// Unions: decoded values narrow on the discriminator; a kind key has no position.
+const Packet = Schema.from({
+  union: [
+    { Struct: {}, type: { enum: ['call'] }, id: 'string', args: '?json' },
+    { Struct: {}, type: { enum: ['event', 'notice'] }, name: 'string' },
+  ],
+  discriminator: 'type',
+});
+const packet = Packet.decode([0, '1']);
+expectType<
+  { type: 'call'; id: string; args: unknown } | { type: 'event' | 'notice'; name: string }
+>(packet);
+if (packet.type === 'call') expectType<string>(packet.id);
+else expectType<string>(packet.name);
+Packet.encode({ type: 'call', id: '1' });
+Packet.encode({ type: 'notice', name: 'n' });
+expectError(Packet.encode({ type: 'call', name: 'n' }));
+expectError(Packet.encode({ type: 'other', id: '1' }));
+expectType<
+  ({ type: 'call'; id: string; args: unknown } | { type: 'event' | 'notice'; name: string })[]
+>(Packet.list.decode([]));
+const Holder = Schema.from({
+  p: { union: [{ k: { enum: ['a'] }, x: 'number' }], discriminator: 'k', required: false },
+});
+expectType<{ p: { k: 'a'; x: number } | null }>(Holder.decode([]));
+const Kinded = Schema.from({ Entity: {}, a: 'number' });
+expectType<{ a: number }>(Kinded.decode([1]));
+expectAssignable<EncodeErrorCode>('union');
+expectAssignable<DecodeErrorCode>('union');
+expectAssignable<SchemaErrorCode>('ERR_INVALID_UNION');
+
+// check returns the error encode would throw, or null.
+expectType<EncodeError | null>(User.check({}));
+expectType<EncodeError | null>(User.list.check([{}]));
+expectType<EncodeError | null>(check(User, 5));
+expectType<EncodeError | null>(check(User.list, []));
+expectError(check({ id: 'number' }, {}));
+
+// Decimals are numbers.
+const Price = Schema.from({ price: { type: 'number', decimals: 2 } });
+expectType<{ price: number }>(Price.decode([1999]));
+
+// Bytes are a Uint8Array in and out; a Buffer is one too.
+const Blob = Schema.from({ data: 'bytes', thumb: '?bytes' });
+expectType<{ data: Uint8Array; thumb: Uint8Array | null }>(Blob.decode([]));
+Blob.encode({ data: new Uint8Array(2) });
+expectError(Blob.encode({ data: [1, 2] }));
+
+// Decimals are numbers in; a subclass of Uint8Array (a Buffer) is a byte
+// array; a branch given as a schema infers like an inline one, a branch by
+// name is unknown.
+expectAssignable<Input<typeof Price.definition>>({ price: 19.99 });
+expectError(Price.encode({ price: '19.99' }));
+class Bytes extends Uint8Array {}
+Blob.encode({ data: new Bytes(1) });
+const CallSchema = Schema.from({ Struct: {}, type: { enum: ['call'] }, id: 'string' });
+const Mixed = Schema.from({
+  union: [CallSchema, { Struct: {}, type: { enum: ['event'] }, name: 'string' }],
+  discriminator: 'type',
+});
+expectType<{ type: 'call'; id: string } | { type: 'event'; name: string }>(Mixed.decode([0, '1']));
+const ByName = Schema.from(
+  {
+    union: ['Call', { Struct: {}, type: { enum: ['event'] }, name: 'string' }],
+    discriminator: 'type',
+  },
+  { schemas: { Call: CallSchema } },
+);
+expectType<unknown>(ByName.decode([0, '1']));

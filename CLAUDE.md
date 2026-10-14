@@ -24,12 +24,12 @@ Package manager is **pnpm** (pinned in `packageManager`).
 pnpm test                          # node --test tests/unit/*.test.js
 node --test tests/unit/codec.test.js   # a single file
 node --test --test-name-pattern="Layouts" tests/unit/*.test.js   # filter by name
-pnpm run test:coverage             # c8 over src/, gated at 98 lines/statements, 90 branches, 100 functions
+pnpm run test:coverage             # c8 over src/, gated at 100 lines/statements/branches/functions per file
 pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 8 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 11 KB min+gzip
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--save]   # against JSON, protobufjs, avsc, msgpackr, …
 pnpm bench:report                  # renders bench/results/compare.json into README.md and docs/guide/benchmarks.md
@@ -72,9 +72,10 @@ devDependencies are fine (the comparative benchmark has several).
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
 src/
   index.js          public barrel (explicit named exports)
-  schema.js         Schema class: options, plan → backend, list/id/stringify/parse
+  schema.js         Schema class: options, plan → backend, list/id/stringify/parse/check
   plan.js           definition DSL → plan (node tree), canonical form, FNV-1a fingerprint
-  types.js          scalar type table: wire checks and conversions, shared by both backends
+  types.js          scalar type table: wire and encode checks, conversions, shared by both backends
+  runtime/          base64 twin for `bytes`: node.js (Buffer) and browser.js (toBase64/btoa)
   codegen.js        new Function backend (the only file that may compile source text)
   closures.js       no-eval backend, same semantics, used as the fallback and as the reference
   layouts.js        flat and columns layouts over a record codec
@@ -95,17 +96,21 @@ docs/               VitePress site (protoarray.vercel.app), not published
 
 `new Schema(name, definition, options)` runs three steps once, at construction:
 
-1. **`plan.js`** parses the definition into a plan: a tree of nodes (`struct`, `array`, `tuple`,
-   `scalar`, `ref`). A struct node holds `fields` (`key`, `index`, `required`, `def`, `node`),
-   `keys`, `sparse` and `tail` (the index where the trailing run of optional fields starts, the
-   only part that may be trimmed off the wire). Scalar nodes come from `types.js` and carry
-   `check`, `pack` and `unpack` (null for identity types). A `Schema` used as a field embeds its
+1. **`plan.js`** parses the definition into a plan: a tree of nodes (`struct`, `union`, `array`,
+   `tuple`, `scalar`, `ref`). A struct node holds `fields` (`key`, `index`, `required`, `def`,
+   `node`), `keys`, `sparse` and `tail` (the index where the trailing run of optional fields
+   starts, the only part that may be trimmed off the wire). Scalar nodes come from `types.js` and
+   carry `check` (the wire), `accept` (a value given to encode), `pack` and `unpack` (null for
+   identity types). A `union` node holds the discriminator `key`, a `tag` enum over the values of
+   all branches and `branches` (`node`, `first`, `count`, `source`): each branch is a fresh struct
+   node without the discriminator, with `tag` (`key`, `position`, `keys`, `values`), always
+   inlined from its plan so the union's options apply. A `Schema` used as a field embeds its
    plan node (for the canonical form) **with a `slot` to its compiled codec**; a name (`'User'`)
    becomes a `ref` node with the same kind of slot, which is also how self-recursion works (the
    slot is filled after the build). Both backends call a slot wherever one is present, so an
    embedded schema keeps its own options and layout and is compiled once; a root never keeps a
    slot (this schema's options apply to it), except a root `ref`, which aliases the referenced
-   codec. The plan also has a canonical string (`schema.toString()`, with a `?` prefix for an
+   codec. Every slot also has a lazy `checker`: the codec `schema.check` runs. The plan also has a canonical string (`schema.toString()`, with a `?` prefix for an
    optional root scalar) and its fingerprint (`schema.id`: FNV-1a 32-bit, or the `fingerprint`
    option's function of the canonical string).
 2. **A backend builds `{ encode, decode }` from the plan.** `codegen.js` emits one encode and one
@@ -115,45 +120,68 @@ docs/               VitePress site (protoarray.vercel.app), not published
    still stable. The probe `new Function('return 1')` runs once at load; `{ codegen }` forces a
    backend, `{ codegen: true }` throws `ERR_CODEGEN_UNAVAILABLE` where it cannot be honoured, and
    in automatic mode a `codegen.build` that throws for one schema falls back to closures. Both
-   backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values
-   and corrupted wires, and every behavioural suite loops over `tests/support/backends.js`. The
-   codegen codec keeps its source as `codec.source` (reachable through
-   `schema[Symbol.for('alexify.protoarray.codec')]`, not public API) for debugging.
+   backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values,
+   corrupted values and corrupted wires, and every behavioural suite loops over
+   `tests/support/backends.js`. `validate` is a direction (`schema.js` turns `true`/`'decode'`,
+   `'encode'`, `'both'` and `false` into `{ encode, decode }` flags): decode checks are emitted
+   only under `validate.decode`, encode checks only under `validate.encode` (codegen decides at
+   generation time, closures through build-time flags), so a codec that does not ask for a check
+   carries none and the default encode costs what 1.0 did. The codegen codec's source is
+   reachable as `codec.source` through `schema[Symbol.for('alexify.protoarray.codec')]` (not
+   public API), generated again on each read so a codec does not hold the text. In automatic
+   mode the error that made `codegen.build` fall back to closures is kept behind
+   `schema[Symbol.for('alexify.protoarray.fallback')]`.
 3. **`layouts.js`** wraps the record codec when a collection uses `flat` or `columns`; `rows` is the
    codec of `{ array: Record }` itself. `schema.list` is `{ array: schema }` over the slot, so it
    compiles only the loop.
 
+`schema.check(value)` runs a second codec, `schema[Symbol.for('alexify.protoarray.checker')]`,
+built on first use from the same plan with validation on and `checking` set: it calls each slot's
+`checker` instead of its `codec`, so embedded schemas and recursive references built with
+`validate: false` are checked too.
+
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
-on `EncodeError`/`DecodeError`, and on decode turns a stack overflow (a recursive schema's payload
-nested deeper than the call stack) into `DecodeError` `structure`/`depth`. Nothing else may escape
+on `EncodeError`/`DecodeError` and turns a stack overflow (a recursive payload nested deeper than
+the call stack, a cyclic value; told by the engine's message, so another `RangeError` passes
+through) into `DecodeError` `structure`/`depth` or `EncodeError` `depth`. Nothing else may escape
 `decode`: `types.js` conversions are total (a value with no wire form of its type passes through
-under `validate: false`), and every check starts with `typeof` so in-process values (a BigInt mask,
-a Symbol index) fail like wire values. Encode checks shape only: a non-object record or a non-array
-collection/tuple throws `EncodeError` with code `object`/`array` and a path built on error branches
-like decode's.
+without decode validation), and every check starts with `typeof` so in-process values (a BigInt
+mask, a Symbol index) fail like wire values; a sparse mask is a non-negative 31-bit integer and a
+union tag is checked in every mode. A converted type checks and converts in one call
+(`checkedUnpack` on the wire, `checkedPack` on a value where the two share their work); an
+identity type is checked inline. Encode always checks shape (`object`/`array`, an array is not a
+record) and a union's discriminator (`union`); under `validate.encode` it also checks `required`,
+`type` and `enum`, with paths built on error branches like decode's. An enum or union lookup
+never turns the value into a property key, so `check()` throws nothing over the data.
 
 Wire rules (normative in `docs/guide/wire-format.md`, as data in `tests/support/vectors.js`):
 one field per position in declaration order; `undefined`, `null` and a missing key travel as
 `null`; trailing `null`s are trimmed; `enum` → index (any number of values), `date` → epoch ms,
-`bigint` → decimal string, `flags` → bitmask (up to 31 names); `json` is never required; a sparse
-struct is `[mask, ...present]` (up to 31 fields);
+`bigint` → decimal string, `bytes` → canonical base64, `{ type: 'number', decimals: n }` →
+`Math.round(v × 10ⁿ)`, `flags` → bitmask (an array of 31-bit words past 31 names), a union →
+`[tag, ...branch fields]`; `json` is never required; a sparse struct is `[mask, ...present]`, one
+such segment per 31 fields;
 decode assigns every key in schema order and gives `null` (or the default) for what was missing;
 extra trailing elements are ignored unless `{ strict: true }`.
 
-Decode validates by default (structure, types, required, enum range) and throws `DecodeError`
-with a path like `orders[1].sku`. Paths are built only on error branches: generated code embeds
-static keys and loop indices in the throw, nested calls re-throw through `nest()` which prepends
-the key. `{ validate: false }` skips type checks but never the `Array.isArray` structure checks.
+By default the wire is validated on decode and the values given to encode are trusted (1.0's
+behaviour); `{ validate: 'both' }` validates the values too. Errors are
+`EncodeError`/`DecodeError` with a path like `orders[1].sku`. Paths are built only on error
+branches: generated code embeds static keys and loop indices in the throw, nested calls re-throw
+through `nest()` which prepends the key. `{ validate: false }` skips type checks but never the
+`Array.isArray` structure checks.
 
 ## Platform
 
-protoarray is pure JavaScript: **nothing under `src/` may require a Node builtin**
-(`tests/unit/platform.test.js` enforces this), so the same code runs in Node.js and browsers.
-`browser.js` is mapped in through the `package.json` `browser` field (`./index.js → ./browser.js`)
-and the `browser` condition in `exports`. If a platform-specific module is ever needed, add a
-runtime twin (`src/runtime/node.js` + `src/runtime/browser.js` with one interface, as in
-`@alexify/metaschema`), map it in the `browser` field, and narrow the platform test to it.
-`pnpm size` bundles `browser.js` with `platform: 'browser'`, so a leaked builtin fails CI.
+protoarray is pure JavaScript: **nothing under `src/` may require a Node builtin** except
+`src/runtime/node.js` (`tests/unit/platform.test.js` enforces this), so the same code runs in
+Node.js and browsers. `browser.js` is mapped in through the `package.json` `browser` field
+(`./index.js → ./browser.js`) and the `browser` condition in `exports`; the same field maps the
+runtime twin `src/runtime/node.js` (`Buffer`) to `src/runtime/browser.js` (`toBase64`/`fromBase64`
+where the platform has them, `btoa`/`atob` looked up on use), as in `@alexify/metaschema`. Both
+halves decode only canonical base64 (the text must encode back to itself), and the platform test
+checks they agree with and without the native methods. `pnpm size` bundles `browser.js` with
+`platform: 'browser'`, so a leaked builtin fails CI.
 
 Code generation lives in `src/codegen.js` only (the platform test greps for `Function(` and
 `eval(`), behind two targeted `// oxlint-disable-next-line no-new-func` comments. Generated code
@@ -179,8 +207,9 @@ time.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
-- Bundle budget: 8 KB min+gzip for either entry (`pnpm size --max-gzip 8` in CI); the library is
-  7.7 KB, so there are about 0.3 KB of headroom. Measure after any change to `src/`.
+- Bundle budget: 11 KB min+gzip for either entry (`pnpm size --max-gzip 11` in CI). Size does not
+  limit features: when a change needs more, raise the gate to the next whole KB above the measured
+  size, in the same commit. Measure after any change to `src/`.
 
 ## Skills
 
@@ -203,12 +232,13 @@ change. **This file wins** if they ever disagree.
 - Runner: Node's built-in `node:test` + `node:assert`. Suites use flat
   `test('Area: description', …)`; keep that style.
 - Behavioural suites loop over `BACKENDS` from `tests/support/backends.js` so codegen and closures
-  are tested with the same cases; `normalize` from the same file turns Dates and BigInts into
-  comparable objects. `tests/support/vectors.js` is the wire format as data and the source of the
+  are tested with the same cases; `normalize` from the same file turns Dates, BigInts and
+  `Uint8Array`s into comparable objects. `tests/support/vectors.js` is the wire format as data and the source of the
   docs examples; add a vector when the format gains a rule.
 - `tests/unit/parity.test.js` generates random definitions and values (`tests/support/generate.js`,
-  seeded) and asserts the two backends agree on wires, decoded objects, key order and errors,
-  including on corrupted wires. A failure prints the seed.
+  seeded: unions, bytes, flags past 31 names, and every fifth schema 32–70 fields wide for sparse
+  segments) and asserts the two backends agree on wires, decoded objects, key order and errors,
+  on corrupted values (encode) and corrupted wires (decode). A failure prints the seed.
 - `tests/unit/backend.test.js` stubs `globalThis.Function` before the first `require`, which is
   the only way to reach the probe's fallback branch; each test file is its own process.
   `schema.test.js` stubs `codegen.build` through the module object for the per-schema fallback,
@@ -222,7 +252,13 @@ change. **This file wins** if they ever disagree.
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
   and not) and round-trips a schema through both backends, comparing as JSON because the browser
-  bundle runs in another realm. It runs in `pnpm test` on every matrix leg.
+  bundle runs in another realm. That realm is a `vm` context, which has no `btoa`/`atob` unless
+  the test passes them in; one test loads the bundle without them, deleting the realm's native
+  `Uint8Array` base64 too, so the `btoa`/`atob` branch stays the one under test on a Node that
+  ships the native methods. It runs in `pnpm test` on every matrix leg.
+- `platform.test.js` checks the runtime twins: same keys, the same base64 (and the same `null` for
+  non-canonical text) from both, the browser one with a stand-in for `Uint8Array`'s native base64
+  as well, which Node does not have yet; the missing-`atob` test deletes the native method too.
 - `tests/unit/scripts.test.js` runs `scripts/size.js` with a budget it always meets and one it
   never can.
 - New behavior needs a test that fails without the change. Coverage is 100% and there are no

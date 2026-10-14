@@ -61,9 +61,10 @@ Users.decode([[1, 2], [null, 'x']]);        // [{ a: 1, b: null }, { a: 2, b: 'x
 
 ### flat
 
-Rows have a fixed width, so nothing is trimmed and a `null` record becomes a run of `null`s;
-a length that is not a multiple of the width fails with code `structure`. Adding a field changes
-the width, so `flat` suits closed systems that deploy both sides together.
+Rows have a fixed width, so nothing is trimmed. A `null` record has no row of its own: with
+`validate: 'both'` it is an `EncodeError` `type`, otherwise it becomes a run of `null`s. A length
+that is not a multiple of the width fails with code `structure`. Adding a field changes the width,
+so `flat` suits closed systems that deploy both sides together.
 
 ### columns
 

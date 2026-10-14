@@ -12,109 +12,142 @@ object. msgpackr and cbor-x run their pure JavaScript paths, which is what a bro
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,389,299 (×1.00) | 956,204 (×1.00) | 266 | 212 | 178 |
-| protoarray (codegen) | 2,087,441 (×1.50) | 1,709,611 (×1.79) | 135 | 134 | 110 |
-| protoarray (closures) | 1,554,280 (×1.12) | 1,000,926 (×1.05) | 135 | 134 | 110 |
-| protobufjs | 1,432,630 (×1.03) | 1,464,340 (×1.53) | 115 | 127 | 117 |
-| avsc | 1,754,953 (×1.26) | 1,847,640 (×1.93) | 97 | 111 | 101 |
-| msgpackr | 1,226,506 (×0.88) | 738,504 (×0.77) | 206 | 207 | 173 |
-| msgpackr (records, shared structures) | 1,511,474 (×1.09) | 2,637,199 (×2.76) | 108 | 124 | 112 |
-| @msgpack/msgpack | 755,631 (×0.54) | 699,935 (×0.73) | 198 | 200 | 166 |
-| cbor-x (records) | 792,687 (×0.57) | 682,828 (×0.71) | 215 | 218 | 187 |
-| fast-json-stringify (encode) + JSON.parse | 1,701,003 (×1.22) | 954,446 (×1.00) | 266 | 212 | 178 |
+| JSON | 1,404,942 (×1.00) | 959,412 (×1.00) | 266 | 212 | 178 |
+| protoarray (codegen) | 2,067,707 (×1.47) | 1,695,065 (×1.77) | 135 | 134 | 110 |
+| protoarray (closures) | 1,488,326 (×1.06) | 1,043,255 (×1.09) | 135 | 134 | 110 |
+| protoarray (codegen, validate: 'both') | 2,045,505 (×1.46) | 1,627,522 (×1.70) | 135 | 134 | 110 |
+| protobufjs | 1,416,083 (×1.01) | 1,471,736 (×1.53) | 115 | 127 | 117 |
+| avsc | 1,755,981 (×1.25) | 1,836,788 (×1.91) | 97 | 111 | 101 |
+| msgpackr | 1,220,838 (×0.87) | 740,602 (×0.77) | 206 | 207 | 173 |
+| msgpackr (records, shared structures) | 1,449,843 (×1.03) | 2,627,102 (×2.74) | 108 | 124 | 112 |
+| @msgpack/msgpack | 754,362 (×0.54) | 689,298 (×0.72) | 198 | 200 | 166 |
+| cbor-x (records) | 793,608 (×0.56) | 675,652 (×0.70) | 215 | 218 | 187 |
+| fast-json-stringify (encode) + JSON.parse | 1,739,412 (×1.24) | 973,632 (×1.01) | 266 | 212 | 178 |
 
 **records** — 1000 records of the same shape
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,549 (×1.00) | 909 (×1.00) | 271,215 | 33,793 | 29,133 |
-| protoarray (codegen) | 2,027 (×1.31) | 1,545 (×1.70) | 140,738 | 30,666 | 26,946 |
-| protoarray (closures) | 1,453 (×0.94) | 958 (×1.05) | 140,738 | 30,666 | 26,946 |
-| protoarray (columns) | 2,077 (×1.34) | 1,535 (×1.69) | 138,758 | 27,412 | 21,053 |
-| protobufjs | 1,321 (×0.85) | 1,414 (×1.56) | 120,459 | 31,414 | 28,985 |
-| avsc | 1,426 (×0.92) | 1,833 (×2.02) | 101,839 | 29,895 | 27,334 |
-| msgpackr | 1,241 (×0.80) | 810 (×0.89) | 210,061 | 34,139 | 30,555 |
-| msgpackr (records, shared structures) | 1,557 (×1.01) | 2,878 (×3.17) | 112,274 | 30,957 | 28,370 |
-| @msgpack/msgpack | 804 (×0.52) | 715 (×0.79) | 202,061 | 33,895 | 30,367 |
-| cbor-x (records) | 1,404 (×0.91) | 2,431 (×2.67) | 125,051 | 31,582 | 29,016 |
-| fast-json-stringify (encode) + JSON.parse | 1,600 (×1.03) | 928 (×1.02) | 271,215 | 33,793 | 29,133 |
+| JSON | 1,534 (×1.00) | 931 (×1.00) | 271,215 | 33,793 | 29,133 |
+| protoarray (codegen) | 2,008 (×1.31) | 1,554 (×1.67) | 140,738 | 30,666 | 26,946 |
+| protoarray (closures) | 1,414 (×0.92) | 998 (×1.07) | 140,738 | 30,666 | 26,946 |
+| protoarray (codegen, validate: 'both') | 1,975 (×1.29) | 1,512 (×1.62) | 140,738 | 30,666 | 26,946 |
+| protoarray (columns) | 2,080 (×1.36) | 1,576 (×1.69) | 138,758 | 27,412 | 21,053 |
+| protobufjs | 1,318 (×0.86) | 1,383 (×1.49) | 120,459 | 31,414 | 28,985 |
+| avsc | 1,435 (×0.94) | 1,825 (×1.96) | 101,839 | 29,895 | 27,334 |
+| msgpackr | 1,242 (×0.81) | 788 (×0.85) | 210,061 | 34,139 | 30,555 |
+| msgpackr (records, shared structures) | 1,554 (×1.01) | 2,826 (×3.04) | 112,274 | 30,957 | 28,370 |
+| @msgpack/msgpack | 789 (×0.51) | 718 (×0.77) | 202,061 | 33,895 | 30,367 |
+| cbor-x (records) | 1,400 (×0.91) | 2,370 (×2.55) | 125,051 | 31,582 | 29,016 |
+| fast-json-stringify (encode) + JSON.parse | 1,581 (×1.03) | 901 (×0.97) | 271,215 | 33,793 | 29,133 |
 
 **sparse** — 20 optional fields, 3 present
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 7,012,192 (×1.00) | 4,817,607 (×1.00) | 33 | 53 | 36 |
-| protoarray (codegen) | 7,321,584 (×1.04) | 7,670,569 (×1.59) | 23 | 43 | 27 |
-| protoarray (closures) | 3,313,755 (×0.47) | 2,702,137 (×0.56) | 23 | 43 | 27 |
-| protobufjs | 5,551,701 (×0.79) | 9,917,930 (×2.06) | 11 | 31 | 15 |
-| avsc | 1,396,842 (×0.20) | 3,664,710 (×0.76) | 28 | 35 | 23 |
-| msgpackr | 6,177,027 (×0.88) | 6,928,753 (×1.44) | 21 | 41 | 25 |
-| msgpackr (records, shared structures) | 6,047,975 (×0.86) | 12,401,392 (×2.57) | 9 | 29 | 13 |
-| @msgpack/msgpack | 5,325,709 (×0.76) | 3,514,770 (×0.73) | 19 | 39 | 23 |
-| cbor-x (records) | 3,094,816 (×0.44) | 3,712,362 (×0.77) | 27 | 47 | 31 |
-| fast-json-stringify (encode) + JSON.parse | 14,588,311 (×2.08) | 4,660,980 (×0.97) | 33 | 53 | 36 |
+| JSON | 6,895,210 (×1.00) | 4,650,404 (×1.00) | 33 | 53 | 36 |
+| protoarray (codegen) | 7,151,362 (×1.04) | 7,444,150 (×1.60) | 23 | 43 | 27 |
+| protoarray (closures) | 3,002,118 (×0.44) | 2,460,211 (×0.53) | 23 | 43 | 27 |
+| protoarray (codegen, validate: 'both') | 7,156,799 (×1.04) | 7,476,794 (×1.61) | 23 | 43 | 27 |
+| protobufjs | 5,487,581 (×0.80) | 9,749,897 (×2.10) | 11 | 31 | 15 |
+| avsc | 1,464,305 (×0.21) | 3,618,796 (×0.78) | 28 | 35 | 23 |
+| msgpackr | 6,162,297 (×0.89) | 6,745,171 (×1.45) | 21 | 41 | 25 |
+| msgpackr (records, shared structures) | 6,028,307 (×0.87) | 12,182,690 (×2.62) | 9 | 29 | 13 |
+| @msgpack/msgpack | 5,177,724 (×0.75) | 3,479,160 (×0.75) | 19 | 39 | 23 |
+| cbor-x (records) | 3,066,183 (×0.44) | 3,684,383 (×0.79) | 27 | 47 | 31 |
+| fast-json-stringify (encode) + JSON.parse | 14,410,368 (×2.09) | 4,694,210 (×1.01) | 33 | 53 | 36 |
 
 **typed** — enum, boolean and date heavy record
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 855,710 (×1.00) | 2,921,437 (×1.00) | 123 | 120 | 94 |
-| protoarray (codegen) | 3,900,846 (×4.56) | 4,856,757 (×1.66) | 36 | 46 | 36 |
-| protoarray (closures) | 3,117,180 (×3.64) | 2,962,802 (×1.01) | 36 | 46 | 36 |
-| protobufjs | 3,865,883 (×4.52) | 12,720,766 (×4.35) | 13 | 33 | 17 |
-| avsc | 2,151,210 (×2.51) | 7,956,398 (×2.72) | 12 | 32 | 16 |
-| msgpackr | 2,876,799 (×3.36) | 2,853,076 (×0.98) | 73 | 96 | 72 |
-| msgpackr (records, shared structures) | 3,537,171 (×4.13) | 5,421,300 (×1.86) | 24 | 45 | 28 |
-| @msgpack/msgpack | 1,204,773 (×1.41) | 1,600,984 (×0.55) | 71 | 92 | 71 |
-| cbor-x (records) | 1,777,018 (×2.08) | 1,611,077 (×0.55) | 79 | 100 | 80 |
-| fast-json-stringify (encode) + JSON.parse | 4,891,996 (×5.72) | 2,795,477 (×0.96) | 110 | 107 | 83 |
+| JSON | 839,407 (×1.00) | 2,960,786 (×1.00) | 123 | 120 | 94 |
+| protoarray (codegen) | 4,988,903 (×5.94) | 4,825,834 (×1.63) | 36 | 46 | 36 |
+| protoarray (closures) | 3,581,086 (×4.27) | 3,122,826 (×1.05) | 36 | 46 | 36 |
+| protoarray (codegen, validate: 'both') | 4,679,908 (×5.58) | 4,895,597 (×1.65) | 36 | 46 | 36 |
+| protobufjs | 3,862,100 (×4.60) | 12,286,219 (×4.15) | 13 | 33 | 17 |
+| avsc | 2,138,704 (×2.55) | 7,981,769 (×2.70) | 12 | 32 | 16 |
+| msgpackr | 2,882,422 (×3.43) | 2,868,571 (×0.97) | 73 | 96 | 72 |
+| msgpackr (records, shared structures) | 3,487,665 (×4.15) | 5,291,375 (×1.79) | 24 | 45 | 28 |
+| @msgpack/msgpack | 1,172,791 (×1.40) | 1,584,876 (×0.54) | 71 | 92 | 71 |
+| cbor-x (records) | 1,761,378 (×2.10) | 1,596,398 (×0.54) | 79 | 100 | 80 |
+| fast-json-stringify (encode) + JSON.parse | 4,771,564 (×5.68) | 2,783,987 (×0.94) | 110 | 107 | 83 |
 
 **strings** — long Cyrillic strings
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,573,299 (×1.00) | 1,361,887 (×1.00) | 816 | 266 | 229 |
-| protoarray (codegen) | 1,813,465 (×1.15) | 1,726,447 (×1.27) | 785 | 230 | 207 |
-| protoarray (closures) | 1,741,755 (×1.11) | 1,584,255 (×1.16) | 785 | 230 | 207 |
-| protobufjs | 592,928 (×0.38) | 523,880 (×0.38) | 777 | 233 | 211 |
-| avsc | 509,351 (×0.32) | 793,477 (×0.58) | 774 | 231 | 210 |
-| msgpackr | 871,890 (×0.55) | 220,425 (×0.16) | 800 | 263 | 234 |
-| msgpackr (records, shared structures) | 890,116 (×0.57) | 245,891 (×0.18) | 775 | 230 | 206 |
-| @msgpack/msgpack | 382,339 (×0.24) | 704,971 (×0.52) | 798 | 260 | 233 |
-| cbor-x (records) | 728,943 (×0.46) | 246,019 (×0.18) | 806 | 269 | 241 |
-| fast-json-stringify (encode) + JSON.parse | 1,309,932 (×0.83) | 1,358,268 (×1.00) | 816 | 266 | 229 |
+| JSON | 1,559,841 (×1.00) | 1,360,735 (×1.00) | 816 | 266 | 229 |
+| protoarray (codegen) | 1,811,049 (×1.16) | 1,707,083 (×1.25) | 785 | 230 | 207 |
+| protoarray (closures) | 1,724,299 (×1.11) | 1,569,605 (×1.15) | 785 | 230 | 207 |
+| protoarray (codegen, validate: 'both') | 1,802,852 (×1.16) | 1,695,303 (×1.25) | 785 | 230 | 207 |
+| protobufjs | 584,717 (×0.37) | 518,210 (×0.38) | 777 | 233 | 211 |
+| avsc | 503,145 (×0.32) | 788,139 (×0.58) | 774 | 231 | 210 |
+| msgpackr | 861,265 (×0.55) | 217,432 (×0.16) | 800 | 263 | 234 |
+| msgpackr (records, shared structures) | 884,100 (×0.57) | 244,044 (×0.18) | 775 | 230 | 206 |
+| @msgpack/msgpack | 384,063 (×0.25) | 696,477 (×0.51) | 798 | 260 | 233 |
+| cbor-x (records) | 721,967 (×0.46) | 243,377 (×0.18) | 806 | 269 | 241 |
+| fast-json-stringify (encode) + JSON.parse | 1,331,499 (×0.85) | 1,371,862 (×1.01) | 816 | 266 | 229 |
+
+**packets** — 100 wrpc packets: calls, callbacks and events
+
+| Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| JSON | 52,502 (×1.00) | 24,328 (×1.00) | 8,834 | 852 | 630 |
+| protoarray (codegen) | 67,537 (×1.29) | 46,356 (×1.91) | 4,332 | 685 | 501 |
+| protoarray (closures) | 48,300 (×0.92) | 26,062 (×1.07) | 4,332 | 685 | 501 |
+| protoarray (codegen, validate: 'both') | 66,728 (×1.27) | 48,379 (×1.99) | 4,332 | 685 | 501 |
+| protobufjs | 24,407 (×0.46) | 36,910 (×1.52) | 3,691 | 778 | 609 |
+| avsc | 20,816 (×0.40) | 46,676 (×1.92) | 2,833 | 633 | 521 |
+| msgpackr | 30,085 (×0.57) | 24,020 (×0.99) | 6,800 | 842 | 640 |
+| msgpackr (records, shared structures) | 29,888 (×0.57) | 91,635 (×3.77) | 3,697 | 725 | 566 |
+| @msgpack/msgpack | 25,386 (×0.48) | 21,492 (×0.88) | 6,400 | 804 | 614 |
+| cbor-x (records) | 24,381 (×0.46) | 51,212 (×2.11) | 4,401 | 841 | 683 |
 
 **numeric** — 32 doubles (where binary formats shine)
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 326,825 (×1.00) | 481,936 (×1.00) | 764 | 406 | 392 |
-| protoarray (codegen) | 432,109 (×1.32) | 745,478 (×1.55) | 582 | 309 | 295 |
-| protoarray (closures) | 368,886 (×1.13) | 585,412 (×1.21) | 582 | 309 | 295 |
-| protobufjs | 731,400 (×2.24) | 1,970,447 (×4.09) | 305 | 328 | 304 |
-| avsc | 2,003,165 (×6.13) | 3,165,111 (×6.57) | 256 | 279 | 260 |
-| msgpackr | 1,126,451 (×3.45) | 443,712 (×0.92) | 409 | 429 | 376 |
-| msgpackr (records, shared structures) | 1,421,016 (×4.35) | 3,508,601 (×7.28) | 289 | 312 | 280 |
-| @msgpack/msgpack | 754,239 (×2.31) | 190,808 (×0.40) | 409 | 429 | 376 |
-| cbor-x (records) | 721,073 (×2.21) | 453,275 (×0.94) | 416 | 435 | 355 |
-| fast-json-stringify (encode) + JSON.parse | 1,862,391 (×5.70) | 469,607 (×0.97) | 764 | 406 | 392 |
+| JSON | 324,645 (×1.00) | 486,837 (×1.00) | 764 | 406 | 392 |
+| protoarray (codegen) | 427,531 (×1.32) | 743,061 (×1.53) | 582 | 309 | 295 |
+| protoarray (closures) | 364,839 (×1.12) | 575,461 (×1.18) | 582 | 309 | 295 |
+| protoarray (codegen, validate: 'both') | 407,091 (×1.25) | 734,815 (×1.51) | 582 | 309 | 295 |
+| protobufjs | 721,191 (×2.22) | 1,961,434 (×4.03) | 305 | 328 | 304 |
+| avsc | 1,972,135 (×6.07) | 3,140,092 (×6.45) | 256 | 279 | 260 |
+| msgpackr | 1,115,474 (×3.44) | 439,430 (×0.90) | 409 | 429 | 376 |
+| msgpackr (records, shared structures) | 1,408,280 (×4.34) | 3,504,757 (×7.20) | 289 | 312 | 280 |
+| @msgpack/msgpack | 748,737 (×2.31) | 188,817 (×0.39) | 409 | 429 | 376 |
+| cbor-x (records) | 717,485 (×2.21) | 445,306 (×0.91) | 416 | 435 | 355 |
+| fast-json-stringify (encode) + JSON.parse | 1,867,242 (×5.75) | 491,362 (×1.01) | 764 | 406 | 392 |
 
-_Node v24.14.1 (V8 13.6.233.17-node.44), Apple M3 Max, 2026-10-14. Median of 5 runs; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._
+_Node v24.14.1 (V8 13.6.233.17-node.44), Apple M3 Max, 2026-10-14. Median of 5 rounds in a fresh process per library and scenario (the spread of the rounds is in bench/results/compare.json); bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._
 
 <!-- bench:compare:end -->
 
 ## Reading the numbers
 
 - **Records and strings** are where JSON transports live, and where protoarray is the fastest
-  codec in the table: `JSON.parse` and `JSON.stringify` are native, generated code adds tens of
-  nanoseconds, and the positional array is less than half the bytes. protobufjs, @msgpack/msgpack
-  and cbor-x decode strings byte by byte in JavaScript and fall behind.
+  text codec in the table and encodes faster than every binary one: `JSON.parse` and
+  `JSON.stringify` are native, generated code adds tens of nanoseconds, and the positional array
+  is less than half the bytes. protobufjs, @msgpack/msgpack and cbor-x decode strings byte by byte
+  in JavaScript and fall behind; the binary codecs that decode records faster are listed below.
 - **msgpackr with shared structures** is the binary equivalent of protoarray (a structure id plus
   the values) and decodes small records faster than `JSON.parse` can read text. On encoding
   protoarray is ahead.
 - **Numbers** are the honest exception: a double prints as up to 17 characters and parses back
   through a decimal conversion, where avsc and protobufjs read 8 bytes. Use a binary codec for
   dense numeric payloads.
+- **Tagged messages** (`packets`, 100 wrpc calls, callbacks and events): each library spells a
+  union its own way, a protobuf `oneof`, an Avro union of records, protoarray's discriminated
+  union. protoarray encodes fastest, writes half the bytes of JSON (and the fewest after brotli
+  of any format here), and decodes about twice as fast as `JSON.parse`, level with avsc and
+  cbor-x; msgpackr with shared structures decodes faster.
+- **Validation.** By default the wire is checked on decode and the values given to encode are
+  trusted, so the protoarray rows above encode the way protobufjs and msgpackr do, without
+  checks, and decode with them. The `protoarray (codegen, validate: 'both')` row in the full
+  tables checks the values too: the checks are compiled into the codec and cost a few percent
+  of an encode with generated code, about a tenth with closures. `pnpm bench` measures every
+  encode both ways, for both backends.
 - **Sizes**: protoarray's wire is JSON text; the binary codecs' bytes are before any base64 a
   text channel would add. After gzip or brotli the formats are close, and `columns` is the
   smallest on lists.

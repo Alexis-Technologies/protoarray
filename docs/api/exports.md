@@ -3,7 +3,7 @@
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse,
+  encode, decode, stringify, parse, check,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```
@@ -33,20 +33,22 @@ class Schema<const D extends Definition> {
   decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
+  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 ```
 
 Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries the codec.
-`encode` throws `EncodeError` for a record that is not an object or a collection that is not an
-array; `decode` and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken
-definition or option throws `SchemaDefinitionError` from the constructor.
+`encode` throws `EncodeError` for a value of the wrong shape or one validation rejects; `decode`
+and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken definition or option
+throws `SchemaDefinitionError` from the constructor. `check` returns the `EncodeError` that
+encoding the value with validation would throw, or `null`, without throwing over the data.
 
 ```ts
 interface SchemaOptions {
   codegen?: boolean;   // true: require generated code; false: closures; default: what the runtime allows
-  validate?: boolean;  // check the wire on decode (default true)
-  sparse?: boolean;    // [mask, ...present values] for a struct of up to 31 fields
+  validate?: boolean | 'decode' | 'encode' | 'both';  // true (default) = 'decode': the wire is checked, the values trusted; 'both' checks the values too
+  sparse?: boolean;    // [mask, ...present values], a segment per 31 fields
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
   fingerprint?: (canonical: string) => string;     // computes `id`; default: FNV-1a 32-bit, 8 hex digits
@@ -89,11 +91,20 @@ function parse<D>(schema: Schema<D>, text: string, options?: DecodeOptions): Inf
 `schema.decode(JSON.parse(text), options)`; text that is not JSON throws `DecodeError` with code
 `json` and the `SyntaxError` as `cause`.
 
+## `check(schema, value)`
+
+```ts
+function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
+```
+
+`schema.check(value)`: the problem a validated encode would find, or `null`. It validates whatever
+`validate` the schema, or one it embeds, was built with.
+
 ## Errors
 
 ```ts
 class SchemaDefinitionError extends TypeError { code: SchemaErrorCode; schema: string; field: string }
-class EncodeError extends TypeError { code: 'object' | 'array'; path: string; schema: string }
+class EncodeError extends TypeError { code: EncodeErrorCode; path: string; schema: string }
 class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown }
 ```
 
@@ -101,7 +112,7 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 
 | Type | Meaning |
 | --- | --- |
-| `Definition`, `FieldDefinition`, `StructDefinition`, `LongForm`, `TupleElement` | the definition DSL |
+| `Definition`, `FieldDefinition`, `StructDefinition`, `LongForm`, `TupleElement`, `ScalarType`, `TypeName` | the definition DSL |
 | `AnySchema` | any `Schema` instance, what a field or `options.schemas` accepts |
 | `Infer<D>` | the decoded object type |
 | `Input<D>` | the value `encode` accepts |

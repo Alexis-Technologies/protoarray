@@ -43,8 +43,9 @@ small. The payload is still plain JSON.
   End to end, on a record with ten fields, a nested address, tags and two orders: ×1.5 faster to
   encode and ×1.7 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. See
   [Benchmarks](/guide/benchmarks).
-- **Typed, validated, evolvable.** The schema checks the wire on decode, reports problems with a
-  path, and lets you add fields without breaking older peers. JSON alone gives you none of that.
+- **Typed, validated, evolvable.** The schema checks the wire on decode (and the values on encode
+  when asked), reports problems with a path, and lets you add fields without breaking older
+  peers. JSON alone gives you none of that.
 - **Same transport.** The result is JSON, so it goes through HTTP, WebSocket, message brokers and
   storage that already handle JSON, and compresses the same way.
 
@@ -52,7 +53,8 @@ small. The payload is still plain JSON.
 
 - **No toolchain.** No `.proto` files, no compiler, no generated files to commit. A schema is a
   plain JavaScript value, in the same DSL as [`@alexify/metaschema`](https://metaschema.vercel.app/).
-- **No dependencies, under 8 KB.** protobufjs is over 20 KB min+gzip, msgpackr about 10 KB.
+- **No dependencies, about 11 KB.** Both backends, validation and every type in about 11 KB
+  min+gzip; protobufjs is over 20 KB, msgpackr about 10 KB.
 - **Readable on the wire.** The payload can be logged, inspected and edited as is.
 - **Faster in JavaScript on real payloads.** Binary codecs written in JavaScript decode strings
   byte by byte; `JSON.parse` is native. On records and strings protoarray is ahead of protobufjs,

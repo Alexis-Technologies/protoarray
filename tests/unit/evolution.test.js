@@ -74,6 +74,39 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(S2.decode(S1.encode({ b: 2 })), { a: null, b: 2, c: null });
   });
 
+  test(`Evolution (${backend}): sparse records grow past 31 fields`, () => {
+    const narrow = {};
+    for (let i = 0; i < 31; i++) narrow[`f${i}`] = '?number';
+    const wide = { ...narrow };
+    for (let i = 31; i < 40; i++) wide[`f${i}`] = '?number';
+    const N = Schema.from(narrow, { ...options, sparse: true });
+    const W = Schema.from(wide, { ...options, sparse: true });
+    // An older decoder reads the first segment and ignores the next one.
+    const wire = W.encode({ f0: 1, f35: 2 });
+    assert.deepStrictEqual(wire, [1, 1, 16, 2]);
+    assert.strictEqual(N.decode(wire).f0, 1);
+    assert.throws(() => N.decode(wire, { strict: true }), { code: 'extra' });
+    // A newer decoder reads an older payload as is.
+    assert.deepStrictEqual(W.decode(N.encode({ f30: 7 })).f30, 7);
+    assert.deepStrictEqual(W.encode({ f30: 7 }), N.encode({ f30: 7 }));
+  });
+
+  test(`Evolution (${backend}): flags grow past 31 names`, () => {
+    const names = Array.from({ length: 40 }, (_, i) => `n${i}`);
+    const Narrow = Schema.from({ p: { flags: names.slice(0, 31) } }, options);
+    const Wide = Schema.from({ p: { flags: names } }, options);
+    // While no name past 31 is set the wire is the one integer of 1.0, which
+    // any decoder reads; a set name past 31 makes it an array of words, which
+    // only a 1.1 decoder reads (a 1.0 one rejects it, or reads every flag as
+    // false without validation).
+    assert.deepStrictEqual(Wide.encode({ p: { n1: true } }), Narrow.encode({ p: { n1: true } }));
+    assert.deepStrictEqual(Wide.encode({ p: { n1: true, n35: false } }), [2]);
+    const wire = Wide.encode({ p: { n1: true, n35: true } });
+    assert.deepStrictEqual(wire, [[2, 16]]);
+    assert.deepStrictEqual(Narrow.decode(wire).p.n1, true);
+    assert.deepStrictEqual(Wide.decode([2]).p.n35, false);
+  });
+
   test(`Evolution (${backend}): columns grow the same way`, () => {
     const C1 = Schema.from({ array: { a: 'number' } }, { ...options, layout: 'columns' });
     const C2 = Schema.from(
@@ -98,6 +131,50 @@ for (const [backend, options] of BACKENDS) {
     const E2 = Schema.from({ r: { enum: ['a', 'b', 'c'] } }, options);
     assert.deepStrictEqual(E2.decode(E1.encode({ r: 'b' })), { r: 'b' });
     assert.throws(() => E1.decode(E2.encode({ r: 'c' })), { code: 'enum', path: 'r' });
+  });
+
+  test(`Evolution (${backend}): a union grows at the end, its branches like structs`, () => {
+    const call = { Struct: {}, type: { enum: ['call'] }, id: 'string' };
+    const U1 = Schema.from({ union: [call], discriminator: 'type' }, options);
+    const U2 = Schema.from(
+      {
+        union: [
+          { ...call, timeout: '?number' },
+          { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+        ],
+        discriminator: 'type',
+      },
+      options,
+    );
+    // A newer decoder reads every older packet; an older one reads the old
+    // branches of a newer sender and ignores their new fields.
+    assert.deepStrictEqual(U2.decode(U1.encode({ type: 'call', id: '1' })), {
+      type: 'call',
+      id: '1',
+      timeout: null,
+    });
+    assert.deepStrictEqual(U1.decode(U2.encode({ type: 'call', id: '1', timeout: 5 })), {
+      type: 'call',
+      id: '1',
+    });
+    // A new branch needs the decoders first, like an appended enum value.
+    assert.throws(() => U1.decode(U2.encode({ type: 'event', name: 'x' })), {
+      code: 'union',
+      path: 'type',
+    });
+    // A branch inserted before the others moves every later tag: breaking.
+    const Moved = Schema.from(
+      {
+        union: [{ Struct: {}, type: { enum: ['event'] }, name: 'string' }, call],
+        discriminator: 'type',
+      },
+      options,
+    );
+    assert.deepStrictEqual(Moved.decode(U1.encode({ type: 'call', id: '1' })), {
+      type: 'event',
+      name: '1',
+    });
+    assert.notStrictEqual(Moved.id, U2.id);
   });
 
   test(`Evolution (${backend}): renaming keeps the wire and changes the id`, () => {

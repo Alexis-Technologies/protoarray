@@ -3,21 +3,82 @@
 // how a Schema used as a field is embedded in another one.
 
 const { SchemaDefinitionError } = require('./errors.js');
-const { SCALARS, enumeration, flags } = require('./types.js');
+const { SCALARS, enumeration, flags, decimal } = require('./types.js');
+
+/**
+ * The nodes of a plan, as both backends read them.
+ *
+ * @typedef {object} ScalarNode A type from types.js.
+ * @property {'scalar'} kind
+ * @property {string} type The type name; `expected` and `code` name it in errors.
+ * @property {((wire: unknown) => boolean) | null} check The wire check of an identity type
+ *   (null for `json`); an enum keeps one for a union's tag.
+ * @property {((value: unknown) => boolean) | null} [accept] The check of a value given to
+ *   encode, null where there is nothing to check.
+ * @property {((value: unknown) => unknown) | null} pack Null for an identity type.
+ * @property {((wire: unknown) => unknown) | null} unpack Total: a stray value stays as it is.
+ * @property {(value: unknown) => unknown} [checkedPack] Checks and converts a value in one call,
+ *   undefined for one of the wrong type; replaces `accept` where the two share their work.
+ * @property {(wire: unknown) => unknown} [checkedUnpack] The same on the wire; every converted
+ *   type has one.
+ * @property {boolean} [required] Only on a root scalar.
+ *
+ * @typedef {object} Field
+ * @property {string} key
+ * @property {number} index The position on the wire.
+ * @property {boolean} required
+ * @property {string | number | boolean | null} def The default, a decoded value.
+ * @property {Node} node
+ *
+ * @typedef {object} StructNode
+ * @property {'struct'} kind
+ * @property {Field[]} fields
+ * @property {string[]} keys
+ * @property {boolean} sparse
+ * @property {number} tail Where the trailing run of optional fields starts.
+ * @property {{ key: string, position: number, keys: string[], values: unknown[] }} [tag] On a
+ *   union's branch: the discriminator it carries as the leading tag.
+ * @property {Slot} [slot] On a schema used by value: the codec to call instead of compiling.
+ *
+ * @typedef {object} UnionNode
+ * @property {'union'} kind
+ * @property {string} key The discriminator.
+ * @property {ScalarNode} tag An enum over the values of every branch, in order.
+ * @property {unknown[]} values
+ * @property {{ node: StructNode, first: number, count: number, source: StructNode }[]} branches
+ *
+ * @typedef {{ kind: 'array', item: Node, itemRequired: boolean, layout: string }} ArrayNode
+ * @typedef {{ kind: 'tuple', items: { node: ScalarNode, required: boolean }[] }} TupleNode
+ * @typedef {{ kind: 'ref', name: string, slot: Slot }} RefNode A reference by name.
+ * @typedef {{ codec: { encode: Function, decode: Function }, checker: object }} Slot A compiled
+ *   schema: its codec, and the codec `check` runs, built when first asked for.
+ * @typedef {ScalarNode | StructNode | UnionNode | ArrayNode | TupleNode | RefNode} Node
+ */
 
 const BRAND = Symbol.for('alexify.protoarray.brand');
 const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');
+const CHECKER = Symbol.for('alexify.protoarray.checker');
+// The error that made the automatic backend choice fall back to closures.
+const FALLBACK = Symbol.for('alexify.protoarray.fallback');
 
-// Sparse masks and flags are 32-bit integers; bit 31 would make them negative.
-const MAX_BITS = 31;
-// metaschema shorthands that have no positional form yet: rejected loudly so a
-// shared definition never silently changes meaning.
-const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many)$/;
+// metaschema shorthands that have no positional form here (`union` has one,
+// but only as `{ union: [...] }`): rejected loudly so a shared definition
+// never silently changes meaning.
+const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
+
+// A compiled schema in a slot: the codec it runs, and the codec that checks
+// values for Schema#check, compiled when first asked for.
+const slotOf = (schema) => ({
+  codec: schema[CODEC],
+  get checker() {
+    return schema[CHECKER];
+  },
+});
 
 const isPlain = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value) && !isSchema(value);
@@ -33,18 +94,17 @@ const compilePlan = (definition, context) => {
     return new SchemaDefinitionError(code, message, context.name, path);
   };
 
-  // Enum values travel as an index, so their number is free; flags are bits.
+  // Enum values travel as an index and flags as bits, so their number is free.
   const list = (values, code, path) => {
     const bits = code === 'ERR_INVALID_FLAGS';
     const names = Array.isArray(values) ? values.map(String) : [];
     const valid =
       names.length > 0 &&
-      (!bits || names.length <= MAX_BITS) &&
       new Set(names).size === names.length &&
       !names.includes('__proto__') &&
       values.every((value) => typeof value === 'string' || (typeof value === 'number' && !bits));
     if (!valid) {
-      const expected = bits ? `up to ${MAX_BITS} unique names` : 'unique strings or numbers';
+      const expected = bits ? 'unique names' : 'unique strings or numbers';
       throw error(code, `Expected ${expected}`, path);
     }
     return values.slice();
@@ -56,7 +116,7 @@ const compilePlan = (definition, context) => {
     if (!/^[A-Z]/.test(name)) throw error('ERR_UNKNOWN_TYPE', `Unknown type "${name}"`, path);
     if (name === context.name) return { kind: 'ref', name, slot: context.selfSlot };
     const target = context.schemas[name];
-    if (isSchema(target)) return { kind: 'ref', name, slot: { codec: target[CODEC] } };
+    if (isSchema(target)) return { kind: 'ref', name, slot: slotOf(target) };
     throw error('ERR_UNKNOWN_REFERENCE', `Unknown reference "${name}"`, path);
   };
 
@@ -78,7 +138,7 @@ const compilePlan = (definition, context) => {
       }
       // A compiled schema is used as it is, with its own options, exactly like
       // a reference by name: its codec is called through a slot.
-      return { node: { ...node, slot: { codec: source[CODEC] } }, required: true, def: null };
+      return { node: { ...node, slot: slotOf(source) }, required: true, def: null };
     }
     if (typeof source === 'string') return typed(source, path);
     if (Array.isArray(source)) {
@@ -113,7 +173,24 @@ const compilePlan = (definition, context) => {
       if (type === 'enum') node = enumeration(list(source.enum, 'ERR_INVALID_ENUM', path));
       else if (type === 'flags') node = flags(list(source.flags, 'ERR_INVALID_FLAGS', path));
       else if (typeof type === 'string') node = typeNode(type, path);
-      else throw error('ERR_INVALID_DEFINITION', 'The type must be a string', path);
+      else {
+        // As in metaschema: a struct whose first key is `type` reads as the
+        // long form; a kind first (`{ Struct: {}, type: … }`) makes it a struct.
+        const text = 'The type must be a string; a struct starting with "type" needs a kind first';
+        throw error('ERR_INVALID_DEFINITION', text, path);
+      }
+      // A valid long form in metaschema too, where an unknown option is kept.
+      if (source.decimals !== undefined) {
+        const n = source.decimals;
+        if (node.type !== 'number' || !Number.isInteger(n) || n < 0 || n > 15) {
+          throw error(
+            'ERR_INVALID_DEFINITION',
+            'decimals is an integer from 0 to 15 on a number',
+            path,
+          );
+        }
+        node = decimal(n);
+      }
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
       // -0 has no JSON form and would tell the two backends apart.
       const def = hasDefault ? (source.default === 0 ? 0 : source.default) : null;
@@ -126,11 +203,65 @@ const compilePlan = (definition, context) => {
       }
       return { node, required: required && !hasDefault && node.type !== 'json', def };
     }
+    if (first === 'union' && Array.isArray(source.union)) {
+      return { node: union(source, path), required, def: null };
+    }
     if (first === undefined) throw error('ERR_INVALID_DEFINITION', 'An empty definition', path);
     if (SCALARS[first] !== undefined || UNSUPPORTED.test(first)) {
       throw error('ERR_UNKNOWN_TYPE', `A struct cannot start with the type name "${first}"`, path);
     }
     return { node: struct(source, keys, path), required: true, def: null };
+  };
+
+  // A discriminated union in metaschema's spelling: every branch is a struct
+  // whose `discriminator` field is an enum. The wire is `[tag, ...the other
+  // fields of the branch]`, the tag being the index of the discriminator value
+  // among the values of all branches. Branches are always built from their
+  // plans, so the options of the union apply to them.
+  const union = (source, path) => {
+    const key = source.discriminator;
+    if (typeof key !== 'string' || key === '') {
+      throw error('ERR_UNKNOWN_TYPE', 'A union needs a discriminator', path);
+    }
+    if (source.union.length === 0) {
+      throw error('ERR_INVALID_UNION', 'A union needs at least one branch', path);
+    }
+    const values = [];
+    const branches = source.union.map((branch, i) => {
+      const at = `${path}[${i}]`;
+      let node;
+      if (isSchema(branch)) node = branch[PLAN];
+      else if (typeof branch === 'string' && /^[A-Z]/.test(branch) && branch !== context.name) {
+        const target = context.schemas[branch];
+        if (!isSchema(target)) {
+          throw error('ERR_UNKNOWN_REFERENCE', `Unknown reference "${branch}"`, at);
+        }
+        node = target[PLAN];
+      } else node = field(branch, at).node;
+      const index = node.kind === 'struct' && !node.sparse ? node.keys.indexOf(key) : -1;
+      const tag = index === -1 ? null : node.fields[index];
+      // The tag always travels, so the discriminator is neither optional nor defaulted.
+      if (tag === null || tag.node.type !== 'enum' || !tag.required || tag.def !== null) {
+        throw error(
+          'ERR_INVALID_UNION',
+          `A branch must be a struct with the required enum "${key}" without a default`,
+          at,
+        );
+      }
+      const first = values.length;
+      values.push(...tag.node.values);
+      const fields = node.fields
+        .filter((item) => item !== tag)
+        .map((item, j) => ({ ...item, index: j }));
+      let tail = fields.length;
+      while (tail > 0 && !fields[tail - 1].required) tail--;
+      const keys = fields.map((item) => item.key);
+      const shape = { kind: 'struct', fields, keys, sparse: false, tail };
+      shape.tag = { key, position: index, keys: node.keys, values };
+      return { node: shape, first, count: tag.node.values.length, source: node };
+    });
+    const tag = enumeration(list(values, 'ERR_INVALID_UNION', path));
+    return { kind: 'union', key, tag, values, branches };
   };
 
   const struct = (source, keys, path) => {
@@ -180,8 +311,8 @@ const compilePlan = (definition, context) => {
     node = plain;
   }
   if (context.sparse) {
-    if (node.kind !== 'struct' || node.fields.length > MAX_BITS) {
-      throw error('ERR_INVALID_OPTIONS', `sparse needs a struct of up to ${MAX_BITS} fields`, '');
+    if (node.kind !== 'struct') {
+      throw error('ERR_INVALID_OPTIONS', 'sparse needs a struct', '');
     }
     node = { ...node, sparse: true };
   }
@@ -216,8 +347,12 @@ const canonical = (node) => {
     return `(${node.items.map((item) => (item.required ? '' : '?') + canonical(item.node)).join(',')})`;
   }
   if (node.kind === 'ref') return `@${node.name}`;
+  if (node.kind === 'union') {
+    return `union(${node.key})[${node.branches.map((branch) => canonical(branch.source)).join('|')}]`;
+  }
   const values = node.values || node.names;
-  const type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  let type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  if (node.decimals !== undefined) type = `${type}(${node.decimals})`;
   // Only a root scalar carries its own optionality; a field's is on the field.
   return node.required === false ? `?${type}` : type;
 };
@@ -233,4 +368,14 @@ const fingerprint = (text) => {
   return (hash >>> 0).toString(16).padStart(8, '0');
 };
 
-module.exports = { BRAND, PLAN, CODEC, isSchema, compilePlan, canonical, fingerprint };
+module.exports = {
+  BRAND,
+  PLAN,
+  CODEC,
+  CHECKER,
+  FALLBACK,
+  isSchema,
+  compilePlan,
+  canonical,
+  fingerprint,
+};

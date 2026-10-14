@@ -3,13 +3,33 @@
 // is unavailable or switched off), and the instance carries both.
 
 const { SchemaDefinitionError, EncodeError, DecodeError, boundary } = require('./errors.js');
-const { BRAND, PLAN, CODEC, compilePlan, canonical, fingerprint } = require('./plan.js');
+const {
+  BRAND,
+  PLAN,
+  CODEC,
+  CHECKER,
+  FALLBACK,
+  compilePlan,
+  canonical,
+  fingerprint,
+} = require('./plan.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
 
 const LAYOUTS = ['rows', 'flat', 'columns'];
-const OPTIONS = ['codegen', 'validate', 'sparse', 'layout', 'schemas', 'fingerprint'];
+const MODES = ['decode', 'encode', 'both'];
+const isBoolean = (value) => typeof value === 'boolean';
+
+// What each option accepts; a key not in the table is not an option.
+const VALID = Object.assign(Object.create(null), {
+  codegen: isBoolean,
+  validate: (value) => isBoolean(value) || MODES.includes(value),
+  sparse: isBoolean,
+  layout: (value) => LAYOUTS.includes(value),
+  schemas: (value) => value !== null && typeof value === 'object',
+  fingerprint: (value) => typeof value === 'function',
+});
 
 const readOptions = (options, name) => {
   const settings = {
@@ -30,16 +50,9 @@ const readOptions = (options, name) => {
   }
   for (const key of Object.keys(source)) {
     const value = source[key];
-    if (value === undefined && OPTIONS.includes(key)) continue;
-    const valid =
-      key === 'layout'
-        ? LAYOUTS.includes(value)
-        : key === 'schemas'
-          ? value !== null && typeof value === 'object'
-          : key === 'fingerprint'
-            ? typeof value === 'function'
-            : OPTIONS.includes(key) && typeof value === 'boolean';
-    if (!valid) {
+    const valid = VALID[key];
+    if (value === undefined && valid !== undefined) continue;
+    if (valid === undefined || !valid(value)) {
       throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', `Invalid option "${key}"`, name);
     }
     settings[key] = value;
@@ -47,11 +60,50 @@ const readOptions = (options, name) => {
   return settings;
 };
 
+// What each direction checks. `true`, the default, is the 1.0 setting: the
+// wire is validated on decode and the values given to encode are trusted, so
+// a codec that only encodes pays nothing for checks it did not ask for.
+const checks = (validate, checking) => ({
+  encode: checking || validate === 'encode' || validate === 'both',
+  decode: checking || validate === true || validate === 'decode' || validate === 'both',
+});
+
+// The codec of a plan, compiled by a backend and wrapped in a layout for a
+// collection. A checking codec validates both directions and calls the
+// checking codecs of the schemas it embeds (see Schema#check).
+const build = (plan, backend, settings, checking) => {
+  const validate = checks(settings.validate, checking);
+  const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
+  let codec = null;
+  let fallback;
+  if (target.slot !== undefined) {
+    // A layout over a compiled schema, or a root reference by name, reuses
+    // that codec: nothing new to compile.
+    codec = checking ? target.slot.checker : target.slot.codec;
+  } else if (backend === codegen && settings.codegen === undefined) {
+    // The probe only proves that source text compiles: a runtime that still
+    // rejects this one function (its size, a stricter policy) gets closures.
+    // The error is kept, so the fallback can be told from a choice.
+    try {
+      codec = codegen.build(target, { validate, checking });
+    } catch (error) {
+      fallback = error;
+      backend = closures;
+    }
+  }
+  if (codec === null) codec = backend.build(target, { validate, checking });
+  if (target !== plan) {
+    codec = layouts[plan.layout](codec, plan.item.fields.length, validate.encode);
+  }
+  return { codec, backend, fallback };
+};
+
 class Schema {
   #settings;
   #canonical = null;
   #id = null;
   #list = null;
+  #checker = null;
 
   constructor(name, definition, options) {
     if (typeof name !== 'string') {
@@ -60,7 +112,9 @@ class Schema {
       name = '';
     }
     const settings = readOptions(options, name);
+    // What a reference to the schema's own name calls, filled once built.
     const selfSlot = { codec: null };
+    Object.defineProperty(selfSlot, 'checker', { get: () => this[CHECKER] });
     const plan = compilePlan(definition, { ...settings, name, selfSlot });
     const useCodegen = settings.codegen === undefined ? codegen.available : settings.codegen;
     if (useCodegen && !codegen.available) {
@@ -70,26 +124,15 @@ class Schema {
         name,
       );
     }
-    let backend = useCodegen ? codegen : closures;
-    const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
-    let codec = null;
-    if (target.slot !== undefined) {
-      // A layout over a compiled schema, or a root reference by name, reuses
-      // that codec: nothing new to compile.
-      codec = target.slot.codec;
-    } else if (backend === codegen && settings.codegen === undefined) {
-      // The probe only proves that source text compiles: a runtime that still
-      // rejects this one function (its size, a stricter policy) gets closures.
-      try {
-        codec = codegen.build(target, { validate: settings.validate });
-      } catch {
-        backend = closures;
-      }
-    }
-    if (codec === null) codec = backend.build(target, { validate: settings.validate });
-    if (target !== plan) codec = layouts[plan.layout](codec, plan.item.fields.length);
+    const { codec, backend, fallback } = build(
+      plan,
+      useCodegen ? codegen : closures,
+      settings,
+      false,
+    );
     selfSlot.codec = codec;
     Object.defineProperty(this, BRAND, { value: true });
+    if (fallback !== undefined) Object.defineProperty(this, FALLBACK, { value: fallback });
     Object.defineProperty(this, PLAN, { value: plan });
     Object.defineProperty(this, CODEC, { value: codec });
     this.name = name;
@@ -131,16 +174,42 @@ class Schema {
     return this.#list;
   }
 
-  encode(value) {
+  // The codec `check` runs, compiled when first asked for: it validates even
+  // where the options say not to, here and in the schemas this one embeds.
+  get [CHECKER]() {
+    if (this.#checker === null) {
+      const backend = this.backend === 'codegen' ? codegen : closures;
+      this.#checker = build(this[PLAN], backend, this.#settings, true).codec;
+    }
+    return this.#checker;
+  }
+
+  #encodeWith(codec, value) {
     const { kind } = this[PLAN];
     if (kind !== 'scalar' && (value === null || typeof value !== 'object')) {
       const code = kind === 'array' || kind === 'tuple' ? 'array' : 'object';
-      throw new EncodeError(code, '', this.name);
+      throw boundary(new EncodeError(code), this.name, false);
     }
     try {
-      return this[CODEC].encode(value);
+      return codec.encode(value);
     } catch (error) {
       throw boundary(error, this.name, false);
+    }
+  }
+
+  encode(value) {
+    return this.#encodeWith(this[CODEC], value);
+  }
+
+  // What encoding this value with validation would throw, as the EncodeError
+  // itself, or null: a check that never throws over the data.
+  check(value) {
+    try {
+      this.#encodeWith(this[CHECKER], value);
+      return null;
+    } catch (error) {
+      if (error instanceof EncodeError) return error;
+      throw error;
     }
   }
 

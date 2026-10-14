@@ -24,6 +24,8 @@ const RESULTS = path.join(__dirname, 'results', 'compare.json');
 const MEASURE_MS = 400;
 const ROUNDS = 5;
 
+// The median of the rounds and the spread between the slowest and the
+// fastest, as a percentage of the median: a difference inside it is noise.
 const measure = (fn) => {
   for (let i = 0; i < 500; i++) fn();
   const samples = [];
@@ -37,7 +39,8 @@ const measure = (fn) => {
     samples.push((iterations / (performance.now() - start)) * 1000);
   }
   samples.sort((a, b) => a - b);
-  return Math.round(samples[Math.floor(samples.length / 2)]);
+  const median = Math.round(samples[Math.floor(samples.length / 2)]);
+  return { median, spread: Math.round(((samples[ROUNDS - 1] - samples[0]) / median) * 100) };
 };
 
 const sizes = (wire) => {
@@ -73,9 +76,12 @@ const runPair = (adapterId, scenarioName) => {
   if (actual !== expected) {
     throw new Error(`${adapterId} does not round-trip ${scenarioName}:\n${actual}\n${expected}`);
   }
+  const encode = measure(() => codec.encode(scenario.value));
+  const decode = measure(() => codec.decode(wire));
   const result = {
-    encode: measure(() => codec.encode(scenario.value)),
-    decode: measure(() => codec.decode(wire)),
+    encode: encode.median,
+    decode: decode.median,
+    spread: { encode: encode.spread, decode: decode.spread },
     bytes: sizes(wire),
   };
   process.stdout.write(JSON.stringify(result));

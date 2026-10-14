@@ -321,6 +321,111 @@ const NUMERIC = {
   },
 };
 
+// wrpc's packets: a call, the callback that answers it, an event. Each library
+// gets its own spelling of a tagged union: a protobuf oneof, an Avro union of
+// records, protoarray's discriminated union.
+const ROOMS = ['general', 'random', 'help'];
+const packet = (i) => {
+  if (i % 3 === 0) {
+    return {
+      type: 'call',
+      id: String(1000 + i),
+      method: 'chat/send',
+      args: { room: pick(ROOMS), text: `Message ${i}` },
+    };
+  }
+  if (i % 3 === 1) {
+    return {
+      type: 'callback',
+      id: String(999 + i),
+      result: { ok: rnd() > 0.1, at: 1700000000000 + i },
+    };
+  }
+  return {
+    type: 'event',
+    name: 'chat/message',
+    data: { room: pick(ROOMS), text: `Message ${i}`, from: `user${i % 17}` },
+  };
+};
+const RECORDS = { call: 'Call', callback: 'Callback', event: 'Event' };
+const ARGS = { room: 'string', text: 'string' };
+const RESULT = { ok: 'boolean', at: 'number' };
+const DATA = { room: 'string', text: 'string', from: 'string' };
+const protoFields = (fields, types = {}) =>
+  Object.fromEntries(
+    Object.keys(fields).map((key, i) => [key, { type: types[key] || fields[key], id: i + 1 }]),
+  );
+const avroFields = (fields, types = {}) =>
+  Object.keys(fields).map((name) => ({ name, type: types[name] || fields[name] }));
+const PACKETS = {
+  definition: {
+    union: [
+      { Struct: {}, type: { enum: ['call'] }, id: 'string', method: 'string', args: ARGS },
+      { Struct: {}, type: { enum: ['callback'] }, id: 'string', result: RESULT },
+      { Struct: {}, type: { enum: ['event'] }, name: 'string', data: DATA },
+    ],
+    discriminator: 'type',
+  },
+  proto: {
+    nested: {
+      Args: { fields: protoFields(ARGS) },
+      Result: { fields: protoFields(RESULT, { ok: 'bool', at: 'int64' }) },
+      Data: { fields: protoFields(DATA) },
+      Call: { fields: protoFields({ id: 'string', method: 'string', args: 'Args' }) },
+      Callback: { fields: protoFields({ id: 'string', result: 'Result' }) },
+      Event: { fields: protoFields({ name: 'string', data: 'Data' }) },
+      Packet: {
+        oneofs: { kind: { oneof: ['call', 'callback', 'event'] } },
+        fields: protoFields({ call: 'Call', callback: 'Callback', event: 'Event' }),
+      },
+    },
+  },
+  toProto: ({ type, ...rest }) => ({ [type]: rest }),
+  fromProto: (message) => {
+    const type = Object.keys(RECORDS).find((name) => message[name] != null);
+    return { type, ...message[type] };
+  },
+  avro: [
+    {
+      type: 'record',
+      name: 'Call',
+      fields: avroFields(
+        { id: 'string', method: 'string', args: 'Args' },
+        { args: { type: 'record', name: 'Args', fields: avroFields(ARGS) } },
+      ),
+    },
+    {
+      type: 'record',
+      name: 'Callback',
+      fields: avroFields(
+        { id: 'string', result: 'Result' },
+        {
+          result: {
+            type: 'record',
+            name: 'Result',
+            fields: avroFields(RESULT, { ok: 'boolean', at: 'long' }),
+          },
+        },
+      ),
+    },
+    {
+      type: 'record',
+      name: 'Event',
+      fields: avroFields(
+        { name: 'string', data: 'Data' },
+        { data: { type: 'record', name: 'Data', fields: avroFields(DATA) } },
+      ),
+    },
+  ],
+  wrapUnions: true,
+  toAvro: ({ type, ...rest }) => ({ [RECORDS[type]]: rest }),
+  fromAvro: (value) => {
+    const name = Object.keys(value)[0];
+    const type = Object.keys(RECORDS).find((key) => RECORDS[key] === name);
+    return { type, ...value[name] };
+  },
+};
+
 const users = Array.from({ length: 1000 }, (_, i) => user(i));
 
 const SCENARIOS = [
@@ -359,6 +464,14 @@ const SCENARIOS = [
     value: stringsValue,
     schema: STRINGS,
     message: 'Strings',
+  },
+  {
+    name: 'packets',
+    description: '100 wrpc packets: calls, callbacks and events',
+    value: Array.from({ length: 100 }, (_, i) => packet(i)),
+    schema: PACKETS,
+    message: 'Packet',
+    list: true,
   },
   {
     name: 'numeric',

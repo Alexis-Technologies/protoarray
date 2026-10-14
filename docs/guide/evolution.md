@@ -13,9 +13,11 @@ understanding each other.
    the old side with the extra positions ignored.
 3. **Retire a field by keeping its slot** and making it optional; senders put `null` there.
 4. **Safe type changes:** required → optional; appending values to an `enum` or names to `flags`.
-   Anything else is breaking.
-5. **Deploy decoders before encoders** when you append enum values: an old decoder rejects an
-   index it does not know.
+   Anything else is breaking, adding or changing `decimals` included: the wire holds a different
+   number. A 1.0 peer ignores `decimals` altogether, so a field with it needs 1.1 on both sides;
+   the ids of the two definitions differ, which is how a handshake notices.
+5. **Deploy decoders before encoders** when you append enum values or union branches: an old
+   decoder rejects an index or a tag it does not know.
 
 ```js
 const V1 = Schema.from({ id: 'number', name: 'string' });
@@ -40,6 +42,13 @@ come after the ones an older decoder knows. Columns are appended at the end; an 
 ignores them, a newer one reads `null`s where a column is missing. The one exception is the
 `flat` layout, whose fixed width changes with every field: use it only where both sides deploy
 together.
+
+## Unions
+
+A union's tags follow the order of its branches and of the values in them, so new branches go at
+the end, and a new discriminator value only into the last branch; anything inserted before moves
+every later tag. A branch is a struct and grows like one: append optional fields, and an older
+decoder reads the branch without them.
 
 ## Strict decoding
 
@@ -85,7 +94,14 @@ it on their own from the same definition, which is what makes the handshake work
 time-based identifier (a cuid, a ulid) would differ between two copies of the same schema; if you
 need hand-written version ids, keep a map from id to schema in the application instead.
 
-### What cannot change inside 1.x
+### Past 31 fields or names
 
-A sparse record and a `flags` field carry at most 31 slots: the mask is one 32-bit integer. A
-wider mask would be a new wire format and a new major version, not an option.
+A sparse record grows past 31 fields without breaking anyone: the first 31 fields keep the 1.0
+form (one segment), and the rest follow in extra segments that an older decoder ignores. Only a
+strict decoder notices them, as `extra`.
+
+A `flags` field grows past 31 names, but the wire changes shape once a name past 31 is set: from
+one integer to an array of words, which a 1.1 decoder reads and a 1.0 decoder does not (it rejects
+the array as `type`, or without validation reads every flag as `false`). While no such name is
+set the wire stays the one integer of 1.0. So deploy decoders first, as for a new enum value, and
+only then set the new names.

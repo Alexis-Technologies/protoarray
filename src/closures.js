@@ -3,81 +3,215 @@
 // is the reference the codegen backend is checked against in the test suite.
 
 const { EXPECTED, fail, nest, refuse } = require('./errors.js');
-const { literal } = require('./types.js');
+const { WORD, literal } = require('./types.js');
 
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
 
 const build = (plan, options) => {
+  // Which direction is checked: `validate.encode` the values given to encode,
+  // `validate.decode` the wire.
   const { validate } = options;
+  // A checking codec (Schema#check) calls the checking codecs of the schemas
+  // it embeds.
+  const via = options.checking ? 'checker' : 'codec';
 
-  // Encoders take a non-null value; `null` stands for an identity conversion
-  // so callers skip the call on the hot path. A slot (a reference by name or
-  // an embedded schema) is called as it is.
+  // Identity scalars are checked in the loops that read them, through their
+  // own `accept` (one small function per type), with no encoder of their own.
+  const inlineAccept = (node) =>
+    validate.encode && node.kind === 'scalar' && node.pack === null && node.accept !== null
+      ? node.accept
+      : null;
+
+  // A scalar slot as a function of a non-null value, or null when the value
+  // travels as it is with nothing to check. It knows its own path (a key or
+  // an index, formatted only on error), so callers need no try/catch.
+  const scalarEncoder = (node, path) => {
+    const { accept, pack, checkedPack, code, expected } = node;
+    if (!validate.encode || accept === null) return pack;
+    if (checkedPack !== undefined) {
+      return (value) => {
+        const wire = checkedPack(value);
+        if (wire === undefined) refuse(code, at(path), expected);
+        return wire;
+      };
+    }
+    return (value) => {
+      if (!accept(value)) refuse(code, at(path), expected);
+      return pack === null ? value : pack(value);
+    };
+  };
+
+  // Encoders of everything but scalars take a non-null value. A slot (a
+  // reference by name or an embedded schema) is called as it is.
   const encoder = (node) => {
-    if (node.kind === 'scalar') return node.pack;
-    if (node.slot !== undefined) return (value) => node.slot.codec.encode(value);
+    if (node.slot !== undefined) return (value) => node.slot[via].encode(value);
     if (node.kind === 'struct') return structEncoder(node);
-    const encoders = node.kind === 'tuple' ? node.items.map((item) => encoder(item.node)) : null;
-    const encode = encoders === null ? encoder(node.item) : null;
+    if (node.kind === 'union') return unionEncoder(node);
+    if (node.kind === 'tuple') return tupleEncoder(node);
+    const { item } = node;
+    const scalar = item.kind === 'scalar';
+    // Identity items travel in the same array: at most a checking pass.
+    const identity = scalar && item.pack === null;
+    const accept = inlineAccept(item);
+    const encode = identity ? null : scalar ? scalarEncoder(item, '') : encoder(item);
+    const nullType = validate.encode && node.itemRequired;
+    const expected = scalar ? item.expected : EXPECTED[item.kind];
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
-      if (encoders === null && encode === null) return list;
-      const count = encoders === null ? list.length : encoders.length;
-      const out = new Array(count);
+      if (identity && accept === null && !nullType) return list;
+      const count = list.length;
+      const out = identity ? list : new Array(count);
       for (let i = 0; i < count; i++) {
         const value = list[i];
-        const convert = encoders === null ? encode : encoders[i];
-        if (value == null) out[i] = null;
-        else if (convert === null) out[i] = value;
-        else {
+        let wire = null;
+        if (value == null) {
+          if (nullType) refuse('type', `[${i}]`, expected);
+        } else if (encode === null) {
+          if (accept !== null && !accept(value)) refuse('type', `[${i}]`, expected);
+          wire = value;
+        } else {
           try {
-            out[i] = convert(value);
+            wire = encode(value);
           } catch (error) {
             throw nest(error, `[${i}]`);
           }
         }
+        if (!identity) out[i] = wire;
       }
       return out;
     };
   };
 
+  // Tuple elements are scalars.
+  const tupleEncoder = (node) => {
+    const size = node.items.length;
+    const encoders = node.items.map((item, i) => scalarEncoder(item.node, i));
+    const required = node.items.map((item) => validate.encode && item.required);
+    return (list) => {
+      if (!Array.isArray(list)) refuse('array', '');
+      const out = new Array(size);
+      for (let i = 0; i < size; i++) {
+        const value = list[i];
+        const encode = encoders[i];
+        if (value == null) {
+          if (required[i]) refuse('required', `[${i}]`);
+          out[i] = null;
+        } else out[i] = encode === null ? value : encode(value);
+      }
+      return out;
+    };
+  };
+
+  // A dense record and a sparse one get a loop each. A branch of a union has
+  // a tag: it leads the wire, so every position moves one place to the right.
   const structEncoder = (node) => {
     const { keys, tail, sparse } = node;
     const size = keys.length;
-    const encoders = node.fields.map((field) => encoder(field.node));
+    const lead = node.tag === undefined ? 0 : 1;
+    const width = size + lead;
+    const end = tail + lead;
+    const accepts = node.fields.map((field) => inlineAccept(field.node));
+    const expected = node.fields.map((field) => field.node.expected);
+    const encoders = node.fields.map((field, i) => {
+      if (accepts[i] !== null) return null;
+      return field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node);
+    });
+    const required = node.fields.map((field) => validate.encode && field.required);
+    // The wire form of one field, or null for one that is missing.
+    const wireOf = (object, i) => {
+      const value = object[keys[i]];
+      if (value == null) {
+        if (required[i]) refuse('required', keys[i]);
+        return null;
+      }
+      const encode = encoders[i];
+      if (encode === null) {
+        const accept = accepts[i];
+        if (accept !== null && !accept(value)) refuse('type', keys[i], expected[i]);
+        return value;
+      }
+      try {
+        return encode(value);
+      } catch (error) {
+        throw nest(error, keys[i]);
+      }
+    };
+    if (!sparse) {
+      return (object, t) => {
+        if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
+        const out = new Array(width);
+        if (lead === 1) out[0] = t;
+        for (let i = 0; i < size; i++) out[i + lead] = wireOf(object, i);
+        let length = width;
+        while (length > end && out[length - 1] === null) length--;
+        if (length < width) out.length = length;
+        return out;
+      };
+    }
+    // One [mask, ...present values] segment per 31 fields: `start` is where
+    // the current mask goes, `keep` where the last segment with something in
+    // it ends (the first one is always kept).
     return (object) => {
-      if (typeof object !== 'object') refuse('object', '');
-      const out = sparse ? [0] : new Array(size);
+      if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
+      const out = [0];
       let mask = 0;
+      let start = 0;
+      let keep = 0;
       for (let i = 0; i < size; i++) {
-        const value = object[keys[i]];
-        const encode = encoders[i];
-        let wire = null;
-        if (value != null) {
-          if (encode === null) wire = value;
-          else {
-            try {
-              wire = encode(value);
-            } catch (error) {
-              throw nest(error, keys[i]);
-            }
-          }
+        if (i > 0 && i % WORD === 0) {
+          out[start] = mask;
+          if (start === 0 || mask !== 0) keep = out.length;
+          start = out.length;
+          out.push(0);
+          mask = 0;
         }
-        if (!sparse) out[i] = wire;
-        else if (wire !== null) {
-          mask |= 1 << i;
+        const wire = wireOf(object, i);
+        if (wire !== null) {
+          mask |= 1 << (i % WORD);
           out.push(wire);
         }
       }
-      if (sparse) {
-        out[0] = mask;
-        return out;
-      }
-      let length = size;
-      while (length > tail && out[length - 1] === null) length--;
-      if (length < size) out.length = length;
+      out[start] = mask;
+      if (start === 0 || mask !== 0) keep = out.length;
+      if (keep < out.length) out.length = keep;
       return out;
+    };
+  };
+
+  // The branch a tag belongs to: tags run through the branches in order.
+  const branchOf = (node) => {
+    const out = [];
+    node.branches.forEach((branch, b) => {
+      for (let i = 0; i < branch.count; i++) out.push(b);
+    });
+    return out;
+  };
+
+  // A union picks its branch by the discriminator on encode and by the tag on
+  // decode; either one outside the union is an error even without validation,
+  // since there is no branch to fall back to.
+  const unionEncoder = (node) => {
+    const { key, tag } = node;
+    const encoders = node.branches.map((branch) => structEncoder(branch.node));
+    const branches = branchOf(node);
+    return (object) => {
+      if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
+      const t = tag.checkedPack(object[key]);
+      if (t === undefined) refuse('union', key, tag.expected);
+      return encoders[branches[t]](object, t);
+    };
+  };
+
+  const unionDecoder = (node) => {
+    const { key, tag } = node;
+    const decoders = node.branches.map((branch) => structDecoder(branch.node));
+    const branches = branchOf(node);
+    return (array, strict) => {
+      if (!Array.isArray(array)) fail('structure', '', 'array');
+      const t = array[0];
+      if (!tag.check(t)) fail('union', key, tag.expected);
+      return decoders[branches[t]](array, strict, t);
     };
   };
 
@@ -88,22 +222,33 @@ const build = (plan, options) => {
       const slot = slotDecoder(node, false, null);
       return (value, strict) => slot(value, '', strict);
     }
-    if (node.slot !== undefined) return (value, strict) => node.slot.codec.decode(value, strict);
+    if (node.slot !== undefined) return (value, strict) => node.slot[via].decode(value, strict);
     if (node.kind === 'struct') return structDecoder(node);
+    if (node.kind === 'union') return unionDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);
     return arrayDecoder(node);
   };
 
   // One slot: nullish → required check or default; a scalar → wire check and
   // conversion; anything else → the nested decoder with the path prefixed.
+  // A scalar's check and conversion in one call, where the type has one.
+  const converter = (node) =>
+    validate.decode && node.checkedUnpack !== undefined ? node.checkedUnpack : null;
+
   const slotDecoder = (node, required, def) => {
     const scalar = node.kind === 'scalar';
-    const check = scalar && validate ? node.check : null;
+    const check = scalar && validate.decode ? node.check : null;
+    const convert = scalar ? converter(node) : null;
     const decode = scalar ? null : decoder(node);
     return (value, path, strict) => {
       if (value == null) {
-        if (required && validate) fail('required', at(path));
+        if (required && validate.decode) fail('required', at(path));
         return def;
+      }
+      if (convert !== null) {
+        const out = convert(value);
+        if (out === undefined) fail(node.code, at(path), node.expected);
+        return out;
       }
       if (scalar) {
         if (check !== null && !check(value)) fail(node.code, at(path), node.expected);
@@ -121,44 +266,56 @@ const build = (plan, options) => {
   // record has the same hidden class, as an object literal would. Scalars are
   // handled in the loop; only nested values go through a call.
   const structDecoder = (node) => {
-    const { keys, sparse } = node;
+    const { keys, sparse, tag } = node;
     const size = keys.length;
+    const lead = tag === undefined ? 0 : 1;
     const fields = node.fields.map((field) => {
       const scalar = field.node.kind === 'scalar';
       return {
-        required: field.required && validate,
+        required: field.required && validate.decode,
         def: field.def,
-        check: scalar && validate ? field.node.check : null,
+        check: scalar && validate.decode ? field.node.check : null,
         code: field.node.code,
         expected: field.node.expected,
+        checked: scalar ? converter(field.node) : null,
         convert: scalar ? field.node.unpack : null,
         decode: scalar ? null : slotDecoder(field.node, field.required, field.def),
       };
     });
-    const template = literal(keys, 'null');
-    return (array, strict) => {
+    // A branch's template has every key of the branch, its discriminator too.
+    const template = literal(lead === 0 ? keys : tag.keys, 'null');
+    return (array, strict, t) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const { length } = array;
       const object = { ...template };
+      if (lead === 1) object[tag.key] = tag.values[t];
       let mask = 0;
-      let next = 1;
-      if (sparse) {
-        mask = array[0];
-        if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
-      } else if (strict && length > size) {
-        fail('extra', '');
-      }
+      let next = 0;
+      if (!sparse && strict && length > size + lead) fail('extra', '');
       for (let i = 0; i < size; i++) {
         const key = keys[i];
         const field = fields[i];
         let value = null;
-        if (!sparse) value = i < length ? array[i] : null;
-        else if ((mask & (1 << i)) !== 0) value = array[next++];
+        if (!sparse) value = i + lead < length ? array[i + lead] : null;
+        else {
+          // The first mask is required; a later segment may be missing.
+          if (i % WORD === 0) {
+            mask = i === 0 || next < length ? array[next++] : 0;
+            if (typeof mask !== 'number' || (mask | 0) !== mask || mask < 0) {
+              fail('structure', '', 'mask');
+            }
+          }
+          if ((mask & (1 << (i % WORD))) !== 0) value = array[next++];
+        }
         if (field.decode !== null) {
           object[key] = field.decode(value, key, strict);
         } else if (value == null) {
           if (field.required) fail('required', key);
           object[key] = field.def;
+        } else if (field.checked !== null) {
+          const out = field.checked(value);
+          if (out === undefined) fail(field.code, key, field.expected);
+          object[key] = out;
         } else {
           if (field.check !== null && !field.check(value)) fail(field.code, key, field.expected);
           object[key] = field.convert === null ? value : field.convert(value);
@@ -174,7 +331,7 @@ const build = (plan, options) => {
     const size = slots.length;
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
-      if (validate && array.length !== size) fail('structure', '', 'length');
+      if (validate.decode && array.length !== size) fail('structure', '', 'length');
       const out = new Array(size);
       for (let i = 0; i < size; i++) out[i] = slots[i](array[i], i, strict);
       return out;
@@ -184,9 +341,9 @@ const build = (plan, options) => {
   const arrayDecoder = (node) => {
     const { item } = node;
     const identity = item.kind === 'scalar' && item.pack === null;
-    const required = node.itemRequired && validate;
+    const required = node.itemRequired && validate.decode;
     const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
-    if (identity && !required && (!validate || item.check === null)) {
+    if (identity && !required && (!validate.decode || item.check === null)) {
       return (array) => {
         if (!Array.isArray(array)) fail('structure', '', 'array');
         return array;
@@ -207,14 +364,19 @@ const build = (plan, options) => {
     };
   };
 
-  const encode = encoder(plan);
+  const encode = plan.kind === 'scalar' ? scalarEncoder(plan, '') : encoder(plan);
   const decode = decoder(plan);
-  const required = plan.kind === 'scalar' && validate && plan.required;
+  const required = plan.kind === 'scalar' && plan.required;
+  const requiredIn = required && validate.encode;
+  const requiredOut = required && validate.decode;
   return {
-    encode: (value) => (value == null ? null : encode === null ? value : encode(value)),
+    encode: (value) => {
+      if (value == null && requiredIn) refuse('required', '');
+      return value == null ? null : encode === null ? value : encode(value);
+    },
     decode: (value, strict) => {
       if (plan.kind !== 'scalar' || value != null) return decode(value, strict);
-      if (required) fail('required', '');
+      if (requiredOut) fail('required', '');
       return null;
     },
   };

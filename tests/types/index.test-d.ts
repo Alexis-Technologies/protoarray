@@ -117,8 +117,10 @@ Schema.from(
   { a: 'string' },
   { codegen: false, validate: false, sparse: true, schemas: { Address } },
 );
+Schema.from({ a: 'string' }, { fingerprint: (canonical: string) => canonical.toUpperCase() });
 expectError(Schema.from({ a: 'string' }, { layout: 'rowz' }));
 expectError(Schema.from({ a: 'string' }, { unknown: true }));
+expectError(Schema.from({ a: 'string' }, { fingerprint: 'sha256' }));
 
 // Functional entry points mirror the methods.
 expectType<unknown[]>(encode(User, input));
@@ -136,11 +138,13 @@ expectType<string>(definitionError.schema);
 expectType<string>(definitionError.field);
 expectAssignable<TypeError>(definitionError);
 const encodeError = new EncodeError();
-expectType<'object'>(encodeError.code);
+expectType<'object' | 'array'>(encodeError.code);
 expectType<string>(encodeError.path);
+expectType<string>(encodeError.schema);
 const decodeError = new DecodeError();
 expectType<DecodeErrorCode>(decodeError.code);
 expectType<string>(decodeError.path);
+expectType<string>(decodeError.schema);
 expectType<unknown>(decodeError.cause);
 expectAssignable<DecodeErrorCode>('extra');
 expectNotAssignable<DecodeErrorCode>('nope');

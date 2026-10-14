@@ -4,6 +4,7 @@
 const { Schema } = require('../../index.js');
 
 const Address = Schema.from({ city: 'string', zip: '?string' });
+const Items = Schema.from({ array: { a: 'number', b: '?number' } }, { layout: 'flat' });
 
 const AT = 1700000000000;
 
@@ -83,6 +84,18 @@ const VECTORS = [
     value: { id: 1, home: { city: 'Kyiv', zip: '01001' }, work: { city: 'Lviv' } },
     wire: [1, ['Kyiv', '01001'], ['Lviv']],
     decoded: { id: 1, home: { city: 'Kyiv', zip: '01001' }, work: { city: 'Lviv', zip: null } },
+  },
+  {
+    name: 'a schema with a layout keeps it when used by value',
+    definition: { items: Items },
+    value: { items: [{ a: 1 }, { a: 2, b: 3 }] },
+    wire: [[1, null, 2, 3]],
+    decoded: {
+      items: [
+        { a: 1, b: null },
+        { a: 2, b: 3 },
+      ],
+    },
   },
   {
     name: 'array of scalars travels as it is',
@@ -259,4 +272,4 @@ const VECTORS = [
   },
 ];
 
-module.exports = { VECTORS, Address, AT };
+module.exports = { VECTORS, Address, Items, AT };

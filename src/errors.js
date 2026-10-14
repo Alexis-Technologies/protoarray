@@ -1,11 +1,14 @@
 // Typed errors. A broken definition throws a SchemaDefinitionError when the
 // schema is built; bad input throws an EncodeError or a DecodeError with a
-// `code` and a `path`, so callers can route on them without parsing messages.
+// `code`, a `path` and the `schema` name, so callers can route on them without
+// parsing messages.
 
 const STRUCTURE = {
   array: 'is not an array',
+  object: 'is not an object',
   length: 'has a wrong length',
   mask: 'is not a sparse mask',
+  depth: 'is nested too deeply',
 };
 
 const TEXT = {
@@ -16,6 +19,9 @@ const TEXT = {
   extra: 'has extra elements',
   json: 'is not valid JSON',
 };
+
+// What a null element of an array of required items was expected to be.
+const EXPECTED = { struct: 'object', array: 'array', tuple: 'tuple', ref: 'object' };
 
 const message = (code, path, detail) => {
   const text = TEXT[code].replace('%', code === 'structure' ? STRUCTURE[detail] : detail);
@@ -31,11 +37,13 @@ class SchemaDefinitionError extends TypeError {
   }
 }
 
+// `code` names what the value is not: an `object` or an `array`.
 class EncodeError extends TypeError {
-  constructor(code, text, path = '') {
-    super(text);
+  constructor(code, path = '', schema = '') {
+    super(message('structure', path, code));
     this.code = code;
     this.path = path;
+    this.schema = schema;
   }
 }
 
@@ -44,6 +52,7 @@ class DecodeError extends TypeError {
     super(message(code, path, detail), cause === undefined ? undefined : { cause });
     this.code = code;
     this.path = path;
+    this.schema = '';
     // Off the public surface: it only serves re-throwing with a longer path.
     Object.defineProperty(this, 'detail', { value: detail });
   }
@@ -61,13 +70,44 @@ const fail = (code, path, detail) => {
   throw new DecodeError(code, path, detail);
 };
 
-// Errors travel up with a path relative to the value that threw them; each
-// level that knows its own key or index prepends it on the way out.
-const nest = (error, prefix) => {
-  if (!(error instanceof DecodeError) || prefix === '') return error;
-  const inner = error.path;
-  const path = inner === '' ? prefix : inner[0] === '[' ? prefix + inner : `${prefix}.${inner}`;
-  return new DecodeError(error.code, path, error.detail, error.cause);
+const refuse = (code, path) => {
+  throw new EncodeError(code, path);
 };
 
-module.exports = { SchemaDefinitionError, EncodeError, DecodeError, fail, nest };
+const join = (prefix, inner) =>
+  inner === '' ? prefix : inner[0] === '[' ? prefix + inner : `${prefix}.${inner}`;
+
+// Errors travel up with a path relative to the value that threw them; each
+// level that knows its own key or index prepends it on the way out. A root
+// is never nested: its codec is called directly.
+const nest = (error, prefix) => {
+  if (error instanceof DecodeError) {
+    return new DecodeError(error.code, join(prefix, error.path), error.detail, error.cause);
+  }
+  if (error instanceof EncodeError) return new EncodeError(error.code, join(prefix, error.path));
+  return error;
+};
+
+// The outermost call of a schema: its name goes on the error, and a stack
+// overflow while decoding a recursive schema becomes a documented error (V8
+// and JavaScriptCore throw a RangeError, SpiderMonkey an InternalError).
+const boundary = (error, schema, decoding) => {
+  if (error instanceof DecodeError || error instanceof EncodeError) {
+    error.schema = schema;
+    return error;
+  }
+  const overflow = error instanceof RangeError || error.name === 'InternalError';
+  if (!overflow || !decoding) return error;
+  return boundary(new DecodeError('structure', '', 'depth'), schema, true);
+};
+
+module.exports = {
+  SchemaDefinitionError,
+  EncodeError,
+  DecodeError,
+  EXPECTED,
+  fail,
+  refuse,
+  nest,
+  boundary,
+};

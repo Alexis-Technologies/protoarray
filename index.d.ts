@@ -189,6 +189,12 @@ export interface SchemaOptions {
   readonly layout?: Layout;
   /** Schemas that fields may reference by name. */
   readonly schemas?: Readonly<Record<string, AnySchema>>;
+  /**
+   * Computes `id` from the canonical form (`toString()`); the default is a
+   * 32-bit FNV-1a hash as eight hex digits. It must be synchronous and
+   * deterministic: both sides of a handshake compute it on their own.
+   */
+  readonly fingerprint?: (canonical: string) => string;
 }
 
 export interface DecodeOptions {
@@ -291,7 +297,8 @@ export type SchemaErrorCode =
   | 'ERR_CODEGEN_UNAVAILABLE'
   | 'ERR_SCHEMA_EXPECTED';
 
-export type EncodeErrorCode = 'object';
+/** What the value is not: an object for a record, an array for a collection or a tuple. */
+export type EncodeErrorCode = 'object' | 'array';
 
 export type DecodeErrorCode = 'structure' | 'required' | 'type' | 'enum' | 'extra' | 'json';
 
@@ -304,10 +311,13 @@ export class SchemaDefinitionError extends TypeError {
   readonly field: string;
 }
 
-/** A value that cannot be encoded. */
+/** A value that cannot be encoded: not an object or not an array where the schema needs one. */
 export class EncodeError extends TypeError {
   readonly code: EncodeErrorCode;
+  /** Where the problem is, as `orders[1]`, or `''` for the value itself. */
   readonly path: string;
+  /** The name of the schema whose `encode` threw, or `''`. */
+  readonly schema: string;
 }
 
 /** A wire array that does not match the schema, or text that is not JSON. */
@@ -315,6 +325,8 @@ export class DecodeError extends TypeError {
   readonly code: DecodeErrorCode;
   /** Where the problem is, as `orders[1].sku`, or `''` for the value itself. */
   readonly path: string;
+  /** The name of the schema whose `decode` or `parse` threw, or `''`. */
+  readonly schema: string;
   /** The `SyntaxError` behind an `'json'` error. */
   readonly cause?: unknown;
 }

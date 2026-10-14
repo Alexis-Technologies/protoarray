@@ -18,7 +18,9 @@ const literal = (keys, value) =>
 const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
 // `check` validates the wire form; `pack`/`unpack` convert, and are null for
-// identity types, which travel as they are.
+// identity types, which travel as they are. Without validation the wire is
+// trusted, so `unpack` must be total: what has no wire form of the type stays
+// as it is instead of throwing or reading a prototype.
 const identity = (type) => {
   // oxlint-disable-next-line valid-typeof
   const check = type === 'json' ? null : (v) => typeof v === type;
@@ -36,7 +38,13 @@ const SCALARS = Object.assign(Object.create(null), {
     scalar('bigint', {
       check: (v) => typeof v === 'string' && DIGITS.test(v),
       pack: (v) => String(v),
-      unpack: (v) => BigInt(v),
+      unpack: (v) => {
+        try {
+          return BigInt(v);
+        } catch {
+          return v;
+        }
+      },
     }),
 });
 
@@ -46,9 +54,9 @@ const enumeration = (values) => {
   for (let i = 0; i < size; i++) dict[values[i]] = i;
   const node = scalar('enum', {
     values,
-    check: (v) => (v | 0) === v && v >= 0 && v < size,
+    check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
     pack: (v) => (dict[v] === undefined ? null : dict[v]),
-    unpack: (v) => values[v],
+    unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
   });
   node.expected = values.join(', ');
   node.code = 'enum';
@@ -60,7 +68,7 @@ const flags = (names) => {
   const template = literal(names, 'false');
   return scalar('flags', {
     names,
-    check: (v) => (v | 0) === v && v >= 0,
+    check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0,
     pack: (v) => {
       let mask = 0;
       for (let i = 0; i < size; i++) if (v[names[i]]) mask |= 1 << i;

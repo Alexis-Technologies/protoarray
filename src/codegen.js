@@ -4,10 +4,16 @@
 // schema, so decoded objects are as cheap to use as the ones JSON.parse
 // builds. This is the only file that may compile source text; the platform
 // test enforces it.
+//
+// The generated source is one `function eN(o){…}` and one `function
+// dN(a,strict){…}` per struct, then `encode` and `decode` over the root. `H`
+// holds the helpers (type nodes and codec slots), `F` throws a DecodeError,
+// `E` an EncodeError and `N` re-throws one with a key or index prepended. A
+// `path` below is a source expression that is only evaluated on an error
+// branch.
 
-const { fail, nest } = require('./errors.js');
+const { EXPECTED, fail, nest, refuse } = require('./errors.js');
 
-const EXPECTED = { struct: 'object', array: 'array', tuple: 'tuple', ref: 'object' };
 const str = JSON.stringify;
 
 let available = true;
@@ -51,24 +57,33 @@ const build = (plan, options) => {
   };
 
   // Statements that set `dst` to the wire form of `src`; nullish src → null.
-  const encodeInto = (node, src, dst) => {
+  // A slot (a reference by name or an embedded schema) is called as it is.
+  const encodeInto = (node, src, dst, path) => {
     if (node.kind === 'scalar') return `${dst}=${src}==null?null:${pack(node, src)};`;
-    if (node.kind === 'ref') {
-      return `${dst}=${src}==null?null:${slot(node.slot)}.codec.encode(${src});`;
+    if (node.slot !== undefined || node.kind === 'struct') {
+      const callee =
+        node.slot !== undefined ? `${slot(node.slot)}.codec.encode` : structFns(node).e;
+      return (
+        `if(${src}==null)${dst}=null;else try{${dst}=${callee}(${src});}` +
+        `catch(error){throw N(error,${path});}`
+      );
     }
-    if (node.kind === 'struct') return `${dst}=${src}==null?null:${structFns(node).e}(${src});`;
+    const isArray = `if(!Array.isArray(${src}))E('array',${path});`;
     if (node.kind === 'tuple') {
       const parts = node.items.map(
         (item, i) => `${src}[${i}]==null?null:${pack(item.node, `${src}[${i}]`)}`,
       );
-      return `${dst}=${src}==null?null:[${parts}];`;
+      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=[${parts}];}`;
     }
     const { item } = node;
-    if (item.kind === 'scalar' && item.pack === null) return `${dst}=${src}==null?null:${src};`;
+    if (item.kind === 'scalar' && item.pack === null) {
+      return `if(${src}==null)${dst}=null;else{${isArray}${dst}=${src};}`;
+    }
     const [n, i, r, x] = [uid('n'), uid('i'), uid('r'), uid('x')];
+    const at = `${path}+"["+${i}+"]"`;
     return (
-      `if(${src}==null)${dst}=null;else{const ${n}=${src}.length,${r}=new Array(${n});` +
-      `for(let ${i}=0;${i}<${n};${i}++){let ${x};${encodeInto(item, `${src}[${i}]`, x)}` +
+      `if(${src}==null)${dst}=null;else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
+      `for(let ${i}=0;${i}<${n};${i}++){let ${x};${encodeInto(item, `${src}[${i}]`, x, at)}` +
       `${r}[${i}]=${x};}${dst}=${r};}`
     );
   };
@@ -78,8 +93,9 @@ const build = (plan, options) => {
   // struct function: the caller prepends its own key through N.
   const decodeInto = (node, src, dst, path) => {
     if (node.kind === 'scalar') return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
-    if (node.kind === 'ref' || node.kind === 'struct') {
-      const callee = node.kind === 'ref' ? `${slot(node.slot)}.codec.decode` : structFns(node).d;
+    if (node.slot !== undefined || node.kind === 'struct') {
+      const callee =
+        node.slot !== undefined ? `${slot(node.slot)}.codec.decode` : structFns(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
     }
     const out = [`if(!Array.isArray(${src}))F('structure',${path},'array');`];
@@ -147,7 +163,7 @@ const build = (plan, options) => {
     fns = { e: uid('e'), d: uid('d') };
     structs.set(node, fns);
     const size = node.fields.length;
-    const enc = [];
+    const enc = [`if(typeof o!=='object')E('object','');`];
     const values = [];
     for (const field of node.fields) {
       const v = uid('v');
@@ -156,7 +172,7 @@ const build = (plan, options) => {
       if (field.node.kind === 'scalar') {
         enc.push(`const ${w}=${v}==null?null:${pack(field.node, v)};`);
       } else {
-        enc.push(`let ${w};${encodeInto(field.node, v, w)}`);
+        enc.push(`let ${w};${encodeInto(field.node, v, w, str(field.key))}`);
       }
       values.push(w);
     }
@@ -178,7 +194,7 @@ const build = (plan, options) => {
     const dec = [`if(!Array.isArray(a))F('structure',"",'array');`];
     let read;
     if (node.sparse) {
-      dec.push(`const m=a[0];if((m|0)!==m)F('structure',"",'mask');let p=1;`);
+      dec.push(`const m=a[0];if(typeof m!=='number'||(m|0)!==m)F('structure',"",'mask');let p=1;`);
       read = (i) => `(m&${1 << i})!==0?a[p++]:null`;
     } else {
       dec.push(`const n=a.length;if(strict&&n>${size})F('extra',"");`);
@@ -205,7 +221,7 @@ const build = (plan, options) => {
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
     const req = plan.kind === 'scalar' && validate && plan.required ? `F('required',"");` : '';
-    encodeBody = `let w;${encodeInto(plan, 'v', 'w')}return w;`;
+    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""')}return w;`;
     decodeBody =
       plan.kind === 'scalar'
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`
@@ -219,8 +235,11 @@ const build = (plan, options) => {
     'return {encode,decode};',
   ].join('\n');
   // oxlint-disable-next-line no-new-func
-  const factory = new Function('H', 'F', 'N', body);
-  return factory(helpers, fail, nest);
+  const factory = new Function('H', 'F', 'N', 'E', body);
+  const codec = factory(helpers, fail, nest, refuse);
+  // Off the public surface, for debugging through the codec symbol.
+  codec.source = body;
+  return codec;
 };
 
 module.exports = { available, build };

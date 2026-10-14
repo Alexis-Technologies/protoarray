@@ -33,18 +33,20 @@ const compilePlan = (definition, context) => {
     return new SchemaDefinitionError(code, message, context.name, path);
   };
 
+  // Enum values travel as an index, so their number is free; flags are bits.
   const list = (values, code, path) => {
+    const bits = code === 'ERR_INVALID_FLAGS';
     const names = Array.isArray(values) ? values.map(String) : [];
     const valid =
       names.length > 0 &&
-      names.length <= MAX_BITS &&
+      (!bits || names.length <= MAX_BITS) &&
       new Set(names).size === names.length &&
       !names.includes('__proto__') &&
-      values.every(
-        (value) =>
-          typeof value === 'string' || (typeof value === 'number' && code === 'ERR_INVALID_ENUM'),
-      );
-    if (!valid) throw error(code, `Expected up to ${MAX_BITS} unique names`, path);
+      values.every((value) => typeof value === 'string' || (typeof value === 'number' && !bits));
+    if (!valid) {
+      const expected = bits ? `up to ${MAX_BITS} unique names` : 'unique strings or numbers';
+      throw error(code, `Expected ${expected}`, path);
+    }
     return values.slice();
   };
 
@@ -68,7 +70,16 @@ const compilePlan = (definition, context) => {
   // name with an optional `?`, a tuple, a shorthand (`{ array }`, `{ enum }`,
   // `{ flags }`), the long form (`{ type, required, default }`) or a struct.
   const field = (source, path) => {
-    if (isSchema(source)) return { node: source[PLAN], required: true, def: null };
+    if (isSchema(source)) {
+      const node = source[PLAN];
+      if (node.kind === 'scalar') {
+        const { required, ...plain } = node;
+        return { node: plain, required, def: null };
+      }
+      // A compiled schema is used as it is, with its own options, exactly like
+      // a reference by name: its codec is called through a slot.
+      return { node: { ...node, slot: { codec: source[CODEC] } }, required: true, def: null };
+    }
     if (typeof source === 'string') return typed(source, path);
     if (Array.isArray(source)) {
       if (source.length === 0) throw error('ERR_INVALID_DEFINITION', 'An empty tuple', path);
@@ -104,7 +115,8 @@ const compilePlan = (definition, context) => {
       else if (typeof type === 'string') node = typeNode(type, path);
       else throw error('ERR_INVALID_DEFINITION', 'The type must be a string', path);
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
-      const def = hasDefault ? source.default : null;
+      // -0 has no JSON form and would tell the two backends apart.
+      const def = hasDefault ? (source.default === 0 ? 0 : source.default) : null;
       if (def !== null && (!isPrimitive(def) || !DEFAULTABLE.test(node.type))) {
         throw error(
           'ERR_INVALID_DEFINITION',
@@ -158,8 +170,15 @@ const compilePlan = (definition, context) => {
   };
 
   const root = field(definition, '');
-  // A root scalar keeps its own optionality; every other root is required.
-  let node = root.node.kind === 'scalar' ? { ...root.node, required: root.required } : root.node;
+  // A root scalar keeps its own optionality; every other root is required. A
+  // schema given as the whole definition is built again from its plan, so the
+  // options of this schema apply to it; a root reference stays an alias.
+  let node = root.node;
+  if (node.kind === 'scalar') node = { ...node, required: root.required };
+  else if (node.kind !== 'ref' && node.slot !== undefined) {
+    const { slot, ...plain } = node;
+    node = plain;
+  }
   if (context.sparse) {
     if (node.kind !== 'struct' || node.fields.length > MAX_BITS) {
       throw error('ERR_INVALID_OPTIONS', `sparse needs a struct of up to ${MAX_BITS} fields`, '');
@@ -198,7 +217,9 @@ const canonical = (node) => {
   }
   if (node.kind === 'ref') return `@${node.name}`;
   const values = node.values || node.names;
-  return values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  const type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  // Only a root scalar carries its own optionality; a field's is on the field.
+  return node.required === false ? `?${type}` : type;
 };
 
 // FNV-1a, 32-bit: enough to tell schema versions apart in a handshake, and

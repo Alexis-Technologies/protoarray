@@ -29,6 +29,10 @@ for (const [backend, options] of BACKENDS) {
     });
     assert.throws(() => S.decode(['x']), { code: 'structure' });
     assert.throws(() => S.decode([1.5]), { code: 'structure' });
+    assert.throws(() => S.decode([1n]), {
+      code: 'structure',
+      message: 'Value is not a sparse mask',
+    });
     assert.throws(() => S.decode([3, 1, 2]), { code: 'type', path: 'b' });
     const Outer = Schema.from({ s: S, list: { array: S } }, options);
     assert.deepStrictEqual(Outer.encode({ s: { a: 1 }, list: [{ a: 2, c: 'x' }] }), [
@@ -79,6 +83,14 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => F.decode('x'), { code: 'structure' });
     assert.throws(() => F.decode([1, null, [1], 2, 'y', ['x']]), { path: '[1].c.x', code: 'type' });
     assert.deepStrictEqual(F.decode(wire, { strict: true }), F.decode(wire));
+    assert.throws(() => F.encode(5), { code: 'array', path: '', message: 'Value is not an array' });
+    assert.throws(() => F.encode({}), {
+      code: 'array',
+      path: '',
+      message: 'Value is not an array',
+    });
+    assert.throws(() => F.encode([list[0], 7]), { code: 'object', path: '[1]' });
+    assert.throws(() => F.encode([{ a: 1, c: 7 }]), { code: 'object', path: '[0].c' });
   });
 
   test(`Layouts (${backend}): columns transpose the rows`, () => {
@@ -117,6 +129,24 @@ for (const [backend, options] of BACKENDS) {
     });
     assert.throws(() => C.decode([[1], [5]]), { code: 'type', path: '[0].b' });
     assert.throws(() => C.decode('x'), { code: 'structure', path: '' });
+    // A null column, explicit or missing, is a column of nulls; the count comes
+    // from the first column present.
+    assert.throws(() => C.decode([null, ['y']]), { code: 'required', path: '[0].a' });
+    assert.deepStrictEqual(C.decode([null, null]), []);
+    assert.deepStrictEqual(C.decode([null]), []);
+    assert.throws(() => C.decode([null, 'x']), {
+      code: 'structure',
+      path: '[1]',
+      message: 'Field "[1]" is not an array',
+    });
+    assert.throws(() => C.decode([[1], undefined]), { code: 'structure', path: '[1]' });
+    assert.throws(() => C.encode(5), { code: 'array', path: '', message: 'Value is not an array' });
+    assert.throws(() => C.encode({}), {
+      code: 'array',
+      path: '',
+      message: 'Value is not an array',
+    });
+    assert.throws(() => C.encode([{ a: 1 }, 'x']), { code: 'object', path: '[1]' });
     assert.deepStrictEqual(
       C.decode([
         [1, 2],

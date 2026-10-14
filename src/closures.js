@@ -2,10 +2,8 @@
 // `new Function` is unavailable (CSP without unsafe-eval, edge runtimes) and
 // is the reference the codegen backend is checked against in the test suite.
 
-const { fail, nest } = require('./errors.js');
+const { EXPECTED, fail, nest, refuse } = require('./errors.js');
 const { literal } = require('./types.js');
-
-const EXPECTED = { struct: 'object', array: 'array', tuple: 'tuple', ref: 'object' };
 
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
@@ -14,21 +12,31 @@ const build = (plan, options) => {
   const { validate } = options;
 
   // Encoders take a non-null value; `null` stands for an identity conversion
-  // so callers skip the call on the hot path.
+  // so callers skip the call on the hot path. A slot (a reference by name or
+  // an embedded schema) is called as it is.
   const encoder = (node) => {
     if (node.kind === 'scalar') return node.pack;
-    if (node.kind === 'ref') return (value) => node.slot.codec.encode(value);
+    if (node.slot !== undefined) return (value) => node.slot.codec.encode(value);
     if (node.kind === 'struct') return structEncoder(node);
     const encoders = node.kind === 'tuple' ? node.items.map((item) => encoder(item.node)) : null;
     const encode = encoders === null ? encoder(node.item) : null;
-    if (encoders === null && encode === null) return null;
     return (list) => {
+      if (!Array.isArray(list)) refuse('array', '');
+      if (encoders === null && encode === null) return list;
       const count = encoders === null ? list.length : encoders.length;
       const out = new Array(count);
       for (let i = 0; i < count; i++) {
         const value = list[i];
         const convert = encoders === null ? encode : encoders[i];
-        out[i] = value == null ? null : convert === null ? value : convert(value);
+        if (value == null) out[i] = null;
+        else if (convert === null) out[i] = value;
+        else {
+          try {
+            out[i] = convert(value);
+          } catch (error) {
+            throw nest(error, `[${i}]`);
+          }
+        }
       }
       return out;
     };
@@ -39,12 +47,23 @@ const build = (plan, options) => {
     const size = keys.length;
     const encoders = node.fields.map((field) => encoder(field.node));
     return (object) => {
+      if (typeof object !== 'object') refuse('object', '');
       const out = sparse ? [0] : new Array(size);
       let mask = 0;
       for (let i = 0; i < size; i++) {
         const value = object[keys[i]];
         const encode = encoders[i];
-        const wire = value == null ? null : encode === null ? value : encode(value);
+        let wire = null;
+        if (value != null) {
+          if (encode === null) wire = value;
+          else {
+            try {
+              wire = encode(value);
+            } catch (error) {
+              throw nest(error, keys[i]);
+            }
+          }
+        }
         if (!sparse) out[i] = wire;
         else if (wire !== null) {
           mask |= 1 << i;
@@ -69,7 +88,7 @@ const build = (plan, options) => {
       const slot = slotDecoder(node, false, null);
       return (value, strict) => slot(value, '', strict);
     }
-    if (node.kind === 'ref') return (value, strict) => node.slot.codec.decode(value, strict);
+    if (node.slot !== undefined) return (value, strict) => node.slot.codec.decode(value, strict);
     if (node.kind === 'struct') return structDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);
     return arrayDecoder(node);
@@ -125,7 +144,7 @@ const build = (plan, options) => {
       let next = 1;
       if (sparse) {
         mask = array[0];
-        if ((mask | 0) !== mask) fail('structure', '', 'mask');
+        if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
       } else if (strict && length > size) {
         fail('extra', '');
       }

@@ -21,6 +21,12 @@ for (const [backend, options] of BACKENDS) {
     const Defaulted = Schema.from({ role: { enum: ['a', 'b'], default: 'b' } }, options);
     assert.deepStrictEqual(Defaulted.decode([]), { role: 'b' });
     assert.deepStrictEqual(Defaulted.decode([0]), { role: 'a' });
+    assert.throws(() => E.decode([Symbol('admin')]), { code: 'enum', path: 'role' });
+    const values = Array.from({ length: 40 }, (_, i) => `v${i}`);
+    const Wide = Schema.from({ role: { enum: values } }, options);
+    assert.deepStrictEqual(Wide.encode({ role: 'v39' }), [39]);
+    assert.deepStrictEqual(Wide.decode([39]), { role: 'v39' });
+    assert.throws(() => Wide.decode([40]), { code: 'enum' });
   });
 
   test(`Types (${backend}): date`, () => {
@@ -54,7 +60,7 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(F.decode([5]), { p: { a: true, b: false, c: true } });
     assert.deepStrictEqual(F.decode([13]), { p: { a: true, b: false, c: true } });
     assert.deepStrictEqual(Object.keys(F.decode([0]).p), ['a', 'b', 'c']);
-    for (const bad of [1.5, -1, '5']) {
+    for (const bad of [1.5, -1, '5', 5n, Symbol('5')]) {
       assert.throws(() => F.decode([bad]), { code: 'type', path: 'p' });
     }
     const Optional = Schema.from({ p: { flags: ['a'], required: false } }, options);
@@ -96,7 +102,10 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Root.encode([1, 's']), [1, 's']);
     assert.throws(() => Root.decode([1]), { code: 'structure', path: '' });
     assert.throws(() => Root.decode(null), { code: 'structure', path: '' });
-    assert.throws(() => Root.encode(null), { code: 'object' });
+    assert.throws(() => Root.encode(null), { code: 'array', path: '' });
+    assert.throws(() => Root.encode(5), { code: 'array', message: 'Value is not an array' });
+    assert.throws(() => Root.encode({}), { code: 'array', path: '' });
+    assert.throws(() => T.encode({ t: 5 }), { code: 'array', path: 't' });
   });
 
   test(`Types (${backend}): defaults are decoded values`, () => {
@@ -115,6 +124,10 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(D.encode({ n: 0, s: 'x', b: true, j: 'any' }), [0, 'x', true, 'any']);
     assert.deepStrictEqual(D.encode({}), []);
     assert.throws(() => D.decode(['x']), { code: 'type', path: 'n' });
+    // -0 has no JSON form: it is +0 everywhere, so both backends agree.
+    const Z = Schema.from({ z: { type: 'number', default: -0 } }, options);
+    assert.ok(Object.is(Z.decode([]).z, 0));
+    assert.strictEqual(Z.toString(), '{z:?number=0}');
   });
 
   test(`Types (${backend}): arrays of converted scalars`, () => {

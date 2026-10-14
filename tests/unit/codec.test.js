@@ -31,6 +31,7 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Object.keys(decoded), ['b', 'a', 'c']);
     assert.ok(Object.hasOwn(decoded, 'b'));
     assert.strictEqual(decoded.c, null);
+    assert.deepStrictEqual(schema.decode([null, 1], null), decoded);
   });
 
   test(`Codec (${backend}): extra trailing elements are ignored unless strict`, () => {
@@ -62,6 +63,7 @@ for (const [backend, options] of BACKENDS) {
           assert.strictEqual(error.name, 'EncodeError');
           assert.strictEqual(error.code, 'object');
           assert.strictEqual(error.message, 'Value is not an object');
+          assert.strictEqual(error.schema, '');
           return true;
         },
       );
@@ -111,6 +113,77 @@ for (const [backend, options] of BACKENDS) {
       { id: 1, name: null },
       { id: 2, name: 'x' },
     ]);
+    // The list calls the record codec it already has instead of compiling it again.
+    assert.strictEqual(User.list.id, Schema.from({ array: User }, options).id);
+    assert.strictEqual(User.list.toString(), '[{id:number,name:?string}]');
+    assert.throws(() => User.list.decode([[1], [2, 3]]), { code: 'type', path: '[1].name' });
+    assert.throws(() => User.list.decode([[1], 2]), { code: 'structure', path: '[1]' });
+  });
+
+  test(`Codec (${backend}): a root reference by name is an alias of that schema`, () => {
+    const Address = new Schema('Address', { city: 'string' }, options);
+    const Alias = Schema.from('Address', { ...options, schemas: { Address } });
+    assert.strictEqual(Alias.toString(), '@Address');
+    assert.deepStrictEqual(Alias.encode({ city: 'Kyiv' }), ['Kyiv']);
+    assert.deepStrictEqual(Alias.decode(['Kyiv']), { city: 'Kyiv' });
+    assert.throws(() => Alias.decode([1]), { code: 'type', path: 'city', schema: '' });
+    assert.throws(() => Alias.decode('x'), { code: 'structure', path: '' });
+    assert.throws(() => Alias.encode(5), { code: 'object', path: '' });
+  });
+
+  test(`Codec (${backend}): a schema used by value keeps its layout and its options`, () => {
+    const Items = new Schema(
+      'Items',
+      { array: { a: 'number', b: '?number' } },
+      { ...options, layout: 'flat' },
+    );
+    const byValue = Schema.from({ items: Items }, options);
+    const byName = Schema.from({ items: 'Items' }, { ...options, schemas: { Items } });
+    const value = { items: [{ a: 1 }, { a: 2, b: 3 }] };
+    assert.deepStrictEqual(byValue.encode(value), [[1, null, 2, 3]]);
+    assert.deepStrictEqual(byName.encode(value), [[1, null, 2, 3]]);
+    assert.strictEqual(byValue.toString(), '{items:flat[{a:number,b:?number}]}');
+    assert.strictEqual(byName.toString(), '{items:@Items}');
+    const decoded = {
+      items: [
+        { a: 1, b: null },
+        { a: 2, b: 3 },
+      ],
+    };
+    assert.deepStrictEqual(byValue.decode([[1, null, 2, 3]]), decoded);
+    assert.deepStrictEqual(byName.decode([[1, null, 2, 3]]), decoded);
+    assert.throws(() => byValue.decode([[1]]), { code: 'structure', path: 'items' });
+    assert.throws(() => byValue.decode([[1, 'x']]), { code: 'type', path: 'items[0].b' });
+    assert.throws(() => byValue.encode({ items: [{ a: 1 }, 5] }), { path: 'items[1]' });
+    assert.deepStrictEqual(Items.list.encode([[{ a: 1 }]]), [[1, null]]);
+    assert.strictEqual(Items.list.toString(), '[flat[{a:number,b:?number}]]');
+    const Cols = Schema.from({ array: { a: 'number' } }, { ...options, layout: 'columns' });
+    assert.deepStrictEqual(Schema.from({ c: Cols }, options).encode({ c: [{ a: 1 }, { a: 2 }] }), [
+      [[1, 2]],
+    ]);
+    // Options travel with the schema: a strict one validates inside a trusting one,
+    // by value exactly as by name.
+    const Inner = new Schema('Inner', { n: 'number' }, options);
+    const Outer = Schema.from(
+      { s: Inner, list: { array: Inner }, named: 'Inner' },
+      { ...options, validate: false, schemas: { Inner } },
+    );
+    assert.throws(() => Outer.decode([['x']]), { code: 'type', path: 's.n' });
+    assert.throws(() => Outer.decode([[1], [['x']]]), { code: 'type', path: 'list[0].n' });
+    assert.throws(() => Outer.decode([[1], [], ['x']]), { code: 'type', path: 'named.n' });
+    assert.deepStrictEqual(Outer.decode([[1], [[2]], [3]]), {
+      s: { n: 1 },
+      list: [{ n: 2 }],
+      named: { n: 3 },
+    });
+    // A root, on the other hand, is built from its plan with the options given here.
+    assert.deepStrictEqual(Schema.from(Inner, { ...options, validate: false }).decode(['x']), {
+      n: 'x',
+    });
+    assert.deepStrictEqual(
+      Schema.from(Inner, { ...options, sparse: true }).encode({ n: 1 }),
+      [1, 1],
+    );
   });
 
   test(`Codec (${backend}): a root collection of scalars passes through`, () => {
@@ -177,6 +250,16 @@ test('Codec: Schema.keys declares untyped positions', () => {
   assert.strictEqual(Point.toString(), '{x:?json,y:?json}');
   assert.throws(() => Schema.keys('x'), { code: 'ERR_INVALID_DEFINITION' });
   assert.throws(() => Schema.keys([1]), { code: 'ERR_INVALID_DEFINITION' });
+  assert.throws(() => Schema.keys(['a', '__proto__']), { code: 'ERR_RESERVED_KEY' });
+});
+
+test('Codec: a custom fingerprint replaces the default id', () => {
+  const print = (canonical) => `len:${canonical.length}`;
+  const User = new Schema('User', { id: 'number' }, { fingerprint: print });
+  assert.strictEqual(User.id, 'len:11');
+  assert.strictEqual(User.list.id, print(User.list.toString()));
+  assert.strictEqual(User.list.name, 'User');
+  assert.match(Schema.from({ id: 'number' }).id, /^[0-9a-f]{8}$/);
 });
 
 test('Codec: schema metadata', () => {
@@ -216,6 +299,13 @@ test('Codec: schema metadata', () => {
   );
   assert.strictEqual(Schema.from({ list: { array: '?number' } }).toString(), '{list:[?number]}');
   assert.deepStrictEqual(Schema.from('string').keys, []);
+  // A root scalar's optionality is part of the wire contract, so of the id.
+  assert.strictEqual(Schema.from('string').toString(), 'string');
+  assert.strictEqual(Schema.from('?string').toString(), '?string');
+  assert.strictEqual(Schema.from('json').toString(), '?json');
+  assert.notStrictEqual(Schema.from('string').id, Schema.from('?string').id);
+  assert.strictEqual(Schema.from({ s: Schema.from('?string') }).toString(), '{s:?string}');
+  assert.deepStrictEqual(Schema.from({ s: Schema.from('?string') }).decode([]), { s: null });
   assert.strictEqual(new Schema('User', User.definition, { codegen: false }).backend, 'closures');
 });
 

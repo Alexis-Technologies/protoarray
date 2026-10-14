@@ -3,7 +3,16 @@
 // is unavailable or switched off), and the instance carries both.
 
 const { SchemaDefinitionError, EncodeError, DecodeError, boundary } = require('./errors.js');
-const { BRAND, PLAN, CODEC, CHECKER, compilePlan, canonical, fingerprint } = require('./plan.js');
+const {
+  BRAND,
+  PLAN,
+  CODEC,
+  CHECKER,
+  FALLBACK,
+  compilePlan,
+  canonical,
+  fingerprint,
+} = require('./plan.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
@@ -66,6 +75,7 @@ const build = (plan, backend, settings, checking) => {
   const validate = checks(settings.validate, checking);
   const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
   let codec = null;
+  let fallback;
   if (target.slot !== undefined) {
     // A layout over a compiled schema, or a root reference by name, reuses
     // that codec: nothing new to compile.
@@ -73,9 +83,11 @@ const build = (plan, backend, settings, checking) => {
   } else if (backend === codegen && settings.codegen === undefined) {
     // The probe only proves that source text compiles: a runtime that still
     // rejects this one function (its size, a stricter policy) gets closures.
+    // The error is kept, so the fallback can be told from a choice.
     try {
       codec = codegen.build(target, { validate, checking });
-    } catch {
+    } catch (error) {
+      fallback = error;
       backend = closures;
     }
   }
@@ -83,7 +95,7 @@ const build = (plan, backend, settings, checking) => {
   if (target !== plan) {
     codec = layouts[plan.layout](codec, plan.item.fields.length, validate.encode);
   }
-  return { codec, backend };
+  return { codec, backend, fallback };
 };
 
 class Schema {
@@ -112,9 +124,15 @@ class Schema {
         name,
       );
     }
-    const { codec, backend } = build(plan, useCodegen ? codegen : closures, settings, false);
+    const { codec, backend, fallback } = build(
+      plan,
+      useCodegen ? codegen : closures,
+      settings,
+      false,
+    );
     selfSlot.codec = codec;
     Object.defineProperty(this, BRAND, { value: true });
+    if (fallback !== undefined) Object.defineProperty(this, FALLBACK, { value: fallback });
     Object.defineProperty(this, PLAN, { value: plan });
     Object.defineProperty(this, CODEC, { value: codec });
     this.name = name;

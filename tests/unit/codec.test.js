@@ -367,3 +367,43 @@ test('Codec: a schema built from a schema keeps its definition', () => {
   assert.deepStrictEqual(Sparse.decode([3, 1, 'x']), { id: 1, note: 'x' });
   assert.strictEqual(new Schema(Base.definition).name, '');
 });
+
+// check() reaches every construct, however the schema was built.
+for (const [backend, options] of BACKENDS) {
+  test(`Codec (${backend}): check covers unions, layouts and roots`, () => {
+    const loose = { ...options, validate: false };
+    const Node = new Schema(
+      'Node',
+      {
+        union: [
+          { Struct: {}, type: { enum: ['leaf'] }, v: 'number' },
+          { Struct: {}, type: { enum: ['pair'] }, l: 'Node', r: 'Node' },
+        ],
+        discriminator: 'type',
+      },
+      loose,
+    );
+    const leaf = (v) => ({ type: 'leaf', v });
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf(1), r: leaf(2) }), null);
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf('x'), r: leaf(2) }).path, 'l.v');
+    assert.strictEqual(Node.check({ type: 'pair', l: { type: 'nope' }, r: null }).path, 'l.type');
+    assert.strictEqual(Node.check({ type: 'pair', l: leaf(1) }).path, 'r');
+    assert.deepStrictEqual(Node.encode(leaf('x')), [0, 'x']);
+    const Cols = Schema.from({ array: { a: 'number' } }, { ...loose, layout: 'columns' });
+    assert.strictEqual(Cols.check([{ a: 1 }, { a: 'x' }]).path, '[1].a');
+    assert.strictEqual(Cols.check([{ a: 1 }, null]).code, 'type');
+    assert.deepStrictEqual(Cols.encode([{ a: 'x' }]), [['x']]);
+    const Sparse = Schema.from({ a: 'number', b: '?string' }, { ...loose, sparse: true });
+    assert.strictEqual(Sparse.check({ b: 'x' }).code, 'required');
+    assert.strictEqual(Sparse.check({ a: 1 }), null);
+    const Num = Schema.from('number', loose);
+    assert.strictEqual(Num.check('x').code, 'type');
+    assert.strictEqual(Num.check(undefined).code, 'required');
+    assert.strictEqual(Num.check(1), null);
+    assert.strictEqual(Schema.from('?number', loose).check(null), null);
+    const Pair = Schema.from(['number', 'string'], loose);
+    assert.strictEqual(Pair.check([1, 'x']), null);
+    assert.strictEqual(Pair.check([1]).path, '[1]');
+    assert.strictEqual(Pair.check({}).code, 'array');
+  });
+}

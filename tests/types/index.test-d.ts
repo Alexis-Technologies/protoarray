@@ -206,3 +206,25 @@ const Blob = Schema.from({ data: 'bytes', thumb: '?bytes' });
 expectType<{ data: Uint8Array; thumb: Uint8Array | null }>(Blob.decode([]));
 Blob.encode({ data: new Uint8Array(2) });
 expectError(Blob.encode({ data: [1, 2] }));
+
+// Decimals are numbers in; a subclass of Uint8Array (a Buffer) is a byte
+// array; a branch given as a schema infers like an inline one, a branch by
+// name is unknown.
+expectAssignable<Input<typeof Price.definition>>({ price: 19.99 });
+expectError(Price.encode({ price: '19.99' }));
+class Bytes extends Uint8Array {}
+Blob.encode({ data: new Bytes(1) });
+const CallSchema = Schema.from({ Struct: {}, type: { enum: ['call'] }, id: 'string' });
+const Mixed = Schema.from({
+  union: [CallSchema, { Struct: {}, type: { enum: ['event'] }, name: 'string' }],
+  discriminator: 'type',
+});
+expectType<{ type: 'call'; id: string } | { type: 'event'; name: string }>(Mixed.decode([0, '1']));
+const ByName = Schema.from(
+  {
+    union: ['Call', { Struct: {}, type: { enum: ['event'] }, name: 'string' }],
+    discriminator: 'type',
+  },
+  { schemas: { Call: CallSchema } },
+);
+expectType<unknown>(ByName.decode([0, '1']));

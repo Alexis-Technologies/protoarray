@@ -208,7 +208,7 @@ for (const [backend, options] of BACKENDS) {
         message: 'Field "data" is not of expected type: bytes',
       });
     }
-    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 'AB==', 5, ['AQI=']]) {
+    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 'AB==', '-_8=', 'AQ\rI=', 5]) {
       assert.throws(() => B.decode([bad]), { code: 'type', path: 'data' });
     }
     assert.throws(() => B.decode([null]), { code: 'required', path: 'data' });
@@ -312,5 +312,73 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => A.decode([[1, null], ['1']]), { code: 'type', path: 'list[1]' });
     assert.throws(() => A.decode([[1, 7], ['1']]), { code: 'enum', path: 'list[1]' });
     assert.throws(() => A.decode([[1], 'x']), { code: 'structure', path: 'big' });
+  });
+}
+
+// The edges of the converted types: word boundaries, the safe range, what an
+// object may be.
+for (const [backend, options] of BACKENDS) {
+  test(`Types (${backend}): flags at the word boundaries`, () => {
+    for (const size of [31, 32, 62, 63]) {
+      const names = Array.from({ length: size }, (_, i) => `n${i}`);
+      const F = Schema.from({ p: { flags: names } }, options);
+      const last = names[size - 1];
+      const wire = F.encode({ p: { [last]: true } });
+      const words = Math.ceil(size / 31);
+      const bit = 1 << ((size - 1) % 31);
+      const expected = words === 1 ? bit : [...new Array(words - 1).fill(0), bit];
+      assert.deepStrictEqual(wire, [expected], `${size} names`);
+      const decoded = F.decode(wire).p;
+      assert.strictEqual(decoded[last], true);
+      assert.strictEqual(names.filter((name) => decoded[name]).length, 1);
+    }
+    const F = Schema.from({ p: { flags: ['a', 'b'] } }, { ...options, validate: 'both' });
+    // The array form decodes whatever it holds, even where one word would do.
+    assert.deepStrictEqual(F.decode([[1, 0]]).p, { a: true, b: false });
+    assert.deepStrictEqual(F.decode([[1]]).p, { a: true, b: false });
+    // An array is not a set of flags; any other object is read by name, so a
+    // Date or a Map has none set.
+    for (const bad of [[], ['a'], 'a', 1, true]) {
+      assert.throws(() => F.encode({ p: bad }), { code: 'type', path: 'p' });
+    }
+    assert.deepStrictEqual(F.encode({ p: new Date(0) }), [0]);
+    assert.deepStrictEqual(F.encode({ p: new Map([['a', true]]) }), [0]);
+    assert.deepStrictEqual(Schema.from(F.definition, options).encode({ p: ['a'] }), [0]);
+  });
+
+  test(`Types (${backend}): decimals at the edges`, () => {
+    const both = { ...options, validate: 'both' };
+    const P = Schema.from({ n: { type: 'number', decimals: 2 } }, both);
+    for (const bad of [-Infinity, -1e14, 1e14, '1']) {
+      assert.throws(() => P.encode({ n: bad }), { code: 'type', path: 'n' });
+    }
+    assert.deepStrictEqual(P.encode({ n: -1e13 }), [-1e15]);
+    assert.deepStrictEqual(P.decode([-(2 ** 53 - 1)]).n, -(2 ** 53 - 1) / 100);
+    assert.throws(() => P.decode([-(2 ** 53)]), { code: 'type', path: 'n' });
+    const Fine = Schema.from({ n: { type: 'number', decimals: 15 } }, both);
+    assert.deepStrictEqual(Fine.encode({ n: 0.5 }), [500000000000000]);
+    assert.deepStrictEqual(Fine.decode([500000000000000]).n, 0.5);
+    assert.throws(() => Fine.encode({ n: 10 }), { code: 'type', path: 'n' });
+    // At the root, in a sparse record, in a union, in a layout; checked by check().
+    const Price = { type: 'number', decimals: 2 };
+    const Root = Schema.from(Price, both);
+    assert.strictEqual(Root.encode(1.5), 150);
+    assert.strictEqual(Root.decode(150), 1.5);
+    assert.strictEqual(Root.check('x').code, 'type');
+    const Sparse = Schema.from({ a: '?string', p: Price }, { ...both, sparse: true });
+    assert.deepStrictEqual(Sparse.encode({ p: 1.5 }), [2, 150]);
+    assert.deepStrictEqual(Sparse.decode([2, 150]), { a: null, p: 1.5 });
+    const U = Schema.from({ union: [{ k: { enum: ['a'] }, p: Price }], discriminator: 'k' }, both);
+    assert.deepStrictEqual(U.encode({ k: 'a', p: 1.5 }), [0, 150]);
+    assert.deepStrictEqual(U.decode([0, 150]), { k: 'a', p: 1.5 });
+    assert.strictEqual(U.check({ k: 'a', p: 'x' }).path, 'p');
+    for (const layout of ['flat', 'columns']) {
+      const L = Schema.from({ array: { p: Price } }, { ...both, layout });
+      const wire = L.encode([{ p: 1.5 }, { p: 2 }]);
+      assert.deepStrictEqual(L.decode(wire), [{ p: 1.5 }, { p: 2 }]);
+      assert.strictEqual(L.check([{ p: 'x' }]).path, '[0].p');
+    }
+    // A tuple element is a scalar type name: the long form is not one.
+    assert.throws(() => Schema.from({ t: [Price] }), { code: 'ERR_INVALID_DEFINITION' });
   });
 }

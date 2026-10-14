@@ -32,7 +32,10 @@ const timestamp = (v) => {
 const literal = (keys, value) =>
   JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
 
-const isBytes = (v) => v instanceof Uint8Array || TAG.call(v) === '[object Uint8Array]';
+// A view from another realm fails instanceof; its tag tells it apart from the
+// other views, and isView from an object that merely claims the tag.
+const isBytes = (v) =>
+  v instanceof Uint8Array || (ArrayBuffer.isView(v) && TAG.call(v) === '[object Uint8Array]');
 
 const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
@@ -99,12 +102,18 @@ const enumeration = (values) => {
   const node = scalar('enum', {
     values,
     check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
-    // The lookup coerces its key ('20' finds 20); validation wants the value itself.
+    // Only a string or a number can be a value: anything else is not looked
+    // up, since turning an object into a key may throw on its own. The lookup
+    // coerces its key ('20' finds 20); validation wants the value itself.
     checkedPack: (v) => {
+      const t = typeof v;
+      if (t !== 'string' && t !== 'number') return undefined;
       const index = dict[v];
       return index !== undefined && values[index] === v ? index : undefined;
     },
     pack: (v) => {
+      const t = typeof v;
+      if (t !== 'string' && t !== 'number') return null;
       const index = dict[v];
       return index === undefined ? null : index;
     },
@@ -146,7 +155,7 @@ const flags = (names) => {
   return scalar('flags', {
     names,
     check: (v) => isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)),
-    accept: (v) => typeof v === 'object',
+    accept: (v) => typeof v === 'object' && !Array.isArray(v),
     pack: (v) => {
       let mask = 0;
       for (let i = 0; i < size && i < WORD; i++) if (v[names[i]]) mask |= 1 << i;

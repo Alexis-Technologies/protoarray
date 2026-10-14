@@ -39,11 +39,15 @@ const RUNTIME = {
 // A realm without atob fails on bytes, loudly, instead of reading them as invalid.
 test('Platform: the browser runtime does not hide a missing atob', () => {
   const { atob } = globalThis;
+  const native = Uint8Array.fromBase64;
   try {
     delete globalThis.atob;
+    // Without the platform's own base64 either: the atob branch is the one under test.
+    delete Uint8Array.fromBase64;
     assert.throws(() => RUNTIME.browser.fromBase64('AQI='), ReferenceError);
   } finally {
     globalThis.atob = atob;
+    if (native !== undefined) Uint8Array.fromBase64 = native;
   }
 });
 
@@ -79,6 +83,9 @@ test('Platform: the runtime twins agree on base64', () => {
       'AQI= ',
       ' AQI=',
       'AQ\nI=',
+      'AQ\rI=',
+      'AQI=\n',
+      '-_8=',
       '*AQI',
       'AQ=A',
       'é',

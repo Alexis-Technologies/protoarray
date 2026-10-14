@@ -226,7 +226,7 @@ const build = (plan, options) => {
     const lead = tag === undefined ? 0 : 1;
     const width = size + lead;
     const tail = node.tail + lead;
-    const enc = lead === 0 ? [`if(typeof o!=='object')E('object','');`] : [];
+    const enc = lead === 0 ? [`if(typeof o!=='object'||Array.isArray(o))E('object','');`] : [];
     const values = lead === 0 ? [] : ['t'];
     for (const field of node.fields) {
       const v = uid('v');
@@ -264,7 +264,7 @@ const build = (plan, options) => {
     functions.push(`function ${fns.e}(o${lead === 0 ? '' : ',t'}){${enc.join('')}}`);
     const dec = lead === 0 ? [`if(!Array.isArray(a))F('structure',"",'array');`] : [];
     let read;
-    const mask = `if(typeof m!=='number'||(m|0)!==m)F('structure',"",'mask');`;
+    const mask = `if(typeof m!=='number'||(m|0)!==m||m<0)F('structure',"",'mask');`;
     if (node.sparse) {
       dec.push(`${size <= WORD ? 'const' : 'let'} m=a[0];${mask}let p=1;`);
       read = (i) => `(m&${1 << (i % WORD)})!==0?a[p++]:null`;
@@ -310,7 +310,7 @@ const build = (plan, options) => {
       return out.join('');
     };
     functions.push(
-      `function ${fns.e}(o){if(typeof o!=='object')E('object','');const v=o[${key}];` +
+      `function ${fns.e}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');const v=o[${key}];` +
         `const t=${tag}.checkedPack(v);switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
         `E('union',${key},${expected});}`,
     );

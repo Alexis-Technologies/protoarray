@@ -302,7 +302,7 @@ test('Union: definition errors', () => {
     'ERR_INVALID_UNION',
     'A union needs at least one branch',
   );
-  const branch = 'A branch must be a struct with the enum "type" without a default';
+  const branch = 'A branch must be a struct with the required enum "type" without a default';
   invalid({ union: ['string'], discriminator: 'type' }, 'ERR_INVALID_UNION', `${branch} at "[0]"`);
   invalid({ union: [{ id: 'string' }], discriminator: 'type' }, 'ERR_INVALID_UNION');
   invalid(
@@ -311,6 +311,15 @@ test('Union: definition errors', () => {
   );
   invalid(
     { union: [{ id: 'string', type: { enum: ['a'], default: 'a' } }], discriminator: 'type' },
+    'ERR_INVALID_UNION',
+  );
+  // The tag always travels: an optional discriminator would never be missing.
+  invalid(
+    { union: [{ Struct: {}, 'type?': { enum: ['a'] }, id: 'string' }], discriminator: 'type' },
+    'ERR_INVALID_UNION',
+  );
+  invalid(
+    { union: [{ id: 'string', type: { enum: ['a'], required: false } }], discriminator: 'type' },
     'ERR_INVALID_UNION',
   );
   invalid({ union: [Call, 'T'], discriminator: 'type' }, 'ERR_INVALID_UNION', `${branch} at "[1]"`);
@@ -352,3 +361,91 @@ test('Union: the id follows the branches and their order', () => {
   assert.strictEqual(a.id, c.id);
   assert.match(a.toString(), /^union\(type\)\[\{type:enum\(call\),id:string/);
 });
+
+// Numeric discriminator values, unions inside layouts and sparse records, and
+// hostile discriminator keys: the tag is an index, whatever the values are.
+for (const [backend, options] of BACKENDS) {
+  test(`Union (${backend}): numeric discriminator values are matched exactly`, () => {
+    const Code = Schema.from(
+      {
+        union: [
+          { Struct: {}, code: { enum: [1] }, a: 'string' },
+          { Struct: {}, code: { enum: [2, 3] } },
+        ],
+        discriminator: 'code',
+      },
+      options,
+    );
+    assert.deepStrictEqual(Code.encode({ code: 1, a: 'x' }), [0, 'x']);
+    assert.deepStrictEqual(Code.encode({ code: 3 }), [2]);
+    assert.deepStrictEqual(Code.decode([2]), { code: 3 });
+    for (const value of ['1', '3', 1.5, true, [1], { valueOf: () => 1 }]) {
+      assert.throws(() => Code.encode({ code: value }), { code: 'union', path: 'code' });
+      assert.strictEqual(Code.check({ code: value }).code, 'union');
+    }
+    assert.throws(() => Code.decode([3]), { code: 'union', path: 'code' });
+  });
+
+  test(`Union (${backend}): unions inside layouts and sparse records`, () => {
+    const both = { ...options, validate: 'both' };
+    const Packet = new Schema(
+      'Packet',
+      { union: [Call, Event, Ping], discriminator: 'type' },
+      both,
+    );
+    const value = [{ p: { type: 'call', id: '1', method: 'm' } }, { p: { type: 'ping' } }];
+    for (const layout of ['rows', 'flat', 'columns']) {
+      const Grid = Schema.from({ array: { p: Packet, n: '?number' } }, { ...both, layout });
+      const wire = Grid.encode(value);
+      assert.deepStrictEqual(Grid.decode(wire), [
+        { p: { type: 'call', id: '1', method: 'm', args: null }, n: null },
+        { p: { type: 'ping' }, n: null },
+      ]);
+      assert.deepStrictEqual(Grid.decode(wire, { strict: true }), Grid.decode(wire));
+      assert.throws(() => Grid.encode([{ p: { type: 'nope' } }]), {
+        code: 'union',
+        path: '[0].p.type',
+      });
+    }
+    const Flat = Schema.from({ array: { p: Packet } }, { ...both, layout: 'flat' });
+    assert.throws(() => Flat.decode([[2, 'extra']], { strict: true }), {
+      code: 'extra',
+      path: '[0].p',
+    });
+    const Sparse = Schema.from(
+      { a: '?number', p: { union: [Call, Ping], discriminator: 'type', required: false } },
+      { ...both, sparse: true },
+    );
+    assert.deepStrictEqual(Sparse.encode({ p: { type: 'pong' } }), [2, [2]]);
+    assert.deepStrictEqual(Sparse.decode([2, [2]]), { a: null, p: { type: 'pong' } });
+    assert.throws(() => Sparse.decode([2, [2, 'x']], { strict: true }), {
+      code: 'extra',
+      path: 'p',
+    });
+    assert.throws(() => Sparse.decode([2, [7]]), { code: 'union', path: 'p.type' });
+  });
+
+  test(`Union (${backend}): hostile discriminator keys and values`, () => {
+    const LS = String.fromCharCode(0x2028);
+    const key = `t"\\${LS}`;
+    const values = ['a"b', `c\\${LS}`, 'd*/e'];
+    const Hostile = Schema.from(
+      {
+        union: [
+          { [key]: { enum: values.slice(0, 2) }, v: 'string' },
+          { [key]: { enum: values.slice(2) } },
+        ],
+        discriminator: key,
+      },
+      options,
+    );
+    assert.deepStrictEqual(Hostile.encode({ [key]: values[1], v: 'x' }), [1, 'x']);
+    assert.deepStrictEqual(Hostile.decode([2]), { [key]: 'd*/e' });
+    assert.deepStrictEqual(Hostile.decode([0, 'y']), { [key]: 'a"b', v: 'y' });
+    assert.throws(() => Hostile.encode({ [key]: 'nope' }), {
+      code: 'union',
+      path: key,
+      message: `Field "${key}" is not of union: ${values.join(', ')}`,
+    });
+  });
+}

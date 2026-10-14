@@ -9,9 +9,12 @@ const BRAND = Symbol.for('alexify.protoarray.brand');
 const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');
 const CHECKER = Symbol.for('alexify.protoarray.checker');
+// The error that made the automatic backend choice fall back to closures.
+const FALLBACK = Symbol.for('alexify.protoarray.fallback');
 
-// metaschema shorthands that have no positional form yet: rejected loudly so a
-// shared definition never silently changes meaning.
+// metaschema shorthands that have no positional form here (`union` has one,
+// but only as `{ union: [...] }`): rejected loudly so a shared definition
+// never silently changes meaning.
 const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|boolean|json|enum)$/;
@@ -187,10 +190,11 @@ const compilePlan = (definition, context) => {
       } else node = field(branch, at).node;
       const index = node.kind === 'struct' && !node.sparse ? node.keys.indexOf(key) : -1;
       const tag = index === -1 ? null : node.fields[index];
-      if (tag === null || tag.node.type !== 'enum' || tag.def !== null) {
+      // The tag always travels, so the discriminator is neither optional nor defaulted.
+      if (tag === null || tag.node.type !== 'enum' || !tag.required || tag.def !== null) {
         throw error(
           'ERR_INVALID_UNION',
-          `A branch must be a struct with the enum "${key}" without a default`,
+          `A branch must be a struct with the required enum "${key}" without a default`,
           at,
         );
       }
@@ -314,4 +318,14 @@ const fingerprint = (text) => {
   return (hash >>> 0).toString(16).padStart(8, '0');
 };
 
-module.exports = { BRAND, PLAN, CODEC, CHECKER, isSchema, compilePlan, canonical, fingerprint };
+module.exports = {
+  BRAND,
+  PLAN,
+  CODEC,
+  CHECKER,
+  FALLBACK,
+  isSchema,
+  compilePlan,
+  canonical,
+  fingerprint,
+};

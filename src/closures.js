@@ -123,7 +123,7 @@ const build = (plan, options) => {
     });
     const required = node.fields.map((field) => validate.encode && field.required);
     return (object, t) => {
-      if (typeof object !== 'object') refuse('object', '');
+      if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const out = sparse ? [0] : new Array(width);
       if (lead === 1) out[0] = t;
       // A sparse record is one [mask, ...present values] segment per 31
@@ -195,7 +195,7 @@ const build = (plan, options) => {
     const encoders = node.branches.map((branch) => structEncoder(branch.node));
     const branches = branchOf(node);
     return (object) => {
-      if (typeof object !== 'object') refuse('object', '');
+      if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const t = tag.checkedPack(object[key]);
       if (t === undefined) refuse('union', key, tag.expected);
       return encoders[branches[t]](object, t);
@@ -289,7 +289,9 @@ const build = (plan, options) => {
           // The first mask is required; a later segment may be missing.
           if (i % WORD === 0) {
             mask = i === 0 || next < length ? array[next++] : 0;
-            if (typeof mask !== 'number' || (mask | 0) !== mask) fail('structure', '', 'mask');
+            if (typeof mask !== 'number' || (mask | 0) !== mask || mask < 0) {
+              fail('structure', '', 'mask');
+            }
           }
           if ((mask & (1 << (i % WORD))) !== 0) value = array[next++];
         }

@@ -351,13 +351,21 @@ test('Schema: a failing code generation falls back to closures unless the backen
   codegen.build = () => {
     throw new EvalError('refused');
   };
+  const FALLBACK = Symbol.for('alexify.protoarray.fallback');
   try {
     const schema = Schema.from({ id: 'number' });
     assert.strictEqual(schema.backend, 'closures');
     assert.deepStrictEqual(schema.decode([1]), { id: 1 });
     assert.strictEqual(schema.list.backend, 'closures');
     assert.throws(() => Schema.from({ id: 'number' }, { codegen: true }), EvalError);
+    // The cause is kept, off the public surface, so a fallback can be told from a choice.
+    assert.ok(schema[FALLBACK] instanceof EvalError);
+    assert.strictEqual(schema[FALLBACK].message, 'refused');
+    assert.strictEqual(schema.list[FALLBACK].message, 'refused');
+    assert.ok(!Object.keys(schema).includes(FALLBACK));
   } finally {
     codegen.build = build;
   }
+  assert.strictEqual(Schema.from({ id: 'number' })[FALLBACK], undefined);
+  assert.strictEqual(Schema.from({ id: 'number' }, { codegen: false })[FALLBACK], undefined);
 });

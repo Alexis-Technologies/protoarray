@@ -32,6 +32,17 @@ const corrupt = (value, random) => {
   return copy;
 };
 
+// A copy of the wire with one element, at any depth, replaced by garbage or
+// one appended: a corrupted tag, mask, segment or nested record.
+const corruptWire = (wire, random) => {
+  const copy = wire.slice();
+  const index = Math.floor(random() * (copy.length + 1));
+  const inner = copy[index];
+  if (Array.isArray(inner) && random() < 0.6) copy[index] = corruptWire(inner, random);
+  else copy[index] = GARBAGE[Math.floor(random() * GARBAGE.length)];
+  return copy;
+};
+
 // Both backends must be indistinguishable on random schemas: same wire, same
 // objects in the same key order, same errors with the same paths, and a wire
 // that encodes the decoded value back to itself.
@@ -63,11 +74,14 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
           outcome(() => B.encode(bad)),
           `${label} encode ${round}`,
         );
+        assert.deepStrictEqual(
+          outcome(() => A.check(bad)),
+          outcome(() => B.check(bad)),
+          `${label} check ${round}`,
+        );
       }
       for (let round = 0; round < 4; round++) {
-        const broken = JSON.parse(JSON.stringify(wire));
-        const index = Math.floor(random() * (broken.length + 1));
-        broken[index] = GARBAGE[Math.floor(random() * GARBAGE.length)];
+        const broken = corruptWire(JSON.parse(JSON.stringify(wire)), random);
         for (const strict of [false, true]) {
           const a = outcome(() => A.decode(broken, { strict }));
           const b = outcome(() => B.decode(broken, { strict }));

@@ -101,16 +101,21 @@ const nest = (error, prefix) => {
   return error;
 };
 
+// What the engines say when the call stack is exhausted: V8 and
+// JavaScriptCore throw a RangeError, SpiderMonkey an InternalError. Any other
+// RangeError (an invalid string length) is not a depth problem.
+const OVERFLOW = /call stack|too much recursion/i;
+
 // The outermost call of a schema: its name goes on the error, and a stack
 // overflow (a recursive schema's payload, a cyclic value) becomes a
-// documented error (V8 and JavaScriptCore throw a RangeError, SpiderMonkey an
-// InternalError).
+// documented error.
 const boundary = (error, schema, decoding) => {
   if (error instanceof DecodeError || error instanceof EncodeError) {
     error.schema = schema;
     return error;
   }
-  const overflow = error instanceof RangeError || error.name === 'InternalError';
+  const overflow =
+    (error instanceof RangeError || error.name === 'InternalError') && OVERFLOW.test(error.message);
   if (!overflow) return error;
   const depth = decoding ? new DecodeError('structure', '', 'depth') : new EncodeError('depth');
   return boundary(depth, schema, decoding);

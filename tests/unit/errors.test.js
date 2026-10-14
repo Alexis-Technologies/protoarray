@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const vm = require('node:vm');
 const { Schema, DecodeError, EncodeError } = require('../../index.js');
 const { BACKENDS } = require('../support/backends.js');
 
@@ -531,6 +532,18 @@ test('Errors: the decode boundary', () => {
       code: 'structure',
       message: 'Value is nested too deeply',
     });
+    // Only an exhausted call stack is a depth problem; any other RangeError is foreign.
+    codec.decode = () => {
+      throw new RangeError('Maximum call stack size exceeded');
+    };
+    assert.throws(() => schema.decode([1]), { code: 'structure', path: '' });
+    codec.decode = () => {
+      throw new RangeError('Invalid array length');
+    };
+    assert.throws(() => schema.decode([1]), {
+      name: 'RangeError',
+      message: 'Invalid array length',
+    });
   } finally {
     codec.decode = decode;
   }
@@ -557,5 +570,62 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => Node.stringify(cycle), expected);
     const Loose = new Schema('Node', Node.definition, { ...options, validate: false });
     assert.throws(() => Loose.encode(cycle), expected);
+  });
+}
+
+// What a value given to encode may be: a lookup never throws over it, a fake
+// byte array is not one, and an array is not a record.
+for (const [backend, options] of BACKENDS) {
+  test(`Errors (${backend}): enum and union lookups never throw over the value`, () => {
+    const hostile = [
+      Object.create(null),
+      [Symbol('s')],
+      {
+        toString() {
+          throw new Error('boom');
+        },
+      },
+      Symbol('x'),
+      1n,
+    ];
+    const E = Schema.from({ role: { enum: ['a', 'b'] } }, { ...options, validate: 'both' });
+    const Loose = Schema.from(E.definition, options);
+    const P = Schema.from({ union: [{ k: { enum: ['a'] } }], discriminator: 'k' }, options);
+    for (const value of hostile) {
+      assert.throws(() => E.encode({ role: value }), { code: 'enum', path: 'role' });
+      assert.strictEqual(E.check({ role: value }).code, 'enum');
+      assert.deepStrictEqual(Loose.encode({ role: value }), [null]);
+      assert.throws(() => P.encode({ k: value }), { code: 'union', path: 'k' });
+      assert.strictEqual(P.check({ k: value }).code, 'union');
+    }
+  });
+
+  test(`Errors (${backend}): only a real byte array is one`, () => {
+    const B = Schema.from({ data: 'bytes' }, { ...options, validate: 'both' });
+    const fake = { [Symbol.toStringTag]: 'Uint8Array', length: 1 };
+    assert.throws(() => B.encode({ data: fake }), { code: 'type', path: 'data' });
+    assert.strictEqual(B.check({ data: fake }).code, 'type');
+    assert.throws(() => B.encode({ data: new Uint8ClampedArray(1) }), { code: 'type' });
+    assert.throws(() => B.encode({ data: new DataView(new ArrayBuffer(1)) }), { code: 'type' });
+    // By default the value is trusted and travels as it is.
+    assert.deepStrictEqual(Schema.from(B.definition, options).encode({ data: fake }), [fake]);
+    // A view from another realm and a subclass are byte arrays.
+    const foreign = vm.runInNewContext('new Uint8Array([1, 2])');
+    assert.deepStrictEqual(B.encode({ data: foreign }), ['AQI=']);
+    class Bytes extends Uint8Array {}
+    assert.deepStrictEqual(B.encode({ data: Bytes.from([1, 2]) }), ['AQI=']);
+  });
+
+  test(`Errors (${backend}): an array is not a record`, () => {
+    for (const validate of [true, 'both', false]) {
+      const mode = { ...options, validate };
+      const User = new Schema('User', { id: 'number', home: { city: 'string' } }, mode);
+      assert.throws(() => User.encode([1]), { code: 'object', path: '', schema: 'User' });
+      assert.throws(() => User.encode({ id: 1, home: ['Kyiv'] }), { code: 'object', path: 'home' });
+      assert.throws(() => User.list.encode([[1]]), { code: 'object', path: '[0]' });
+      assert.strictEqual(User.check([1]).code, 'object');
+      const Packet = Schema.from({ union: [{ k: { enum: ['a'] } }], discriminator: 'k' }, mode);
+      assert.throws(() => Packet.encode([0]), { code: 'object', path: '' });
+    }
   });
 }

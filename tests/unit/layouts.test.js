@@ -37,6 +37,21 @@ for (const [backend, options] of BACKENDS) {
       code: 'structure',
       message: 'Value is not a sparse mask',
     });
+    // A mask is a non-negative 31-bit integer, in every mode.
+    for (const validate of [true, false]) {
+      const M = Schema.from(S.definition, { ...options, sparse: true, validate });
+      for (const bad of [-1, -2147483648, 2 ** 31, 2 ** 32, 1.5, '1']) {
+        assert.throws(
+          () => M.decode([bad, 1]),
+          { code: 'structure', message: 'Value is not a sparse mask' },
+          String(bad),
+        );
+      }
+    }
+    // A bit past the schema's fields claims no value: it is ignored, like an extra element.
+    assert.deepStrictEqual(S.decode([9, 1]), { a: 1, b: null, c: null });
+    assert.deepStrictEqual(S.decode([9, 1], { strict: true }), { a: 1, b: null, c: null });
+    assert.throws(() => S.decode([9, 1, 'next'], { strict: true }), { code: 'extra' });
     assert.throws(() => S.decode([3, 1, 2]), { code: 'type', path: 'b' });
     const Outer = Schema.from({ s: S, list: { array: S } }, options);
     assert.deepStrictEqual(Outer.encode({ s: { a: 1 }, list: [{ a: 2, c: 'x' }] }), [
@@ -87,6 +102,7 @@ for (const [backend, options] of BACKENDS) {
       message: 'Value is not a sparse mask',
     });
     assert.throws(() => S.decode([2, 1, 1.5]), { code: 'structure' });
+    assert.throws(() => S.decode([2, 1, -1]), { code: 'structure' });
     assert.throws(() => S.decode([0, 0]), { code: 'required', path: 'f1' });
     assert.throws(() => S.decode([2, 1, 16, 'x']), { code: 'type', path: 'f35' });
     assert.throws(() => S.encode({ f1: 1, f40: 'x' }), { code: 'type', path: 'f40' });
@@ -216,5 +232,31 @@ for (const [backend, options] of BACKENDS) {
         ),
       { code: 'extra' },
     );
+  });
+}
+
+// The segment boundaries: 31 fields fill one word, the 32nd starts a segment.
+for (const [backend, options] of BACKENDS) {
+  test(`Layouts (${backend}): sparse records at the segment boundaries`, () => {
+    for (const size of [31, 32, 62, 63, 64]) {
+      const definition = {};
+      for (let i = 0; i < size; i++) definition[`f${i}`] = '?number';
+      const S = Schema.from(definition, { ...options, sparse: true });
+      const last = `f${size - 1}`;
+      const wire = S.encode({ [last]: 7 });
+      const segments = Math.ceil(size / 31);
+      assert.strictEqual(wire.length, segments + 1, `${size} fields`);
+      assert.strictEqual(wire[wire.length - 2], 1 << ((size - 1) % 31), `${size} mask`);
+      const decoded = S.decode(wire);
+      assert.strictEqual(decoded[last], 7);
+      assert.strictEqual(Object.keys(decoded).length, size);
+      assert.deepStrictEqual(S.decode(wire, { strict: true }), decoded);
+      assert.deepStrictEqual(S.encode({}), [0]);
+      assert.deepStrictEqual(S.encode({ f0: 1 }), [1, 1]);
+      const Outer = Schema.from({ s: S, list: { array: S } }, options);
+      const outer = Outer.decode(Outer.encode({ s: { [last]: 7 }, list: [{ f0: 1 }] }));
+      assert.strictEqual(outer.s[last], 7);
+      assert.strictEqual(outer.list[0].f0, 1);
+    }
   });
 }

@@ -95,7 +95,12 @@ for (const [backend, options] of BACKENDS) {
     const names = Array.from({ length: 40 }, (_, i) => `n${i}`);
     const Narrow = Schema.from({ p: { flags: names.slice(0, 31) } }, options);
     const Wide = Schema.from({ p: { flags: names } }, options);
+    // While no name past 31 is set the wire is the one integer of 1.0, which
+    // any decoder reads; a set name past 31 makes it an array of words, which
+    // only a 1.1 decoder reads (a 1.0 one rejects it, or reads every flag as
+    // false without validation).
     assert.deepStrictEqual(Wide.encode({ p: { n1: true } }), Narrow.encode({ p: { n1: true } }));
+    assert.deepStrictEqual(Wide.encode({ p: { n1: true, n35: false } }), [2]);
     const wire = Wide.encode({ p: { n1: true, n35: true } });
     assert.deepStrictEqual(wire, [[2, 16]]);
     assert.deepStrictEqual(Narrow.decode(wire).p.n1, true);

@@ -30,7 +30,7 @@ pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on it
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
 pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 8 KB min+gzip
-pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec, manual only; --save writes bench/baseline.json
+pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--save]   # against JSON, protobufjs, avsc, msgpackr, …
 pnpm bench:report                  # renders bench/results/compare.json into README.md and docs/guide/benchmarks.md
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
@@ -100,25 +100,43 @@ docs/               VitePress site (protoarray.vercel.app), not published
    `keys`, `sparse` and `tail` (the index where the trailing run of optional fields starts, the
    only part that may be trimmed off the wire). Scalar nodes come from `types.js` and carry
    `check`, `pack` and `unpack` (null for identity types). A `Schema` used as a field embeds its
-   plan node; a name (`'User'`) becomes a `ref` node that calls the referenced schema's codec
-   through a slot, which is also how self-recursion works (the slot is filled after the build).
-   The plan also has a canonical string (`schema.toString()`) and its FNV-1a fingerprint
-   (`schema.id`).
+   plan node (for the canonical form) **with a `slot` to its compiled codec**; a name (`'User'`)
+   becomes a `ref` node with the same kind of slot, which is also how self-recursion works (the
+   slot is filled after the build). Both backends call a slot wherever one is present, so an
+   embedded schema keeps its own options and layout and is compiled once; a root never keeps a
+   slot (this schema's options apply to it), except a root `ref`, which aliases the referenced
+   codec. The plan also has a canonical string (`schema.toString()`, with a `?` prefix for an
+   optional root scalar) and its fingerprint (`schema.id`: FNV-1a 32-bit, or the `fingerprint`
+   option's function of the canonical string).
 2. **A backend builds `{ encode, decode }` from the plan.** `codegen.js` emits one encode and one
    decode function per struct through `new Function` (array and object literals, so every decoded
    object has the hidden class an object literal would). `closures.js` composes closures over the
    same plan and objects start as a spread of a literal-shaped template, so their hidden class is
    still stable. The probe `new Function('return 1')` runs once at load; `{ codegen }` forces a
-   backend, `{ codegen: true }` throws `ERR_CODEGEN_UNAVAILABLE` where it cannot be honoured. Both
+   backend, `{ codegen: true }` throws `ERR_CODEGEN_UNAVAILABLE` where it cannot be honoured, and
+   in automatic mode a `codegen.build` that throws for one schema falls back to closures. Both
    backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values
-   and corrupted wires, and every behavioural suite loops over `tests/support/backends.js`.
+   and corrupted wires, and every behavioural suite loops over `tests/support/backends.js`. The
+   codegen codec keeps its source as `codec.source` (reachable through
+   `schema[Symbol.for('alexify.protoarray.codec')]`, not public API) for debugging.
 3. **`layouts.js`** wraps the record codec when a collection uses `flat` or `columns`; `rows` is the
-   codec of `{ array: Record }` itself.
+   codec of `{ array: Record }` itself. `schema.list` is `{ array: schema }` over the slot, so it
+   compiles only the loop.
+
+`Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
+on `EncodeError`/`DecodeError`, and on decode turns a stack overflow (a recursive schema's payload
+nested deeper than the call stack) into `DecodeError` `structure`/`depth`. Nothing else may escape
+`decode`: `types.js` conversions are total (a value with no wire form of its type passes through
+under `validate: false`), and every check starts with `typeof` so in-process values (a BigInt mask,
+a Symbol index) fail like wire values. Encode checks shape only: a non-object record or a non-array
+collection/tuple throws `EncodeError` with code `object`/`array` and a path built on error branches
+like decode's.
 
 Wire rules (normative in `docs/guide/wire-format.md`, as data in `tests/support/vectors.js`):
 one field per position in declaration order; `undefined`, `null` and a missing key travel as
-`null`; trailing `null`s are trimmed; `enum` → index, `date` → epoch ms, `bigint` → decimal
-string, `flags` → bitmask; `json` is never required; a sparse struct is `[mask, ...present]`;
+`null`; trailing `null`s are trimmed; `enum` → index (any number of values), `date` → epoch ms,
+`bigint` → decimal string, `flags` → bitmask (up to 31 names); `json` is never required; a sparse
+struct is `[mask, ...present]` (up to 31 fields);
 decode assigns every key in schema order and gives `null` (or the default) for what was missing;
 extra trailing elements are ignored unless `{ strict: true }`.
 
@@ -193,6 +211,13 @@ change. **This file wins** if they ever disagree.
   including on corrupted wires. A failure prints the seed.
 - `tests/unit/backend.test.js` stubs `globalThis.Function` before the first `require`, which is
   the only way to reach the probe's fallback branch; each test file is its own process.
+  `schema.test.js` stubs `codegen.build` through the module object for the per-schema fallback,
+  and `errors.test.js` stubs `codec.decode` through the codec symbol to reach the boundary's
+  foreign-error and `InternalError` (SpiderMonkey stack overflow) branches.
+- `schema.test.js` has the hostile-keys suite (quotes, backslashes, U+2028/2029, `${`, lone
+  surrogates, `constructor`): the only test of the codegen escaping invariant. Build such strings
+  with `String.fromCharCode` there: oxfmt unescapes ` ` in literals and oxlint then rejects
+  the raw line separator.
 - `pnpm test` passes the glob unquoted (`tests/unit/*.test.js`) so the shell expands it on Node
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified

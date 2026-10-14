@@ -63,3 +63,29 @@ V2.id; // 'aafe8696' — different: it has more positions
 The id includes keys, so renaming a field changes it even though the wire stays compatible. That
 is deliberate: a swap of two same-typed fields is a change of meaning, and the id should say so.
 If only wire compatibility matters, compare `toString()` after stripping keys on your side.
+
+### Your own fingerprint
+
+Thirty-two bits are plenty for a handshake between two sides, where the only question is "do we
+have the same schema?": two different schemas collide with probability 2⁻³². They are not enough
+for a registry that keys many schemas by id, where a collision becomes likely around 65,000
+entries. The `fingerprint` option replaces the hash with any synchronous function of the canonical
+form, and `schema.list` inherits it:
+
+```js
+const { createHash } = require('node:crypto');
+const sha = (canonical) => createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+
+const User = Schema.from({ id: 'number', name: 'string' }, { fingerprint: sha });
+User.id; // '17ad5aba43b19ad4' — 64 bits of SHA-256 of '{id:number,name:string}'
+```
+
+The function must be deterministic and derive the id from its argument only: both sides compute
+it on their own from the same definition, which is what makes the handshake work. A random or
+time-based identifier (a cuid, a ulid) would differ between two copies of the same schema; if you
+need hand-written version ids, keep a map from id to schema in the application instead.
+
+### What cannot change inside 1.x
+
+A sparse record and a `flags` field carry at most 31 slots: the mask is one 32-bit integer. A
+wider mask would be a new wire format and a new major version, not an option.

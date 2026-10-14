@@ -25,7 +25,8 @@ S.encode({ role: 'nope' });   // [null] — an unknown value is nothing
 S.decode([7]);                // DecodeError: Field "role" is not of enum: admin, editor, viewer
 ```
 
-Values can be strings or numbers; add new ones at the end only, since the index is what travels.
+Values can be strings or numbers, as many as needed; add new ones at the end only, since the index
+is what travels.
 
 ## Date
 
@@ -35,8 +36,9 @@ S.encode({ at: new Date('2023-11-14T22:13:20Z') }); // [1700000000000]
 S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20.000Z }
 ```
 
-A number is accepted too (`{ at: 1700000000000 }`); an invalid date travels as `null`. Epoch
-milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
+A number is accepted too (`{ at: 1700000000000 }`); an invalid date travels as `null`. A value
+that cannot be converted to a number at all (a `BigInt`) throws a `TypeError` from the conversion.
+Epoch milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
 
 ## BigInt
 

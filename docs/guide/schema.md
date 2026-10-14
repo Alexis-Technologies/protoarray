@@ -34,8 +34,8 @@ const User = new Schema('User', {
 | Optional key | `'email?': 'string'` | The same, written on the key |
 | Long form | `{ type: 'string', required: false, default: 'x' }` | Options on the field; `default` fills a missing slot on decode |
 | Struct | `{ city: 'string', zip: '?string' }` | A nested record, encoded as a nested array |
-| Schema by value | `address: Address` | The other schema's fields, embedded |
-| Schema by name | `manager: '?User'` | A capitalised name: the schema's own name (recursion) or one from `options.schemas` |
+| Schema by value | `address: Address` | The other schema in that slot, with its own options and layout (see below) |
+| Schema by name | `manager: '?User'` | The same through a capitalised name: the schema's own name (recursion) or one from `options.schemas` |
 | Array | `{ array: 'string' }`, `{ array: { sku: 'string' } }` | A list of scalars (travels as is) or of records (an array of arrays) |
 | Enum | `{ enum: ['admin', 'editor'] }` | One of the listed strings or numbers; travels as its index |
 | Flags | `{ flags: ['read', 'write'] }` | An object of booleans; travels as one integer |
@@ -74,6 +74,25 @@ Schema.keys(['x', 'y'], options?);          // keys only: every field is json
 A definition can also be a collection (`{ array: User }`), a tuple or a single scalar; a `Schema`
 passed as the definition is compiled again with the new options.
 
+## Schemas inside schemas
+
+A `Schema` is a compiled codec. Used inside another definition, by value (`address: Address`) or
+by name (`manager: '?User'`), it is called as it is: its own `validate`, `codegen`, `sparse` and
+`layout` apply inside that slot, its code is not compiled a second time, and the options of the
+outer schema apply only to the outer schema's own fields. The two spellings produce the same wire;
+they differ only in the canonical form (`{…}` embedded against `@User`) and so in `id`.
+
+```js
+const Items = Schema.from({ array: { sku: 'string', qty: '?number' } }, { layout: 'flat' });
+const Order = Schema.from({ id: 'number', items: Items });
+Order.encode({ id: 1, items: [{ sku: 'A' }, { sku: 'B', qty: 2 }] });
+// [1, ['A', null, 'B', 2]]  — the flat layout travels with Items
+```
+
+Only a root is different: a `Schema` passed as the whole definition is compiled again with the
+options given there (`Schema.from(User, { sparse: true })`), and a root reference by name is an
+alias of the referenced schema.
+
 ## Options
 
 | Option | Default | Effect |
@@ -83,6 +102,7 @@ passed as the definition is compiled again with the new options.
 | `sparse` | `false` | Encode the struct as `[mask, ...present values]`. See [Optional Fields](/guide/optional-fields#sparse-records) |
 | `layout` | `'rows'` | For a collection of records: `'rows'`, `'flat'` or `'columns'`. See [Collections](/guide/collections) |
 | `schemas` | `{}` | Schemas a field may reference by name |
+| `fingerprint` | FNV-1a 32-bit | `(canonical) => string`, computes `id` from the canonical form. See [Schema Evolution](/guide/evolution#telling-versions-apart) |
 
 Unknown options and wrong types throw `SchemaDefinitionError` with code `ERR_INVALID_OPTIONS`.
 
@@ -96,7 +116,7 @@ Unknown options and wrong types throw `SchemaDefinitionError` with code `ERR_INV
 | `backend` | `'codegen'` or `'closures'` |
 | `layout` | `'dense'` or `'sparse'` for a struct; `'rows'`, `'flat'` or `'columns'` for a collection |
 | `id` | A fingerprint of the canonical form, see below |
-| `list` | The schema of an array of these records, as rows |
+| `list` | The schema of an array of these records, as rows; it reuses this schema's codec and name |
 
 `toString()` returns the canonical form of the schema: every position with its type.
 
@@ -107,7 +127,9 @@ User.id; // 'cecbac56' — FNV-1a of that string, the same on both sides of the 
 ```
 
 Two definitions with the same positions, types and keys have the same `id`, whatever name the
-schema was given. Renaming a key changes it (see [Schema Evolution](/guide/evolution)).
+schema was given. Renaming a key changes it, and so does the optionality of a root scalar
+(`'?string'` prints as `?string`). The `fingerprint` option replaces the hash (see
+[Schema Evolution](/guide/evolution#telling-versions-apart)).
 
 ## Not in protoarray
 

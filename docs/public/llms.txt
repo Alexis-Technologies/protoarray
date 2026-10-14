@@ -19,9 +19,12 @@ Key facts:
   trailing nulls are trimmed; enum → index, date → epoch ms, bigint → decimal string, flags →
   bitmask; `{ sparse: true }` → `[mask, ...present]`; collections as rows, `flat` or `columns`
 - Schema evolution: append fields at the end, never reorder; older and newer versions interoperate;
-  `schema.id` fingerprints the canonical form
+  `schema.id` fingerprints the canonical form (FNV-1a 32-bit, or the `fingerprint` option)
 - Two backends: generated code (`new Function`) by default, composed closures where code
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge)
+- Errors: `DecodeError` (the only error `decode`/`parse` throw, with `code`, `path` and `schema`),
+  `EncodeError` for a record that is not an object or a list that is not an array,
+  `SchemaDefinitionError` for a broken definition
 - Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `SchemaDefinitionError`,
   `EncodeError`, `DecodeError`
 - Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

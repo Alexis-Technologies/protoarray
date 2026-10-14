@@ -30,7 +30,8 @@ false } }`, or a schema name with `?`); otherwise it fails with code `type`.
 
 ## A list of a schema
 
-`schema.list` is the collection of that schema's records as rows, `Schema.from({ array: schema })`:
+`schema.list` is the collection of that schema's records as rows, `Schema.from({ array: schema })`,
+built once over the codec the schema already has and carrying its name:
 
 ```js
 const User = Schema.from({ id: 'number', name: '?string' });
@@ -38,7 +39,9 @@ User.list.encode([{ id: 1 }, { id: 2, name: 'x' }]); // [[1], [2, 'x']]
 User.list.decode([[1], [2, 'x']]);                   // [{ id: 1, name: null }, { id: 2, name: 'x' }]
 ```
 
-Error paths in a collection start with the index: `[1].name`.
+Error paths in a collection start with the index: `[1].name`. A list that is not an array fails to
+encode with `EncodeError` code `array`, an element that is not an object with code `object` at
+`[i]`.
 
 ## Layouts
 
@@ -67,7 +70,11 @@ the width, so `flat` suits closed systems that deploy both sides together.
 Each column is an array of the record's values for one field. On a thousand records of a typical
 shape, `columns` is 18–21% smaller than keyed JSON after gzip, brotli or zstd, where rows are
 5–10% smaller: compressors love a run of similar values. New columns are appended at the end and
-ignored by older decoders; a missing column (an older sender) decodes as `null`s.
+ignored by older decoders; a missing column (an older sender) or an explicit `null` in its place
+decodes as `null`s, and the record count comes from the first column present.
 
-Layouts apply to the root collection only; arrays of records inside a record are always rows.
-Neither `flat` nor `columns` takes a sparse record.
+A layout is an option of a root collection. A plain nested `{ array: { … } }` is always rows; a
+`Schema` with a layout keeps it wherever it is used, by value or by name, so `{ items: Items }`
+with a `flat` `Items` carries a flat array in that slot (see
+[Schemas inside schemas](/guide/schema#schemas-inside-schemas)). Neither `flat` nor `columns`
+takes a sparse record.

@@ -38,9 +38,9 @@ class Schema<const D extends Definition> {
 ```
 
 Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries the codec.
-`encode` throws `EncodeError` for a value that is not an object; `decode` and `parse` throw
-`DecodeError` (see [Errors](/guide/errors)); a broken definition or option throws
-`SchemaDefinitionError` from the constructor.
+`encode` throws `EncodeError` for a record that is not an object or a collection that is not an
+array; `decode` and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken
+definition or option throws `SchemaDefinitionError` from the constructor.
 
 ```ts
 interface SchemaOptions {
@@ -49,6 +49,7 @@ interface SchemaOptions {
   sparse?: boolean;    // [mask, ...present values] for a struct of up to 31 fields
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
+  fingerprint?: (canonical: string) => string;     // computes `id`; default: FNV-1a 32-bit, 8 hex digits
 }
 
 interface DecodeOptions {
@@ -92,8 +93,8 @@ function parse<D>(schema: Schema<D>, text: string, options?: DecodeOptions): Inf
 
 ```ts
 class SchemaDefinitionError extends TypeError { code: SchemaErrorCode; schema: string; field: string }
-class EncodeError extends TypeError { code: 'object'; path: string }
-class DecodeError extends TypeError { code: DecodeErrorCode; path: string; cause?: unknown }
+class EncodeError extends TypeError { code: 'object' | 'array'; path: string; schema: string }
+class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown }
 ```
 
 ## Types

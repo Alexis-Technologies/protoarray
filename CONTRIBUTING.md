@@ -46,13 +46,16 @@ the bug, not the implementation.
 ```bash
 pnpm run lint
 pnpm run format
-pnpm test
+pnpm run test:coverage
 pnpm run test:types
 pnpm run check:dts
+pnpm size --max-gzip 8
 ```
 
-`prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`. Treat that as the merge
-gate.
+`prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`; CI adds the bundle-size
+gate (8 KB min+gzip for either entry) and the docs build. Treat that as the merge gate. Coverage
+of `src/` is 100% with no `c8 ignore` comments: an unreachable branch is removed, not ignored.
+Measure with `pnpm size` after any change to `src/`.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat(scope):`, `fix(scope):`, `test:`, `docs:`).

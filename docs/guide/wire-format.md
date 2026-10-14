@@ -13,8 +13,9 @@ examples on these pages come from there.
 | Nested struct | a nested array; `null` when missing; `[]` when every field is missing |
 | `{ array: scalar }` | the same array, by reference |
 | `{ array: Record }` | an array of arrays, each row trimmed on its own |
+| A `Schema` used by value or by name | its own wire form, layout and sparseness included |
 | Tuple `['number', 'number']` | an array of fixed length, never trimmed |
-| `{ enum: [...] }` | the index; an unknown value → `null` |
+| `{ enum: [...] }` | the index, any number of values; an unknown value → `null` |
 | `date` | epoch milliseconds; an invalid date → `null` |
 | `bigint` | a decimal string |
 | `{ flags: [...] }` | an integer; bit *i* is name *i*; up to 31 names |
@@ -28,7 +29,7 @@ examples on these pages come from there.
 | Struct, `{ sparse: true }` | `[mask, ...present values]`; bit *i* of the mask marks field *i*; up to 31 fields |
 | Collection, `rows` | `[[...], [...]]` |
 | Collection, `flat` | one array; stride = the number of fields; rows never trimmed; a `null` record is a run of `null`s |
-| Collection, `columns` | `[column0, column1, ...]`, one array per field, each as long as the list |
+| Collection, `columns` | `[column0, column1, ...]`, one array per field, each as long as the list; a missing or `null` column is a column of `null`s |
 
 ## Decoding
 
@@ -41,11 +42,14 @@ examples on these pages come from there.
 | Not an array where one is expected | `DecodeError` `structure`, always |
 | Elements beyond the schema | ignored; `DecodeError` `extra` with `{ strict: true }` |
 | A `null` element of an array of required items | `DecodeError` `type` (with validation); `null` without |
+| A value with no wire form of its type, without validation | passed through as it is, not converted |
+| A recursive schema's payload nested deeper than the call stack | `DecodeError` `structure` ("nested too deeply"), always |
 | Keys on the decoded object | every key of the schema, in schema order |
 
 ## Canonical form
 
 `schema.toString()` prints the schema as `{key:type,key:?type=default,...}` with `[item]` for
 arrays, `(a,b)` for tuples, `enum(a|b)`, `flags(a|b)`, `@Name` for a reference, a `sparse` prefix
-for sparse structs and a `flat` or `columns` prefix for layouts. `schema.id` is the FNV-1a 32-bit
-hash of that string as eight hex digits.
+for sparse structs, a `flat` or `columns` prefix for layouts and a `?` prefix for an optional root
+scalar. `schema.id` is the FNV-1a 32-bit hash of that string as eight hex digits, unless the
+`fingerprint` option supplies another function of it.

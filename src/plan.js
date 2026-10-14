@@ -5,6 +5,56 @@
 const { SchemaDefinitionError } = require('./errors.js');
 const { SCALARS, enumeration, flags, decimal } = require('./types.js');
 
+/**
+ * The nodes of a plan, as both backends read them.
+ *
+ * @typedef {object} ScalarNode A type from types.js.
+ * @property {'scalar'} kind
+ * @property {string} type The type name; `expected` and `code` name it in errors.
+ * @property {((wire: unknown) => boolean) | null} check The wire check of an identity type
+ *   (null for `json`); an enum keeps one for a union's tag.
+ * @property {((value: unknown) => boolean) | null} [accept] The check of a value given to
+ *   encode, null where there is nothing to check.
+ * @property {((value: unknown) => unknown) | null} pack Null for an identity type.
+ * @property {((wire: unknown) => unknown) | null} unpack Total: a stray value stays as it is.
+ * @property {(value: unknown) => unknown} [checkedPack] Checks and converts a value in one call,
+ *   undefined for one of the wrong type; replaces `accept` where the two share their work.
+ * @property {(wire: unknown) => unknown} [checkedUnpack] The same on the wire; every converted
+ *   type has one.
+ * @property {boolean} [required] Only on a root scalar.
+ *
+ * @typedef {object} Field
+ * @property {string} key
+ * @property {number} index The position on the wire.
+ * @property {boolean} required
+ * @property {string | number | boolean | null} def The default, a decoded value.
+ * @property {Node} node
+ *
+ * @typedef {object} StructNode
+ * @property {'struct'} kind
+ * @property {Field[]} fields
+ * @property {string[]} keys
+ * @property {boolean} sparse
+ * @property {number} tail Where the trailing run of optional fields starts.
+ * @property {{ key: string, position: number, keys: string[], values: unknown[] }} [tag] On a
+ *   union's branch: the discriminator it carries as the leading tag.
+ * @property {Slot} [slot] On a schema used by value: the codec to call instead of compiling.
+ *
+ * @typedef {object} UnionNode
+ * @property {'union'} kind
+ * @property {string} key The discriminator.
+ * @property {ScalarNode} tag An enum over the values of every branch, in order.
+ * @property {unknown[]} values
+ * @property {{ node: StructNode, first: number, count: number, source: StructNode }[]} branches
+ *
+ * @typedef {{ kind: 'array', item: Node, itemRequired: boolean, layout: string }} ArrayNode
+ * @typedef {{ kind: 'tuple', items: { node: ScalarNode, required: boolean }[] }} TupleNode
+ * @typedef {{ kind: 'ref', name: string, slot: Slot }} RefNode A reference by name.
+ * @typedef {{ codec: { encode: Function, decode: Function }, checker: object }} Slot A compiled
+ *   schema: its codec, and the codec `check` runs, built when first asked for.
+ * @typedef {ScalarNode | StructNode | UnionNode | ArrayNode | TupleNode | RefNode} Node
+ */
+
 const BRAND = Symbol.for('alexify.protoarray.brand');
 const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');

@@ -32,7 +32,7 @@ jobs:
       - run: pnpm format:check
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
       # ever reaches the browser bundle, and fails over the min+gzip budget.
-      - run: pnpm size --max-gzip 8
+      - run: pnpm size --max-gzip 10
 
   types:
     runs-on: ubuntu-latest

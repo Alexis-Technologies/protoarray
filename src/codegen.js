@@ -26,7 +26,10 @@ try {
   available = false;
 }
 
-const build = (plan, options) => {
+// The source of a plan's codec and the helpers it reads through `H`. It is
+// deterministic, so the source can be generated again on demand instead of
+// being kept on every codec.
+const generate = (plan, options) => {
   // Which direction is checked: `validate.encode` the values given to encode,
   // `validate.decode` the wire.
   const { validate } = options;
@@ -56,10 +59,23 @@ const build = (plan, options) => {
   // table, as closures do.
   const pack = (node, v) => (node.pack === null ? v : `${slot(node)}.pack(${v})`);
   const unpack = (node, v) => (node.unpack === null ? v : `${slot(node)}.unpack(${v})`);
+  // The wire check of an identity scalar (json has none).
   const check = (node, v, path) => {
     if (!validate.decode || node.check === null) return '';
-    const test = node.pack === null ? `typeof ${v}==='${node.type}'` : `${slot(node)}.check(${v})`;
-    return `if(!(${test}))F(${str(node.code)},${path},${str(node.expected)});`;
+    return `if(typeof ${v}!=='${node.type}')F(${str(node.code)},${path},${str(node.expected)});`;
+  };
+
+  // Statements that set `dst` to the decoded form of a non-null scalar `src`:
+  // a converted type checks and converts in one call, an identity type is
+  // checked inline and travels as it is.
+  const convert = (node, src, dst, path) => {
+    if (validate.decode && node.checkedUnpack !== undefined) {
+      return (
+        `${dst}=${slot(node)}.checkedUnpack(${src});` +
+        `if(${dst}===undefined)F(${str(node.code)},${path},${str(node.expected)});`
+      );
+    }
+    return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
   };
 
   // The encode-side twin of `check`: true when a value given to encode is not
@@ -147,7 +163,7 @@ const build = (plan, options) => {
   // expression evaluated only on error branches, relative to the enclosing
   // struct function: the caller prepends its own key through N.
   const decodeInto = (node, src, dst, path) => {
-    if (node.kind === 'scalar') return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
+    if (node.kind === 'scalar') return convert(node, src, dst, path);
     if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
       const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.decode` : record(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
@@ -181,10 +197,7 @@ const build = (plan, options) => {
       out.push(`${dst}=${src};`);
       return out.join('');
     }
-    const body =
-      item.kind === 'scalar'
-        ? `${check(item, e, at)}${x}=${unpack(item, e)};`
-        : decodeInto(item, e, x, at);
+    const body = decodeInto(item, e, x, at);
     out.push(
       `const ${r}=new Array(${src}.length);${loop}let ${x}=null;` +
         `if(${e}==null){${nullCheck}}else{${body}}${r}[${i}]=${x};}${dst}=${r};`,
@@ -198,15 +211,15 @@ const build = (plan, options) => {
     const req = required && validate.decode ? `F('required',${path});` : '';
     const fallback = def === null ? 'null' : str(def);
     if (node.kind === 'scalar') {
-      const chk = check(node, v, path);
       if (node.pack === null) {
+        const chk = check(node, v, path);
         if (req !== '' || chk !== '') out.push(`if(${v}==null){${req}}else{${chk}}`);
         // A validated required slot is never nullish past its check; any other
         // slot normalises undefined to null (or to its default).
         return req !== '' ? v : `(${v}==null?${fallback}:${v})`;
       }
       const w = uid('w');
-      out.push(`let ${w}=${fallback};if(${v}==null){${req}}else{${chk}${w}=${unpack(node, v)};}`);
+      out.push(`let ${w}=${fallback};if(${v}==null){${req}}else{${convert(node, v, w, path)}}`);
       return w;
     }
     const w = uid('w');
@@ -346,11 +359,17 @@ const build = (plan, options) => {
     `function decode(v,strict){${decodeBody}}`,
     'return {encode,decode};',
   ].join('\n');
+  return { body, helpers };
+};
+
+const build = (plan, options) => {
+  const { body, helpers } = generate(plan, options);
   // oxlint-disable-next-line no-new-func
   const factory = new Function('H', 'F', 'N', 'E', body);
   const codec = factory(helpers, fail, nest, refuse);
-  // Off the public surface, for debugging through the codec symbol.
-  codec.source = body;
+  // Off the public surface, for debugging through the codec symbol: generated
+  // again when read, so a codec does not hold its source text.
+  Object.defineProperty(codec, 'source', { get: () => generate(plan, options).body });
   return codec;
 };
 

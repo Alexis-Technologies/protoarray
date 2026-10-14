@@ -461,7 +461,7 @@ for (const [backend, options] of BACKENDS) {
     if (backend === 'codegen') {
       // E throws an encode error, F a decode error.
       const encodeChecks = ['E("required"', 'E("type"', 'E("enum"', '.accept(', '.checkedPack('];
-      const decodeChecks = ["F('required'", 'F("type"', 'F("enum"', '.check('];
+      const decodeChecks = ["F('required'", 'F("type"', 'F("enum"', '.checkedUnpack('];
       for (const needle of [...encodeChecks, ...decodeChecks]) {
         assert.ok(!codec.source.includes(needle), needle);
       }
@@ -626,6 +626,9 @@ for (const [backend, options] of BACKENDS) {
       assert.strictEqual(User.check([1]).code, 'object');
       const Packet = Schema.from({ union: [{ k: { enum: ['a'] } }], discriminator: 'k' }, mode);
       assert.throws(() => Packet.encode([0]), { code: 'object', path: '' });
+      const Sparse = Schema.from({ a: '?number' }, { ...mode, sparse: true });
+      assert.throws(() => Sparse.encode([1]), { code: 'object', path: '' });
+      assert.throws(() => Schema.from({ s: Sparse }, mode).encode({ s: [1] }), { path: 's' });
     }
   });
 }

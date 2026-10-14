@@ -39,13 +39,15 @@ const isBytes = (v) =>
 
 const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
-// `check` validates the wire form and `accept` the value given to encode;
-// `pack`/`unpack` convert, and are null for identity types, which travel as
-// they are. Where checking and converting share their work, `checkedPack`
-// replaces `accept`: the wire value, or undefined for a value of the wrong
-// type. Without validation the wire is trusted, so `unpack` must be total:
-// what has no wire form of the type stays as it is instead of throwing or
-// reading a prototype.
+// An identity type travels as it is: `pack` and `unpack` are null, `check`
+// validates the wire form and `accept` the value given to encode. A converted
+// type checks and converts in one call: `checkedUnpack` on the wire, and
+// `checkedPack` on the value given to encode where checking and converting
+// share their work (the others keep `accept` and `pack` apart); both give the
+// converted value, or undefined for one of the wrong type. Without validation
+// the wire is trusted, so `unpack` must be total: what has no wire form of
+// the type stays as it is instead of throwing or reading a prototype. An enum
+// keeps a `check` too: a union reads its tag through it.
 const identity = (type) => {
   // oxlint-disable-next-line valid-typeof
   const check = type === 'json' ? null : (v) => typeof v === type;
@@ -61,25 +63,28 @@ const SCALARS = Object.assign(Object.create(null), {
   json: () => identity('json'),
   date: () =>
     scalar('date', {
-      check: (v) => typeof v === 'number',
       checkedPack: timestamp,
       pack: ms,
       unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
+      checkedUnpack: (v) => (typeof v === 'number' ? new Date(v) : undefined),
     }),
   bytes: () =>
     scalar('bytes', {
       // Canonical base64 with padding (RFC 4648 §4): what toBase64 writes.
-      check: (v) => typeof v === 'string' && fromBase64(v) !== null,
-      accept: isBytes,
+      // Decoding is the check, so a validated slot decodes once.
+      checkedPack: (v) => (isBytes(v) ? toBase64(v) : undefined),
       pack: (v) => (isBytes(v) ? toBase64(v) : v),
       unpack: (v) => {
         const bytes = typeof v === 'string' ? fromBase64(v) : null;
         return bytes === null ? v : bytes;
       },
+      checkedUnpack: (v) => {
+        const bytes = typeof v === 'string' ? fromBase64(v) : null;
+        return bytes === null ? undefined : bytes;
+      },
     }),
   bigint: () =>
     scalar('bigint', {
-      check: (v) => typeof v === 'string' && DIGITS.test(v),
       accept: (v) =>
         typeof v === 'bigint' ||
         Number.isSafeInteger(v) ||
@@ -92,6 +97,7 @@ const SCALARS = Object.assign(Object.create(null), {
           return v;
         }
       },
+      checkedUnpack: (v) => (typeof v === 'string' && DIGITS.test(v) ? BigInt(v) : undefined),
     }),
 });
 
@@ -118,6 +124,8 @@ const enumeration = (values) => {
       return index === undefined ? null : index;
     },
     unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
+    checkedUnpack: (v) =>
+      typeof v === 'number' && (v | 0) === v && v >= 0 && v < size ? values[v] : undefined,
   });
   node.expected = values.join(', ');
   node.code = 'enum';
@@ -129,13 +137,16 @@ const enumeration = (values) => {
 // dividing the integer by 10ⁿ gives back the double nearest to the decimal.
 const decimal = (n) => {
   const scale = 10 ** n;
+  // + 0 turns -0 into 0, which is what JSON would write anyway.
   const node = scalar('number', {
     decimals: n,
-    check: Number.isSafeInteger,
-    accept: (v) => Number.isFinite(v) && Math.abs(v * scale) <= Number.MAX_SAFE_INTEGER,
-    // + 0 turns -0 into 0, which is what JSON would write anyway.
+    checkedPack: (v) => {
+      const scaled = typeof v === 'number' ? v * scale : NaN;
+      return Math.abs(scaled) <= Number.MAX_SAFE_INTEGER ? Math.round(scaled) + 0 : undefined;
+    },
     pack: (v) => (typeof v === 'number' ? Math.round(v * scale) + 0 : v),
     unpack: (v) => (typeof v === 'number' ? v / scale : v),
+    checkedUnpack: (v) => (Number.isSafeInteger(v) ? v / scale : undefined),
   });
   node.expected = `number(${n})`;
   return node;
@@ -152,9 +163,18 @@ const isWord = (v) => typeof v === 'number' && (v | 0) === v && v >= 0;
 const flags = (names) => {
   const size = names.length;
   const template = literal(names, 'false');
+  const unpack = (v) => {
+    const single = typeof v === 'number';
+    if (!single && !Array.isArray(v)) return v;
+    const object = { ...template };
+    for (let i = 0; i < size; i++) {
+      const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
+      object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
+    }
+    return object;
+  };
   return scalar('flags', {
     names,
-    check: (v) => isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)),
     accept: (v) => typeof v === 'object' && !Array.isArray(v),
     pack: (v) => {
       let mask = 0;
@@ -169,16 +189,9 @@ const flags = (names) => {
       }
       return words.length === 1 ? mask : words;
     },
-    unpack: (v) => {
-      const single = typeof v === 'number';
-      if (!single && !Array.isArray(v)) return v;
-      const object = { ...template };
-      for (let i = 0; i < size; i++) {
-        const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
-        object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
-      }
-      return object;
-    },
+    unpack,
+    checkedUnpack: (v) =>
+      isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)) ? unpack(v) : undefined,
   });
 };
 

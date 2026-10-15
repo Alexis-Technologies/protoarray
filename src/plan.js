@@ -98,6 +98,11 @@ const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
 
+// What the subpath modules plug in with their `register()`: `model` builds a
+// SchemaRegistry from a metaschema Model, `foreign` a definition from a
+// metaschema Schema. Null until registered.
+const HOOKS = { model: null, foreign: null };
+
 // A compiled schema in a slot: the codec it runs, the codec that checks
 // values for Schema#check, compiled when first asked for, and the schema
 // itself, whose plan Schema.resolve reads.
@@ -482,6 +487,7 @@ module.exports = {
   CODEC,
   CHECKER,
   FALLBACK,
+  HOOKS,
   isSchema,
   compilePlan,
   canonical,

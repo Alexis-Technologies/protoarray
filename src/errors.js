@@ -10,6 +10,7 @@ const STRUCTURE = {
   map: 'is not a map',
   length: 'has a wrong length',
   mask: 'is not a sparse mask',
+  envelope: 'is not an envelope: [id, payload]',
   depth: 'is nested too deeply',
 };
 
@@ -21,6 +22,7 @@ const TEXT = {
   union: 'is not of union: %',
   extra: 'has extra elements',
   json: 'is not valid JSON',
+  schema: 'is not a known schema: %',
 };
 
 // What a null element of an array of required items was expected to be.

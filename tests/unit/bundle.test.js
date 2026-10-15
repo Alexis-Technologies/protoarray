@@ -107,3 +107,35 @@ test('Bundle: the browser entry loads in a realm without btoa', async () => {
   assert.throws(() => Blob.encode({ data: bytes }), { name: 'ReferenceError' });
   assert.throws(() => Blob.encode({ data: new Uint8Array(1) }), { name: 'ReferenceError' });
 });
+
+// The subpaths bundle with the core and share its Schema class: one copy of
+// src/schema.js serves both.
+test('Bundle: the registry subpath bundles for browsers with the core', async () => {
+  for (const minify of [false, true]) {
+    const result = await esbuild.build({
+      stdin: {
+        contents: "module.exports = { ...require('./browser.js'), ...require('./registry.js') };",
+        resolveDir: ROOT,
+      },
+      bundle: true,
+      write: false,
+      logLevel: 'silent',
+      platform: 'browser',
+      format: 'iife',
+      globalName: 'protoarray',
+      minify,
+    });
+    const context = vm.createContext({});
+    vm.runInContext(result.outputFiles[0].text, context);
+    const { Schema, SchemaRegistry } = context.protoarray;
+    const V1 = new Schema('User', { id: 'number', fullName: 'string' });
+    const V2 = new Schema('User', {
+      id: 'number',
+      name: { type: 'string', aliases: ['fullName'] },
+    });
+    const registry = new SchemaRegistry([V1, V2]);
+    const text = registry.stringify(V1, { id: 1, fullName: 'Alex' });
+    assert.strictEqual(text, `["${V1.id}",[1,"Alex"]]`);
+    assert.strictEqual(JSON.stringify(registry.parse(text, V2)), '{"id":1,"name":"Alex"}');
+  }
+});

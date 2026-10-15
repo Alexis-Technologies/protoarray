@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values. What cannot be read throws `SchemaDefinitionError` `ERR_INCOMPATIBLE` when resolving.
   The result is compiled by the same backends, recursion and embedded schemas included, so it
   runs at the speed of a schema of its own.
+- **`@alexify/protoarray/registry`**: `SchemaRegistry`, schemas by id and by name, and the
+  envelope `[id, payload]` that tells a receiver which version wrote a payload.
+  `registry.decode(envelope, reader?)` reads it as its writer wrote it or as any reader schema
+  (through `Schema.resolve`, once per pair), `registry.encode(schema, value, { as: id })` writes
+  for a peer on another version, `stringify` and `parse` do the same with text. An unknown id is a
+  `DecodeError` with the new code `schema`, a value that is not `[id, payload]` a `structure`
+  error; two different schemas under one id (a fingerprint too narrow for the registry) throw
+  `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
+  carry it.
 
 - **The rest of metaschema's DSL**, so that one definition serves both libraries:
   - `integer`: a number that must be an integer;

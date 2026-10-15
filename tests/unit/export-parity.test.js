@@ -20,6 +20,13 @@ const declaredValueExports = (dtsFile) => {
 const entryPoints = [
   ['index.js', 'index.d.ts'],
   ['browser.js', 'index.d.ts'],
+  ['registry.js', 'registry.d.ts'],
+];
+
+// Every subpath of the exports map, with the typings it declares.
+const SUBPATHS = [
+  ['@alexify/protoarray', 'index.d.ts'],
+  ['@alexify/protoarray/registry', 'registry.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -33,15 +40,29 @@ for (const [runtimeFile, dtsFile] of entryPoints) {
   });
 }
 
-test('Exports: named imports work from ESM', () => {
-  const names = [...declaredValueExports('index.d.ts')].sort();
-  const source = [
-    `import { ${names.join(', ')} } from '@alexify/protoarray';`,
-    `const values = { ${names.join(', ')} };`,
-    'const missing = Object.keys(values).filter((name) => values[name] === undefined);',
-    'process.stdout.write(JSON.stringify(missing));',
-  ].join('\n');
-  const args = ['--input-type=module', '-e', source];
-  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
-  assert.deepStrictEqual(JSON.parse(output), []);
+for (const [specifier, dtsFile] of SUBPATHS) {
+  test(`Exports: named imports from ${specifier} work from ESM`, () => {
+    const names = [...declaredValueExports(dtsFile)].sort();
+    const source = [
+      `import { ${names.join(', ')} } from '${specifier}';`,
+      `const values = { ${names.join(', ')} };`,
+      'const missing = Object.keys(values).filter((name) => values[name] === undefined);',
+      'process.stdout.write(JSON.stringify(missing));',
+    ].join('\n');
+    const args = ['--input-type=module', '-e', source];
+    const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+    assert.deepStrictEqual(JSON.parse(output), []);
+  });
+}
+
+test('Exports: every subpath is in the exports map and the files list', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  for (const [specifier, dtsFile] of SUBPATHS.slice(1)) {
+    const subpath = `.${specifier.slice('@alexify/protoarray'.length)}`;
+    const runtime = `${subpath}.js`;
+    assert.deepStrictEqual(pkg.exports[subpath], { types: `./${dtsFile}`, default: runtime });
+    assert.ok(pkg.files.includes(runtime.slice(2)), runtime);
+    assert.ok(pkg.files.includes(dtsFile), dtsFile);
+    assert.ok(pkg.scripts['check:dts'].includes(dtsFile), dtsFile);
+  }
 });

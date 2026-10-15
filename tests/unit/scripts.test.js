@@ -13,6 +13,10 @@ test('Scripts: size reports both entries and enforces the gzip budget', () => {
   assert.strictEqual(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /\| Node entry \(index\.js\) \|/);
   assert.match(ok.stdout, /\| Browser entry \(browser\.js\) \|/);
+  assert.match(
+    ok.stdout,
+    /\| Registry \(registry\.js\), over the core \| \| \+[\d.]+ KB \| \+[\d.]+ KB \|/,
+  );
 
   const over = run('scripts/size.js', ['--max-gzip', '0.01']);
   assert.strictEqual(over.status, 1);

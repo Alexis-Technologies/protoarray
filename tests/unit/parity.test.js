@@ -121,3 +121,77 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
     }
   }
 });
+
+// A reader version of a generated definition: fields renamed (through the
+// `aliases` option), dropped when optional, shuffled, and a new optional one.
+const mutate = (definition, random) => {
+  const reader = [];
+  const aliases = {};
+  const renamed = {};
+  for (const rawKey of Object.keys(definition)) {
+    const key = rawKey.replace('?', '');
+    const optional = rawKey !== key || String(definition[rawKey]).startsWith('?');
+    const roll = random();
+    if (roll < 0.15 && optional) continue;
+    const name = roll < 0.4 ? `${key}_renamed` : key;
+    if (name !== key) aliases[name] = key;
+    renamed[name] = key;
+    reader.push([rawKey === key ? name : `${name}?`, definition[rawKey]]);
+  }
+  for (let i = reader.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [reader[i], reader[j]] = [reader[j], reader[i]];
+  }
+  reader.push(['added?', 'string']);
+  return { reader: Object.fromEntries(reader), aliases, renamed };
+};
+
+test('Parity: codegen and closures agree on resolved schemas', () => {
+  for (let seed = 1; seed <= SEEDS; seed++) {
+    const { definition, value, random } = generate(seed);
+    const { reader, aliases, renamed } = mutate(definition, random);
+    for (const extra of [{}, { sparse: true }, { validate: 'both' }]) {
+      const label = `seed ${seed} ${JSON.stringify(extra)}`;
+      const sides = [true, false].map((codegen) => {
+        const writer = Schema.from(definition, { codegen, ...extra });
+        const { sparse, ...rest } = extra;
+        const read = Schema.from(reader, { codegen, ...rest });
+        return { writer, resolved: Schema.resolve(writer, read, { aliases }) };
+      });
+      const [A, B] = sides.map((side) => side.resolved);
+      const W = sides[0].writer;
+      assert.strictEqual(A.id, W.id, label);
+      const wire = W.encode(value);
+      const decoded = A.decode(wire);
+      assert.deepStrictEqual(normalize(decoded), normalize(B.decode(wire)), label);
+      assert.deepStrictEqual(Object.keys(decoded), A.keys, label);
+      // Every reader field holds what the writer decodes for its source field.
+      const written = normalize(W.decode(wire));
+      for (const key of A.keys) {
+        const expected = key === 'added' ? null : written[renamed[key]];
+        assert.deepStrictEqual(normalize(decoded[key]), expected, `${label} ${key}`);
+      }
+      assert.deepStrictEqual(
+        outcome(() => A.encode(decoded)),
+        outcome(() => B.encode(decoded)),
+        label,
+      );
+      for (let round = 0; round < 4; round++) {
+        const bad = corrupt(decoded, random);
+        assert.deepStrictEqual(
+          outcome(() => A.encode(bad)),
+          outcome(() => B.encode(bad)),
+          label,
+        );
+        const broken = corruptWire(JSON.parse(JSON.stringify(wire)), random);
+        for (const strict of [false, true]) {
+          assert.deepStrictEqual(
+            outcome(() => A.decode(broken, { strict })),
+            outcome(() => B.decode(broken, { strict })),
+            `${label} broken ${JSON.stringify(broken)}`,
+          );
+        }
+      }
+    }
+  }
+});

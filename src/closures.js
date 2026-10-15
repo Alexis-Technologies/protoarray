@@ -8,6 +8,10 @@ const { WORD, literal, isMap, listOf, put } = require('./types.js');
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
 
+// What encode requires: the writer's flag on a plan from Schema.resolve, where
+// the twin is set, the same flag as decode otherwise.
+const outRequired = (own, twin) => (twin === undefined ? own : twin);
+
 const build = (plan, options) => {
   // Which direction is checked: `validate.encode` the values given to encode,
   // `validate.decode` the wire.
@@ -83,7 +87,7 @@ const build = (plan, options) => {
     const identity = scalar && item.pack === null;
     const accept = inlineAccept(item);
     const encode = identity ? null : scalar ? scalarEncoder(item, '') : encoder(item);
-    const nullType = validate.encode && node.itemRequired;
+    const nullType = validate.encode && outRequired(node.itemRequired, node.itemEncodeRequired);
     const expected = expectedOf(item);
     const set = node.container === 'set';
     return (input) => {
@@ -129,7 +133,9 @@ const build = (plan, options) => {
         }
       };
     });
-    const required = node.items.map((item) => validate.encode && item.required);
+    const required = node.items.map(
+      (item) => validate.encode && outRequired(item.required, item.encodeRequired),
+    );
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
       const out = new Array(size);
@@ -148,7 +154,10 @@ const build = (plan, options) => {
   // `[k0, v0, k1, v1, …]`; an entry's path is its index, since a key may be
   // anything until checked.
   const mapEncoder = (node) => {
-    const value = elementEncoder(node.value, node.valueRequired);
+    const value = elementEncoder(
+      node.value,
+      outRequired(node.valueRequired, node.valueEncodeRequired),
+    );
     const key = validate.encode ? node.key.accept : null;
     const expected = node.key.expected;
     return (map) => {
@@ -167,9 +176,10 @@ const build = (plan, options) => {
   const dictEncoder = (node) => {
     const { value } = node;
     const identity = value.kind === 'scalar' && value.pack === null;
-    const element = elementEncoder(value, node.valueRequired);
+    const required = outRequired(node.valueRequired, node.valueEncodeRequired);
+    const element = elementEncoder(value, required);
     // Identity values travel in the same object: at most a checking pass.
-    const pass = identity && (!validate.encode || (value.accept === null && !node.valueRequired));
+    const pass = identity && (!validate.encode || (value.accept === null && !required));
     return (object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       if (pass) return object;
@@ -186,7 +196,10 @@ const build = (plan, options) => {
   // A dense record and a sparse one get a loop each. A branch of a union has
   // a tag: it leads the wire, so every position moves one place to the right.
   const structEncoder = (node) => {
-    const { keys, tail, sparse } = node;
+    const { tail, sparse } = node;
+    // A field only the writer has (Schema.resolve) has no key: it is null on
+    // the wire, which a writer that requires it rejects.
+    const keys = node.fields.map((field) => field.key);
     const size = keys.length;
     const lead = node.tag === undefined ? 0 : 1;
     const width = size + lead;
@@ -197,12 +210,15 @@ const build = (plan, options) => {
       if (accepts[i] !== null) return null;
       return field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node);
     });
-    const required = node.fields.map((field) => validate.encode && field.required);
+    const required = node.fields.map(
+      (field) => validate.encode && outRequired(field.required, field.encodeRequired),
+    );
     // The wire form of one field, or null for one that is missing.
     const wireOf = (object, i) => {
-      const value = object[keys[i]];
+      const key = keys[i];
+      const value = key === null ? null : object[key];
       if (value == null) {
-        if (required[i]) refuse('required', keys[i]);
+        if (required[i]) refuse('required', key === null ? node.fields[i].wire : key);
         return null;
       }
       const encode = encoders[i];
@@ -271,27 +287,35 @@ const build = (plan, options) => {
   // A union picks its branch by the discriminator on encode and by the tag on
   // decode; either one outside the union is an error even without validation,
   // since there is no branch to fall back to.
+  // A branch the reader has no values of (Schema.resolve) has no codec: its
+  // tags are errors.
   const unionEncoder = (node) => {
     const { key, tag } = node;
-    const encoders = node.branches.map((branch) => structEncoder(branch.node));
+    const encoders = node.branches.map((branch) =>
+      branch.node === null ? null : structEncoder(branch.node),
+    );
     const branches = branchOf(node);
     return (object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const t = tag.checkedPack(object[key]);
-      if (t === undefined) refuse('union', key, tag.expected);
-      return encoders[branches[t]](object, t);
+      const encode = t === undefined ? null : encoders[branches[t]];
+      if (encode === null) refuse('union', key, tag.expected);
+      return encode(object, t);
     };
   };
 
   const unionDecoder = (node) => {
     const { key, tag } = node;
-    const decoders = node.branches.map((branch) => structDecoder(branch.node));
+    const decoders = node.branches.map((branch) =>
+      branch.node === null ? null : structDecoder(branch.node),
+    );
     const branches = branchOf(node);
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const t = array[0];
-      if (!tag.check(t)) fail('union', key, tag.expected);
-      return decoders[branches[t]](array, strict, t);
+      const decode = tag.check(t) ? decoders[branches[t]] : null;
+      if (decode === null) fail('union', key, tag.expected);
+      return decode(array, strict, t);
     };
   };
 
@@ -348,7 +372,9 @@ const build = (plan, options) => {
   // record has the same hidden class, as an object literal would. Scalars are
   // handled in the loop; only nested values go through a call.
   const structDecoder = (node) => {
-    const { keys, sparse, tag } = node;
+    const { sparse, tag } = node;
+    // A field only the writer has (Schema.resolve) has no key: it is not read.
+    const keys = node.fields.map((field) => field.key);
     const size = keys.length;
     const lead = tag === undefined ? 0 : 1;
     const fields = node.fields.map((field) => {
@@ -364,8 +390,12 @@ const build = (plan, options) => {
         decode: scalar ? null : slotDecoder(field.node, field.required, field.def),
       };
     });
-    // A branch's template has every key of the branch, its discriminator too.
-    const template = literal(lead === 0 ? keys : tag.keys, 'null');
+    // A branch's template has every key of the branch, its discriminator too;
+    // a resolved record's has the reader's keys in its order, with the
+    // reader's fields the writer does not have at their defaults.
+    const order = node.order === undefined ? keys : node.order;
+    const template = literal(lead === 0 ? order : tag.keys, 'null');
+    if (node.extras !== undefined) for (const extra of node.extras) template[extra.key] = extra.def;
     return (array, strict, t) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const { length } = array;
@@ -389,6 +419,7 @@ const build = (plan, options) => {
           }
           if ((mask & (1 << (i % WORD))) !== 0) value = array[next++];
         }
+        if (key === null) continue;
         if (field.decode !== null) {
           object[key] = field.decode(value, key, strict);
         } else if (value == null) {
@@ -408,14 +439,19 @@ const build = (plan, options) => {
     };
   };
 
+  // An element the reader does not have (Schema.resolve) is not read; the
+  // reader's elements the writer does not have follow at their defaults.
   const tupleDecoder = (node) => {
     const slots = node.items.map((item) => slotDecoder(item.node, item.required, item.def));
     const size = slots.length;
+    const read = node.items.filter((item) => item.skip !== true).length;
+    const extras = node.extras === undefined ? [] : node.extras.map((extra) => extra.def);
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       if (validate.decode && array.length !== size) fail('structure', '', 'length');
-      const out = new Array(size);
-      for (let i = 0; i < size; i++) out[i] = slots[i](array[i], i, strict);
+      const out = new Array(read + extras.length);
+      for (let i = 0; i < read; i++) out[i] = slots[i](array[i], i, strict);
+      for (let i = 0; i < extras.length; i++) out[read + i] = extras[i];
       return out;
     };
   };
@@ -498,7 +534,8 @@ const build = (plan, options) => {
   const encode = plan.kind === 'scalar' ? scalarEncoder(plan, '') : encoder(plan);
   const decode = decoder(plan);
   const required = plan.kind === 'scalar' && plan.required;
-  const requiredIn = required && validate.encode;
+  const requiredIn =
+    plan.kind === 'scalar' && validate.encode && outRequired(plan.required, plan.encodeRequired);
   const requiredOut = required && validate.decode;
   return {
     encode: (value) => {

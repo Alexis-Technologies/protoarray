@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Schema.resolve(writer, reader, options?)`**: a schema that reads what `writer` wrote as
+  `reader` objects and writes `reader` objects the way `writer` does, for versions that the
+  append-only rules cannot bridge. Its wire, id, canonical form and layout are the writer's; its
+  keys, key order, types and defaults the reader's. Fields match by key, by the reader's
+  `aliases` (`name: { type: 'string', aliases: ['fullName'] }`, metaschema's own key, outside
+  the fingerprint) or by the `aliases` option, keyed by reader path (`'address.city': 'town'`,
+  `'orders[].sku'`). The reader may drop writer fields (skipped on decode, null on encode), add
+  optional or defaulted ones, reorder and rename, widen `integer` to `number` or `bigint` and
+  `decimals` to more decimals or a plain number, read an enum by value (a dropped value becomes
+  the default, null when optional, an error otherwise), an enum as a string and a string as an
+  enum, flags by name, and anything as `json`; union branches pair up by their discriminator
+  values. What cannot be read throws `SchemaDefinitionError` `ERR_INCOMPATIBLE` when resolving.
+  The result is compiled by the same backends, recursion and embedded schemas included, so it
+  runs at the speed of a schema of its own.
+
 - **The rest of metaschema's DSL**, so that one definition serves both libraries:
   - `integer`: a number that must be an integer;
   - `any` and `unknown`: the same slot as `json`, with the same id;
@@ -35,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metaschema reads such a definition as a shorthand, not as a struct.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The bundle budget is 13 KB min+gzip.
+- The bundle budget is 16 KB min+gzip.
 
 ## [1.1.0] - 2026-10-15
 

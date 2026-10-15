@@ -237,4 +237,103 @@ const flags = (names) => {
   });
 };
 
-module.exports = { SCALARS, WORD, enumeration, flags, decimal, literal, isMap, listOf, put };
+// Conversions between a writer's type and a reader's, for Schema.resolve: the
+// wire is the writer's, the value the reader's. `fallback` is what a writer
+// value the reader does not know becomes (undefined: an error under
+// validation; without it the writer's value passes through).
+const bridge = {
+  // A writer's integer read as a BigInt.
+  bigint: () => {
+    const node = scalar('bigint', {
+      checkedPack: (v) => {
+        if (typeof v === 'bigint') return BigInt.asIntN(54, v) === v ? Number(v) : undefined;
+        return Number.isSafeInteger(v) ? v : undefined;
+      },
+      pack: (v) => (typeof v === 'bigint' ? Number(v) : v),
+      unpack: (v) => (Number.isInteger(v) ? BigInt(v) : v),
+      checkedUnpack: (v) => (Number.isInteger(v) ? BigInt(v) : undefined),
+    });
+    node.expected = 'integer';
+    return node;
+  },
+  // A writer's enum read as the reader's enum, by value, or as a string.
+  enumeration: (writer, reader, fallback) => {
+    const { values, check } = writer;
+    const known = reader.type === 'string' ? () => true : (v) => reader.values.includes(v);
+    const mapped = values.map((value) => (known(value) ? value : fallback));
+    const node = scalar(reader.type, {
+      pack: writer.pack,
+      checkedPack: writer.checkedPack,
+      unpack: (v) => {
+        if (!check(v)) return v;
+        return mapped[v] === undefined ? values[v] : mapped[v];
+      },
+      checkedUnpack: (v) => (check(v) ? mapped[v] : undefined),
+    });
+    node.code = 'enum';
+    node.expected = reader.type === 'string' ? writer.expected : reader.expected;
+    return node;
+  },
+  // A writer's string read as one of the reader's enum values.
+  choice: (reader, fallback) => {
+    const node = scalar('enum', {
+      pack: (v) => v,
+      checkedPack: (v) => (typeof v === 'string' ? v : undefined),
+      unpack: (v) => v,
+      checkedUnpack: (v) => {
+        if (typeof v !== 'string') return undefined;
+        return reader.values.includes(v) ? v : fallback;
+      },
+    });
+    node.code = 'enum';
+    node.expected = reader.expected;
+    return node;
+  },
+  // A writer's flags read by name: the reader's names the writer lacks are
+  // false, the writer's names the reader lacks are dropped.
+  flags: (writer, reader) => {
+    const { names } = reader;
+    const template = literal(names, 'false');
+    const shared = names.filter((name) => writer.names.includes(name));
+    const project = (object) => {
+      const out = { ...template };
+      for (let i = 0; i < shared.length; i++) out[shared[i]] = object[shared[i]];
+      return out;
+    };
+    const isMask = (v) => typeof v === 'number' || Array.isArray(v);
+    return scalar('flags', {
+      names,
+      accept: writer.accept,
+      pack: writer.pack,
+      unpack: (v) => (isMask(v) ? project(writer.unpack(v)) : v),
+      checkedUnpack: (v) => {
+        const object = writer.checkedUnpack(v);
+        return object === undefined ? undefined : project(object);
+      },
+    });
+  },
+  // A value the reader has no use for: whatever the writer sent is dropped,
+  // and the reader's null slot holds nothing else, as a null type's does.
+  ignore: () =>
+    scalar('null', {
+      nullable: true,
+      check: null,
+      pack: () => null,
+      checkedPack: () => undefined,
+      unpack: () => null,
+      checkedUnpack: () => null,
+    }),
+};
+
+module.exports = {
+  SCALARS,
+  WORD,
+  enumeration,
+  flags,
+  decimal,
+  literal,
+  isMap,
+  listOf,
+  put,
+  bridge,
+};

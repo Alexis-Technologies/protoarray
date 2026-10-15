@@ -30,6 +30,7 @@ const { SCALARS, enumeration, flags, decimal } = require('./types.js');
  * @property {boolean} required
  * @property {string | number | boolean | null} def The default, a decoded value.
  * @property {Node} node
+ * @property {string[]} [aliases] Keys the field had in older versions (Schema.resolve).
  *
  * @typedef {object} StructNode
  * @property {'struct'} kind
@@ -89,15 +90,20 @@ const COLLECTIONS = /^(array|set|map|object|tuple|schema)$/;
 // Names a tuple element cannot have: metaschema reads `{ array: 'number' }` as
 // a definition, not as an element named `array`.
 const KEYWORDS = /^(type|array|set|map|object|tuple|schema|enum|flags|union|one|many)$/;
+// The object forms of a field, which may carry `aliases`: a struct's own keys
+// are its fields.
+const FORMS = /^(type|enum|flags|union|array|set|map|object|tuple|schema)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
 
-// A compiled schema in a slot: the codec it runs, and the codec that checks
-// values for Schema#check, compiled when first asked for.
+// A compiled schema in a slot: the codec it runs, the codec that checks
+// values for Schema#check, compiled when first asked for, and the schema
+// itself, whose plan Schema.resolve reads.
 const slotOf = (schema) => ({
   codec: schema[CODEC],
+  schema,
   get checker() {
     return schema[CHECKER];
   },
@@ -211,10 +217,30 @@ const compilePlan = (definition, context) => {
     return { node, required, def: null };
   };
 
+  // The keys a field was known by in older versions, read by Schema.resolve
+  // only: they never reach the wire or the fingerprint.
+  const aliasesOf = (source, path) => {
+    const keys = source.aliases;
+    const valid =
+      Array.isArray(keys) &&
+      keys.every((key) => typeof key === 'string' && key !== '' && key !== '__proto__') &&
+      new Set(keys).size === keys.length;
+    if (!valid) throw error('ERR_INVALID_DEFINITION', 'aliases is a list of unique keys', path);
+    return keys.slice();
+  };
+
+  const field = (source, path) => {
+    const parsed = parse(source, path);
+    if (isPlain(source) && source.aliases !== undefined && FORMS.test(Object.keys(source)[0])) {
+      parsed.aliases = aliasesOf(source, path);
+    }
+    return parsed;
+  };
+
   // A field in any of the metaschema spellings: a Schema instance, a type
   // name with an optional `?`, a tuple, a shorthand (`{ array }`, `{ enum }`,
   // `{ flags }`), the long form (`{ type, required, default }`) or a struct.
-  const field = (source, path) => {
+  const parse = (source, path) => {
     if (isSchema(source)) {
       const node = source[PLAN];
       if (node.kind === 'scalar') {
@@ -354,13 +380,15 @@ const compilePlan = (definition, context) => {
       }
       names.add(key);
       const parsed = field(raw, at);
-      fields.push({
+      const entry = {
         key,
         index: fields.length,
         required: parsed.required && !optional,
         def: parsed.def,
         node: parsed.node,
-      });
+      };
+      if (parsed.aliases !== undefined) entry.aliases = parsed.aliases;
+      fields.push(entry);
     }
     if (fields.length === 0) throw error('ERR_INVALID_DEFINITION', 'A struct needs fields', path);
     // Only the trailing run of optional fields can be left off the wire.
@@ -401,6 +429,8 @@ const compilePlan = (definition, context) => {
 // The canonical form names every position and type, so two definitions that
 // put the same values in the same slots print the same and share a fingerprint.
 const canonical = (node) => {
+  // A plan from Schema.resolve prints as its writer: the wire it reads.
+  if (node.text !== undefined) return node.text;
   if (node.kind === 'struct') {
     const fields = node.fields.map((field) => {
       const def = field.def === null ? '' : `=${JSON.stringify(field.def)}`;

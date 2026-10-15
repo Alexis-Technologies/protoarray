@@ -277,3 +277,18 @@ const wideInput: Input<typeof Wide.definition> = {
 expectAssignable<Input<typeof Wide.definition>>({ ...wideInput, tags: new Set(['a']) });
 expectError(Wide.encode({ ...wideInput, seen: { k: new Date() } }));
 expectError(Wide.encode({ ...wideInput, prices: { tea: 'x' } }));
+
+// Schema.resolve: typed as the reader.
+const V1 = Schema.from({ id: 'number', fullName: 'string' });
+const V2 = Schema.from({ id: 'number', name: { type: 'string', aliases: ['fullName'] } });
+const Resolved = Schema.resolve(V1, V2, { aliases: { name: 'fullName', 'a.b': ['c', 'd'] } });
+expectType<{ id: number; name: string }>(Resolved.decode([]));
+expectType<unknown[]>(Resolved.encode({ id: 1, name: 'x' }));
+expectError(Resolved.encode({ id: 1, fullName: 'x' }));
+expectError(Schema.resolve(V1, V2, { aliases: { name: 1 } }));
+expectError(Schema.resolve(V1, { id: 'number' }));
+Schema.from({
+  list: { array: 'number', aliases: ['items'] },
+  role: { enum: ['a'], aliases: ['r'] },
+});
+expectAssignable<SchemaErrorCode>('ERR_INCOMPATIBLE');

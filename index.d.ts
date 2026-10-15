@@ -27,11 +27,13 @@ export type TypeName = ScalarType | `?${ScalarType}` | (string & {});
 export interface LongForm {
   readonly type: string;
   /** The item of an array or a set, the value of a map or an object, the elements of a tuple. */
-  readonly value?: unknown;
+  readonly value?: FieldDefinition;
   /** The key type of a map (`'string'` or `'number'`) or an object (`'string'`). */
   readonly key?: 'string' | 'number';
   /** With `type: 'schema'`: the nested struct. */
-  readonly schema?: unknown;
+  readonly schema?: FieldDefinition;
+  /** Keys the field had in older versions, which `Schema.resolve` reads it from. */
+  readonly aliases?: readonly string[];
   readonly required?: boolean;
   readonly default?: string | number | boolean | null;
   readonly enum?: readonly (string | number)[];
@@ -64,27 +66,29 @@ export type FieldDefinition =
   | TypeName
   | AnySchema
   | readonly TupleElement[]
-  | { readonly array: FieldDefinition; readonly required?: boolean }
-  | { readonly set: FieldDefinition; readonly required?: boolean }
+  | { readonly array: FieldDefinition; readonly required?: boolean; readonly aliases?: readonly string[] }
+  | { readonly set: FieldDefinition; readonly required?: boolean; readonly aliases?: readonly string[] }
   | {
       readonly map:
         | { readonly string: FieldDefinition }
         | { readonly number: FieldDefinition };
       readonly required?: boolean;
+      readonly aliases?: readonly string[];
     }
-  | { readonly object: { readonly string: FieldDefinition }; readonly required?: boolean }
-  | { readonly tuple: readonly FieldDefinition[]; readonly required?: boolean }
-  | { readonly schema: FieldDefinition; readonly required?: boolean }
+  | { readonly object: { readonly string: FieldDefinition }; readonly required?: boolean; readonly aliases?: readonly string[] }
+  | { readonly tuple: readonly FieldDefinition[]; readonly required?: boolean; readonly aliases?: readonly string[] }
+  | { readonly schema: FieldDefinition; readonly required?: boolean; readonly aliases?: readonly string[] }
   | {
       readonly enum: readonly (string | number)[];
       readonly required?: boolean;
       readonly default?: string | number;
     }
-  | { readonly flags: readonly string[]; readonly required?: boolean }
+  | { readonly flags: readonly string[]; readonly required?: boolean; readonly aliases?: readonly string[] }
   | {
       readonly union: readonly (StructDefinition | AnySchema | string)[];
       readonly discriminator: string;
       readonly required?: boolean;
+      readonly aliases?: readonly string[];
     }
   | LongForm
   | StructDefinition
@@ -374,6 +378,15 @@ export interface SchemaOptions {
   readonly fingerprint?: (canonical: string) => string;
 }
 
+/** Options of `Schema.resolve`. */
+export interface ResolveOptions {
+  /**
+   * The writer's keys of reader fields, by the reader's path as definition errors spell it
+   * (`address.city`, `orders[].sku`): the aliases an inline struct cannot declare itself.
+   */
+  readonly aliases?: Readonly<Record<string, string | readonly string[]>>;
+}
+
 export interface DecodeOptions {
   /** Fail on elements beyond the schema instead of ignoring them. */
   readonly strict?: boolean;
@@ -385,6 +398,18 @@ export class Schema<const D extends Definition = Definition> {
 
   /** Compiles a definition into a nameless schema. */
   static from<const D extends Definition>(definition: D, options?: SchemaOptions): Schema<D>;
+
+  /**
+   * What `writer` wrote, read as `reader` objects, and `reader` objects written as `writer`
+   * writes them: the writer's wire, id and layout under the reader's keys, types and defaults.
+   * Fields match by key, by the reader's `aliases` or by the `aliases` option. Throws
+   * `ERR_INCOMPATIBLE` for what cannot be read.
+   */
+  static resolve<const R extends Definition>(
+    writer: AnySchema,
+    reader: Schema<R>,
+    options?: ResolveOptions,
+  ): Schema<R>;
 
   /** Keys only: every field is `json`, values travel as they are. */
   static keys<const K extends readonly string[]>(
@@ -474,7 +499,8 @@ export type SchemaErrorCode =
   | 'ERR_INTEGER_KEY'
   | 'ERR_INVALID_OPTIONS'
   | 'ERR_CODEGEN_UNAVAILABLE'
-  | 'ERR_SCHEMA_EXPECTED';
+  | 'ERR_SCHEMA_EXPECTED'
+  | 'ERR_INCOMPATIBLE';
 
 /**
  * `object`/`array`: what the value is not; `depth`: a cyclic value or one nested

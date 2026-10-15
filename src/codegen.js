@@ -17,6 +17,10 @@ const { WORD, isMap, listOf, put } = require('./types.js');
 
 const str = JSON.stringify;
 
+// What encode requires: the writer's flag on a plan from Schema.resolve, where
+// the twin is set, the same flag as decode otherwise.
+const outRequired = (own, twin) => (twin === undefined ? own : twin);
+
 let available = true;
 try {
   // oxlint-disable-next-line no-new-func
@@ -144,7 +148,7 @@ const generate = (plan, options) => {
       const key = validate.encode
         ? `if(${rejects(node.key, `${e}[0]`)})E('type',${at},${str(node.key.expected)});`
         : '';
-      const valueNull = node.valueRequired ? 'type' : null;
+      const valueNull = outRequired(node.valueRequired, node.valueEncodeRequired) ? 'type' : null;
       return (
         `if(${src}==null)${nil}else{if(!${slot(isMap)}(${src}))E('map',${path});` +
         `const ${r}=[];let ${i}=0;for(const ${e} of ${src}){${key}let ${x};` +
@@ -156,13 +160,13 @@ const generate = (plan, options) => {
       const { value } = node;
       const [ks, r, i, k, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('x')];
       const at = `(${path}===""?${k}:${path}+"."+${k})`;
-      const valueNull = node.valueRequired ? 'type' : null;
+      const valueNull = outRequired(node.valueRequired, node.valueEncodeRequired) ? 'type' : null;
       const isObject = `if(typeof ${src}!=='object'||Array.isArray(${src}))E('object',${path});`;
       const loop = `const ${ks}=Object.keys(${src});for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];let ${x};`;
       if (value.kind === 'scalar' && value.pack === null) {
         // Identity values travel in the same object: at most a checking pass.
         const pass =
-          validate.encode && (value.accept !== null || node.valueRequired)
+          validate.encode && (value.accept !== null || valueNull !== null)
             ? `${loop}${encodeInto(value, `${src}[${k}]`, x, at, valueNull)}}`
             : '';
         return `if(${src}==null)${nil}else{${isObject}${pass}${dst}=${src};}`;
@@ -178,7 +182,7 @@ const generate = (plan, options) => {
       const parts = node.items.map((item, i) => {
         const t = uid('t');
         const at = `${path}+${str(`[${i}]`)}`;
-        const required = item.required ? 'required' : null;
+        const required = outRequired(item.required, item.encodeRequired) ? 'required' : null;
         out.push(`let ${t};${encodeInto(item.node, `${src}[${i}]`, t, at, required)}`);
         return t;
       });
@@ -196,11 +200,11 @@ const generate = (plan, options) => {
         `if(${list}===undefined)E('set',${path});`;
     }
     const at = `${path}+"["+${i}+"]"`;
-    const itemNull = node.itemRequired ? 'type' : null;
+    const itemNull = outRequired(node.itemRequired, node.itemEncodeRequired) ? 'type' : null;
     if (item.kind === 'scalar' && item.pack === null) {
       // Identity items travel in the same array: at most a checking pass.
       const pass =
-        validate.encode && (item.accept !== null || node.itemRequired)
+        validate.encode && (item.accept !== null || itemNull !== null)
           ? `for(let ${i}=0;${i}<${list}.length;${i}++){const ${e}=${list}[${i}];let ${x};` +
             `${encodeInto(item, e, x, at, itemNull)}}`
           : '';
@@ -256,11 +260,18 @@ const generate = (plan, options) => {
       if (validate.decode) {
         out.push(`if(${src}.length!==${size})F('structure',${path},'length');`);
       }
-      const parts = node.items.map((item, i) => {
+      const parts = [];
+      node.items.forEach((item, i) => {
+        // An element the reader does not have (Schema.resolve) is not read.
+        if (item.skip === true) return;
         const v = uid('v');
         out.push(`const ${v}=${src}[${i}];`);
-        return slotValue(item.node, item.required, item.def, v, `${path}+${str(`[${i}]`)}`, out);
+        parts.push(
+          slotValue(item.node, item.required, item.def, v, `${path}+${str(`[${i}]`)}`, out),
+        );
       });
+      // The reader's elements the writer does not have.
+      if (node.extras !== undefined) for (const extra of node.extras) parts.push(str(extra.def));
       out.push(`${dst}=[${parts}];`);
       return out.join('');
     }
@@ -341,10 +352,17 @@ const generate = (plan, options) => {
     const enc = lead === 0 ? [`if(typeof o!=='object'||Array.isArray(o))E('object','');`] : [];
     const values = lead === 0 ? [] : ['t'];
     for (const field of node.fields) {
+      const required = outRequired(field.required, field.encodeRequired) ? 'required' : null;
+      if (field.key === null) {
+        // A field only the writer has (Schema.resolve): null on the wire,
+        // which a writer that requires it rejects.
+        if (validate.encode && required !== null) enc.push(`E('required',${str(field.wire)});`);
+        values.push('null');
+        continue;
+      }
       const v = uid('v');
       const w = uid('w');
       const key = str(field.key);
-      const required = field.required ? 'required' : null;
       enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key, required)}`);
       values.push(w);
     }
@@ -385,15 +403,29 @@ const generate = (plan, options) => {
       read = (i) => `n>${i + lead}?a[${i + lead}]:null`;
     }
     const parts = [];
+    const decoded = new Map();
     for (const field of node.fields) {
-      const v = uid('v');
       // A later segment may be missing: its fields are all null.
       if (node.sparse && field.index > 0 && field.index % WORD === 0) {
         dec.push(`m=p<a.length?a[p++]:0;${mask}`);
       }
+      // A field the reader does not have (Schema.resolve) is not read; in a
+      // sparse record its value still takes its place.
+      if (field.key === null) {
+        if (node.sparse) dec.push(`if((m&${1 << (field.index % WORD)})!==0)p++;`);
+        continue;
+      }
+      const v = uid('v');
       dec.push(`const ${v}=${read(field.index)};`);
       const value = slotValue(field.node, field.required, field.def, v, str(field.key), dec);
-      parts.push(`${str(field.key)}:${value}`);
+      if (node.order === undefined) parts.push(`${str(field.key)}:${value}`);
+      else decoded.set(field.key, value);
+    }
+    // A resolved record is built in the reader's key order, with the reader's
+    // fields the writer does not have at their defaults.
+    if (node.order !== undefined) {
+      for (const extra of node.extras) decoded.set(extra.key, str(extra.def));
+      for (const key of node.order) parts.push(`${str(key)}:${decoded.get(key)}`);
     }
     if (lead === 1) parts.splice(tag.position, 0, `${str(tag.key)}:${slot(tag.values)}[t]`);
     if (node.sparse) dec.push(`if(strict&&p!==a.length)F('extra',"");`);
@@ -413,14 +445,18 @@ const generate = (plan, options) => {
     const tag = slot(node.tag);
     const key = str(node.key);
     const expected = str(node.tag.expected);
+    // A branch the reader has no values of (Schema.resolve) has no case: its
+    // tags fall through to the error.
     const cases = (call) => {
       const out = [];
       for (const branch of node.branches) {
+        if (branch.node === null) continue;
         for (let i = 0; i < branch.count; i++) out.push(`case ${branch.first + i}:`);
         out.push(`return ${call(structFns(branch.node))};`);
       }
       return out.join('');
     };
+    const dropped = node.branches.some((branch) => branch.node === null);
     functions.push(
       `function ${fns.e}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');const v=o[${key}];` +
         `const t=${tag}.checkedPack(v);switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
@@ -429,7 +465,8 @@ const generate = (plan, options) => {
     functions.push(
       `function ${fns.d}(a,strict){if(!Array.isArray(a))F('structure',"",'array');const t=a[0];` +
         `if(!${tag}.check(t))F('union',${key},${expected});` +
-        `switch(t){${cases((f) => `${f.d}(a,strict,t)`)}}}`,
+        `switch(t){${cases((f) => `${f.d}(a,strict,t)`)}}` +
+        `${dropped ? `F('union',${key},${expected});` : ''}}`,
     );
     return fns;
   };
@@ -444,8 +481,9 @@ const generate = (plan, options) => {
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
     const required = plan.kind === 'scalar' && plan.required;
+    const requiredIn = plan.kind === 'scalar' && outRequired(plan.required, plan.encodeRequired);
     const req = required && validate.decode ? `F('required',"");` : '';
-    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', required ? 'required' : null)}return w;`;
+    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', requiredIn ? 'required' : null)}return w;`;
     decodeBody =
       plan.kind === 'scalar'
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`

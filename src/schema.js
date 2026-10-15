@@ -9,15 +9,21 @@ const {
   CODEC,
   CHECKER,
   FALLBACK,
+  isSchema,
   compilePlan,
   canonical,
   fingerprint,
 } = require('./plan.js');
+const { resolvePlan } = require('./resolve.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
 
 const LAYOUTS = ['rows', 'flat', 'columns'];
+// An option no caller can spell: a plan built elsewhere (Schema.resolve), which
+// the schema compiles instead of parsing a definition. Object.keys does not
+// list it, so readOptions never sees it.
+const INTERNAL = Symbol('plan');
 const MODES = ['decode', 'encode', 'both'];
 const isBoolean = (value) => typeof value === 'boolean';
 
@@ -98,6 +104,32 @@ const build = (plan, backend, settings, checking) => {
   return { codec, backend, fallback };
 };
 
+// The `aliases` option of Schema.resolve: reader paths, as definition errors
+// spell them (`address.city`, `orders[].sku`), to the writer's keys.
+const readAliases = (options, name) => {
+  const invalid = (text) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+  const aliases = Object.create(null);
+  if (options == null) return aliases;
+  if (typeof options !== 'object') throw invalid('Invalid options: expected an object');
+  for (const key of Object.keys(options)) {
+    if (key !== 'aliases') throw invalid(`Invalid option "${key}"`);
+  }
+  const source = options.aliases;
+  if (source === undefined) return aliases;
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    throw invalid('Invalid option "aliases"');
+  }
+  for (const path of Object.keys(source)) {
+    const value = source[path];
+    const list = typeof value === 'string' ? [value] : value;
+    if (!Array.isArray(list) || !list.every((key) => typeof key === 'string' && key !== '')) {
+      throw invalid(`Invalid aliases for "${path}"`);
+    }
+    aliases[path] = list;
+  }
+  return aliases;
+};
+
 class Schema {
   #settings;
   #canonical = null;
@@ -113,9 +145,21 @@ class Schema {
     }
     const settings = readOptions(options, name);
     // What a reference to the schema's own name calls, filled once built.
-    const selfSlot = { codec: null };
+    const selfSlot = { codec: null, schema: this };
     Object.defineProperty(selfSlot, 'checker', { get: () => this[CHECKER] });
-    const plan = compilePlan(definition, { ...settings, name, selfSlot });
+    const internal = options == null ? undefined : options[INTERNAL];
+    let plan;
+    if (internal === undefined) plan = compilePlan(definition, { ...settings, name, selfSlot });
+    else {
+      // A resolved plan prints as the writer's canonical form: its wire. A
+      // recursion back to the root calls this schema's codec through `slot`.
+      const { slot, ...rest } = internal.plan;
+      plan = { ...rest, text: internal.text };
+      if (slot !== undefined) {
+        slot.schema = this;
+        Object.defineProperty(slot, 'checker', { get: () => this[CHECKER] });
+      }
+    }
     const useCodegen = settings.codegen === undefined ? codegen.available : settings.codegen;
     if (useCodegen && !codegen.available) {
       throw new SchemaDefinitionError(
@@ -124,6 +168,19 @@ class Schema {
         name,
       );
     }
+    // The codecs a resolved plan calls for its inner recursions, compiled
+    // first: a collection layout reads its record's codec as it is built.
+    if (internal !== undefined) {
+      for (const entry of internal.compiled) {
+        if (entry.slot === internal.plan.slot) continue;
+        const target = useCodegen ? codegen : closures;
+        entry.slot.codec = build(entry.plan, target, settings, false).codec;
+        let checker = null;
+        Object.defineProperty(entry.slot, 'checker', {
+          get: () => checker || (checker = build(entry.plan, target, settings, true).codec),
+        });
+      }
+    }
     const { codec, backend, fallback } = build(
       plan,
       useCodegen ? codegen : closures,
@@ -131,6 +188,9 @@ class Schema {
       false,
     );
     selfSlot.codec = codec;
+    if (internal !== undefined && internal.plan.slot !== undefined) {
+      internal.plan.slot.codec = codec;
+    }
     Object.defineProperty(this, BRAND, { value: true });
     if (fallback !== undefined) Object.defineProperty(this, FALLBACK, { value: fallback });
     Object.defineProperty(this, PLAN, { value: plan });
@@ -145,6 +205,29 @@ class Schema {
 
   static from(definition, options) {
     return new Schema('', definition, options);
+  }
+
+  // What `writer` wrote, read as `reader` objects, and `reader` objects written
+  // as `writer` writes them: the writer's wire and id under the reader's keys,
+  // types and defaults, matched by key, by the reader's aliases or by the
+  // `aliases` option. Compiled like any schema (see resolve.js).
+  static resolve(writer, reader, options) {
+    if (!isSchema(writer) || !isSchema(reader)) {
+      throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
+    }
+    const aliases = readAliases(options, reader.name);
+    const text = writer.toString();
+    if (text === reader.toString()) return reader;
+    const writerPlan = writer[PLAN];
+    const context = { name: reader.name, aliases };
+    const { plan, compiled } = resolvePlan(writerPlan, reader[PLAN], context);
+    const { codegen: useCodegen, validate } = reader.#settings;
+    return new Schema(reader.name, reader.definition, {
+      codegen: useCodegen,
+      validate,
+      fingerprint: writer.#settings.fingerprint,
+      [INTERNAL]: { plan, compiled, text },
+    });
   }
 
   // Keys only: every field is `json`, values travel as they are.

@@ -122,6 +122,12 @@ test('Schema: definition errors name the field', () => {
     { n: { type: 'a', id: 'x' } },
   );
   invalid({ n: { type: 'set' } }, { code: 'ERR_INVALID_DEFINITION', field: 'n[]' });
+  for (const aliases of ['old', [1], [''], ['a', 'a'], ['__proto__']]) {
+    invalid(
+      { n: { type: 'string', aliases } },
+      { code: 'ERR_INVALID_DEFINITION', message: 'aliases is a list of unique keys at "n"' },
+    );
+  }
   invalid({ n: { type: 'integer', default: 1.5 } }, { code: 'ERR_INVALID_DEFINITION' });
   invalid(JSON.parse('{"__proto__":"string"}'), {
     code: 'ERR_RESERVED_KEY',

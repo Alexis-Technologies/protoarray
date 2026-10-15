@@ -33,6 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
 
+- **`@alexify/protoarray/metaschema`**: one definition for both libraries.
+  `fromMetaschema(schema, options?)` builds the protoarray schema of a metaschema `Schema` (which
+  keeps no raw definition) from its field types: the shared DSL type for type, a type alias
+  (`{ money: { js: 'number' } }`) as its base, `decimals`, `aliases`, `delta`, `intern` and a
+  primitive `default` carried over (a default factory is metaschema's to apply), calculated fields
+  left out, and references as metaschema's storage view holds them: a stored entity's id, a memory
+  kind or an `embed: true` field as the record. `fromModel(model, options?)` does it for every
+  entity of a `Model` in its order and returns a `SchemaRegistry`. `types` is the custom types
+  table metaschema lacks for `bytes` and `flags` (its `date` is built in), to pass to
+  `new Model(types, entities)` as often as needed. `register()` makes `Schema.from(metaschemaSchema)`,
+  a metaschema `Schema` as a field and `SchemaRegistry.from(model)` work; without it a metaschema
+  `Schema` in a definition is a clear `ERR_UNKNOWN_TYPE` instead of a misread struct.
 - **Streaming.** `schema.encodeEach(values)` and `schema.decodeEach(arrays, options?)` (and the
   free functions of the same names) convert an iterable lazily, a generator for an iterable and
   an async generator for an async one; an error names the index of its value (`[3].name`). The

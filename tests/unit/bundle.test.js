@@ -166,3 +166,21 @@ test('Bundle: the stream subpath bundles for browsers with the core', async () =
   for await (const value of stream.parseItems(User.list, '[[1],[2]]')) values.push(value.id);
   assert.deepStrictEqual(values, [1, 2]);
 });
+
+test('Bundle: the metaschema subpath bundles for browsers without metaschema', async () => {
+  const result = await esbuild.build({
+    entryPoints: [path.join(ROOT, 'metaschema.js')],
+    bundle: true,
+    write: false,
+    logLevel: 'silent',
+    platform: 'browser',
+    format: 'iife',
+    globalName: 'protoarray',
+    minify: true,
+  });
+  const context = vm.createContext({});
+  vm.runInContext(result.outputFiles[0].text, context);
+  const { types, fromMetaschema } = context.protoarray;
+  assert.deepStrictEqual(Object.keys(types), ['bytes', 'flags']);
+  assert.throws(() => fromMetaschema({}), { code: 'ERR_SCHEMA_EXPECTED' });
+});

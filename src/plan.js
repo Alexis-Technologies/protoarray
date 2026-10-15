@@ -101,6 +101,9 @@ const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
 
+// metaschema's brand: its Schema, Model and field types carry it.
+const FOREIGN = Symbol.for('alexify.metaschema.brand');
+
 // What the subpath modules plug in with their `register()`: `model` builds a
 // SchemaRegistry from a metaschema Model, `foreign` a definition from a
 // metaschema Schema. Null until registered.
@@ -262,6 +265,14 @@ const compilePlan = (definition, context) => {
   // name with an optional `?`, a tuple, a shorthand (`{ array }`, `{ enum }`,
   // `{ flags }`), the long form (`{ type, required, default }`) or a struct.
   const parse = (source, path) => {
+    // A metaschema Schema, translated by the metaschema module.
+    if (source !== null && typeof source === 'object' && source[FOREIGN] === 'Schema') {
+      if (HOOKS.foreign === null) {
+        const text = "A metaschema Schema needs register() from '@alexify/protoarray/metaschema'";
+        throw error('ERR_UNKNOWN_TYPE', text, path);
+      }
+      return field(HOOKS.foreign(source), path);
+    }
     if (isSchema(source)) {
       const node = source[PLAN];
       if (node.kind === 'scalar') {
@@ -523,6 +534,7 @@ module.exports = {
   CODEC,
   CHECKER,
   FALLBACK,
+  FOREIGN,
   HOOKS,
   isSchema,
   compilePlan,

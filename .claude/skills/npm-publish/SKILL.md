@@ -151,7 +151,9 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 
 Check these fields are correct:
 
-- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first
+- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first,
+  for `.` and for every subpath (`./registry`, `./stream`, `./metaschema`, `./standalone`)
+- `"bin"` — `protoarray` points to `bin/protoarray.js`, which is executable and starts with a shebang
 - `"types"` — points to `index.d.ts`
 - `"files"` — the explicit allowlist includes everything that ships and nothing else (there is no `.npmignore`)
 - `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
@@ -168,8 +170,9 @@ pnpm run size --max-gzip 20
 
 Review the file list:
 
-- Source files (`src/`) and root entry points are included
-- Type definitions are included
+- Source files (`src/`), root entry points and the subpath shims are included
+- Type definitions are included, one per entry point
+- `bin/protoarray.js` is included
 - Tests, docs, bench, scripts, configs and CI files are excluded
 - No unexpected large files
 

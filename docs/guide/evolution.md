@@ -18,6 +18,9 @@ understanding each other.
    the ids of the two definitions differ, which is how a handshake notices.
 5. **Deploy decoders before encoders** when you append enum values or union branches: an old
    decoder rejects an index or a tag it does not know.
+6. **`delta` and `intern` change the wire** of the fields they mark: turning one on is a breaking
+   change for older peers, which [`Schema.resolve`](/guide/resolve) bridges (it reads the
+   writer's wire whichever way the reader writes).
 
 ```js
 const V1 = Schema.from({ id: 'number', name: 'string' });
@@ -32,7 +35,9 @@ V1.decode(V2.encode({ id: 1, name: 'Alex', email: 'a@b.c', score: 5 }));
 
 What breaks: a new **required** field without a default (`DecodeError: Field "org" is required`
 on old payloads), a reordered definition (values land in the wrong keys, silently), a changed
-type.
+type. When a change has to break these rules (a rename, a reorder, a dropped field, a type that
+widens), [`Schema.resolve`](/guide/resolve) reads the old payloads by name instead of by
+position, and writes them for older peers.
 
 ## Nested records, sparse records and columns
 
@@ -62,7 +67,8 @@ pass `{ strict: true }` to `decode` or `parse`: extra elements, values or column
 position, its type and its key, with the layout. Two sides whose ids match agree on the wire.
 Exchange it in a handshake (an HTTP header, the `hello` of an RPC session, a field in an
 envelope) and map ids to schemas on the receiving side when a breaking change has to coexist with
-the old version for a while.
+the old version for a while: [`SchemaRegistry`](/guide/resolve#the-registry) keeps that map and
+wraps payloads in `[id, payload]`.
 
 ```js
 V1.id; // '030d98ef'

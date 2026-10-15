@@ -29,7 +29,7 @@ const User = new Schema('User', {
 
 | Form | Example | Meaning |
 | --- | --- | --- |
-| Type name | `'string'` | A scalar: `string`, `number`, `boolean`, `bigint`, `date`, `bytes`, `json` |
+| Type name | `'string'` | A scalar: `string`, `number`, `integer`, `boolean`, `bigint`, `date`, `bytes`, `json`, `any`, `unknown`, `null` |
 | Optional type | `'?number'` | Optional: may be missing, `undefined` or `null` |
 | Optional key | `'email?': 'string'` | The same, written on the key |
 | Long form | `{ type: 'string', required: false, default: 'x' }` | Options on the field; `default` fills a missing slot on decode |
@@ -38,13 +38,20 @@ const User = new Schema('User', {
 | Schema by value | `address: Address` | The other schema in that slot, with its own options and layout (see below) |
 | Schema by name | `manager: '?User'` | The same through a capitalised name: the schema's own name (recursion) or one from `options.schemas` |
 | Array | `{ array: 'string' }`, `{ array: { sku: 'string' } }` | A list of scalars (travels as is) or of records (an array of arrays) |
+| Set | `{ set: 'string' }` | A `Set`; travels as the array of its elements |
+| Map | `{ map: { string: 'date' } }` | A `Map` with string or number keys; travels as `[k0, v0, k1, v1, …]` |
+| Object | `{ object: { string: 'number' } }` | A dictionary: its keys travel as JSON keys, its values like any field |
 | Enum | `{ enum: ['admin', 'editor'] }` | One of the listed strings or numbers; travels as its index |
 | Flags | `{ flags: ['read', 'write'] }` | An object of booleans; travels as one integer |
-| Tuple | `['number', 'number']` | Fixed-length array of scalars; `[{ x: 'number' }, { y: 'number' }]` names them |
+| Tuple | `['number', { x: 'number', y: 'number' }]` | A fixed-length array of any definitions; `{ x: 'number' }` alone names an element, `{ 'x?': 'number' }` makes it optional |
+| Long forms of collections | `{ type: 'map', key: 'string', value: 'number' }` | `{ type: 'array' \| 'set', value }`, `{ type: 'map' \| 'object', key, value }`, `{ type: 'tuple', value }` or `{ tuple: [...] }`, `{ schema: {...} }` |
+| Aliases | `{ type: 'string', aliases: ['fullName'] }` | Keys the field had in older versions, for [`Schema.resolve`](/guide/resolve); outside the fingerprint |
+| Delta | `{ type: 'integer', delta: true }`, `{ array: 'date', delta: true }` | Integers written as differences: in a `columns` collection, or a list anywhere (see [Types](/guide/types#delta)) |
+| Interned | `{ type: 'string', intern: true }` | A string written as its index into the message's string table (see [Types](/guide/types#interned-strings)) |
 | Union | `{ union: [Call, Event], discriminator: 'type' }` | One of several structs, picked by an enum field they share; travels as `[tag, ...fields]` (see [Types](/guide/types#unions)) |
 | Calculated | `total: (record) => …` | Ignored: a function has no position on the wire |
 
-Arrays and enums take `required: false` next to the shorthand key:
+Collections and enums take `required: false` next to the shorthand key:
 `{ array: 'string', required: false }`. See [Types](/guide/types) for what each one looks like on
 the wire and [Optional Fields](/guide/optional-fields) for the rules around `null`.
 
@@ -105,6 +112,9 @@ alias of the referenced schema.
 | `layout` | `'rows'` | For a collection of records: `'rows'`, `'flat'` or `'columns'`. See [Collections](/guide/collections) |
 | `schemas` | `{}` | Schemas a field may reference by name |
 | `fingerprint` | FNV-1a 32-bit | `(canonical) => string`, computes `id` from the canonical form. See [Schema Evolution](/guide/evolution#telling-versions-apart) |
+| `intern` | `false` | Intern every string of the definition (`intern: false` on a field opts it out). See [Types](/guide/types#interned-strings) |
+| `stringify` | `'auto'` | How `stringify` writes the text: `'auto'` has generated code write it for records of converted types, `'builder'` for any schema, `'native'` never. See [Runtimes](/guide/runtimes#how-stringify-writes-the-text) |
+| `compiled` | none | The codec of a generated module, for runtimes without code generation. See [Standalone Modules](/guide/standalone) |
 
 Unknown options and wrong types throw `SchemaDefinitionError` with code `ERR_INVALID_OPTIONS`.
 
@@ -115,7 +125,7 @@ Unknown options and wrong types throw `SchemaDefinitionError` with code `ERR_INV
 | `name` | The name given to the constructor, or `''` |
 | `definition` | The definition object, as given |
 | `keys` | Field keys in wire order (frozen; empty for a collection, a tuple or a scalar) |
-| `backend` | `'codegen'` or `'closures'` |
+| `backend` | `'codegen'`, `'closures'`, or `'standalone'` for a schema built with `compiled` |
 | `layout` | `'dense'` or `'sparse'` for a struct; `'rows'`, `'flat'` or `'columns'` for a collection |
 | `id` | A fingerprint of the canonical form, see below |
 | `list` | The schema of an array of these records, as rows; it reuses this schema's codec and name |
@@ -136,32 +146,26 @@ schema was given. Renaming a key changes it, and so does the optionality of a ro
 ## metaschema compatibility
 
 A definition both libraries read means the same thing in both, or one of them refuses it.
+[metaschema](/guide/metaschema) has the details, and a translator from a metaschema `Schema`.
 
 | Construct | metaschema | protoarray |
 | --- | --- | --- |
-| scalars, structs, `?`, `required`, `default`, `{ array }`, `{ enum }`, tuples, references, the kind key | ✓ | ✓ |
+| scalars, structs, `?`, `required`, `default`, `{ array }`, `{ enum }`, references, the kind key | ✓ | ✓ |
+| `integer`, `any`, `unknown`, `null` | ✓ | ✓ |
+| `{ set }`, `{ map }`, `{ object }`, tuples of any elements, `{ schema }`, the long forms | ✓ | ✓ |
 | `{ union: [...], discriminator }` | ✓ | ✓, as `[tag, ...fields]` |
 | `{ union: [...] }` without a discriminator | ✓ | `ERR_UNKNOWN_TYPE` |
-| `{ type: 'number', decimals: 2 }` | ✓, kept as an unknown option (lint: `unknown-option`) | ✓, a scaled integer |
+| `aliases` | ✓, read by `parse` | ✓, read by `Schema.resolve` |
+| `{ type: 'number', decimals: 2 }`, `delta`, `intern` | ✓, kept as unknown options (lint: `unknown-option`) | ✓ |
 | `length`, `unique`, `validate` options | ✓ | accepted and ignored |
-| `set`, `map`, `object`, `tuple` shorthands | ✓ | `ERR_UNKNOWN_TYPE` |
 | `date` | ✓ | ✓, epoch milliseconds |
-| `{ flags: [...] }` | not a metaschema type | ✓ |
-| `bytes` | `ERR_UNKNOWN_TYPE` until registered as a custom type (below) | ✓, base64 |
-
-To validate a definition with `bytes` in metaschema too, register the type there:
+| `bytes`, `{ flags: [...] }` | custom types: register `types` from `@alexify/protoarray/metaschema` | ✓ |
 
 ```js
 const { Model } = require('@alexify/metaschema');
-const types = {
-  bytes: {
-    construct() {},
-    checkType: (value) => Object.prototype.toString.call(value) === '[object Uint8Array]',
-    metadata: { jsonSchema: { type: 'string', contentEncoding: 'base64' } },
-  },
-};
+const { types } = require('@alexify/protoarray/metaschema');
+
 const entities = new Map([['Blob', { Struct: {}, id: 'number', data: 'bytes' }]]);
 const model = new Model(types, entities);
-model.entities.get('Blob').check({ id: 1, data: [1] }).errors;
-// ['Field "Blob.data" not of expected type: bytes']
+model.entities.get('Blob').check({ id: 1, data: [1] }).valid; // false
 ```

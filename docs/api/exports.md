@@ -3,10 +3,23 @@
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse, check,
+  encode, decode, stringify, parse, check, encodeEach, decodeEach,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```
+
+Four subpaths carry what the core does not need, so a program that does not use them does not
+bundle them:
+
+| Subpath | Exports | Page |
+| --- | --- | --- |
+| `@alexify/protoarray/registry` | `SchemaRegistry` | [Migrations and the Registry](/guide/resolve#the-registry) |
+| `@alexify/protoarray/stream` | `stringifyLines`, `parseLines`, `stringifyStream`, `parseStream`, `stringifyItems`, `parseItems`, `register` | [Streaming](/guide/streaming) |
+| `@alexify/protoarray/metaschema` | `fromMetaschema`, `fromModel`, `types`, `register` | [With metaschema](/guide/metaschema) |
+| `@alexify/protoarray/standalone` | `toSource`, `runtime`, `register` | [Standalone Modules](/guide/standalone) |
+
+The package also installs a `protoarray` command: `protoarray compile <module>` (see
+[Standalone Modules](/guide/standalone#protoarray-compile)).
 
 ```ts
 import { Schema, type Infer, type Input, type Definition } from '@alexify/protoarray';
@@ -20,11 +33,12 @@ class Schema<const D extends Definition> {
   constructor(definition: D, options?: SchemaOptions);
   static from<const D extends Definition>(definition: D, options?: SchemaOptions): Schema<D>;
   static keys<const K extends readonly string[]>(keys: K, options?: SchemaOptions): Schema<…>;
+  static resolve<const R extends Definition>(writer: AnySchema, reader: Schema<R>, options?: ResolveOptions): Schema<R>;
 
   readonly name: string;
   readonly definition: D;
   readonly keys: readonly string[];
-  readonly backend: 'codegen' | 'closures';
+  readonly backend: 'codegen' | 'closures' | 'standalone';
   readonly layout: 'dense' | 'sparse' | 'rows' | 'flat' | 'columns';
   readonly id: string;
   readonly list: Collection<D>;
@@ -33,6 +47,8 @@ class Schema<const D extends Definition> {
   decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
+  encodeEach(values: Iterable<Input<D>>): Generator<Encoded<D>>;      // AsyncIterable → AsyncGenerator
+  decodeEach(arrays: Iterable<unknown>, options?: DecodeOptions): Generator<Infer<D>>;
   check(value: unknown): EncodeError | null;
   toString(): string;
 }
@@ -43,6 +59,8 @@ Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries 
 and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken definition or option
 throws `SchemaDefinitionError` from the constructor. `check` returns the `EncodeError` that
 encoding the value with validation would throw, or `null`, without throwing over the data.
+`Schema.resolve` builds a schema that reads what `writer` wrote as `reader` objects and writes them
+back as `writer` does (see [Migrations](/guide/resolve)).
 
 ```ts
 interface SchemaOptions {
@@ -52,6 +70,13 @@ interface SchemaOptions {
   layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
   schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
   fingerprint?: (canonical: string) => string;     // computes `id`; default: FNV-1a 32-bit, 8 hex digits
+  intern?: boolean;    // intern every string: [table, body]
+  stringify?: 'auto' | 'builder' | 'native';       // how stringify writes the text
+  compiled?: { canonical: string; codec: object; checker?: object; id?: string };  // from a standalone module
+}
+
+interface ResolveOptions {
+  aliases?: Record<string, string | readonly string[]>;  // reader path → the writer's keys
 }
 
 interface DecodeOptions {
@@ -100,6 +125,11 @@ function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError
 `schema.check(value)`: the problem a validated encode would find, or `null`. It validates whatever
 `validate` the schema, or one it embeds, was built with.
 
+## `encodeEach(schema, values)`, `decodeEach(schema, arrays, options?)`
+
+`schema.encodeEach` and `schema.decodeEach` as functions: lazy, a generator over an iterable and an
+async generator over an async one (see [Streaming](/guide/streaming)).
+
 ## Errors
 
 ```ts
@@ -118,7 +148,7 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 | `Input<D>` | the value `encode` accepts |
 | `Encoded<D>` | the wire: `unknown[]`, or `unknown` for a scalar schema |
 | `Collection<D>` | the type of `schema.list` |
-| `SchemaOptions`, `DecodeOptions`, `Backend`, `Layout` | options and their values |
+| `SchemaOptions`, `DecodeOptions`, `ResolveOptions`, `Backend`, `Layout` | options and their values |
 | `SchemaErrorCode`, `EncodeErrorCode`, `DecodeErrorCode` | the `code` unions |
 
 See [TypeScript](/guide/typescript) for how `Infer` and `Input` map each form of the definition.

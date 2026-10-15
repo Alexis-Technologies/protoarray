@@ -13,13 +13,14 @@ involved (`schema`, `''` for a nameless one), so a log line says which contract 
 
 | Code | Meaning | Example message |
 | --- | --- | --- |
-| `structure` | not an array where one is expected, a wrong tuple or `flat` length, a bad sparse mask, a recursive schema's payload nested deeper than the call stack | `Field "address" is not an array`, `Value is nested too deeply` |
+| `structure` | not an array where one is expected, a wrong tuple, `flat` or map length, a bad sparse mask, an interned payload that is not `[table, body]`, an envelope that is not `[id, payload]`, a recursive schema's payload nested deeper than the call stack | `Field "address" is not an array`, `Value is nested too deeply` |
 | `required` | a required field is `null` or missing | `Field "email" is required` |
 | `type` | a value of the wrong type, or a `null` element where the item is required | `Field "orders[1].qty" is not of expected type: number` |
 | `enum` | an index outside the enum | `Field "role" is not of enum: admin, editor` |
 | `union` | a union's tag is not one of its indexes (always checked) | `Field "type" is not of union: call, event` |
 | `extra` | elements beyond the schema, with `{ strict: true }` | `Value has extra elements` |
-| `json` | `parse` got text that is not JSON; `cause` is the `SyntaxError` | `Value is not valid JSON` |
+| `json` | `parse` got text that is not JSON (an NDJSON line, an item of a streamed array); `cause` is the `SyntaxError` | `Value is not valid JSON` |
+| `schema` | an envelope's id is not in the registry | `Value is not a known schema: 08fc117a` |
 
 `path` names the slot: `''` for the value itself, keys joined with dots, indexes in brackets:
 `orders[1].qty`, `[2].name` in a collection. Paths cost nothing until an error is thrown. Messages
@@ -40,7 +41,8 @@ try {
 
 | Code | Meaning | Example message |
 | --- | --- | --- |
-| `object`, `array` | a record that is not an object, a collection or tuple that is not an array (always checked) | `Field "orders[1]" is not an object` |
+| `object`, `array`, `set`, `map` | a record that is not an object, a collection or tuple that is not an array, a set that is neither a `Set` nor an array, a map that is not a `Map` (always checked) | `Field "orders[1]" is not an object` |
+| `iterable` | `encodeEach` and the stream helpers got something that is not iterable | `Value is not iterable` |
 | `depth` | a cyclic value, or one nested deeper than the call stack (always) | `Value is nested too deeply` |
 | `required` | a required field or tuple element is `null` or missing | `Field "address.city" is required` |
 | `type` | a value of the wrong type (`NaN` and the infinities are not numbers here), or a `null` element where the item is required | `Field "tags[1]" is not of expected type: string` |
@@ -99,7 +101,7 @@ It runs every check even when the schema, or a schema it embeds, was built with
 
 | Code | Cause |
 | --- | --- |
-| `ERR_INVALID_DEFINITION` | not a definition, an empty struct or tuple, a duplicate key, a bad default, a non-scalar tuple element, a `decimals` outside 0–15 or on anything but a number |
+| `ERR_INVALID_DEFINITION` | not a definition, an empty struct or tuple, a duplicate key, a bad default, a `decimals` outside 0–15 or on anything but a number, a map or object without key and value, `delta` on a type that is not an integer, `intern` on anything but a string, `aliases` that are not a list of keys |
 | `ERR_UNKNOWN_TYPE` | an unknown type name, a metaschema shorthand protoarray does not support (a `union` without a `discriminator` too), or a struct starting with a type name |
 | `ERR_INVALID_UNION` | an empty union, a branch that is not a dense struct with the discriminator as a required enum without a default, the same value in two branches |
 | `ERR_INVALID_ENUM`, `ERR_INVALID_FLAGS` | an empty list, duplicates, wrong value types (neither has a size limit) |
@@ -109,5 +111,8 @@ It runs every check even when the schema, or a schema it embeds, was built with
 | `ERR_INVALID_OPTIONS` | an unknown option, a wrong type, `sparse` on a non-struct, a layout on a non-collection |
 | `ERR_CODEGEN_UNAVAILABLE` | `{ codegen: true }` where `new Function` is blocked |
 | `ERR_SCHEMA_EXPECTED` | `encode(schema, …)` and friends called with something that is not a `Schema` |
+| `ERR_INCOMPATIBLE` | `Schema.resolve` cannot read the writer as the reader: a narrowing type change, a required reader field the writer lacks, a union split between branches |
+| `ERR_ID_COLLISION` | a registry got two different schemas with one id: the fingerprint is too narrow for it |
+| `ERR_COMPILED_MISMATCH` | a generated module's codec is of another definition than the one given with it |
 
 Messages say where: `Unknown type "float" at "price"`.

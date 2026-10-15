@@ -11,7 +11,9 @@ S.encode({ tags: ['admin', 'editor'] }); // [['admin', 'editor']]
 
 Elements are required unless the item type says otherwise: `{ array: '?number' }` keeps `null`
 slots. Converted types apply per element: `{ array: 'date' }` is an array of timestamps,
-`{ array: { enum: [...] } }` an array of indexes.
+`{ array: { enum: [...] } }` an array of indexes. A list of integers can travel as differences
+(`{ array: 'integer', delta: true }`, see [Types](/guide/types#delta)); a `Set`, a `Map` and a
+dictionary have types of their own (see [Types](/guide/types#sets-maps-and-dictionaries)).
 
 ## Arrays of records
 
@@ -49,7 +51,7 @@ A collection of records at the root of a schema can take one of three layouts:
 
 | Layout | Wire | Use it for |
 | --- | --- | --- |
-| `rows` (default) | `[[1, 'a'], [2, 'b']]` | Everything: streams one record per line (NDJSON), partial decoding, batches |
+| `rows` (default) | `[[1, 'a'], [2, 'b']]` | Everything: streams one record per line (NDJSON) or one item at a time (see [Streaming](/guide/streaming)), batches |
 | `flat` | `[1, 'a', 2, 'b']` | Many short records; fewer brackets and allocations, one array to parse |
 | `columns` | `[[1, 2], ['a', 'b']]` | Bulk endpoints: compresses best, since each column is a run of similar values |
 
@@ -73,6 +75,33 @@ shape, `columns` is 18–21% smaller than keyed JSON after gzip, brotli or zstd,
 5–10% smaller: compressors love a run of similar values. New columns are appended at the end and
 ignored by older decoders; a missing column (an older sender) or an explicit `null` in its place
 decodes as `null`s, and the record count comes from the first column present.
+
+Two opt-in options shrink columns further: `delta: true` on an integer, date or decimals field
+writes its column as the first value and the differences between neighbours, and
+`intern: true` on a string field of few distinct values writes it as indexes into one table of
+the message's strings (see [Types](/guide/types#interned-strings)):
+
+```js
+const Events = Schema.from(
+  {
+    array: {
+      id: { type: 'integer', delta: true },
+      at: { type: 'date', delta: true },
+      city: { type: 'string', intern: true },
+    },
+  },
+  { layout: 'columns' },
+);
+Events.encode([
+  { id: 100, at: new Date(1700000000000), city: 'Kyiv' },
+  { id: 101, at: new Date(1700000060000), city: 'Lviv' },
+  { id: 103, at: new Date(1700000120000), city: 'Kyiv' },
+]);
+// [['Kyiv', 'Lviv'], [[100, 1, 2], [1700000000000, 60000, 60000], [0, 1, 0]]]
+```
+
+On the thousand records of the benchmark, a delta id and interned cities and tags take columns
+another 17% smaller before compression and 6–10% after it, and encode and decode faster.
 
 A layout is an option of a root collection. A plain nested `{ array: { … } }` is always rows; a
 `Schema` with a layout keeps it wherever it is used, by value or by name, so `{ items: Items }`

@@ -6,16 +6,23 @@ out and back.
 | Type | Value | On the wire | Decode checks |
 | --- | --- | --- | --- |
 | `string` | string | as is | `typeof` |
+| `{ type: 'string', intern: true }` | string | its index into the message's string table | an index into the table |
 | `number` | number | as is | `typeof` |
+| `integer` | an integer | as is | `Number.isInteger` |
 | `{ type: 'number', decimals: 2 }` | `19.99` | an integer scaled by 10ⁿ, `1999` | a safe integer |
 | `boolean` | boolean | as is | `typeof` |
-| `json` | anything JSON | as is, by reference | none; never required |
+| `json`, `any`, `unknown` | anything JSON | as is, by reference | none; never required |
+| `null` | `null` | `null` | nothing else; never required |
 | `date` | `Date` (or a timestamp) | epoch milliseconds | number |
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
 | `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | canonical base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
 | `{ flags: [...] }` | `{ read: true, admin: true }` | a bitmask, `5` | a non-negative integer, or an array of them past 31 names |
-| tuple `['number', 'number']` | `[1, 2]` | `[1, 2]`, fixed length | length and each element |
+| `{ array: 'integer', delta: true }` | `[100, 101, 103]` | the first and the differences, `[100, 1, 2]` | safe integers |
+| `{ set: 'string' }` | a `Set` (or an array) | the array of its elements | as an array |
+| `{ map: { string: 'date' } }` | a `Map` | `[k0, v0, k1, v1, …]` | key types, values |
+| `{ object: { string: 'number' } }` | an object | an object, keys as they are | each value |
+| tuple `['number', { x: 'number' }]` | `[1, { x: 2 }]` | `[1, [2]]`, fixed length | length and each element |
 | `{ union: [...], discriminator }` | `{ type: 'event', name: 'x' }` | `[tag, ...the branch's other fields]`, `[1, 'x']` | the tag, always; then the branch |
 
 ## Enum
@@ -62,8 +69,8 @@ text an encoder writes: missing padding, whitespace, the URL-safe alphabet or st
 last character are a `type` error (without validation such a string stays as it is). Decoding
 always returns a plain `Uint8Array` with a buffer of its own, in Node.js as in browsers, never a
 `Buffer` or a view into a shared pool. Base64 costs a third more than the bytes; for large binaries a
-separate binary channel beats any JSON. metaschema has no `bytes` type: register one to share a
-definition (see [Defining a Schema](/guide/schema#metaschema-compatibility)).
+separate binary channel beats any JSON. metaschema has no `bytes` type: register the one of
+`@alexify/protoarray/metaschema` to share a definition (see [metaschema](/guide/metaschema)).
 
 ## Decimals
 
@@ -110,16 +117,58 @@ name for. A 1.0 decoder reads the one-integer form only, so a set name past 31 n
 decoding side (see [Schema Evolution](/guide/evolution#past-31-fields-or-names)). An array is
 not a set of flags; any other object is read by name.
 
-## Tuples
+## Integer, any, unknown, null
 
-A tuple is a fixed-length array of scalars. Elements can be optional; the length never changes:
+`integer` is a number that must be an integer (`Number.isInteger`), checked on decode and, with
+`validate: 'both'`, on encode. `any` and `unknown` are metaschema's names for a value of any kind:
+the same slot as `json`, never required, with the same canonical form and so the same `id`. `null`
+is a slot that holds nothing else: encoding writes `null` whatever it is given (with
+`validate: 'both'`, a value is a `type` error), decoding accepts only `null`.
+
+## Sets, maps and dictionaries
 
 ```js
-const S = Schema.from({ pair: ['number', '?string'] });
-S.encode({ pair: [1] });   // [[1, null]]
-S.decode([[1, null]]);     // { pair: [1, null] }
-S.decode([[1]]);           // DecodeError: Field "pair" has a wrong length
+const S = Schema.from({
+  tags: { set: 'string' },
+  seen: { map: { string: 'date' } },
+  prices: { object: { string: { type: 'number', decimals: 2 } } },
+});
+S.encode({
+  tags: new Set(['admin', 'editor']),
+  seen: new Map([['Kyiv', new Date(1700000000000)]]),
+  prices: { tea: 1.5 },
+});
+// [['admin', 'editor'], ['Kyiv', 1700000000000], { tea: 150 }]
 ```
+
+- **`{ set: T }`** travels as the array of its elements and decodes as a `Set`. Encoding takes a
+  `Set` or an array; anything else is an `EncodeError` `set`.
+- **`{ map: { K: V } }`**, with `string` or `number` keys, travels as flat pairs
+  `[k0, v0, k1, v1, …]` and decodes as a `Map`; an odd length is a `structure` error. An entry's
+  path is its index: `seen[2]`. Encoding takes a `Map` only (`EncodeError` `map` otherwise).
+- **`{ object: { string: V } }`** is a dictionary: its keys travel as JSON keys and each value is
+  converted like a field, with the key in its path (`prices.tea`). With values that travel as they
+  are and nothing to check, the object itself goes through. A `__proto__` key stays an own property,
+  as `JSON.parse` makes it, never the prototype of the result.
+
+The long forms are metaschema's: `{ type: 'set', value: 'string' }`,
+`{ type: 'map', key: 'string', value: 'date' }`, `{ type: 'object', key: 'string', value: … }`.
+
+## Tuples
+
+A tuple is a fixed-length array whose elements can be any definition: scalars, structs,
+collections, unions, schemas. An element `{ name: 'type' }` with one key and a type name is a
+named element as metaschema reads it (the name does not travel); `{ 'name?': 'type' }` makes it
+optional. Elements can be optional or have a default; the length never changes:
+
+```js
+const S = Schema.from({ hit: [{ at: 'date' }, { x: 'number', y: '?number' }, { 'label?': 'string' }] });
+S.encode({ hit: [new Date(1700000000000), { x: 1 }] }); // [[1700000000000, [1], null]]
+S.decode([[1700000000000, [1], null]]);                   // { hit: [2023-11-14T22:13:20.000Z, { x: 1, y: null }, null] }
+S.decode([[1700000000000, [1]]]);                         // DecodeError: Field "hit" has a wrong length
+```
+
+`{ tuple: [...] }` and `{ type: 'tuple', value: [...] }` are the long forms.
 
 ## Unions
 
@@ -157,6 +206,42 @@ A union can be the whole schema, a field or the item of an array: `Packet.list` 
 `[[0, …], [1, …]]`. It cannot be sparse or use the `flat` and `columns` layouts. A union without a
 `discriminator` (metaschema's `{ union: ['string', 'number'] }`) has no positional form yet.
 
+## Delta
+
+A list of integers (`integer`, a whole `number`, `date`, decimals) can travel as its first value
+and the differences between neighbours, which are short when the values are close: ids, times,
+counters.
+
+```js
+const S = Schema.from({ ids: { array: 'integer', delta: true }, at: { array: 'date', delta: true } });
+S.encode({ ids: [100, 101, 103, 102], at: [new Date(1700000000000), new Date(1700000000500)] });
+// [[100, 1, 2, -1], [1700000000000, 500]]
+```
+
+In a [`columns` collection](/guide/collections#columns), `delta: true` on a field of the record
+writes its column that way; outside one it changes nothing. Nulls keep their places and leave the
+running value as it is. Only integers have exact differences, so a value that is not one is an
+`EncodeError` `type` whatever `validate` says. The canonical form marks the field (`id:integer~`,
+`~[date]`), so `delta` changes the `id`.
+
+## Interned strings
+
+`{ type: 'string', intern: true }`, or `{ intern: true }` on the schema for every string of the
+definition, makes the payload `[table, body]`: the message's distinct interned strings in the
+order they first appear, then the usual wire with each of them as its index.
+
+```js
+const S = Schema.from({ role: { type: 'string', intern: true }, tags: { array: '?string' } }, { intern: true });
+S.encode({ role: 'admin', tags: ['admin', null, 'editor'] });
+// [['admin', 'editor'], [0, [0, null, 1]]]
+```
+
+One table serves the whole message: the records of a collection, the schemas it embeds and
+recursion share it, and a schema that embeds an interned one is interned too. It pays for strings
+with few distinct values (a city, a status, tags): interning unique ones (names, emails) only adds
+a table of them, which compresses worse than the strings in place. `intern: false` on a field opts
+it out of the schema option. The canonical form marks the field (`role:string*`).
+
 ## json
 
 A `json` field passes any JSON value through by reference, without checks. It is never required:
@@ -170,7 +255,8 @@ S.encode({ payload: { any: [1, { deep: true }] }, next: 2 }); // [{ any: [1, { d
 ## Defaults
 
 A `default` is the decoded value of a slot that is `null` or missing on the wire. It makes the
-field optional, and it is only for `string`, `number`, `boolean`, `json` and `enum` fields:
+field optional, and it is only for `string`, `number`, `integer`, `boolean`, `json` and `enum`
+fields:
 
 ```js
 const S = Schema.from({ balance: { type: 'number', default: 0 }, name: 'string' });
@@ -186,6 +272,6 @@ the default.
 `NaN` and `Infinity` have no JSON form: `JSON.stringify` would write `null`, so with
 `validate: 'both'` encoding rejects them as `type` errors (by default they travel as `null` and
 a required field fails to decode as missing). Integers beyond 2⁵³ lose precision in JSON as they do in
-JavaScript; use `bigint`. `-0` becomes `0`. Binary data is `bytes`. A `Map` or a `Set` has no
-positional form in this version: under `json` it serializes the way `JSON.stringify` would, which
-is rarely what you want.
+JavaScript; use `bigint`. `-0` becomes `0`. Binary data is `bytes`; a `Map` and a `Set` are `map`
+and `set`: under `json` they serialize the way `JSON.stringify` would, which is rarely what you
+want.

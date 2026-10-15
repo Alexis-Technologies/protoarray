@@ -43,13 +43,18 @@ User.encode({ id: 1, name: 'Alex', role: 'editor', address: { city: 'Kyiv' }, ta
 
 | Definition | `Infer` |
 | --- | --- |
-| `'string'`, `'number'`, `'boolean'`, `'bigint'`, `'date'` | `string`, `number`, `boolean`, `bigint`, `Date` |
-| `'json'` | `unknown` |
+| `'string'`, `'number'`, `'integer'`, `'boolean'`, `'bigint'`, `'date'`, `'bytes'` | `string`, `number`, `number`, `boolean`, `bigint`, `Date`, `Uint8Array` |
+| `'json'`, `'any'`, `'unknown'` | `unknown` |
+| `'null'` | `null` |
 | `'?T'`, `'key?'`, `required: false`, `default` | `T \| null` |
 | `{ array: T }` | `T[]` |
+| `{ set: T }` | `Set<T>` (`Input` also takes `readonly T[]`) |
+| `{ map: { string: V } }`, `{ map: { number: V } }` | `Map<string, V>`, `Map<number, V>` |
+| `{ object: { string: V } }` | `Record<string, V>` |
+| the long forms (`{ type: 'map', key, value }`, …) | as their shorthands |
 | `{ enum: ['a', 'b'] }` | `'a' \| 'b'` |
 | `{ flags: ['x', 'y'] }` | `{ x: boolean; y: boolean }` |
-| `['number', '?string']` | `[number, string \| null]` |
+| `['number', '?string']`, `[{ x: 'number' }, { 'y?': 'string' }]` | `[number, string \| null]` |
 | a nested struct or a schema by value | the nested object type |
 | `{ union: [A, B], discriminator: 'type' }` | `Infer<A> \| Infer<B>`, narrowed by the discriminator |
 | a schema by name (`'User'`) | `unknown` — the registry is not visible to the type system |
@@ -73,7 +78,11 @@ kind (`Struct: {}`, a capitalised first key holding an object) is not a field; t
 cannot see key order, skip any capitalised key that holds plain metadata.
 
 `schema.list` is typed as a `Collection<D>` whose `decode` returns `Infer<D>[]`. The functional
-entry points (`encode(schema, value)` and friends) carry the same types.
+entry points (`encode(schema, value)` and friends) are typed after the methods of the schema they
+get. `Schema.resolve(writer, reader)` is typed as the reader: it decodes to `Infer` of the reader's
+definition. The subpaths ship their own typings (`registry.d.ts`, `stream.d.ts`,
+`metaschema.d.ts`, `standalone.d.ts`); the methods `register()` installs on `Schema` are declared
+by module augmentation, so they type-check whether `register()` ran or not.
 
 The error classes export their code unions: `SchemaErrorCode`, `EncodeErrorCode`,
 `DecodeErrorCode`.

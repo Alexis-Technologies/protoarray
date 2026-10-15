@@ -13,8 +13,9 @@ in Node.js ≥ 18 and browsers.
 
 It is maintained by Alexis Technologies and set up like the sibling libraries
 `@alexify/metaschema`, `@alexify/kerberos` and `@alexify/migronaut`. `origin` is
-`Alexis-Technologies/protoarray`. The definition DSL is a subset of metaschema's, so one
-definition can serve both libraries.
+`Alexis-Technologies/protoarray`. The definition DSL is metaschema's (all of it but unions
+without a discriminator), so one definition can serve both libraries; `./metaschema` translates a
+metaschema `Schema` and registers protoarray's extra types there.
 
 Package manager is **pnpm** (pinned in `packageManager`).
 
@@ -25,11 +26,12 @@ pnpm test                          # node --test tests/unit/*.test.js
 node --test tests/unit/codec.test.js   # a single file
 node --test --test-name-pattern="Layouts" tests/unit/*.test.js   # filter by name
 pnpm run test:coverage             # c8 over src/, gated at 100 lines/statements/branches/functions per file
-pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts
-pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
-pnpm run lint                      # oxlint src tests scripts bench
-pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 20 KB min+gzip
+pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts and the subpath d.ts files
+pnpm run check:dts                 # tsc --noEmit --strict over every d.ts on its own
+pnpm run lint                      # oxlint src tests scripts bench bin
+pnpm run format                    # oxfmt src tests scripts bench bin (format:check in CI)
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 20 KB min+gzip
+node bin/protoarray.js compile <module> [--out f] [--format cjs|esm] [--runtime import|inline] [--only A,B]   # the CLI
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--save]   # against JSON, protobufjs, avsc, msgpackr, …
 pnpm bench:report                  # renders bench/results/compare.json into README.md and docs/guide/benchmarks.md
@@ -44,21 +46,30 @@ pre-merge gate. There is no build step.
 - `src/` is plain CommonJS (`require`/`module.exports`) and ships as is. No TypeScript syntax, no
   `import`/`export`, no `'use strict'`.
 - The root `index.js` is a one-line shim over `src/index.js`. `browser.js` intentionally mirrors
-  it. Do not deduplicate the two (see "Platform").
+  it. Do not deduplicate the two (see "Platform"). The subpaths `registry.js`, `stream.js`,
+  `metaschema.js` and `standalone.js` are one-line shims over `src/` modules of the same names,
+  each with its own d.ts; they hold what the core does not need, as free functions with the
+  schema first, and `register()` installs the methods (`Schema.prototype`, non-enumerable) or the
+  hooks (`HOOKS` in `plan.js`) where a subpath has any. Their d.ts declare those methods by module
+  augmentation of `Schema`.
 - `src/index.js` lists every export **by name** (`module.exports = { Schema, encode, … }`), never by
   spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/protoarray'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. `tests/unit/export-parity.test.js` compares
   runtime exports with the declared value exports for both entries and imports every name from ESM.
-  `tests/types/index.test-d.ts` (tsd) pins signatures and the `Infer`/`Input` inference.
+  `tests/types/*.test-d.ts` (tsd) pin signatures and the `Infer`/`Input` inference.
   `check:dts` needs `--target es2022` because there is no tsconfig. `Infer`/`Input` are mapped and
   conditional types over the definition literal; `AnySchema` (not `Schema<any>`) is what
   `FieldDefinition` and `options.schemas` accept, because comparing two generic `Schema` types
-  recurses through `list` and makes TypeScript give up ("excessively deep").
-- `package.json` has a closed `exports` map (`types` first, then `browser`, then `default`) and a
-  `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE and
-  SECURITY.
+  recurses through `list` and makes TypeScript give up ("excessively deep"). For the same reason
+  `Value`/`Shape` tell a schema used as a field by its shape (`SchemaOf`: `definition` and
+  `backend`), and collections dispatch through `CollectionKind`; the free functions are typed
+  after the schema's methods (`Parameters<S['encode']>`), not through overloads over `Schema<D>`.
+- `package.json` has a closed `exports` map (`.`: `types`, `browser`, `default`; each subpath:
+  `types`, `default`), a `bin` (`protoarray` → `bin/protoarray.js`) and a `files` allowlist: the
+  root shims and d.ts files, `bin`, `src`, README, CHANGELOG, LICENSE and SECURITY.
+  `export-parity.test.js` checks every subpath against the map, the list and `check:dts`.
 
 ## Zero dependencies
 
@@ -70,20 +81,30 @@ devDependencies are fine (the comparative benchmark has several).
 
 ```
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
+registry.js stream.js metaschema.js standalone.js (+ .d.ts)   subpath shims + types
+bin/protoarray.js   the CLI: `protoarray compile` (Node, outside src/)
 src/
   index.js          public barrel (explicit named exports)
-  schema.js         Schema class: options, plan → backend, list/id/stringify/parse/check
-  plan.js           definition DSL → plan (node tree), canonical form, FNV-1a fingerprint
-  types.js          scalar type table: wire and encode checks, conversions, shared by both backends
-  runtime/          base64 twin for `bytes`: node.js (Buffer) and browser.js (toBase64/btoa)
-  codegen.js        new Function backend (the only file that may compile source text)
+  schema.js         Schema class: options, plan → backend, list/id/stringify/parse/check,
+                    Schema.resolve, encodeEach/decodeEach, the `compiled` option
+  plan.js           definition DSL → plan (node tree), canonical form, FNV-1a fingerprint, HOOKS
+  resolve.js        writer plan × reader plan → resolved plan (Schema.resolve)
+  types.js          scalar type table (a closed kernel): checks, conversions, bridges, interned
+                    strings, delta lists, recipes; shared by both backends
+  runtime/          base64 twin for `bytes`: node.js (Buffer) and browser.js (a closed kernel)
+  codegen.js        new Function backend (the only file that may compile source text), the builder
   closures.js       no-eval backend, same semantics, used as the fallback and as the reference
-  layouts.js        flat and columns layouts over a record codec
+  layouts.js        flat/columns layouts, delta columns, the interned root (a closed kernel)
   codec.js          functional entry points over a Schema
-  errors.js         SchemaDefinitionError, EncodeError, DecodeError, fail/nest helpers
+  errors.js         SchemaDefinitionError, EncodeError, DecodeError, fail/nest helpers (a closed kernel)
+  registry.js       SchemaRegistry and the [id, payload] envelope (./registry)
+  stream.js         NDJSON, TransformStreams, stringifyItems/parseItems (./stream)
+  metaschema.js     fromMetaschema, fromModel, custom types, register (./metaschema)
+  standalone.js     toSource, the import runtime, the inline kernel, register (./standalone)
 tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
   support/          BACKENDS + normalize, the wire-format vectors, the random generator
+  fixtures/         modules of schemas for the CLI tests
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 bench/              engine harness (bench.js), comparison (compare.js + compare/), report.js;
@@ -96,8 +117,8 @@ docs/               VitePress site (protoarray.vercel.app), not published
 
 `new Schema(name, definition, options)` runs three steps once, at construction:
 
-1. **`plan.js`** parses the definition into a plan: a tree of nodes (`struct`, `union`, `array`,
-   `tuple`, `scalar`, `ref`). A struct node holds `fields` (`key`, `index`, `required`, `def`,
+1. **`plan.js`** parses the definition into a plan: a tree of nodes (`struct`, `union`, `array`
+   (a `Set` with `container: 'set'`), `map`, `dict`, `tuple`, `scalar`, `ref`). A struct node holds `fields` (`key`, `index`, `required`, `def`,
    `node`), `keys`, `sparse` and `tail` (the index where the trailing run of optional fields
    starts, the only part that may be trimmed off the wire). Scalar nodes come from `types.js` and
    carry `check` (the wire), `accept` (a value given to encode), `pack` and `unpack` (null for
@@ -131,9 +152,40 @@ docs/               VitePress site (protoarray.vercel.app), not published
    public API), generated again on each read so a codec does not hold the text. In automatic
    mode the error that made `codegen.build` fall back to closures is kept behind
    `schema[Symbol.for('alexify.protoarray.fallback')]`.
-3. **`layouts.js`** wraps the record codec when a collection uses `flat` or `columns`; `rows` is the
-   codec of `{ array: Record }` itself. `schema.list` is `{ array: schema }` over the slot, so it
-   compiles only the loop.
+3. **`layouts.js`** wraps the record codec when a collection uses `flat` or `columns` (a `columns`
+   field with `delta` is written as differences there); `rows` is the codec of `{ array: Record }`
+   itself. `schema.list` is `{ array: schema }` over the slot, so it compiles only the loop. A plan
+   that reaches an interned string (`intern`, through slots too) gets the `withTable` root: the
+   message's string table lives in the holder `INTERN` of `types.js` for one call, so interned
+   slots are ordinary converted scalars to both backends; `Schema` calls isolate a nested root
+   call (`isolated`), and a codec without intern is unchanged.
+
+**`Schema.resolve(writer, reader)`** (`resolve.js`) walks the two plans together into a third
+one, compiled like any plan: a resolved struct keeps the writer's fields in wire order, each with
+the reader's `key` (null: skipped on decode, null on encode), `required`/`def` for decode and the
+writer's `encodeRequired` for encode, plus `order` (the reader's key order) and `extras` (reader
+fields the writer lacks); collections and tuples carry the same twin flags. Scalar conversions are
+`bridge` nodes of `types.js`. Schema boundaries (embedded schemas, references, the roots) resolve
+once per pair; a pair met again while in progress is a recursion that calls a codec compiled for
+it, and so is a layout inside a record. The resolved root prints as its writer (`text`) and keeps
+the writer's id and fingerprint; `schema.js` builds it through a module-private option symbol.
+
+**The text builder** (`codegen.js`): with `builder` set, generated code has a `stringify` that
+writes the JSON text as it encodes, with encode's checks and errors and the exact text of
+`JSON.stringify` of the wire (toJSON with the positional key, `undefined` as `null`). Nested
+records are written in place, unions and the root through functions; collections past `THRESHOLD`
+records take `JSON.stringify`. `schema.js` sets `builder` for `stringify: 'builder'`, and for
+`'auto'` only on records of converted types (`converted`), the only shape that wins against the
+native path on every engine measured. Parity tests force it on random schemas.
+
+**Standalone modules** (`standalone.js`): `errors.js`, `types.js`, `layouts.js` and
+`runtime/browser.js` are closed functions (`kernel`) run once, so their source can be embedded.
+Every scalar node and helper function of `types.js` carries a `recipe`, the expression that makes
+it again; `toSource` runs `codegen.generate` (with the options `codecOptions` gives `build`) and
+writes each helper as its recipe and each slot as a lazy reference to another schema of the module.
+The `import` runtime builds real schemas with `{ compiled }` (checked against the canonical form,
+`backend: 'standalone'`); the `inline` runtime embeds the kernels and the `inline` kernel of
+`standalone.js`, which does Schema's work around a codec.
 
 `schema.check(value)` runs a second codec, `schema[Symbol.for('alexify.protoarray.checker')]`,
 built on first use from the same plan with validation on and `checking` set: it calls each slot's
@@ -183,6 +235,13 @@ halves decode only canonical base64 (the text must encode back to itself), and t
 checks they agree with and without the native methods. `pnpm size` bundles `browser.js` with
 `platform: 'browser'`, so a leaked builtin fails CI.
 
+The subpaths follow the same rule: `stream.js` uses only the globals `TextDecoder`,
+`TransformStream` and `ReadableStream` (all in Node.js 18), `standalone.js` requires the browser
+half of the base64 twin directly for its kernel, and only `bin/` (outside `src/`) uses Node
+builtins. A kernel must stay closed: nothing but its parameters and standard globals, since its
+source runs on its own in an inline module (`standalone.test.js` and `bundle.test.js` run such
+modules in a `vm` realm without code generation, minified too).
+
 Code generation lives in `src/codegen.js` only (the platform test greps for `Function(` and
 `eval(`), behind two targeted `// oxlint-disable-next-line no-new-func` comments. Generated code
 receives everything through parameters (`H`, `F`, `N`): a minifier renames module identifiers,
@@ -195,7 +254,7 @@ time.
 - Formatting: 2 spaces, single quotes, semicolons, trailing commas, **100 columns**, LF
   (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` (shared with the sibling libraries:
   the explicit rule list, plus the `correctness` and `suspicious` categories as errors and
-  `no-console` everywhere but `scripts/` and `bench/`). Suppress a rule only for an intentional
+  `no-console` everywhere but `scripts/`, `bench/` and `bin/`). Suppress a rule only for an intentional
   construct, with a targeted `// oxlint-disable-next-line <rule>`.
 - Code style:
   - module-level functions are arrow functions assigned to `const`; classes and prototype objects
@@ -232,13 +291,24 @@ change. **This file wins** if they ever disagree.
 - Runner: Node's built-in `node:test` + `node:assert`. Suites use flat
   `test('Area: description', …)`; keep that style.
 - Behavioural suites loop over `BACKENDS` from `tests/support/backends.js` so codegen and closures
-  are tested with the same cases; `normalize` from the same file turns Dates, BigInts and
-  `Uint8Array`s into comparable objects. `tests/support/vectors.js` is the wire format as data and the source of the
+  are tested with the same cases; `normalize` from the same file turns Dates, BigInts,
+  `Uint8Array`s, Sets and Maps into comparable objects and keeps a `__proto__` key an own one. `tests/support/vectors.js` is the wire format as data and the source of the
   docs examples; add a vector when the format gains a rule.
 - `tests/unit/parity.test.js` generates random definitions and values (`tests/support/generate.js`,
-  seeded: unions, bytes, flags past 31 names, and every fifth schema 32–70 fields wide for sparse
-  segments) and asserts the two backends agree on wires, decoded objects, key order and errors,
-  on corrupted values (encode) and corrupted wires (decode). A failure prints the seed.
+  seeded: unions, bytes, flags past 31 names, sets, maps, dictionaries, tuples of records, delta
+  and interned fields, and every fifth schema 32–70 fields wide for sparse segments) and asserts
+  the two backends agree on wires, decoded objects, key order and errors, on corrupted values
+  (encode) and corrupted wires (decode), with the builder forced too. A second test resolves each
+  schema against a mutated reader (renamed through `aliases`, dropped, shuffled, extended) and
+  checks the backends agree and every reader field holds the writer's value. A failure prints the
+  seed.
+- `standalone.test.js` runs generated modules (both runtimes) in a `vm` context created with
+  `codeGeneration: { strings: false }`, the package bundled into it, and compares them with the
+  schemas on the vectors and random definitions; it also runs the `inline` kernel in process,
+  since c8 attributes code run from embedded source to the `vm` script, not to `src/`.
+  `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/`; generated files go to the
+  gitignored `tests/.generated/`. `metaschema.test.js` uses `@alexify/metaschema` (a
+  devDependency). `stream.test.js` splits payloads at every byte and character for the scanner.
 - `tests/unit/backend.test.js` stubs `globalThis.Function` before the first `require`, which is
   the only way to reach the probe's fallback branch; each test file is its own process.
   `schema.test.js` stubs `codegen.build` through the module object for the per-schema fallback,

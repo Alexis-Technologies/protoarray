@@ -110,6 +110,57 @@ const ADAPTERS = {
       };
     },
   },
+  // The same codec as a generated module with its own runtime: what a strict
+  // CSP or an edge runtime gets instead of the closures backend.
+  'protoarray-standalone': {
+    name: 'protoarray (standalone, inline)',
+    setup: (scenario) => {
+      const vm = require('node:vm');
+      const { toSource } = require('../../standalone.js');
+      const source = toSource(
+        listOf(scenario, scenario.schema.definition, scenario.schema.options),
+        {
+          runtime: 'inline',
+        },
+      );
+      const module = { exports: {} };
+      vm.runInThisContext(`(function (module) {${source}\n})`)(module);
+      const schema = module.exports;
+      return {
+        encode: (value) => schema.stringify(value),
+        decode: (text) => schema.parse(text),
+        bytes: (text) => Buffer.byteLength(text),
+        normalize: (value) => plain(value),
+      };
+    },
+  },
+  // Columns with the integer id written as differences and the strings of
+  // few distinct values interned (a city, the tags): interning unique strings
+  // (names, emails) only adds a table of them, which compresses worse.
+  'protoarray-compact': {
+    name: 'protoarray (columns, delta + intern)',
+    only: (scenario) => scenario.name === 'records',
+    setup: (scenario) => {
+      const { definition } = scenario.schema;
+      const interned = { type: 'string', intern: true };
+      const record = {
+        ...definition,
+        id: { type: 'integer', delta: true },
+        address: { ...definition.address, city: interned },
+        tags: { array: interned },
+      };
+      const schema = protoarray.Schema.from(
+        { array: record },
+        { ...scenario.schema.options, layout: 'columns' },
+      );
+      return {
+        encode: (value) => schema.stringify(value),
+        decode: (text) => schema.parse(text),
+        bytes: (text) => Buffer.byteLength(text),
+        normalize: (value) => plain(value),
+      };
+    },
+  },
   protobufjs: {
     name: 'protobufjs',
     setup: (scenario) => {

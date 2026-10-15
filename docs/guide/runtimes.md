@@ -53,8 +53,34 @@ typical record the closures backend stays within 10% of `JSON.stringify` and `JS
 keyed object, a little ahead on one record and a little behind on a list; the codegen backend is
 ×1.5 and ×1.7. The cost of closures grows with the number of fields, about 40 ns per field on
 decode against a few in generated code, so a sparse record of 70 fields decodes about 15 times
-slower than with codegen. The payload is identical either way; building a schema takes about a
-millisecond in a fresh process with either backend (`pnpm bench` prints a cold-start table).
+slower than with codegen. The payload is identical either way; in a fresh process, loading the
+package takes about 4 ms and building a first schema about 2 ms with either backend, a few
+microseconds once warm (`pnpm bench` prints a cold-start table).
+
+## Without code generation, at its speed
+
+Where `new Function` is blocked, a [standalone module](/guide/standalone) brings the generated code
+along: `protoarray compile` (or `toSource`) writes the code of your schemas into a module at build
+time, and the runtime loads it like any other module. Its schemas run at the speed of the codegen
+backend under a strict CSP, in Workers or at the edge.
+
+## How stringify writes the text
+
+`stringify` is `JSON.stringify` of the wire, or the same text written by generated code as it
+encodes, without the intermediate array. Which is faster depends on the engine: since V8 12
+(Node.js 22, Chrome 126) `JSON.stringify` has a fast path that writes strings and floats faster
+than JavaScript can, while records of booleans, enums, flags, dates, integers and decimals still
+go faster by hand everywhere. The `stringify` option picks:
+
+| `stringify` | Writes the text by hand | Measured against the native path |
+| --- | --- | --- |
+| `'auto'` (default) | records whose leaves are booleans, enums, flags, dates, integers or decimals | ×1.0 to ×1.85 on Node.js 18 to 24 |
+| `'builder'` | any schema with the codegen backend | ×1.2 to ×1.8 on Node.js 20; down to ×0.7 on string-heavy records on Node.js 22 and 24 |
+| `'native'` | never | — |
+
+The text is the same either way, byte for byte, and so are the errors: a property-based test holds
+them together. Collections of more than 64 records always go through `JSON.stringify`. The closures
+backend always does.
 
 ## Node.js versions and browsers
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Versions that cannot follow the append-only rules read each other through `Schema.resolve` and a
+registry of schemas by id; collections stream item by item and shrink further with delta-encoded
+integers and interned strings; the whole of metaschema's DSL is understood, and a metaschema
+`Schema` translates; generated code can be written into a module for runtimes without code
+generation. Every 1.1 payload decodes the same way, and a schema that uses none of the new
+options writes what 1.1 writes. The extras that the core does not need are subpaths.
+
 ### Added
 
 - **`Schema.resolve(writer, reader, options?)`**: a schema that reads what `writer` wrote as
@@ -32,7 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error; two different schemas under one id (a fingerprint too narrow for the registry) throw
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
-
 - **`@alexify/protoarray/standalone`**: a schema's generated code as the source of a module, for
   runtimes that forbid compiling source text (a strict CSP, Cloudflare Workers, Vercel Edge),
   where schemas otherwise run on the slower closures backend. `toSource(schemas, { runtime,
@@ -124,7 +130,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metaschema reads such a definition as a shorthand, not as a struct.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The bundle budget is 20 KB min+gzip.
+- The core is larger, about 20 KB min+gzip (the bundle budget is 20 KB), and a fresh process
+  loads it in about 4 ms instead of 3 and builds a first schema in about 2 ms instead of 1.5; a
+  warm build is unchanged. The registry, streaming, metaschema and standalone extras are subpaths
+  that add 0.4 to 2 KB each to a bundle that uses them.
 
 ## [1.1.0] - 2026-10-15
 

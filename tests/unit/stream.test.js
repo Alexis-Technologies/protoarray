@@ -316,3 +316,39 @@ test('Stream: register() installs the functions as methods of Schema', async () 
   assert.ok(User.stringifyStream() instanceof TransformStream);
   assert.ok(User.parseStream() instanceof TransformStream);
 });
+
+// The scanner finds where items end through escapes, quotes and brackets in
+// strings, whatever byte or character a chunk is cut at.
+test('Stream: parseItems at every split point of strings full of escapes', async () => {
+  const List = Schema.from({ array: { a: 'string', b: '?json' } });
+  const pool = ['', 'x', '\\', '"', '\\"', 'a\\\\b', '[', ']', '{', '}', ',', 'é', '\u{1F600}'];
+  let seed = 7;
+  const random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const pick = () => pool[Math.floor(random() * pool.length)];
+  for (let n = 0; n < 40; n++) {
+    const count = 1 + Math.floor(random() * 3);
+    const list = Array.from({ length: count }, () => ({
+      a: pick() + pick(),
+      b: random() < 0.5 ? null : { k: [pick()] },
+    }));
+    const text = List.stringify(list);
+    const expected = List.parse(text);
+    const all = new TextEncoder().encode(text);
+    for (let cut = 0; cut <= all.length; cut++) {
+      const parts = [all.slice(0, cut), all.slice(cut)];
+      assert.deepStrictEqual(
+        await collect(stream.parseItems(List, parts)),
+        expected,
+        `${text} ${cut}`,
+      );
+    }
+    for (let cut = 0; cut <= text.length; cut++) {
+      const parts = [text.slice(0, cut), text.slice(cut)];
+      assert.deepStrictEqual(
+        await collect(stream.parseItems(List, parts)),
+        expected,
+        `${text} ${cut}`,
+      );
+    }
+  }
+});

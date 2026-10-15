@@ -202,6 +202,9 @@ const stringifyItems = (schema, values) => {
   return async ? piecesAsync(items, values) : piecesSync(items, values);
 };
 
+// No item yet: a flat row still filling up.
+const NONE = Symbol('none');
+
 // What the scanner of a JSON array is at.
 const BEFORE = 0;
 const INSIDE = 1;
@@ -217,14 +220,45 @@ const scanner = (name) => {
   let state = BEFORE;
   let depth = 0;
   let string = false;
+  // The chunk before ended inside a string on a backslash: the first
+  // character of this one is escaped.
   let escape = false;
   let started = false;
   let commas = 0;
   let buffer = '';
+  // The quote that closes the string `from` is in, or -1 when the chunk ends
+  // inside it; an odd run of backslashes before a quote escapes it, and one at
+  // the end of the chunk the first character of the next.
+  const closing = (text, from) => {
+    let quote = text.indexOf('"', from);
+    while (quote !== -1) {
+      let back = quote - 1;
+      while (back >= from && text.charCodeAt(back) === 92) back--;
+      if ((quote - 1 - back) % 2 === 0) return quote;
+      quote = text.indexOf('"', quote + 1);
+    }
+    let back = text.length - 1;
+    while (back >= from && text.charCodeAt(back) === 92) back--;
+    escape = (text.length - 1 - back) % 2 === 1;
+    return -1;
+  };
   return {
     push: (text, out) => {
       let start = 0;
-      for (let i = 0; i < text.length; i++) {
+      let i = 0;
+      if (escape) {
+        escape = false;
+        i = 1;
+      }
+      for (const length = text.length; i < length; i++) {
+        if (string) {
+          // Through the string to its closing quote, past the chunk maybe.
+          const quote = closing(text, i);
+          if (quote === -1) break;
+          string = false;
+          i = quote;
+          continue;
+        }
         const code = text.charCodeAt(i);
         if (state !== INSIDE) {
           if (state === BEFORE && code === 91) {
@@ -233,10 +267,6 @@ const scanner = (name) => {
           } else if (!SPACE(code)) {
             throw syntax(`Unexpected character "${text[i]}" outside the array`, '', name);
           }
-        } else if (string) {
-          if (escape) escape = false;
-          else if (code === 92) escape = true;
-          else if (code === 34) string = false;
         } else if (code === 34) {
           string = true;
           started = true;
@@ -256,7 +286,7 @@ const scanner = (name) => {
           start = i + 1;
           if (code === 44) commas += 1;
           else state = AFTER;
-        } else if (!SPACE(code)) {
+        } else if (!started && !SPACE(code)) {
           started = true;
         }
       }
@@ -283,35 +313,34 @@ const itemsOf = async function* (schema, items, chunks, options) {
   let row = [];
   const elements = [];
   elements.count = 0;
-  // The JSON of each element found; a flat collection yields every `size`.
-  const take = function* () {
-    for (const element of elements) {
-      let wire;
-      try {
-        wire = JSON.parse(element);
-      } catch (error) {
-        const at = items.size === 0 ? index : Math.floor(elements.count / items.size);
-        throw boundary(new DecodeError('json', `[${at}]`, '', error), schema.name, true);
-      }
-      elements.count += 1;
-      if (items.size === 0) {
-        yield items.decode(wire, index, strict);
-        index += 1;
-        continue;
-      }
+  // The item an element completes, or NONE while a flat row fills up.
+  const take = (element) => {
+    let wire;
+    try {
+      wire = JSON.parse(element);
+    } catch (error) {
+      const at = items.size === 0 ? index : Math.floor(elements.count / items.size);
+      throw boundary(new DecodeError('json', `[${at}]`, '', error), schema.name, true);
+    }
+    elements.count += 1;
+    if (items.size !== 0) {
       row.push(wire);
-      if (row.length < items.size) continue;
-      yield items.decode(row, index, strict);
-      index += 1;
+      if (row.length < items.size) return NONE;
+      wire = row;
       row = [];
     }
-    elements.length = 0;
+    return items.decode(wire, index++, strict);
   };
   for await (const chunk of chunks) {
     scan.push(decoded(text, chunk, schema.name), elements);
-    yield* take();
+    for (let k = 0; k < elements.length; k++) {
+      const item = take(elements[k]);
+      if (item !== NONE) yield item;
+    }
+    elements.length = 0;
   }
-  scan.push(decoded(text, null, schema.name), elements);
+  // What the decoder still holds is a character cut off: an error.
+  decoded(text, null, schema.name);
   scan.end();
   if (row.length !== 0) {
     throw boundary(new DecodeError('structure', '', 'length'), schema.name, true);

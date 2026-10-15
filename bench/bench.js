@@ -19,7 +19,10 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const vm = require('node:vm');
 const { Schema } = require('../index.js');
+const { toSource } = require('../standalone.js');
+const { parseItems } = require('../stream.js');
 const {
   bench,
   FLAT_OBJECT,
@@ -125,6 +128,59 @@ const WIDE_FLAGS = {
   perms: { flags: Array.from({ length: 70 }, (_, i) => `n${i}`) },
 };
 const WIDE_FLAGS_OBJECT = { id: 1, perms: { n1: true, n35: true, n69: true } };
+// A record of converted types only: where `stringify: 'auto'` writes the text itself.
+const CONVERTED = {
+  id: 'integer',
+  createdAt: 'date',
+  active: 'boolean',
+  role: { enum: ['admin', 'editor', 'viewer', 'owner'] },
+  perms: { flags: ['read', 'write', 'admin'] },
+};
+const CONVERTED_OBJECT = {
+  id: 7,
+  createdAt: new Date(1700000000000),
+  active: true,
+  role: 'editor',
+  perms: { read: true, admin: true },
+};
+// The same records with an integer id written as differences and the role
+// interned, in columns.
+const COMPACT_RECORD = {
+  ...RECORD,
+  id: { type: 'integer', delta: true },
+  role: { type: 'string', intern: true },
+};
+
+// An inline standalone module of a schema, loaded as a runtime without code
+// generation would load it (here code generation is allowed, but the module
+// does not use it).
+const standalone = (schema) => {
+  const module = { exports: {} };
+  const load = vm.runInThisContext(
+    `(function (module) {${toSource(schema, { runtime: 'inline' })}\n})`,
+  );
+  load(module);
+  return module.exports;
+};
+
+// An async scenario: ops/sec as the median of five rounds of `count` runs.
+const benchAsync = async (name, fn, count = 20) => {
+  const samples = [];
+  for (let round = 0; round < 5; round++) {
+    const start = performance.now();
+    for (let i = 0; i < count; i++) await fn();
+    samples.push((count / (performance.now() - start)) * 1000);
+  }
+  samples.sort((a, b) => a - b);
+  const opsPerSec = Math.round(samples[2]);
+  const spread = Math.round(((samples[4] - samples[0]) / opsPerSec) * 100);
+  if (!json) {
+    console.log(
+      `${name.padEnd(60)} ${opsPerSec.toLocaleString('en-US').padStart(12)} ops/sec  ±${spread}%`,
+    );
+  }
+  return { name, opsPerSec, spread };
+};
 
 // Each entry: [label, schema definition, options, value, json reference value].
 // Encoding is measured as it is by default (the values trusted) and with
@@ -184,7 +240,7 @@ const coldStart = (label, definition, options, value) => {
   return result;
 };
 
-const main = () => {
+const main = async () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const rows = Schema.from({ array: RECORD });
   const trusting = { flat: Schema.from(FLAT, { validate: false }) };
@@ -202,6 +258,28 @@ const main = () => {
   const flat = Schema.from({ array: RECORD }, { layout: 'flat' });
   const columns = Schema.from({ array: RECORD }, { layout: 'columns' });
   const recordsText = JSON.stringify(RECORDS);
+  // The text builder: by default for converted types, on request for any.
+  const text = {
+    converted: Schema.from(CONVERTED),
+    convertedNative: Schema.from(CONVERTED, { stringify: 'native' }),
+    nestedBuilder: Schema.from(NESTED, { stringify: 'builder' }),
+    typedBuilder: Schema.from(TYPED, { stringify: 'builder' }),
+  };
+  // Another version of the flat record: a renamed field, a new one with a default.
+  const flatV1 = Schema.from(FLAT);
+  const flatV2 = Schema.from({
+    name: 'string',
+    years: { type: 'number', aliases: ['age'] },
+    email: 'string',
+    active: 'boolean',
+    plan: { type: 'string', default: 'free' },
+  });
+  const resolved = Schema.resolve(flatV1, flatV2);
+  const flatText = flatV1.stringify(FLAT_OBJECT);
+  const compact = Schema.from({ array: COMPACT_RECORD }, { layout: 'columns' });
+  const compactText = compact.stringify(RECORDS);
+  const inline = { nested: standalone(Schema.from(NESTED)) };
+  const nestedText = Schema.from(NESTED).stringify(NESTED_OBJECT);
   const wires = {
     rows: rows.stringify(RECORDS),
     flat: flat.stringify(RECORDS),
@@ -255,6 +333,37 @@ const main = () => {
     ['1000 records: parse (rows)', () => rows.parse(wires.rows)],
     ['1000 records: parse (flat)', () => flat.parse(wires.flat)],
     ['1000 records: parse (columns)', () => columns.parse(wires.columns)],
+    // The builder's text is read once, as sending it would: a string built by
+    // concatenation is flattened then, which a fair comparison has to count.
+    [
+      'converted record: stringify + read (codegen, stringify: auto, the builder)',
+      () => text.converted.stringify(CONVERTED_OBJECT).charCodeAt(1),
+    ],
+    [
+      'converted record: stringify + read (codegen, stringify: native)',
+      () => text.convertedNative.stringify(CONVERTED_OBJECT).charCodeAt(1),
+    ],
+    [
+      'nested object: stringify + read (codegen, stringify: builder)',
+      () => text.nestedBuilder.stringify(NESTED_OBJECT).charCodeAt(1),
+    ],
+    [
+      'nested object: stringify + read (codegen, stringify: native)',
+      () => checked.nested.stringify(NESTED_OBJECT).charCodeAt(1),
+    ],
+    [
+      'typed object (enum, flags, date): stringify + read (codegen, stringify: builder)',
+      () => text.typedBuilder.stringify(TYPED_OBJECT).charCodeAt(1),
+    ],
+    ['resolved (renamed, defaulted): parse (codegen)', () => resolved.parse(flatText)],
+    [
+      'resolved (renamed, defaulted): stringify (codegen)',
+      () => resolved.stringify(resolved.parse(flatText)),
+    ],
+    ['1000 records: stringify (columns, delta + intern)', () => compact.stringify(RECORDS)],
+    ['1000 records: parse (columns, delta + intern)', () => compact.parse(compactText)],
+    ['nested object: stringify (standalone, inline)', () => inline.nested.stringify(NESTED_OBJECT)],
+    ['nested object: parse (standalone, inline)', () => inline.nested.parse(nestedText)],
     ['Schema.from (nested definition, codegen)', () => Schema.from(NESTED)],
     ['Schema.from (nested definition, closures)', () => Schema.from(NESTED, { codegen: false })],
   ];
@@ -262,6 +371,24 @@ const main = () => {
   const results = [];
   for (const [name, fn] of scenarios) {
     if (name.includes(filter)) results.push(bench(name, fn, { quiet: json }));
+  }
+  // The array of a collection read item by item while it arrives, against
+  // parsing it whole: the price of not holding the text.
+  const streamed = [
+    [
+      '1000 records: parseItems (stream, 64 KB chunks)',
+      async () => {
+        const chunks = [];
+        for (let i = 0; i < wires.rows.length; i += 65536) {
+          chunks.push(wires.rows.slice(i, i + 65536));
+        }
+        for await (const item of parseItems(rows, chunks)) if (item === null) break;
+      },
+    ],
+    ['1000 records: parse (rows, whole text)', async () => rows.parse(wires.rows)],
+  ];
+  for (const [name, fn] of streamed) {
+    if (name.includes(filter)) results.push(await benchAsync(name, fn));
   }
   const cold = [];
   if ('cold start'.includes(filter) || filter === '') {

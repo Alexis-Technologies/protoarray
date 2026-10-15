@@ -12,6 +12,7 @@ const STRUCTURE = {
   mask: 'is not a sparse mask',
   envelope: 'is not an envelope: [id, payload]',
   intern: 'is not an interned payload: [table, body]',
+  iterable: 'is not iterable',
   depth: 'is nested too deeply',
 };
 

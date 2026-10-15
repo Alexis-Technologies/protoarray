@@ -17,6 +17,10 @@ test('Scripts: size reports both entries and enforces the gzip budget', () => {
     ok.stdout,
     /\| Registry \(registry\.js\), over the core \| \| \+[\d.]+ KB \| \+[\d.]+ KB \|/,
   );
+  assert.match(
+    ok.stdout,
+    /\| Stream \(stream\.js\), over the core \| \| \+[\d.]+ KB \| \+[\d.]+ KB \|/,
+  );
 
   const over = run('scripts/size.js', ['--max-gzip', '0.01']);
   assert.strictEqual(over.status, 1);

@@ -2,7 +2,15 @@
 // plan is compiled by the codegen backend (or by closures where code generation
 // is unavailable or switched off), and the instance carries both.
 
-const { SchemaDefinitionError, EncodeError, DecodeError, boundary, fail } = require('./errors.js');
+const {
+  SchemaDefinitionError,
+  EncodeError,
+  DecodeError,
+  boundary,
+  fail,
+  nest,
+  expectedOf,
+} = require('./errors.js');
 const {
   BRAND,
   PLAN,
@@ -25,6 +33,8 @@ const LAYOUTS = ['rows', 'flat', 'columns'];
 // the schema compiles instead of parsing a definition. Object.keys does not
 // list it, so readOptions never sees it.
 const INTERNAL = Symbol('plan');
+// The codec of one item of a collection, for the stream helpers.
+const ITEMS = Symbol.for('alexify.protoarray.items');
 const MODES = ['decode', 'encode', 'both'];
 const isBoolean = (value) => typeof value === 'boolean';
 
@@ -203,9 +213,102 @@ const readAliases = (options, name) => {
   return aliases;
 };
 
+// An iterable of values, or an async one; a string is iterable and surely a
+// mistake.
+const iterable = (values) =>
+  values != null &&
+  typeof values !== 'string' &&
+  (typeof values[Symbol.iterator] === 'function' ||
+    typeof values[Symbol.asyncIterator] === 'function');
+
+// One result per value of an iterable, lazily, in its order: a generator for
+// an iterable, an async generator for an async one. An error names the index
+// of the value it is about.
+const eachSync = function* (values, convert, name, decoding) {
+  let index = 0;
+  for (const value of values) {
+    let result;
+    try {
+      result = convert(value);
+    } catch (error) {
+      throw boundary(nest(error, `[${index}]`), name, decoding);
+    }
+    yield result;
+    index += 1;
+  }
+};
+
+const eachAsync = async function* (values, convert, name, decoding) {
+  let index = 0;
+  for await (const value of values) {
+    let result;
+    try {
+      result = convert(value);
+    } catch (error) {
+      throw boundary(nest(error, `[${index}]`), name, decoding);
+    }
+    yield result;
+    index += 1;
+  }
+};
+
+const each = (values, convert, name, decoding) => {
+  if (!iterable(values)) {
+    const error = decoding
+      ? new DecodeError('structure', '', 'iterable')
+      : new EncodeError('iterable');
+    throw boundary(error, name, decoding);
+  }
+  const run = typeof values[Symbol.asyncIterator] === 'function' ? eachAsync : eachSync;
+  return run(values, convert, name, decoding);
+};
+
+// The items of a collection one at a time, with the collection's rules: a
+// null item where items are required, a row of a flat collection. Only rows
+// and flat collections without interned strings have items that stand on
+// their own.
+const itemCodec = (plan, backend, settings, name) => {
+  if (plan.kind !== 'array' || plan.layout === 'columns' || internedIn(plan, new Set())) {
+    throw new SchemaDefinitionError(
+      'ERR_INVALID_OPTIONS',
+      'Only a collection in rows or flat, without interned strings, streams item by item',
+      name,
+    );
+  }
+  const validate = checks(settings.validate, false);
+  const { item } = plan;
+  const codec = build(item, backend, settings, false).codec;
+  const required = plan.itemRequired;
+  const expected = expectedOf(item);
+  const size = plan.layout === 'flat' ? item.fields.length : 0;
+  return {
+    size,
+    encode: (value, index) => {
+      try {
+        if (size !== 0) return layouts.padded(codec, value, size, index, validate.encode);
+        if (value != null) return codec.encode(value);
+        if (required && validate.encode) throw new EncodeError('type', '', expected);
+        return null;
+      } catch (error) {
+        throw boundary(size === 0 ? nest(error, `[${index}]`) : error, name, false);
+      }
+    },
+    decode: (wire, index, strict) => {
+      try {
+        if (wire != null || size !== 0) return codec.decode(wire, strict);
+        if (required && validate.decode) throw new DecodeError('type', '', expected);
+        return null;
+      } catch (error) {
+        throw boundary(nest(error, `[${index}]`), name, true);
+      }
+    },
+  };
+};
+
 class Schema {
   #settings;
   #interned = false;
+  #items = null;
   #canonical = null;
   #id = null;
   #list = null;
@@ -332,6 +435,15 @@ class Schema {
     return this.#list;
   }
 
+  // The codec of one item of this collection, for the stream helpers.
+  get [ITEMS]() {
+    if (this.#items === null) {
+      const backend = this.backend === 'codegen' ? codegen : closures;
+      this.#items = itemCodec(this[PLAN], backend, this.#settings, this.name);
+    }
+    return this.#items;
+  }
+
   // The codec `check` runs, compiled when first asked for: it validates even
   // where the options say not to, here and in the schemas this one embeds.
   get [CHECKER]() {
@@ -383,6 +495,15 @@ class Schema {
     }
   }
 
+  // One wire value per value of an iterable (or an async one), lazily.
+  encodeEach(values) {
+    return each(values, (value) => this.encode(value), this.name, false);
+  }
+
+  decodeEach(arrays, options) {
+    return each(arrays, (array) => this.decode(array, options), this.name, true);
+  }
+
   stringify(value) {
     return JSON.stringify(this.encode(value));
   }
@@ -403,4 +524,4 @@ class Schema {
   }
 }
 
-module.exports = { Schema };
+module.exports = { Schema, ITEMS, each, iterable };

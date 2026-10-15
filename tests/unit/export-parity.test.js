@@ -21,12 +21,14 @@ const entryPoints = [
   ['index.js', 'index.d.ts'],
   ['browser.js', 'index.d.ts'],
   ['registry.js', 'registry.d.ts'],
+  ['stream.js', 'stream.d.ts'],
 ];
 
 // Every subpath of the exports map, with the typings it declares.
 const SUBPATHS = [
   ['@alexify/protoarray', 'index.d.ts'],
   ['@alexify/protoarray/registry', 'registry.d.ts'],
+  ['@alexify/protoarray/stream', 'stream.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {

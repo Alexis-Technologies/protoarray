@@ -451,6 +451,17 @@ export class Schema<const D extends Definition = Definition> {
   stringify(value: Input<D>): string;
   parse(text: string, options?: DecodeOptions): Infer<D>;
   /**
+   * One wire value per value of an iterable, lazily; an async iterable gives an async
+   * generator. An error names the index of its value (`[3].name`).
+   */
+  encodeEach(values: AsyncIterable<Input<D>>): AsyncGenerator<Encoded<D>, void, undefined>;
+  encodeEach(values: Iterable<Input<D>>): Generator<Encoded<D>, void, undefined>;
+  decodeEach(
+    arrays: AsyncIterable<unknown>,
+    options?: DecodeOptions,
+  ): AsyncGenerator<Infer<D>, void, undefined>;
+  decodeEach(arrays: Iterable<unknown>, options?: DecodeOptions): Generator<Infer<D>, void, undefined>;
+  /**
    * What encoding the value with validation would throw, as the error itself,
    * or `null`. It checks even where `validate: false` is set, here and in the
    * schemas this one embeds, and never throws over the data.
@@ -506,6 +517,26 @@ export function parse<S extends AnySchema & { parse(text: string, options?: Deco
 
 export function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
 
+export function encodeEach<S extends AnySchema>(
+  schema: S,
+  values: AsyncIterable<Parameters<S['encode']>[0]>,
+): AsyncGenerator<ReturnType<S['encode']>, void, undefined>;
+export function encodeEach<S extends AnySchema>(
+  schema: S,
+  values: Iterable<Parameters<S['encode']>[0]>,
+): Generator<ReturnType<S['encode']>, void, undefined>;
+
+export function decodeEach<S extends AnySchema>(
+  schema: S,
+  arrays: AsyncIterable<unknown>,
+  options?: DecodeOptions,
+): AsyncGenerator<ReturnType<S['decode']>, void, undefined>;
+export function decodeEach<S extends AnySchema>(
+  schema: S,
+  arrays: Iterable<unknown>,
+  options?: DecodeOptions,
+): Generator<ReturnType<S['decode']>, void, undefined>;
+
 export type SchemaErrorCode =
   | 'ERR_INVALID_DEFINITION'
   | 'ERR_UNKNOWN_TYPE'
@@ -528,6 +559,9 @@ export type SchemaErrorCode =
 export type EncodeErrorCode =
   | 'object'
   | 'array'
+  | 'set'
+  | 'map'
+  | 'iterable'
   | 'depth'
   | 'required'
   | 'type'
@@ -541,7 +575,8 @@ export type DecodeErrorCode =
   | 'enum'
   | 'union'
   | 'extra'
-  | 'json';
+  | 'json'
+  | 'schema';
 
 /** A broken definition or invalid options; thrown while a schema is built. */
 export class SchemaDefinitionError extends TypeError {

@@ -136,4 +136,4 @@ const columns = (item, record, validate) => {
   };
 };
 
-module.exports = { flat, columns };
+module.exports = { flat, columns, padded };

@@ -28,7 +28,10 @@ const ENTRIES = [
 ];
 
 // Subpaths, bundled for browsers, with and without the core they require.
-const SUBPATHS = [{ label: 'Registry (registry.js)', entry: 'registry.js' }];
+const SUBPATHS = [
+  { label: 'Registry (registry.js)', entry: 'registry.js' },
+  { label: 'Stream (stream.js)', entry: 'stream.js' },
+];
 
 const bundle = async (entry, platform, minify) => {
   const result = await esbuild.build({

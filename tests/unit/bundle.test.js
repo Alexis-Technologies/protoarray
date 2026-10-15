@@ -139,3 +139,30 @@ test('Bundle: the registry subpath bundles for browsers with the core', async ()
     assert.strictEqual(JSON.stringify(registry.parse(text, V2)), '{"id":1,"name":"Alex"}');
   }
 });
+
+test('Bundle: the stream subpath bundles for browsers with the core', async () => {
+  const result = await esbuild.build({
+    stdin: {
+      contents: "module.exports = { ...require('./browser.js'), stream: require('./stream.js') };",
+      resolveDir: ROOT,
+    },
+    bundle: true,
+    write: false,
+    logLevel: 'silent',
+    platform: 'browser',
+    format: 'iife',
+    globalName: 'protoarray',
+    minify: true,
+  });
+  const context = vm.createContext({ TextDecoder, TransformStream });
+  vm.runInContext(result.outputFiles[0].text, context);
+  const { Schema, stream } = context.protoarray;
+  const User = Schema.from({ id: 'number' });
+  assert.strictEqual(
+    [...stream.stringifyLines(User, [{ id: 1 }, { id: 2 }])].join(''),
+    '[1]\n[2]\n',
+  );
+  const values = [];
+  for await (const value of stream.parseItems(User.list, '[[1],[2]]')) values.push(value.id);
+  assert.deepStrictEqual(values, [1, 2]);
+});

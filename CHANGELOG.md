@@ -33,6 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
 
+- **Streaming.** `schema.encodeEach(values)` and `schema.decodeEach(arrays, options?)` (and the
+  free functions of the same names) convert an iterable lazily, a generator for an iterable and
+  an async generator for an async one; an error names the index of its value (`[3].name`). The
+  `@alexify/protoarray/stream` subpath adds, without any Node builtin:
+  - `stringifyLines(schema, values)` and `parseLines(schema, source, options?)`: NDJSON, one
+    payload per line, from a string, an iterable or async iterable of strings or UTF-8 bytes, or a
+    `ReadableStream` (read through its reader, async-iterable or not); CRLF and blank lines are
+    accepted, invalid UTF-8 and a line that is not JSON are `DecodeError` `json`;
+  - `stringifyStream(schema)` and `parseStream(schema, options?)`: the same as `TransformStream`s;
+  - `stringifyItems(collection, values)` and `parseItems(collection, source, options?)`: one large
+    JSON array of a collection in rows or flat, written a piece per item and read item by item
+    while the text arrives (a scanner finds where each item ends, `JSON.parse` reads it), with the
+    collection's rules for null items and errors that name the item;
+  - `register()`, which installs the six as methods of `Schema`.
+
+  A value that is not iterable is `EncodeError` `iterable` or `DecodeError` `structure`.
 - **`delta: true`**, opt-in: an `integer`, a `number`, a `date` or decimals field of a `columns`
   collection travels as its first value and the differences between neighbours (`[100, 1, 2]`
   for ids 100, 101, 103; nulls keep their places); `{ array: 'integer' | 'date' | …, delta: true }`
@@ -72,7 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metaschema reads such a definition as a shorthand, not as a struct.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The bundle budget is 17 KB min+gzip.
+- The bundle budget is 18 KB min+gzip.
 
 ## [1.1.0] - 2026-10-15
 

@@ -20,4 +20,8 @@ const parse = (schema, text, options) => expect(schema).parse(text, options);
 
 const check = (schema, value) => expect(schema).check(value);
 
-module.exports = { encode, decode, stringify, parse, check };
+const encodeEach = (schema, values) => expect(schema).encodeEach(values);
+
+const decodeEach = (schema, arrays, options) => expect(schema).decodeEach(arrays, options);
+
+module.exports = { encode, decode, stringify, parse, check, encodeEach, decodeEach };

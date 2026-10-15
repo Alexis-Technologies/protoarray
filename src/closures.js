@@ -2,8 +2,8 @@
 // `new Function` is unavailable (CSP without unsafe-eval, edge runtimes) and
 // is the reference the codegen backend is checked against in the test suite.
 
-const { EXPECTED, fail, nest, refuse } = require('./errors.js');
-const { WORD, literal } = require('./types.js');
+const { expectedOf, fail, nest, refuse } = require('./errors.js');
+const { WORD, literal, isMap, listOf, put } = require('./types.js');
 
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
@@ -44,11 +44,39 @@ const build = (plan, options) => {
 
   // Encoders of everything but scalars take a non-null value. A slot (a
   // reference by name or an embedded schema) is called as it is.
+  // One element of a map or a dictionary: null, its own wire form or a throw
+  // with its path (an index or a key, formatted on error).
+  const elementEncoder = (node, required) => {
+    const scalar = node.kind === 'scalar';
+    const accept = inlineAccept(node);
+    const encode =
+      scalar && node.pack === null ? null : scalar ? scalarEncoder(node, '') : encoder(node);
+    const nullType = validate.encode && required;
+    const expected = expectedOf(node);
+    return (value, path) => {
+      if (value == null) {
+        if (nullType) refuse('type', at(path), expected);
+        return null;
+      }
+      if (encode === null) {
+        if (accept !== null && !accept(value)) refuse('type', at(path), expected);
+        return value;
+      }
+      try {
+        return encode(value);
+      } catch (error) {
+        throw nest(error, at(path));
+      }
+    };
+  };
+
   const encoder = (node) => {
     if (node.slot !== undefined) return (value) => node.slot[via].encode(value);
     if (node.kind === 'struct') return structEncoder(node);
     if (node.kind === 'union') return unionEncoder(node);
     if (node.kind === 'tuple') return tupleEncoder(node);
+    if (node.kind === 'map') return mapEncoder(node);
+    if (node.kind === 'dict') return dictEncoder(node);
     const { item } = node;
     const scalar = item.kind === 'scalar';
     // Identity items travel in the same array: at most a checking pass.
@@ -56,8 +84,12 @@ const build = (plan, options) => {
     const accept = inlineAccept(item);
     const encode = identity ? null : scalar ? scalarEncoder(item, '') : encoder(item);
     const nullType = validate.encode && node.itemRequired;
-    const expected = scalar ? item.expected : EXPECTED[item.kind];
-    return (list) => {
+    const expected = expectedOf(item);
+    const set = node.container === 'set';
+    return (input) => {
+      // A Set travels as the array of its elements; an array is taken as it is.
+      const list = set && !Array.isArray(input) ? listOf(input) : input;
+      if (list === undefined) refuse('set', '');
       if (!Array.isArray(list)) refuse('array', '');
       if (identity && accept === null && !nullType) return list;
       const count = list.length;
@@ -83,10 +115,20 @@ const build = (plan, options) => {
     };
   };
 
-  // Tuple elements are scalars.
+  // A scalar element knows its own path; any other one is nested on error.
   const tupleEncoder = (node) => {
     const size = node.items.length;
-    const encoders = node.items.map((item, i) => scalarEncoder(item.node, i));
+    const encoders = node.items.map((item, i) => {
+      if (item.node.kind === 'scalar') return scalarEncoder(item.node, i);
+      const encode = encoder(item.node);
+      return (value) => {
+        try {
+          return encode(value);
+        } catch (error) {
+          throw nest(error, `[${i}]`);
+        }
+      };
+    });
     const required = node.items.map((item) => validate.encode && item.required);
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
@@ -98,6 +140,44 @@ const build = (plan, options) => {
           if (required[i]) refuse('required', `[${i}]`);
           out[i] = null;
         } else out[i] = encode === null ? value : encode(value);
+      }
+      return out;
+    };
+  };
+
+  // `[k0, v0, k1, v1, …]`; an entry's path is its index, since a key may be
+  // anything until checked.
+  const mapEncoder = (node) => {
+    const value = elementEncoder(node.value, node.valueRequired);
+    const key = validate.encode ? node.key.accept : null;
+    const expected = node.key.expected;
+    return (map) => {
+      if (!isMap(map)) refuse('map', '');
+      const out = [];
+      let i = 0;
+      for (const entry of map) {
+        if (key !== null && !key(entry[0])) refuse('type', `[${i}]`, expected);
+        out.push(entry[0], value(entry[1], i));
+        i++;
+      }
+      return out;
+    };
+  };
+
+  const dictEncoder = (node) => {
+    const { value } = node;
+    const identity = value.kind === 'scalar' && value.pack === null;
+    const element = elementEncoder(value, node.valueRequired);
+    // Identity values travel in the same object: at most a checking pass.
+    const pass = identity && (!validate.encode || (value.accept === null && !node.valueRequired));
+    return (object) => {
+      if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
+      if (pass) return object;
+      const keys = Object.keys(object);
+      const out = identity ? object : {};
+      for (let i = 0; i < keys.length; i++) {
+        const wire = element(object[keys[i]], keys[i]);
+        if (!identity) put(out, keys[i], wire);
       }
       return out;
     };
@@ -226,6 +306,8 @@ const build = (plan, options) => {
     if (node.kind === 'struct') return structDecoder(node);
     if (node.kind === 'union') return unionDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);
+    if (node.kind === 'map') return mapDecoder(node);
+    if (node.kind === 'dict') return dictDecoder(node);
     return arrayDecoder(node);
   };
 
@@ -327,7 +409,7 @@ const build = (plan, options) => {
   };
 
   const tupleDecoder = (node) => {
-    const slots = node.items.map((item) => slotDecoder(item.node, item.required, null));
+    const slots = node.items.map((item) => slotDecoder(item.node, item.required, item.def));
     const size = slots.length;
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
@@ -338,27 +420,76 @@ const build = (plan, options) => {
     };
   };
 
+  // One element of a collection: the required check, then its slot.
+  const elementDecoder = (node, required) => {
+    const slot = slotDecoder(node, false, null);
+    const nullType = required && validate.decode;
+    const expected = expectedOf(node);
+    return (value, path, strict) => {
+      if (value != null) return slot(value, path, strict);
+      if (nullType) fail('type', at(path), expected);
+      return null;
+    };
+  };
+
   const arrayDecoder = (node) => {
     const { item } = node;
     const identity = item.kind === 'scalar' && item.pack === null;
     const required = node.itemRequired && validate.decode;
-    const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
+    const set = node.container === 'set';
     if (identity && !required && (!validate.decode || item.check === null)) {
       return (array) => {
         if (!Array.isArray(array)) fail('structure', '', 'array');
-        return array;
+        return set ? new Set(array) : array;
       };
     }
-    const slot = slotDecoder(item, false, null);
+    const element = elementDecoder(item, node.itemRequired);
     return (array, strict) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const count = array.length;
       const out = identity ? array : new Array(count);
       for (let i = 0; i < count; i++) {
-        const value = array[i];
-        if (value == null && required) fail('type', `[${i}]`, expected);
-        const decoded = value == null ? null : slot(value, i, strict);
+        const decoded = element(array[i], i, strict);
         if (!identity) out[i] = decoded;
+      }
+      return set ? new Set(out) : out;
+    };
+  };
+
+  const mapDecoder = (node) => {
+    const value = elementDecoder(node.value, node.valueRequired);
+    const { key } = node;
+    const check = validate.decode ? key.check : null;
+    return (array, strict) => {
+      if (!Array.isArray(array)) fail('structure', '', 'array');
+      const count = array.length;
+      if (count % 2 !== 0) fail('structure', '', 'length');
+      const out = new Map();
+      for (let i = 0; i < count; i += 2) {
+        const k = array[i];
+        if (check !== null && !check(k)) fail(key.code, at(i / 2), key.expected);
+        out.set(k, value(array[i + 1], i / 2, strict));
+      }
+      return out;
+    };
+  };
+
+  const dictDecoder = (node) => {
+    const { value } = node;
+    const identity = value.kind === 'scalar' && value.pack === null;
+    const required = node.valueRequired && validate.decode;
+    const pass = identity && !required && (!validate.decode || value.check === null);
+    const element = elementDecoder(value, node.valueRequired);
+    return (object, strict) => {
+      if (object === null || typeof object !== 'object' || Array.isArray(object)) {
+        fail('structure', '', 'object');
+      }
+      if (pass) return object;
+      const keys = Object.keys(object);
+      const out = identity ? object : {};
+      for (let i = 0; i < keys.length; i++) {
+        const decoded = element(object[keys[i]], keys[i], strict);
+        if (!identity) put(out, keys[i], decoded);
       }
       return out;
     };

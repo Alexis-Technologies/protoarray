@@ -45,6 +45,23 @@ test('Schema: every spelling of a field resolves to a position', () => {
   );
 });
 
+test("Schema: metaschema's spellings of collections and tuple elements", () => {
+  const schema = Schema.from({
+    a: { type: 'schema', schema: { x: 'string' } },
+    b: { set: 'number', required: false },
+    c: { type: 'object', key: 'string', value: '?number' },
+    d: { map: { number: 'string' } },
+    // An element named like a keyword, a type or a kind is a definition.
+    e: [{ array: 'number' }, { 'set?': 'string' }, { Kind: 'string' }, { 'n?': 'integer' }],
+  });
+  assert.strictEqual(
+    schema.toString(),
+    '{a:{x:string},b:?set[number],c:object<?number>,d:map<number,string>,' +
+      'e:([number],{set:?string},{Kind:string},?integer)}',
+  );
+  invalid({ e: [{ 'string?': 'x' }] }, { code: 'ERR_UNKNOWN_TYPE', field: 'e[0].string' });
+});
+
 test('Schema: definition errors name the field', () => {
   invalid(42, { code: 'ERR_INVALID_DEFINITION', message: 'Unexpected definition' });
   invalid(null, { code: 'ERR_INVALID_DEFINITION' });
@@ -64,27 +81,32 @@ test('Schema: definition errors name the field', () => {
     { code: 'ERR_UNKNOWN_TYPE', field: 'list[].deep[]' },
   );
   invalid({ pair: ['number', 'float'] }, { code: 'ERR_UNKNOWN_TYPE', field: 'pair[1]' });
-  invalid(
-    { pair: ['number', { x: 'string', y: 'string' }] },
-    {
-      code: 'ERR_INVALID_DEFINITION',
-      field: 'pair[1]',
-      message: 'Tuple elements must be scalar types at "pair[1]"',
-    },
-  );
-  invalid(
-    { pair: [{ x: 'number' }, ['number']] },
-    { code: 'ERR_INVALID_DEFINITION', field: 'pair[1]' },
-  );
-  invalid({ pair: [{ p: { x: 'number' } }] }, { code: 'ERR_INVALID_DEFINITION', field: 'pair[0]' });
+  invalid({ pair: [{ x: 'float' }] }, { code: 'ERR_UNKNOWN_TYPE', field: 'pair[0]' });
+  invalid({ pair: [{ p: { x: 'float' } }] }, { code: 'ERR_UNKNOWN_TYPE', field: 'pair[0].p.x' });
   invalid(
     { pair: [] },
     { code: 'ERR_INVALID_DEFINITION', field: 'pair', message: 'An empty tuple at "pair"' },
   );
   invalid(
-    { map: { string: 'number' } },
-    { code: 'ERR_UNKNOWN_TYPE', message: 'A struct cannot start with the type name "map"' },
+    { pair: { tuple: 'number' } },
+    { code: 'ERR_INVALID_DEFINITION', message: 'A tuple needs a list of elements at "pair"' },
   );
+  invalid(
+    { m: { map: { boolean: 'number' } } },
+    { code: 'ERR_INVALID_DEFINITION', message: 'A map needs { string | number: type } at "m"' },
+  );
+  invalid({ m: { map: 'number' } }, { code: 'ERR_INVALID_DEFINITION', field: 'm' });
+  invalid({ m: { type: 'map', key: 'string' } }, { code: 'ERR_INVALID_DEFINITION', field: 'm' });
+  invalid(
+    { o: { object: { number: 'string' } } },
+    { code: 'ERR_INVALID_DEFINITION', message: 'An object needs { string: type } at "o"' },
+  );
+  invalid({ m: { map: { string: 'float' } } }, { code: 'ERR_UNKNOWN_TYPE', field: 'm{}' });
+  invalid(
+    { integer: 'x', b: 'number' },
+    { code: 'ERR_UNKNOWN_TYPE', message: 'A struct cannot start with the type name "integer"' },
+  );
+  invalid({ one: 'User', b: 'number' }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid({ string: 'x' }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid({ json: 'x', b: 'number' }, { code: 'ERR_UNKNOWN_TYPE' });
   invalid(
@@ -99,7 +121,8 @@ test('Schema: definition errors name the field', () => {
     Schema.from({ n: { Struct: {}, type: { enum: ['a'] }, id: 'string' } }).decode([[0, 'x']]),
     { n: { type: 'a', id: 'x' } },
   );
-  invalid({ n: { type: 'set' } }, { code: 'ERR_UNKNOWN_TYPE' });
+  invalid({ n: { type: 'set' } }, { code: 'ERR_INVALID_DEFINITION', field: 'n[]' });
+  invalid({ n: { type: 'integer', default: 1.5 } }, { code: 'ERR_INVALID_DEFINITION' });
   invalid(JSON.parse('{"__proto__":"string"}'), {
     code: 'ERR_RESERVED_KEY',
     field: '__proto__',

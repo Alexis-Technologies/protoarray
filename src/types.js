@@ -53,7 +53,28 @@ const identity = (type) => {
   const check = type === 'json' ? null : (v) => typeof v === type;
   // NaN and the infinities have no JSON form: they would travel as null.
   const accept = type === 'number' ? Number.isFinite : check;
-  return scalar(type, { check, accept, pack: null, unpack: null });
+  // A json slot holds null as a value, so it is never required.
+  return scalar(type, { check, accept, pack: null, unpack: null, nullable: type === 'json' });
+};
+
+// Whether a value is a Set or a Map, from this realm or another one.
+const isSet = (v) => v instanceof Set || TAG.call(v) === '[object Set]';
+const isMap = (v) => v instanceof Map || TAG.call(v) === '[object Map]';
+
+// The elements of a Set as an array, or undefined for anything else.
+const listOf = (v) => (isSet(v) ? Array.from(v) : undefined);
+
+// A key assigned to a fresh object: `__proto__` would set its prototype, so it
+// becomes an own property like any other key, as JSON.parse makes it.
+const put = (object, key, value) => {
+  if (key === '__proto__') {
+    Object.defineProperty(object, key, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  } else object[key] = value;
 };
 
 const SCALARS = Object.assign(Object.create(null), {
@@ -61,6 +82,27 @@ const SCALARS = Object.assign(Object.create(null), {
   number: () => identity('number'),
   boolean: () => identity('boolean'),
   json: () => identity('json'),
+  // metaschema's names for a value of any kind: the same slot as json.
+  any: () => identity('json'),
+  unknown: () => identity('json'),
+  integer: () =>
+    scalar('integer', {
+      check: Number.isInteger,
+      accept: Number.isInteger,
+      pack: null,
+      unpack: null,
+    }),
+  // A slot that is always null: whatever is given travels as null, and only
+  // null decodes.
+  null: () =>
+    scalar('null', {
+      nullable: true,
+      check: null,
+      pack: () => null,
+      unpack: (v) => v,
+      checkedPack: () => undefined,
+      checkedUnpack: () => undefined,
+    }),
   date: () =>
     scalar('date', {
       checkedPack: timestamp,
@@ -195,4 +237,4 @@ const flags = (names) => {
   });
 };
 
-module.exports = { SCALARS, WORD, enumeration, flags, decimal, literal };
+module.exports = { SCALARS, WORD, enumeration, flags, decimal, literal, isMap, listOf, put };

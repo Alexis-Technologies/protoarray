@@ -228,3 +228,52 @@ const ByName = Schema.from(
   { schemas: { Call: CallSchema } },
 );
 expectType<unknown>(ByName.decode([0, '1']));
+
+// The rest of metaschema's DSL: integer, any, unknown, null, sets, maps,
+// object dictionaries and tuples of any elements.
+const Wide = Schema.from({
+  n: 'integer',
+  a: 'any',
+  u: 'unknown',
+  z: 'null',
+  tags: { set: 'string' },
+  seen: { map: { string: 'date' } },
+  scores: { type: 'map', key: 'number', value: '?string' },
+  prices: { object: { string: 'number' } },
+  long: { type: 'object', key: 'string', value: 'bigint' },
+  list: { type: 'array', value: 'integer' },
+  ids: { type: 'set', value: 'number', required: false },
+  hit: [{ at: 'date' }, { x: 'number', y: '?number' }, { 'label?': 'string' }, { array: 'number' }],
+  pair: { tuple: ['number', 'string'] },
+  nested: { schema: { k: 'string' } },
+});
+const wide = Wide.decode([]);
+expectType<number>(wide.n);
+expectType<unknown>(wide.a);
+expectType<unknown>(wide.u);
+expectType<null>(wide.z);
+expectType<Set<string>>(wide.tags);
+expectType<Map<string, Date>>(wide.seen);
+expectType<Map<number, string | null>>(wide.scores);
+expectType<Record<string, number>>(wide.prices);
+expectType<Record<string, bigint>>(wide.long);
+expectType<number[]>(wide.list);
+expectType<Set<number> | null>(wide.ids);
+expectType<[Date, { x: number; y: number | null }, string | null, number[]]>(wide.hit);
+expectType<[number, string]>(wide.pair);
+expectType<{ k: string }>(wide.nested);
+const wideInput: Input<typeof Wide.definition> = {
+  n: 1,
+  tags: ['a'],
+  seen: new Map([['k', new Date()]]),
+  scores: new Map([[1, null]]),
+  prices: { tea: 1 },
+  long: {},
+  list: [],
+  hit: [new Date(), { x: 1 }, null, []],
+  pair: [1, 'x'],
+  nested: { k: 'x' },
+};
+expectAssignable<Input<typeof Wide.definition>>({ ...wideInput, tags: new Set(['a']) });
+expectError(Wide.encode({ ...wideInput, seen: { k: new Date() } }));
+expectError(Wide.encode({ ...wideInput, prices: { tea: 'x' } }));

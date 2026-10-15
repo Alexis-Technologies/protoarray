@@ -4,14 +4,34 @@
  */
 
 /** Scalar type names of the definition DSL. */
-export type ScalarType = 'string' | 'number' | 'boolean' | 'bigint' | 'date' | 'bytes' | 'json';
+export type ScalarType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'bigint'
+  | 'date'
+  | 'bytes'
+  | 'json'
+  | 'any'
+  | 'unknown'
+  | 'null';
 
 /** A type name, optionally prefixed with `?`, or the capitalised name of a referenced schema. */
 export type TypeName = ScalarType | `?${ScalarType}` | (string & {});
 
-/** The long form of a field: `{ type, required, default }` and the enum/flags lists. */
+/**
+ * The long form of a field: `{ type, required, default }`, the enum/flags lists, and the
+ * collections as metaschema spells them (`{ type: 'map', key: 'string', value: 'number' }`).
+ */
 export interface LongForm {
   readonly type: string;
+  /** The item of an array or a set, the value of a map or an object, the elements of a tuple. */
+  readonly value?: unknown;
+  /** The key type of a map (`'string'` or `'number'`) or an object (`'string'`). */
+  readonly key?: 'string' | 'number';
+  /** With `type: 'schema'`: the nested struct. */
+  readonly schema?: unknown;
   readonly required?: boolean;
   readonly default?: string | number | boolean | null;
   readonly enum?: readonly (string | number)[];
@@ -21,7 +41,10 @@ export interface LongForm {
   readonly [option: string]: unknown;
 }
 
-/** A tuple element: a scalar type name, or `{ name: type }`. */
+/**
+ * A tuple element: any definition, or a named one, `{ name: 'type' }` (the name does not
+ * travel; `{ 'name?': 'type' }` makes the element optional).
+ */
 export type TupleElement = string | { readonly [name: string]: string };
 
 /** Any Schema instance, whatever its definition: what a field or a registry accepts. */
@@ -42,6 +65,16 @@ export type FieldDefinition =
   | AnySchema
   | readonly TupleElement[]
   | { readonly array: FieldDefinition; readonly required?: boolean }
+  | { readonly set: FieldDefinition; readonly required?: boolean }
+  | {
+      readonly map:
+        | { readonly string: FieldDefinition }
+        | { readonly number: FieldDefinition };
+      readonly required?: boolean;
+    }
+  | { readonly object: { readonly string: FieldDefinition }; readonly required?: boolean }
+  | { readonly tuple: readonly FieldDefinition[]; readonly required?: boolean }
+  | { readonly schema: FieldDefinition; readonly required?: boolean }
   | {
       readonly enum: readonly (string | number)[];
       readonly required?: boolean;
@@ -68,12 +101,19 @@ export type Definition = FieldDefinition;
 type Scalars = {
   string: string;
   number: number;
+  integer: number;
   boolean: boolean;
   bigint: bigint;
   date: Date;
   bytes: Uint8Array;
   json: unknown;
+  any: unknown;
+  unknown: unknown;
+  null: null;
 };
+
+/** The scalars that hold null as a value: never required. */
+type Nullable = 'json' | 'any' | 'unknown' | 'null';
 
 type Mode = 'in' | 'out';
 
@@ -83,6 +123,11 @@ type TypeOf<T extends string> = T extends keyof Scalars ? Scalars[T] : unknown;
 
 type Shorthand =
   | { readonly array: unknown }
+  | { readonly set: unknown }
+  | { readonly map: unknown }
+  | { readonly object: unknown }
+  | { readonly tuple: unknown }
+  | { readonly schema: unknown }
   | { readonly enum: unknown }
   | { readonly flags: unknown }
   | { readonly union: readonly unknown[] }
@@ -93,7 +138,7 @@ type Optional<K, F> = K extends `${string}?`
   ? true
   : F extends `?${string}`
     ? true
-    : F extends 'json' | { readonly type: 'json' }
+    : F extends Nullable | { readonly type: Nullable }
       ? true
       : F extends { readonly required: false }
         ? true
@@ -125,20 +170,119 @@ type RequiredKeys<D> = { [K in FieldKeys<D>]: Optional<K, D[K]> extends true ? n
 
 type OptionalKeys<D> = Exclude<FieldKeys<D>, RequiredKeys<D>>;
 
-type TupleOf<T, M extends Mode> = {
-  -readonly [I in keyof T]: T[I] extends `?${infer U}`
-    ? TypeOf<U> | null
-    : T[I] extends string
-      ? TypeOf<T[I]>
-      : T[I] extends { readonly [name: string]: infer U extends string }
-        ? Value<U, M>
-        : unknown;
-};
+type UnionToIntersection<U> = (U extends unknown ? (key: U) => void : never) extends (
+  key: infer I,
+) => void
+  ? I
+  : never;
+
+/** Whether a union of keys is exactly one key. */
+type IsSingle<K> = [K] extends [never] ? false : [K] extends [UnionToIntersection<K>] ? true : false;
+
+/** The names metaschema reads as a definition, never as the name of a tuple element. */
+type Keyword =
+  | 'type'
+  | 'array'
+  | 'set'
+  | 'map'
+  | 'object'
+  | 'tuple'
+  | 'schema'
+  | 'enum'
+  | 'flags'
+  | 'union'
+  | 'one'
+  | 'many'
+  | ScalarType;
+
+/** The name of a named tuple element (`{ x: 'number' }`), or never. */
+type ElementName<E> = E extends { readonly [name: string]: string }
+  ? IsSingle<keyof E> extends true
+    ? keyof E extends infer N extends string
+      ? Strip<N> extends Keyword
+        ? never
+        : Strip<N> extends Uncapitalize<Strip<N>>
+          ? N
+          : never
+      : never
+    : never
+  : never;
+
+type TupleItem<E, M extends Mode> = [ElementName<E>] extends [never]
+  ? Element<E, M>
+  : ElementName<E> extends `${string}?`
+    ? Value<E[ElementName<E> & keyof E], M> | null
+    : Element<E[ElementName<E> & keyof E], M>;
+
+type TupleOf<T, M extends Mode> = { -readonly [I in keyof T]: TupleItem<T[I], M> };
+
+type MapKey<K> = K extends 'number' ? number : string;
+
+type SetOf<T, M extends Mode> = M extends 'out' ? Set<T> : ReadonlySet<T> | readonly T[];
+
+type MapOf<K, V, M extends Mode> = M extends 'out' ? Map<K, V> : ReadonlyMap<K, V>;
 
 type Element<F, M extends Mode> = Optional<'', F> extends true ? Value<F, M> | null : Value<F, M>;
 
+/**
+ * A schema used as a field, told by its shape rather than by the class: relating two
+ * `Schema` types makes TypeScript measure the variance of the definition through every
+ * recursive type below, which gives up ("excessively deep") once collections nest.
+ */
+type SchemaOf<X> = { readonly definition: X; readonly backend: Backend };
+
+/** Which collection a definition spells, if any: a cheap test that keeps `Value` shallow. */
+type CollectionKind<F> = F extends { readonly array: unknown }
+  ? 'array'
+  : F extends { readonly set: unknown }
+    ? 'set'
+    : F extends { readonly map: unknown }
+      ? 'map'
+      : F extends { readonly object: unknown }
+        ? 'object'
+        : F extends { readonly tuple: unknown }
+          ? 'tuple'
+          : F extends { readonly schema: unknown }
+            ? 'schema'
+            : F extends { readonly type: infer T extends CollectionName; readonly value: unknown }
+              ? T
+              : F extends { readonly type: 'schema'; readonly schema: unknown }
+                ? 'schema'
+                : never;
+
+type CollectionName = 'array' | 'set' | 'map' | 'object' | 'tuple' | 'schema';
+
+/** The item, value, elements or struct a collection holds, in either spelling. */
+type Inner<F, K extends CollectionName> = F extends { readonly [P in K]: infer I } ? I : F extends { readonly value: infer V } ? V : F extends { readonly schema: infer S } ? S : never;
+
+/** The value of a map or an object: the one property of the shorthand, or `value`. */
+type Entry<F, K extends CollectionName> = F extends { readonly [P in K]: infer P }
+  ? P[keyof P]
+  : F extends { readonly value: infer V }
+    ? V
+    : never;
+
+type EntryKey<F> = F extends { readonly map: infer P }
+  ? MapKey<keyof P>
+  : F extends { readonly key: 'number' }
+    ? number
+    : string;
+
+/**
+ * The value of each collection; only the property a definition picks is
+ * instantiated, so the recursion into its items stays one level deep.
+ */
+type Collections<F, M extends Mode> = {
+  array: Element<Inner<F, 'array'>, M>[];
+  set: SetOf<Element<Inner<F, 'set'>, M>, M>;
+  map: MapOf<EntryKey<F>, Element<Entry<F, 'map'>, M>, M>;
+  object: Record<string, Element<Entry<F, 'object'>, M>>;
+  tuple: TupleOf<Inner<F, 'tuple'>, M>;
+  schema: Shape<Inner<F, 'schema'>, M>;
+};
+
 /** The value of one field. */
-type Value<F, M extends Mode> = F extends Schema<infer X>
+type Value<F, M extends Mode> = F extends SchemaOf<infer X>
   ? Shape<X, M>
   : F extends `?${infer T}`
     ? TypeOf<T>
@@ -146,9 +290,8 @@ type Value<F, M extends Mode> = F extends Schema<infer X>
       ? TypeOf<F>
       : F extends readonly TupleElement[]
         ? TupleOf<F, M>
-        : F extends { readonly array: infer Item }
-          ? Element<Item, M>[]
-          : F extends { readonly enum: readonly (infer E)[] }
+        : [CollectionKind<F>] extends [never]
+          ? F extends { readonly enum: readonly (infer E)[] }
             ? E
             : F extends { readonly flags: readonly (infer N extends string)[] }
               ? M extends 'out'
@@ -160,7 +303,8 @@ type Value<F, M extends Mode> = F extends Schema<infer X>
                   ? TypeOf<T>
                   : F extends object
                     ? Struct<F, M>
-                    : unknown;
+                    : unknown
+          : Collections<F, M>[CollectionKind<F>];
 
 type Struct<D, M extends Mode> = M extends 'out'
   ? Flatten<
@@ -174,7 +318,7 @@ type Struct<D, M extends Mode> = M extends 'out'
       }
     >;
 
-type Shape<D, M extends Mode> = D extends Schema<infer X>
+type Shape<D, M extends Mode> = D extends SchemaOf<infer X>
   ? Shape<X, M>
   : D extends `?${string}`
     ? Value<D, M> | null
@@ -291,39 +435,31 @@ export interface Collection<D extends Definition> {
   toString(): string;
 }
 
-export function encode<D extends Definition>(schema: Schema<D>, value: Input<D>): Encoded<D>;
-export function encode<D extends Definition>(
-  schema: Collection<D>,
-  value: readonly Input<D>[],
-): unknown[];
+/**
+ * The functional entry points take any schema, a collection (`schema.list`) included, and
+ * type the value and the result after the schema's own methods.
+ */
+export function encode<S extends AnySchema>(
+  schema: S,
+  value: Parameters<S['encode']>[0],
+): ReturnType<S['encode']>;
 
-export function decode<D extends Definition>(
-  schema: Schema<D>,
-  array: Encoded<D>,
+export function decode<S extends AnySchema>(
+  schema: S,
+  array: Parameters<S['decode']>[0],
   options?: DecodeOptions,
-): Infer<D>;
-export function decode<D extends Definition>(
-  schema: Collection<D>,
-  array: readonly unknown[],
-  options?: DecodeOptions,
-): Infer<D>[];
+): ReturnType<S['decode']>;
 
-export function stringify<D extends Definition>(schema: Schema<D>, value: Input<D>): string;
-export function stringify<D extends Definition>(
-  schema: Collection<D>,
-  value: readonly Input<D>[],
+export function stringify<S extends AnySchema & { stringify(value: never): string }>(
+  schema: S,
+  value: Parameters<S['stringify']>[0],
 ): string;
 
-export function parse<D extends Definition>(
-  schema: Schema<D>,
+export function parse<S extends AnySchema & { parse(text: string, options?: DecodeOptions): unknown }>(
+  schema: S,
   text: string,
   options?: DecodeOptions,
-): Infer<D>;
-export function parse<D extends Definition>(
-  schema: Collection<D>,
-  text: string,
-  options?: DecodeOptions,
-): Infer<D>[];
+): ReturnType<S['parse']>;
 
 export function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
 

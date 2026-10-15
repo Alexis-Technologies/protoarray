@@ -22,6 +22,7 @@ const { SCALARS, enumeration, flags, decimal } = require('./types.js');
  * @property {(wire: unknown) => unknown} [checkedUnpack] The same on the wire; every converted
  *   type has one.
  * @property {boolean} [required] Only on a root scalar.
+ * @property {boolean} [nullable] A slot that holds null as a value (json, null): never required.
  *
  * @typedef {object} Field
  * @property {string} key
@@ -47,12 +48,28 @@ const { SCALARS, enumeration, flags, decimal } = require('./types.js');
  * @property {unknown[]} values
  * @property {{ node: StructNode, first: number, count: number, source: StructNode }[]} branches
  *
- * @typedef {{ kind: 'array', item: Node, itemRequired: boolean, layout: string }} ArrayNode
- * @typedef {{ kind: 'tuple', items: { node: ScalarNode, required: boolean }[] }} TupleNode
+ * @typedef {object} ArrayNode An array, or a Set travelling as one (`container: 'set'`).
+ * @property {'array'} kind
+ * @property {Node} item
+ * @property {boolean} itemRequired
+ * @property {string} layout
+ * @property {'set'} [container]
+ *
+ * @typedef {object} MapNode A Map: `[k0, v0, k1, v1, …]` on the wire.
+ * @property {'map'} kind
+ * @property {ScalarNode} key A string or a number.
+ * @property {Node} value
+ * @property {boolean} valueRequired
+ *
+ * @typedef {{ kind: 'dict', value: Node, valueRequired: boolean }} DictNode An object used as
+ *   a dictionary: its keys travel, as JSON keys.
+ * @typedef {{ node: Node, required: boolean, def: Field['def'] }} TupleItem
+ * @typedef {{ kind: 'tuple', items: TupleItem[] }} TupleNode
  * @typedef {{ kind: 'ref', name: string, slot: Slot }} RefNode A reference by name.
  * @typedef {{ codec: { encode: Function, decode: Function }, checker: object }} Slot A compiled
  *   schema: its codec, and the codec `check` runs, built when first asked for.
- * @typedef {ScalarNode | StructNode | UnionNode | ArrayNode | TupleNode | RefNode} Node
+ * @typedef {ScalarNode | StructNode | UnionNode | ArrayNode | MapNode | DictNode | TupleNode
+ *   | RefNode} Node
  */
 
 const BRAND = Symbol.for('alexify.protoarray.brand');
@@ -65,9 +82,15 @@ const FALLBACK = Symbol.for('alexify.protoarray.fallback');
 // metaschema shorthands that have no positional form here (`union` has one,
 // but only as `{ union: [...] }`): rejected loudly so a shared definition
 // never silently changes meaning.
-const UNSUPPORTED = /^(set|map|object|tuple|schema|one|many|union)$/;
+const UNSUPPORTED = /^(one|many|union)$/;
+// The keys that open a collection, as a shorthand (`{ set: T }`) or as the
+// type of a long form (`{ type: 'set', value: T }`).
+const COLLECTIONS = /^(array|set|map|object|tuple|schema)$/;
+// Names a tuple element cannot have: metaschema reads `{ array: 'number' }` as
+// a definition, not as an element named `array`.
+const KEYWORDS = /^(type|array|set|map|object|tuple|schema|enum|flags|union|one|many)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
-const DEFAULTABLE = /^(string|number|boolean|json|enum)$/;
+const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
 
 const isSchema = (value) => value !== null && typeof value === 'object' && value[BRAND] === true;
 
@@ -123,7 +146,69 @@ const compilePlan = (definition, context) => {
   const typed = (text, path) => {
     const optional = text.startsWith('?');
     const node = typeNode(optional ? text.slice(1) : text, path);
-    return { node, required: !optional && node.type !== 'json', def: null };
+    return { node, required: !optional && node.nullable !== true, def: null };
+  };
+
+  // A tuple element is a definition of its own, or a named one as in
+  // metaschema: `{ x: 'number' }`, `{ 'y?': 'string' }`. The name does not
+  // travel; a trailing `?` makes the element optional.
+  const nameOf = (element) => {
+    const keys = isPlain(element) ? Object.keys(element) : [];
+    if (keys.length !== 1 || typeof element[keys[0]] !== 'string') return null;
+    const name = keys[0].endsWith('?') ? keys[0].slice(0, -1) : keys[0];
+    if (KEYWORDS.test(name) || SCALARS[name] !== undefined || /^[A-Z]/.test(name)) return null;
+    return keys[0];
+  };
+
+  const tuple = (elements, path) => {
+    if (!Array.isArray(elements)) {
+      throw error('ERR_INVALID_DEFINITION', 'A tuple needs a list of elements', path);
+    }
+    if (elements.length === 0) throw error('ERR_INVALID_DEFINITION', 'An empty tuple', path);
+    const items = elements.map((element, i) => {
+      const name = nameOf(element);
+      const parsed = field(name === null ? element : element[name], `${path}[${i}]`);
+      const required = parsed.required && (name === null || !name.endsWith('?'));
+      return { node: parsed.node, required, def: parsed.def };
+    });
+    return { kind: 'tuple', items };
+  };
+
+  // A collection in the shorthand (`{ map: { string: 'number' } }`) or the
+  // long form (`{ type: 'map', key: 'string', value: 'number' }`). Map keys
+  // are strings or numbers, object keys strings: they travel as JSON keys.
+  const collection = (kind, source, short, path) => {
+    const required = source.required !== false;
+    if (kind === 'schema') {
+      const inner = field(short === undefined ? source.schema : short, path);
+      return { node: inner.node, required, def: null };
+    }
+    if (kind === 'tuple') return { node: tuple(short ?? source.value, path), required, def: null };
+    if (kind === 'array' || kind === 'set') {
+      const item = field(short ?? source.value, `${path}[]`);
+      const node = { kind: 'array', item: item.node, itemRequired: item.required, layout: 'rows' };
+      if (kind === 'set') node.container = 'set';
+      return { node, required, def: null };
+    }
+    let key = source.key;
+    let value = source.value;
+    if (isPlain(short)) {
+      key = Object.keys(short)[0];
+      value = short[key];
+    }
+    const keys = kind === 'map' ? /^(string|number)$/ : /^string$/;
+    if (typeof key !== 'string' || !keys.test(key) || value === undefined) {
+      const text =
+        kind === 'map'
+          ? 'A map needs { string | number: type }'
+          : 'An object needs { string: type }';
+      throw error('ERR_INVALID_DEFINITION', text, path);
+    }
+    const parsed = field(value, `${path}{}`);
+    const node = { kind: kind === 'map' ? 'map' : 'dict', value: parsed.node };
+    node.valueRequired = parsed.required;
+    if (kind === 'map') node.key = SCALARS[key]();
+    return { node, required, def: null };
   };
 
   // A field in any of the metaschema spellings: a Schema instance, a type
@@ -141,31 +226,14 @@ const compilePlan = (definition, context) => {
       return { node: { ...node, slot: slotOf(source) }, required: true, def: null };
     }
     if (typeof source === 'string') return typed(source, path);
-    if (Array.isArray(source)) {
-      if (source.length === 0) throw error('ERR_INVALID_DEFINITION', 'An empty tuple', path);
-      const items = source.map((item, i) => {
-        const keys = isPlain(item) ? Object.keys(item) : [];
-        const type = keys.length === 1 ? item[keys[0]] : item;
-        const slot = typeof type === 'string' ? typed(type, `${path}[${i}]`) : null;
-        if (slot === null || slot.node.kind !== 'scalar') {
-          throw error(
-            'ERR_INVALID_DEFINITION',
-            'Tuple elements must be scalar types',
-            `${path}[${i}]`,
-          );
-        }
-        return slot;
-      });
-      return { node: { kind: 'tuple', items }, required: true, def: null };
-    }
+    if (Array.isArray(source)) return { node: tuple(source, path), required: true, def: null };
     if (!isPlain(source)) throw error('ERR_INVALID_DEFINITION', 'Unexpected definition', path);
     const keys = Object.keys(source);
     const first = keys[0];
     const required = source.required !== false;
-    if (first === 'array') {
-      const item = field(source.array, `${path}[]`);
-      const node = { kind: 'array', item: item.node, itemRequired: item.required, layout: 'rows' };
-      return { node, required, def: null };
+    if (COLLECTIONS.test(first)) return collection(first, source, source[first], path);
+    if (first === 'type' && typeof source.type === 'string' && COLLECTIONS.test(source.type)) {
+      return collection(source.type, source, undefined, path);
     }
     if (first === 'enum' || first === 'flags' || first === 'type') {
       const type = first === 'type' ? source.type : first;
@@ -194,14 +262,15 @@ const compilePlan = (definition, context) => {
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
       // -0 has no JSON form and would tell the two backends apart.
       const def = hasDefault ? (source.default === 0 ? 0 : source.default) : null;
-      if (def !== null && (!isPrimitive(def) || !DEFAULTABLE.test(node.type))) {
+      const valid = node.type !== 'integer' || Number.isInteger(def);
+      if (def !== null && (!isPrimitive(def) || !DEFAULTABLE.test(node.type) || !valid)) {
         throw error(
           'ERR_INVALID_DEFINITION',
           'A default must be a string, number or boolean',
           path,
         );
       }
-      return { node, required: required && !hasDefault && node.type !== 'json', def };
+      return { node, required: required && !hasDefault && node.nullable !== true, def };
     }
     if (first === 'union' && Array.isArray(source.union)) {
       return { node: union(source, path), required, def: null };
@@ -341,10 +410,19 @@ const canonical = (node) => {
   }
   if (node.kind === 'array') {
     const layout = node.layout === 'rows' ? '' : node.layout;
-    return `${layout}[${node.itemRequired ? '' : '?'}${canonical(node.item)}]`;
+    const container = node.container === undefined ? '' : node.container;
+    return `${layout}${container}[${node.itemRequired ? '' : '?'}${canonical(node.item)}]`;
+  }
+  if (node.kind === 'map' || node.kind === 'dict') {
+    const value = `${node.valueRequired ? '' : '?'}${canonical(node.value)}`;
+    return node.kind === 'map' ? `map<${node.key.type},${value}>` : `object<${value}>`;
   }
   if (node.kind === 'tuple') {
-    return `(${node.items.map((item) => (item.required ? '' : '?') + canonical(item.node)).join(',')})`;
+    const items = node.items.map((item) => {
+      const def = item.def === null ? '' : `=${JSON.stringify(item.def)}`;
+      return (item.required ? '' : '?') + canonical(item.node) + def;
+    });
+    return `(${items.join(',')})`;
   }
   if (node.kind === 'ref') return `@${node.name}`;
   if (node.kind === 'union') {

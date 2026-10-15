@@ -6,6 +6,8 @@
 const STRUCTURE = {
   array: 'is not an array',
   object: 'is not an object',
+  set: 'is not a set',
+  map: 'is not a map',
   length: 'has a wrong length',
   mask: 'is not a sparse mask',
   depth: 'is nested too deeply',
@@ -26,9 +28,14 @@ const EXPECTED = {
   struct: 'object',
   union: 'object',
   array: 'array',
+  map: 'map',
+  dict: 'object',
   tuple: 'tuple',
   ref: 'object',
 };
+
+const expectedOf = (node) =>
+  node.kind === 'scalar' ? node.expected : node.container || EXPECTED[node.kind];
 
 const message = (code, path, detail) => {
   const text = TEXT[code].replace('%', code === 'structure' ? STRUCTURE[detail] : detail);
@@ -126,6 +133,7 @@ module.exports = {
   EncodeError,
   DecodeError,
   EXPECTED,
+  expectedOf,
   fail,
   refuse,
   nest,

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The rest of metaschema's DSL**, so that one definition serves both libraries:
+  - `integer`: a number that must be an integer;
+  - `any` and `unknown`: the same slot as `json`, with the same id;
+  - `null`: a slot that is always `null`;
+  - `{ set: T }`: travels as the array of its elements and decodes as a `Set` (encode takes a
+    `Set` or an array);
+  - `{ map: { string | number: V } }`: travels as flat pairs `[k0, v0, k1, v1, …]` and decodes
+    as a `Map`;
+  - `{ object: { string: V } }`: a dictionary whose keys travel as JSON keys and whose values are
+    converted like any field (a `__proto__` key stays an own property, never the prototype);
+  - tuples of any elements: structs, collections, unions and schemas, named elements
+    (`{ x: 'number' }`, `{ 'y?': 'string' }`) and long forms with defaults;
+  - the long forms `{ type: 'array' | 'set', value }`, `{ type: 'map' | 'object', key, value }`,
+    `{ type: 'tuple', value }`, `{ tuple: [...] }` and `{ schema: {...} }` / `{ type: 'schema',
+    schema }`.
+
+  The encode errors gain the structural codes `set` and `map`; a map entry's path is its index
+  (`scores[2]`), a dictionary value's its key (`prices.tea`).
+
+### Changed
+
+- A struct whose first key is `integer`, `any`, `unknown` or `null` is now a
+  `SchemaDefinitionError` `ERR_UNKNOWN_TYPE`, as one starting with `string` already was:
+  metaschema reads such a definition as a shorthand, not as a struct.
+- `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
+  the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
+- The bundle budget is 13 KB min+gzip.
+
 ## [1.1.0] - 2026-10-15
 
 Unions for tagged messages such as wrpc's packets, binary data, fixed-point numbers, records and

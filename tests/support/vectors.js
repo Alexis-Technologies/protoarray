@@ -322,6 +322,72 @@ const VECTORS = [
     decoded: { perms: { ...allFalse, n2: true } },
   },
   {
+    name: 'integer, any and unknown travel as they are',
+    definition: { n: 'integer', a: 'any', u: 'unknown' },
+    value: { n: 3, a: { x: [1] } },
+    wire: [3, { x: [1] }],
+    decoded: { n: 3, a: { x: [1] }, u: null },
+  },
+  {
+    name: 'a null slot is always null',
+    definition: { gap: 'null', id: 'number' },
+    value: { id: 1 },
+    wire: [null, 1],
+    decoded: { gap: null, id: 1 },
+  },
+  {
+    name: 'a set travels as the array of its elements',
+    definition: { tags: { set: 'string' } },
+    value: { tags: new Set(['admin', 'editor']) },
+    wire: [['admin', 'editor']],
+  },
+  {
+    name: 'a map travels as flat key-value pairs',
+    definition: { seen: { map: { string: 'date' } } },
+    value: {
+      seen: new Map([
+        ['Kyiv', new Date(AT)],
+        ['Lviv', new Date(AT + 1)],
+      ]),
+    },
+    wire: [['Kyiv', AT, 'Lviv', AT + 1]],
+  },
+  {
+    name: 'a map with number keys',
+    definition: { scores: { type: 'map', key: 'number', value: '?string' } },
+    value: {
+      scores: new Map([
+        [1, 'a'],
+        [2, null],
+      ]),
+    },
+    wire: [[1, 'a', 2, null]],
+  },
+  {
+    name: 'an object dictionary keeps its keys',
+    definition: { prices: { object: { string: { type: 'number', decimals: 2 } } } },
+    value: { prices: { tea: 1.5, coffee: 2.25 } },
+    wire: [{ tea: 150, coffee: 225 }],
+  },
+  {
+    name: 'a tuple of any elements, named ones too',
+    definition: { hit: [{ at: 'date' }, { x: 'number', y: 'number' }, { 'label?': 'string' }] },
+    value: { hit: [new Date(AT), { x: 1, y: 2 }] },
+    wire: [[AT, [1, 2], null]],
+    decoded: { hit: [new Date(AT), { x: 1, y: 2 }, null] },
+  },
+  {
+    name: 'long forms of collections',
+    definition: {
+      list: { type: 'array', value: 'number' },
+      set: { type: 'set', value: 'number' },
+      pair: { type: 'tuple', value: ['number', 'string'] },
+      nested: { schema: { a: 'string' } },
+    },
+    value: { list: [1], set: new Set([2]), pair: [3, 'x'], nested: { a: 'y' } },
+    wire: [[1], [2], [3, 'x'], ['y']],
+  },
+  {
     name: 'root array of records',
     definition: { array: { id: 'number', name: '?string' } },
     value: [{ id: 1 }, { id: 2, name: 'x' }],

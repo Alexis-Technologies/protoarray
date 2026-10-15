@@ -12,8 +12,8 @@
 // `path` below is a source expression that is only evaluated on an error
 // branch.
 
-const { EXPECTED, fail, nest, refuse } = require('./errors.js');
-const { WORD } = require('./types.js');
+const { expectedOf, fail, nest, refuse } = require('./errors.js');
+const { WORD, isMap, listOf, put } = require('./types.js');
 
 const str = JSON.stringify;
 
@@ -59,10 +59,15 @@ const generate = (plan, options) => {
   // table, as closures do.
   const pack = (node, v) => (node.pack === null ? v : `${slot(node)}.pack(${v})`);
   const unpack = (node, v) => (node.unpack === null ? v : `${slot(node)}.unpack(${v})`);
+  // True when `v` is not of an identity scalar's type: typeof, or a call for
+  // the one type typeof cannot tell.
+  const invalid = (node, v) =>
+    node.type === 'integer' ? `!Number.isInteger(${v})` : `typeof ${v}!=='${node.type}'`;
+
   // The wire check of an identity scalar (json has none).
   const check = (node, v, path) => {
     if (!validate.decode || node.check === null) return '';
-    return `if(typeof ${v}!=='${node.type}')F(${str(node.code)},${path},${str(node.expected)});`;
+    return `if(${invalid(node, v)})F(${str(node.code)},${path},${str(node.expected)});`;
   };
 
   // Statements that set `dst` to the decoded form of a non-null scalar `src`:
@@ -85,8 +90,13 @@ const generate = (plan, options) => {
     if (node.pack !== null) return `!${slot(node)}.accept(${v})`;
     // v-v is NaN for NaN and the infinities, which have no JSON form.
     if (node.type === 'number') return `typeof ${v}!=='number'||${v}-${v}!==0`;
-    return `typeof ${v}!=='${node.type}'`;
+    return invalid(node, v);
   };
+
+  // An own key of a fresh object; `__proto__` goes through put, which keeps it
+  // from setting the prototype.
+  const assign = (r, k, x) =>
+    `if(${k}==='__proto__')${slot(put)}(${r},${k},${x});else ${r}[${k}]=${x};`;
 
   // Statements that set `dst` to the wire form of `src`. Under validation a
   // nullish src with a `nullCode` (`required`, or `type` for an array item)
@@ -95,7 +105,7 @@ const generate = (plan, options) => {
   // an embedded schema) is called as it is.
   const encodeInto = (node, src, dst, path, nullCode = null) => {
     const scalar = node.kind === 'scalar';
-    const expected = str(scalar ? node.expected : EXPECTED[node.kind]);
+    const expected = str(expectedOf(node));
     const nil =
       validate.encode && nullCode !== null
         ? `E(${str(nullCode)},${path},${expected});`
@@ -127,6 +137,41 @@ const generate = (plan, options) => {
         `catch(error){throw N(error,${path});}`
       );
     }
+    if (node.kind === 'map') {
+      const [r, i, e, x] = [uid('r'), uid('i'), uid('e'), uid('x')];
+      // An entry's path is its index: a key may be anything until checked.
+      const at = `${path}+"["+${i}+"]"`;
+      const key = validate.encode
+        ? `if(${rejects(node.key, `${e}[0]`)})E('type',${at},${str(node.key.expected)});`
+        : '';
+      const valueNull = node.valueRequired ? 'type' : null;
+      return (
+        `if(${src}==null)${nil}else{if(!${slot(isMap)}(${src}))E('map',${path});` +
+        `const ${r}=[];let ${i}=0;for(const ${e} of ${src}){${key}let ${x};` +
+        `${encodeInto(node.value, `${e}[1]`, x, at, valueNull)}${r}.push(${e}[0],${x});${i}++;}` +
+        `${dst}=${r};}`
+      );
+    }
+    if (node.kind === 'dict') {
+      const { value } = node;
+      const [ks, r, i, k, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('x')];
+      const at = `(${path}===""?${k}:${path}+"."+${k})`;
+      const valueNull = node.valueRequired ? 'type' : null;
+      const isObject = `if(typeof ${src}!=='object'||Array.isArray(${src}))E('object',${path});`;
+      const loop = `const ${ks}=Object.keys(${src});for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];let ${x};`;
+      if (value.kind === 'scalar' && value.pack === null) {
+        // Identity values travel in the same object: at most a checking pass.
+        const pass =
+          validate.encode && (value.accept !== null || node.valueRequired)
+            ? `${loop}${encodeInto(value, `${src}[${k}]`, x, at, valueNull)}}`
+            : '';
+        return `if(${src}==null)${nil}else{${isObject}${pass}${dst}=${src};}`;
+      }
+      return (
+        `if(${src}==null)${nil}else{${isObject}const ${r}={};${loop}` +
+        `${encodeInto(value, `${src}[${k}]`, x, at, valueNull)}${assign(r, k, x)}}${dst}=${r};}`
+      );
+    }
     const isArray = `if(!Array.isArray(${src}))E('array',${path});`;
     if (node.kind === 'tuple') {
       const out = [];
@@ -141,21 +186,30 @@ const generate = (plan, options) => {
     }
     const { item } = node;
     const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
+    // A Set travels as the array of its elements; an array is taken as it is.
+    let list = src;
+    let head = isArray;
+    if (node.container === 'set') {
+      list = uid('l');
+      head =
+        `const ${list}=Array.isArray(${src})?${src}:${slot(listOf)}(${src});` +
+        `if(${list}===undefined)E('set',${path});`;
+    }
     const at = `${path}+"["+${i}+"]"`;
     const itemNull = node.itemRequired ? 'type' : null;
     if (item.kind === 'scalar' && item.pack === null) {
       // Identity items travel in the same array: at most a checking pass.
       const pass =
         validate.encode && (item.accept !== null || node.itemRequired)
-          ? `for(let ${i}=0;${i}<${src}.length;${i}++){const ${e}=${src}[${i}];let ${x};` +
+          ? `for(let ${i}=0;${i}<${list}.length;${i}++){const ${e}=${list}[${i}];let ${x};` +
             `${encodeInto(item, e, x, at, itemNull)}}`
           : '';
-      return `if(${src}==null)${nil}else{${isArray}${pass}${dst}=${src};}`;
+      return `if(${src}==null)${nil}else{${head}${pass}${dst}=${list};}`;
     }
     return (
-      `if(${src}==null)${nil}else{${isArray}const ${n}=${src}.length,${r}=new Array(${n});` +
+      `if(${src}==null)${nil}else{${head}const ${n}=${list}.length,${r}=new Array(${n});` +
       `for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
-      `${encodeInto(item, `${src}[${i}]`, x, at, itemNull)}${r}[${i}]=${x};}${dst}=${r};}`
+      `${encodeInto(item, `${list}[${i}]`, x, at, itemNull)}${r}[${i}]=${x};}${dst}=${r};}`
     );
   };
 
@@ -168,6 +222,34 @@ const generate = (plan, options) => {
       const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.decode` : record(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
     }
+    if (node.kind === 'dict') {
+      const { value } = node;
+      const out = [
+        `if(${src}===null||typeof ${src}!=='object'||Array.isArray(${src}))` +
+          `F('structure',${path},'object');`,
+      ];
+      const [ks, r, i, k, e, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('e'), uid('x')];
+      const at = `(${path}===""?${k}:${path}+"."+${k})`;
+      const nullCheck =
+        node.valueRequired && validate.decode ? `F('type',${at},${str(expectedOf(value))});` : '';
+      const loop =
+        `const ${ks}=Object.keys(${src});for(let ${i}=0;${i}<${ks}.length;${i}++){` +
+        `const ${k}=${ks}[${i}],${e}=${src}[${k}];`;
+      if (value.kind === 'scalar' && value.pack === null) {
+        const chk = check(value, e, at);
+        if (chk !== '' || nullCheck !== '') {
+          out.push(`${loop}if(${e}==null){${nullCheck}}else{${chk}}}`);
+        }
+        out.push(`${dst}=${src};`);
+        return out.join('');
+      }
+      const body = decodeInto(value, e, x, at);
+      out.push(
+        `const ${r}={};${loop}let ${x}=null;if(${e}==null){${nullCheck}}else{${body}}` +
+          `${assign(r, k, x)}}${dst}=${r};`,
+      );
+      return out.join('');
+    }
     const out = [`if(!Array.isArray(${src}))F('structure',${path},'array');`];
     if (node.kind === 'tuple') {
       const size = node.items.length;
@@ -177,30 +259,47 @@ const generate = (plan, options) => {
       const parts = node.items.map((item, i) => {
         const v = uid('v');
         out.push(`const ${v}=${src}[${i}];`);
-        return slotValue(item.node, item.required, null, v, `${path}+${str(`[${i}]`)}`, out);
+        return slotValue(item.node, item.required, item.def, v, `${path}+${str(`[${i}]`)}`, out);
       });
       out.push(`${dst}=[${parts}];`);
       return out.join('');
     }
+    if (node.kind === 'map') {
+      const [n, i, k, e, r, x] = [uid('n'), uid('i'), uid('k'), uid('e'), uid('r'), uid('x')];
+      const at = `${path}+"["+(${i}/2)+"]"`;
+      const nullCheck =
+        node.valueRequired && validate.decode
+          ? `F('type',${at},${str(expectedOf(node.value))});`
+          : '';
+      out.push(
+        `const ${n}=${src}.length;if(${n}%2!==0)F('structure',${path},'length');` +
+          `const ${r}=new Map();for(let ${i}=0;${i}<${n};${i}+=2){` +
+          `const ${k}=${src}[${i}],${e}=${src}[${i}+1];${check(node.key, k, at)}let ${x}=null;` +
+          `if(${e}==null){${nullCheck}}else{${decodeInto(node.value, e, x, at)}}` +
+          `${r}.set(${k},${x});}${dst}=${r};`,
+      );
+      return out.join('');
+    }
     const { item } = node;
+    const set = node.container === 'set';
     const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
     const at = `${path}+"["+${i}+"]"`;
-    const expected = item.kind === 'scalar' ? item.expected : EXPECTED[item.kind];
     const nullCheck =
-      node.itemRequired && validate.decode ? `F('type',${at},${str(expected)});` : '';
+      node.itemRequired && validate.decode ? `F('type',${at},${str(expectedOf(item))});` : '';
     const loop = `const ${n}=${src}.length;for(let ${i}=0;${i}<${n};${i}++){const ${e}=${src}[${i}];`;
     if (item.kind === 'scalar' && item.pack === null) {
       const chk = check(item, e, at);
       if (chk !== '' || nullCheck !== '') {
         out.push(`${loop}if(${e}==null){${nullCheck}}else{${chk}}}`);
       }
-      out.push(`${dst}=${src};`);
+      out.push(set ? `${dst}=new Set(${src});` : `${dst}=${src};`);
       return out.join('');
     }
     const body = decodeInto(item, e, x, at);
     out.push(
       `const ${r}=new Array(${src}.length);${loop}let ${x}=null;` +
-        `if(${e}==null){${nullCheck}}else{${body}}${r}[${i}]=${x};}${dst}=${r};`,
+        `if(${e}==null){${nullCheck}}else{${body}}${r}[${i}]=${x};}` +
+        (set ? `${dst}=new Set(${r});` : `${dst}=${r};`),
     );
     return out.join('');
   };

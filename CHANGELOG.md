@@ -33,6 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
 
+- **`@alexify/protoarray/standalone`**: a schema's generated code as the source of a module, for
+  runtimes that forbid compiling source text (a strict CSP, Cloudflare Workers, Vercel Edge),
+  where schemas otherwise run on the slower closures backend. `toSource(schemas, { runtime,
+  format })` writes a CommonJS or ES module with the code of the schemas given and every schema
+  they reach (embedded, referenced by name, recursive): one schema as the default export, a record
+  of them as named exports. `runtime: 'import'` (the default) imports this package and exports
+  real `Schema` instances built from their definitions with the new `{ compiled }` option, whose
+  `backend` is `'standalone'`; `runtime: 'inline'` carries its own runtime (the source of the
+  package's error classes, type table, layouts and base64) and imports nothing. A generated module
+  never compiles source text; `{ compiled }` throws `ERR_COMPILED_MISMATCH` when the definition no
+  longer matches the code. `register()` adds `schema.toSource(options)`. A resolved schema and one
+  built from a metaschema `Schema` are refused (write their parts instead).
+- **The `protoarray` command**: `protoarray compile <module> [--out <file>] [--format cjs|esm]
+  [--runtime import|inline] [--only <A,B>]` loads a module of schemas (CommonJS or ES) and writes
+  their standalone module.
 - **`stringify` writes the text itself where that is faster**: generated code builds the JSON
   text as it encodes instead of encoding an array and handing it to `JSON.stringify`. The text is
   the text of the wire, byte for byte, with encode's checks and errors (a property-based test

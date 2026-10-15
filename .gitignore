@@ -131,3 +131,4 @@ docs/.vitepress/cache
 # lockfiles are not part of this repository.
 examples/**/pnpm-lock.yaml
 examples/**/package-lock.json
+tests/.generated/

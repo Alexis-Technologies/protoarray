@@ -23,6 +23,7 @@ const entryPoints = [
   ['registry.js', 'registry.d.ts'],
   ['stream.js', 'stream.d.ts'],
   ['metaschema.js', 'metaschema.d.ts'],
+  ['standalone.js', 'standalone.d.ts'],
 ];
 
 // Every subpath of the exports map, with the typings it declares.
@@ -31,6 +32,7 @@ const SUBPATHS = [
   ['@alexify/protoarray/registry', 'registry.d.ts'],
   ['@alexify/protoarray/stream', 'stream.d.ts'],
   ['@alexify/protoarray/metaschema', 'metaschema.d.ts'],
+  ['@alexify/protoarray/standalone', 'standalone.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {

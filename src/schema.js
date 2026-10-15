@@ -7,7 +7,6 @@ const {
   EncodeError,
   DecodeError,
   boundary,
-  fail,
   nest,
   expectedOf,
 } = require('./errors.js');
@@ -23,7 +22,6 @@ const {
   fingerprint,
 } = require('./plan.js');
 const { resolvePlan } = require('./resolve.js');
-const { INTERN } = require('./types.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
@@ -35,6 +33,19 @@ const LAYOUTS = ['rows', 'flat', 'columns'];
 const INTERNAL = Symbol('plan');
 // The codec of one item of a collection, for the stream helpers.
 const ITEMS = Symbol.for('alexify.protoarray.items');
+// The options a schema was built with, for the standalone generator.
+const SETTINGS = Symbol.for('alexify.protoarray.settings');
+
+// What a generated module passes as `compiled`: the codec of the plan, maybe
+// its checking twin, and the canonical form both were generated from.
+const isCompiled = (value) =>
+  value !== null &&
+  typeof value === 'object' &&
+  typeof value.canonical === 'string' &&
+  value.codec !== null &&
+  typeof value.codec === 'object' &&
+  typeof value.codec.encode === 'function' &&
+  typeof value.codec.decode === 'function';
 const MODES = ['decode', 'encode', 'both'];
 const STRINGIFY = ['auto', 'builder', 'native'];
 const isBoolean = (value) => typeof value === 'boolean';
@@ -46,6 +57,7 @@ const VALID = Object.assign(Object.create(null), {
   sparse: isBoolean,
   intern: isBoolean,
   stringify: (value) => STRINGIFY.includes(value),
+  compiled: isCompiled,
   layout: (value) => LAYOUTS.includes(value),
   schemas: (value) => value !== null && typeof value === 'object',
   fingerprint: (value) => typeof value === 'function',
@@ -128,92 +140,54 @@ const internedIn = (node, seen) => {
   return internedIn(node.value, seen);
 };
 
-// The root codec of an interned schema: the message's string table is set
-// for the length of one call, and the payload carries it. A codec called
-// inside one (an embedded schema, a record of a layout) finds it set and
-// uses it.
-const withTable = (codec, validate) => ({
-  encode: (value) => {
-    if (INTERN.table !== null) return codec.encode(value);
-    INTERN.table = [];
-    INTERN.map = new Map();
-    try {
-      const body = codec.encode(value);
-      return [INTERN.table, body];
-    } finally {
-      INTERN.table = null;
-      INTERN.map = null;
-    }
-  },
-  decode: (wire, strict) => {
-    if (INTERN.table !== null) return codec.decode(wire, strict);
-    if (!Array.isArray(wire) || wire.length !== 2 || !Array.isArray(wire[0])) {
-      fail('structure', '', 'intern');
-    }
-    const table = wire[0];
-    if (validate && !table.every((entry) => typeof entry === 'string')) {
-      fail('structure', '', 'intern');
-    }
-    INTERN.table = table;
-    try {
-      return codec.decode(wire[1], strict);
-    } finally {
-      INTERN.table = null;
-    }
-  },
-});
-
-// A call from outside into an interned schema starts without a table, even
-// one made midway through another (a getter of the value encoding another
-// payload): the outer table is put back after it.
-const isolated = (run) => {
-  const { table, map } = INTERN;
-  INTERN.table = null;
-  INTERN.map = null;
-  try {
-    return run();
-  } finally {
-    INTERN.table = table;
-    INTERN.map = map;
-  }
-};
-
 // The codec of a plan, compiled by a backend and wrapped in a layout for a
 // collection. A checking codec validates both directions and calls the
 // checking codecs of the schemas it embeds (see Schema#check).
-const build = (plan, backend, settings, checking) => {
+// What a backend compiles for a plan, and with which options: the record of
+// a flat or columns collection, the plan itself otherwise. The standalone
+// generator compiles the same.
+const codecOptions = (plan, settings, checking) => {
   const validate = checks(settings.validate, checking);
   const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
   const interned = internedIn(plan, new Set());
   // Generated code writes the text of what it encodes where that is faster
-  // than JSON.stringify of the wire: by default for records without strings
-  // (see numeric), on request for any. An interned payload has its table to
-  // put first, so it goes through encode.
+  // than JSON.stringify of the wire: by default for records of converted
+  // types (see converted), on request for any. An interned payload has its
+  // table to put first, so it goes through encode.
   const { stringify } = settings;
   const builder =
     !checking &&
     !interned &&
     (stringify === 'builder' || (stringify === 'auto' && plan.kind !== 'array' && converted(plan)));
+  return { target, interned, options: { validate, checking, builder } };
+};
+
+const build = (plan, backend, settings, checking) => {
+  const { target, interned, options } = codecOptions(plan, settings, checking);
+  const { validate } = options;
+  const { compiled } = settings;
   let codec = null;
   let fallback;
-  if (target.slot !== undefined) {
+  // A generated module's codec, where it has the one asked for.
+  if (compiled !== undefined) codec = (checking ? compiled.checker : compiled.codec) || null;
+  if (codec !== null || target.slot !== undefined) {
     // A layout over a compiled schema, or a root reference by name, reuses
     // that codec: nothing new to compile.
-    codec = checking ? target.slot.checker : target.slot.codec;
+    if (codec === null) codec = checking ? target.slot.checker : target.slot.codec;
   } else if (backend === codegen && settings.codegen === undefined) {
     // The probe only proves that source text compiles: a runtime that still
     // rejects this one function (its size, a stricter policy) gets closures.
     // The error is kept, so the fallback can be told from a choice.
     try {
-      codec = codegen.build(target, { validate, checking, builder });
+      codec = codegen.build(target, options);
     } catch (error) {
       fallback = error;
       backend = closures;
     }
   }
-  if (codec === null) codec = backend.build(target, { validate, checking, builder });
+  if (codec === null) codec = backend.build(target, options);
   if (target !== plan) codec = layouts[plan.layout](codec, plan.item, validate);
-  if (interned) codec = withTable(codec, validate.decode);
+  if (interned) codec = layouts.withTable(codec, validate.decode);
   return { codec, backend, fallback };
 };
 
@@ -367,6 +341,18 @@ class Schema {
         Object.defineProperty(slot, 'checker', { get: () => this[CHECKER] });
       }
     }
+    const { compiled } = settings;
+    if (compiled !== undefined) {
+      // A generated module goes with the definition it was generated from.
+      if (settings.codegen === true || internal !== undefined) {
+        const text = 'A compiled codec replaces code generation';
+        throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+      }
+      if (compiled.canonical !== canonical(plan)) {
+        const text = 'The compiled codec is of another definition: generate it again';
+        throw new SchemaDefinitionError('ERR_COMPILED_MISMATCH', text, name);
+      }
+    }
     const useCodegen = settings.codegen === undefined ? codegen.available : settings.codegen;
     if (useCodegen && !codegen.available) {
       throw new SchemaDefinitionError(
@@ -405,7 +391,9 @@ class Schema {
     this.name = name;
     this.definition = definition;
     this.keys = Object.freeze(plan.kind === 'struct' ? plan.keys.slice() : []);
-    this.backend = backend === codegen ? 'codegen' : 'closures';
+    this.backend =
+      compiled !== undefined ? 'standalone' : backend === codegen ? 'codegen' : 'closures';
+    if (compiled !== undefined && typeof compiled.id === 'string') this.#id = compiled.id;
     this.layout = plan.kind === 'array' ? plan.layout : plan.sparse === true ? 'sparse' : 'dense';
     this.#settings = settings;
     this.#interned = internedIn(plan, new Set());
@@ -474,6 +462,11 @@ class Schema {
     return this.#items;
   }
 
+  // The options this schema was built with, for the standalone generator.
+  get [SETTINGS]() {
+    return this.#settings;
+  }
+
   // The codec `check` runs, compiled when first asked for: it validates even
   // where the options say not to, here and in the schemas this one embeds.
   get [CHECKER]() {
@@ -491,7 +484,7 @@ class Schema {
       throw boundary(new EncodeError(code), this.name, false);
     }
     try {
-      return this.#interned ? isolated(() => codec[method](value)) : codec[method](value);
+      return this.#interned ? layouts.isolated(() => codec[method](value)) : codec[method](value);
     } catch (error) {
       throw boundary(error, this.name, false);
     }
@@ -518,7 +511,7 @@ class Schema {
     const codec = this[CODEC];
     try {
       return this.#interned
-        ? isolated(() => codec.decode(array, strict))
+        ? layouts.isolated(() => codec.decode(array, strict))
         : codec.decode(array, strict);
     } catch (error) {
       throw boundary(error, this.name, true);
@@ -558,4 +551,4 @@ class Schema {
   }
 }
 
-module.exports = { Schema, ITEMS, each, iterable };
+module.exports = { Schema, ITEMS, SETTINGS, each, iterable, codecOptions };

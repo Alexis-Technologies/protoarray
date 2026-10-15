@@ -195,3 +195,30 @@ test('Bundle: the metaschema subpath bundles for browsers without metaschema', a
   assert.deepStrictEqual(Object.keys(types), ['bytes', 'flags']);
   assert.throws(() => fromMetaschema({}), { code: 'ERR_SCHEMA_EXPECTED' });
 });
+
+// An inline module carries the source of the kernels: minified, it still runs
+// on its own, without new Function.
+test('Bundle: an inline standalone module survives a minifier', async () => {
+  const { toSource } = require('../../standalone.js');
+  const { Schema } = require('../../index.js');
+  const User = new Schema('User', {
+    id: 'integer',
+    name: 'string',
+    tags: { array: { type: 'string', intern: true } },
+    pic: '?bytes',
+  });
+  const result = await esbuild.transform(toSource(User, { runtime: 'inline' }), {
+    minify: true,
+    format: 'cjs',
+  });
+  const context = vm.createContext({ btoa, atob }, { codeGeneration: { strings: false } });
+  const module = { exports: {} };
+  vm.runInContext(`(function (module, exports) {${result.code}\n})`, context)(
+    module,
+    module.exports,
+  );
+  const copy = module.exports;
+  const value = { id: 1, name: 'A', tags: ['x', 'x'], pic: new Uint8Array([1, 2]) };
+  assert.strictEqual(copy.stringify(value), User.stringify(value));
+  assert.strictEqual(JSON.stringify(copy.parse(User.stringify(value)).tags), '["x","x"]');
+});

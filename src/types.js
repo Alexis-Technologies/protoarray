@@ -2,442 +2,514 @@
 // they are), how it is checked on the wire and how it is converted. Both
 // backends read it, so they can never disagree on a type.
 
-const { toBase64, fromBase64 } = require('./runtime/node.js');
+// The table is a closed function of the base64 twin, run once: nothing in it
+// reaches outside, so standalone.js can embed its source.
+const kernel = (base64) => {
+  const { toBase64, fromBase64 } = base64;
 
-const DIGITS = /^-?\d+$/;
-// A value may come from another realm, where instanceof fails: the tag is the
-// fallback, instanceof the fast path.
-const TAG = Object.prototype.toString;
+  const DIGITS = /^-?\d+$/;
+  // A value may come from another realm, where instanceof fails: the tag is the
+  // fallback, instanceof the fast path.
+  const TAG = Object.prototype.toString;
 
-// getTime is several times cheaper than `+value`, which goes through
-// Symbol.toPrimitive.
-const time = (value) => (value instanceof Date ? value.getTime() : +value);
+  // getTime is several times cheaper than `+value`, which goes through
+  // Symbol.toPrimitive.
+  const time = (value) => (value instanceof Date ? value.getTime() : +value);
 
-// A Date or a timestamp becomes epoch milliseconds; an invalid date has no
-// JSON form and travels as null.
-const ms = (value) => {
-  const at = typeof value === 'number' ? value : time(value);
-  return Number.isNaN(at) ? null : at;
-};
+  // A Date or a timestamp becomes epoch milliseconds; an invalid date has no
+  // JSON form and travels as null.
+  const ms = (value) => {
+    const at = typeof value === 'number' ? value : time(value);
+    return Number.isNaN(at) ? null : at;
+  };
 
-const isDate = (v) => v instanceof Date || TAG.call(v) === '[object Date]';
+  const isDate = (v) => v instanceof Date || TAG.call(v) === '[object Date]';
 
-// The epoch milliseconds of a valid date or a finite timestamp, or undefined.
-const timestamp = (v) => {
-  const at = typeof v === 'number' ? v : isDate(v) ? time(v) : NaN;
-  return Number.isFinite(at) ? at : undefined;
-};
+  // The epoch milliseconds of a valid date or a finite timestamp, or undefined.
+  const timestamp = (v) => {
+    const at = typeof v === 'number' ? v : isDate(v) ? time(v) : NaN;
+    return Number.isFinite(at) ? at : undefined;
+  };
 
-// An object parsed from a literal has the hidden class a literal would have.
-const literal = (keys, value) =>
-  JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
+  // An object parsed from a literal has the hidden class a literal would have.
+  const literal = (keys, value) =>
+    JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
 
-// A view from another realm fails instanceof; its tag tells it apart from the
-// other views, and isView from an object that merely claims the tag.
-const isBytes = (v) =>
-  v instanceof Uint8Array || (ArrayBuffer.isView(v) && TAG.call(v) === '[object Uint8Array]');
+  // A view from another realm fails instanceof; its tag tells it apart from the
+  // other views, and isView from an object that merely claims the tag.
+  const isBytes = (v) =>
+    v instanceof Uint8Array || (ArrayBuffer.isView(v) && TAG.call(v) === '[object Uint8Array]');
 
-const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
+  const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
-// An identity type travels as it is: `pack` and `unpack` are null, `check`
-// validates the wire form and `accept` the value given to encode. A converted
-// type checks and converts in one call: `checkedUnpack` on the wire, and
-// `checkedPack` on the value given to encode where checking and converting
-// share their work (the others keep `accept` and `pack` apart); both give the
-// converted value, or undefined for one of the wrong type. Without validation
-// the wire is trusted, so `unpack` must be total: what has no wire form of
-// the type stays as it is instead of throwing or reading a prototype. An enum
-// keeps a `check` too: a union reads its tag through it.
-const identity = (type) => {
-  // oxlint-disable-next-line valid-typeof
-  const check = type === 'json' ? null : (v) => typeof v === type;
-  // NaN and the infinities have no JSON form: they would travel as null.
-  const accept = type === 'number' ? Number.isFinite : check;
-  // A json slot holds null as a value, so it is never required.
-  return scalar(type, { check, accept, pack: null, unpack: null, nullable: type === 'json' });
-};
+  // An identity type travels as it is: `pack` and `unpack` are null, `check`
+  // validates the wire form and `accept` the value given to encode. A converted
+  // type checks and converts in one call: `checkedUnpack` on the wire, and
+  // `checkedPack` on the value given to encode where checking and converting
+  // share their work (the others keep `accept` and `pack` apart); both give the
+  // converted value, or undefined for one of the wrong type. Without validation
+  // the wire is trusted, so `unpack` must be total: what has no wire form of
+  // the type stays as it is instead of throwing or reading a prototype. An enum
+  // keeps a `check` too: a union reads its tag through it.
+  const identity = (type) => {
+    // oxlint-disable-next-line valid-typeof
+    const check = type === 'json' ? null : (v) => typeof v === type;
+    // NaN and the infinities have no JSON form: they would travel as null.
+    const accept = type === 'number' ? Number.isFinite : check;
+    // A json slot holds null as a value, so it is never required.
+    return scalar(type, { check, accept, pack: null, unpack: null, nullable: type === 'json' });
+  };
 
-// Whether a value is a Set or a Map, from this realm or another one.
-const isSet = (v) => v instanceof Set || TAG.call(v) === '[object Set]';
-const isMap = (v) => v instanceof Map || TAG.call(v) === '[object Map]';
+  // Whether a value is a Set or a Map, from this realm or another one.
+  const isSet = (v) => v instanceof Set || TAG.call(v) === '[object Set]';
+  const isMap = (v) => v instanceof Map || TAG.call(v) === '[object Map]';
 
-// The elements of a Set as an array, or undefined for anything else.
-const listOf = (v) => (isSet(v) ? Array.from(v) : undefined);
+  // The elements of a Set as an array, or undefined for anything else.
+  const listOf = (v) => (isSet(v) ? Array.from(v) : undefined);
 
-// A key assigned to a fresh object: `__proto__` would set its prototype, so it
-// becomes an own property like any other key, as JSON.parse makes it.
-const put = (object, key, value) => {
-  if (key === '__proto__') {
-    Object.defineProperty(object, key, {
-      value,
-      enumerable: true,
-      writable: true,
-      configurable: true,
+  // A key assigned to a fresh object: `__proto__` would set its prototype, so it
+  // becomes an own property like any other key, as JSON.parse makes it.
+  const put = (object, key, value) => {
+    if (key === '__proto__') {
+      Object.defineProperty(object, key, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    } else object[key] = value;
+  };
+
+  // Every node knows the expression that makes it again, `T` being this table:
+  // standalone.js writes the helpers of generated code with it.
+  const made = (node, recipe) => {
+    node.recipe = recipe;
+    return node;
+  };
+
+  const SCALARS = Object.assign(Object.create(null), {
+    string: () => identity('string'),
+    number: () => identity('number'),
+    boolean: () => identity('boolean'),
+    json: () => identity('json'),
+    // metaschema's names for a value of any kind: the same slot as json.
+    any: () => identity('json'),
+    unknown: () => identity('json'),
+    integer: () =>
+      scalar('integer', {
+        check: Number.isInteger,
+        accept: Number.isInteger,
+        pack: null,
+        unpack: null,
+      }),
+    // A slot that is always null: whatever is given travels as null, and only
+    // null decodes.
+    null: () =>
+      scalar('null', {
+        nullable: true,
+        check: null,
+        pack: () => null,
+        unpack: (v) => v,
+        checkedPack: () => undefined,
+        checkedUnpack: () => undefined,
+      }),
+    date: () =>
+      scalar('date', {
+        checkedPack: timestamp,
+        pack: ms,
+        unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
+        checkedUnpack: (v) => (typeof v === 'number' ? new Date(v) : undefined),
+      }),
+    bytes: () =>
+      scalar('bytes', {
+        // Canonical base64 with padding (RFC 4648 §4): what toBase64 writes.
+        // Decoding is the check, so a validated slot decodes once.
+        checkedPack: (v) => (isBytes(v) ? toBase64(v) : undefined),
+        pack: (v) => (isBytes(v) ? toBase64(v) : v),
+        unpack: (v) => {
+          const bytes = typeof v === 'string' ? fromBase64(v) : null;
+          return bytes === null ? v : bytes;
+        },
+        checkedUnpack: (v) => {
+          const bytes = typeof v === 'string' ? fromBase64(v) : null;
+          return bytes === null ? undefined : bytes;
+        },
+      }),
+    bigint: () =>
+      scalar('bigint', {
+        accept: (v) =>
+          typeof v === 'bigint' ||
+          Number.isSafeInteger(v) ||
+          (typeof v === 'string' && DIGITS.test(v)),
+        pack: (v) => String(v),
+        unpack: (v) => {
+          try {
+            return BigInt(v);
+          } catch {
+            return v;
+          }
+        },
+        checkedUnpack: (v) => (typeof v === 'string' && DIGITS.test(v) ? BigInt(v) : undefined),
+      }),
+  });
+  for (const name of Object.keys(SCALARS)) {
+    const make = SCALARS[name];
+    SCALARS[name] = () => made(make(), `T.SCALARS[${JSON.stringify(name)}]()`);
+  }
+
+  const enumeration = (values) => {
+    const size = values.length;
+    const dict = Object.create(null);
+    for (let i = 0; i < size; i++) dict[values[i]] = i;
+    const node = scalar('enum', {
+      values,
+      check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
+      // Only a string or a number can be a value: anything else is not looked
+      // up, since turning an object into a key may throw on its own. The lookup
+      // coerces its key ('20' finds 20); validation wants the value itself.
+      checkedPack: (v) => {
+        const t = typeof v;
+        if (t !== 'string' && t !== 'number') return undefined;
+        const index = dict[v];
+        return index !== undefined && values[index] === v ? index : undefined;
+      },
+      pack: (v) => {
+        const t = typeof v;
+        if (t !== 'string' && t !== 'number') return null;
+        const index = dict[v];
+        return index === undefined ? null : index;
+      },
+      unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
+      checkedUnpack: (v) =>
+        typeof v === 'number' && (v | 0) === v && v >= 0 && v < size ? values[v] : undefined,
     });
-  } else object[key] = value;
-};
+    node.expected = values.join(', ');
+    node.code = 'enum';
+    return made(node, `T.enumeration(${JSON.stringify(values)})`);
+  };
 
-const SCALARS = Object.assign(Object.create(null), {
-  string: () => identity('string'),
-  number: () => identity('number'),
-  boolean: () => identity('boolean'),
-  json: () => identity('json'),
-  // metaschema's names for a value of any kind: the same slot as json.
-  any: () => identity('json'),
-  unknown: () => identity('json'),
-  integer: () =>
-    scalar('integer', {
-      check: Number.isInteger,
-      accept: Number.isInteger,
-      pack: null,
-      unpack: null,
-    }),
-  // A slot that is always null: whatever is given travels as null, and only
-  // null decodes.
-  null: () =>
-    scalar('null', {
-      nullable: true,
-      check: null,
-      pack: () => null,
-      unpack: (v) => v,
-      checkedPack: () => undefined,
-      checkedUnpack: () => undefined,
-    }),
-  date: () =>
-    scalar('date', {
-      checkedPack: timestamp,
-      pack: ms,
-      unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
-      checkedUnpack: (v) => (typeof v === 'number' ? new Date(v) : undefined),
-    }),
-  bytes: () =>
-    scalar('bytes', {
-      // Canonical base64 with padding (RFC 4648 §4): what toBase64 writes.
-      // Decoding is the check, so a validated slot decodes once.
-      checkedPack: (v) => (isBytes(v) ? toBase64(v) : undefined),
-      pack: (v) => (isBytes(v) ? toBase64(v) : v),
+  // A number with `n` decimals travels as an integer, scaled by 10ⁿ: 19.99 is
+  // 1999 with two. Math.round rounds half up (1.005 * 100 is 100.49999…), and
+  // dividing the integer by 10ⁿ gives back the double nearest to the decimal.
+  const decimal = (n) => {
+    const scale = 10 ** n;
+    // + 0 turns -0 into 0, which is what JSON would write anyway.
+    const node = scalar('number', {
+      decimals: n,
+      checkedPack: (v) => {
+        const scaled = typeof v === 'number' ? v * scale : NaN;
+        return Math.abs(scaled) <= Number.MAX_SAFE_INTEGER ? Math.round(scaled) + 0 : undefined;
+      },
+      pack: (v) => (typeof v === 'number' ? Math.round(v * scale) + 0 : v),
+      unpack: (v) => (typeof v === 'number' ? v / scale : v),
+      checkedUnpack: (v) => (Number.isSafeInteger(v) ? v / scale : undefined),
+    });
+    node.expected = `number(${n})`;
+    return made(node, `T.decimal(${n})`);
+  };
+
+  // A word of a bitmask: 31 bits, since bit 31 would make it negative.
+  const WORD = 31;
+
+  const isWord = (v) => typeof v === 'number' && (v | 0) === v && v >= 0;
+
+  // Up to 31 names travel as one integer. More take an array of 31-bit words,
+  // written as one integer while only the first word has bits set, so a
+  // decoder reads either form and ignores the bits it has no name for.
+  const flags = (names) => {
+    const size = names.length;
+    const template = literal(names, 'false');
+    const unpack = (v) => {
+      const single = typeof v === 'number';
+      if (!single && !Array.isArray(v)) return v;
+      const object = { ...template };
+      for (let i = 0; i < size; i++) {
+        const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
+        object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
+      }
+      return object;
+    };
+    const node = scalar('flags', {
+      names,
+      accept: (v) => typeof v === 'object' && !Array.isArray(v),
+      pack: (v) => {
+        let mask = 0;
+        for (let i = 0; i < size && i < WORD; i++) if (v[names[i]]) mask |= 1 << i;
+        if (size <= WORD) return mask;
+        const words = [mask];
+        for (let i = WORD; i < size; i++) {
+          if (!v[names[i]]) continue;
+          const at = (i / WORD) | 0;
+          while (words.length <= at) words.push(0);
+          words[at] |= 1 << (i % WORD);
+        }
+        return words.length === 1 ? mask : words;
+      },
+      unpack,
+      checkedUnpack: (v) =>
+        isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)) ? unpack(v) : undefined,
+    });
+    return made(node, `T.flags(${JSON.stringify(names)})`);
+  };
+
+  // The string table of the message being encoded or decoded: set by the root
+  // codec of an interned schema for the length of one call (see schema.js),
+  // null otherwise. Interned slots read it, so the codecs between the root and
+  // them need no parameter for it.
+  const INTERN = { table: null, map: null };
+
+  // A string that travels as its index in the message's table.
+  const interned = () => {
+    const pack = (v) => {
+      let index = INTERN.map.get(v);
+      if (index === undefined) {
+        index = INTERN.table.length;
+        INTERN.table.push(v);
+        INTERN.map.set(v, index);
+      }
+      return index;
+    };
+    const node = scalar('string', {
+      intern: true,
+      pack,
+      checkedPack: (v) => (typeof v === 'string' ? pack(v) : undefined),
       unpack: (v) => {
-        const bytes = typeof v === 'string' ? fromBase64(v) : null;
-        return bytes === null ? v : bytes;
+        const value = typeof v === 'number' ? INTERN.table[v] : undefined;
+        return value === undefined ? v : value;
       },
       checkedUnpack: (v) => {
-        const bytes = typeof v === 'string' ? fromBase64(v) : null;
-        return bytes === null ? undefined : bytes;
+        const { table } = INTERN;
+        return Number.isInteger(v) && v >= 0 && v < table.length ? table[v] : undefined;
       },
-    }),
-  bigint: () =>
-    scalar('bigint', {
-      accept: (v) =>
-        typeof v === 'bigint' ||
-        Number.isSafeInteger(v) ||
-        (typeof v === 'string' && DIGITS.test(v)),
-      pack: (v) => String(v),
-      unpack: (v) => {
-        try {
-          return BigInt(v);
-        } catch {
-          return v;
-        }
-      },
-      checkedUnpack: (v) => (typeof v === 'string' && DIGITS.test(v) ? BigInt(v) : undefined),
-    }),
-});
-
-const enumeration = (values) => {
-  const size = values.length;
-  const dict = Object.create(null);
-  for (let i = 0; i < size; i++) dict[values[i]] = i;
-  const node = scalar('enum', {
-    values,
-    check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
-    // Only a string or a number can be a value: anything else is not looked
-    // up, since turning an object into a key may throw on its own. The lookup
-    // coerces its key ('20' finds 20); validation wants the value itself.
-    checkedPack: (v) => {
-      const t = typeof v;
-      if (t !== 'string' && t !== 'number') return undefined;
-      const index = dict[v];
-      return index !== undefined && values[index] === v ? index : undefined;
-    },
-    pack: (v) => {
-      const t = typeof v;
-      if (t !== 'string' && t !== 'number') return null;
-      const index = dict[v];
-      return index === undefined ? null : index;
-    },
-    unpack: (v) => (typeof v === 'number' ? (values[v] ?? v) : v),
-    checkedUnpack: (v) =>
-      typeof v === 'number' && (v | 0) === v && v >= 0 && v < size ? values[v] : undefined,
-  });
-  node.expected = values.join(', ');
-  node.code = 'enum';
-  return node;
-};
-
-// A number with `n` decimals travels as an integer, scaled by 10ⁿ: 19.99 is
-// 1999 with two. Math.round rounds half up (1.005 * 100 is 100.49999…), and
-// dividing the integer by 10ⁿ gives back the double nearest to the decimal.
-const decimal = (n) => {
-  const scale = 10 ** n;
-  // + 0 turns -0 into 0, which is what JSON would write anyway.
-  const node = scalar('number', {
-    decimals: n,
-    checkedPack: (v) => {
-      const scaled = typeof v === 'number' ? v * scale : NaN;
-      return Math.abs(scaled) <= Number.MAX_SAFE_INTEGER ? Math.round(scaled) + 0 : undefined;
-    },
-    pack: (v) => (typeof v === 'number' ? Math.round(v * scale) + 0 : v),
-    unpack: (v) => (typeof v === 'number' ? v / scale : v),
-    checkedUnpack: (v) => (Number.isSafeInteger(v) ? v / scale : undefined),
-  });
-  node.expected = `number(${n})`;
-  return node;
-};
-
-// A word of a bitmask: 31 bits, since bit 31 would make it negative.
-const WORD = 31;
-
-const isWord = (v) => typeof v === 'number' && (v | 0) === v && v >= 0;
-
-// Up to 31 names travel as one integer. More take an array of 31-bit words,
-// written as one integer while only the first word has bits set, so a
-// decoder reads either form and ignores the bits it has no name for.
-const flags = (names) => {
-  const size = names.length;
-  const template = literal(names, 'false');
-  const unpack = (v) => {
-    const single = typeof v === 'number';
-    if (!single && !Array.isArray(v)) return v;
-    const object = { ...template };
-    for (let i = 0; i < size; i++) {
-      const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
-      object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
-    }
-    return object;
+    });
+    return made(node, 'T.interned()');
   };
-  return scalar('flags', {
-    names,
-    accept: (v) => typeof v === 'object' && !Array.isArray(v),
-    pack: (v) => {
-      let mask = 0;
-      for (let i = 0; i < size && i < WORD; i++) if (v[names[i]]) mask |= 1 << i;
-      if (size <= WORD) return mask;
-      const words = [mask];
-      for (let i = WORD; i < size; i++) {
-        if (!v[names[i]]) continue;
-        const at = (i / WORD) | 0;
-        while (words.length <= at) words.push(0);
-        words[at] |= 1 << (i % WORD);
-      }
-      return words.length === 1 ? mask : words;
-    },
-    unpack,
-    checkedUnpack: (v) =>
-      isWord(v) || (Array.isArray(v) && v.length > 0 && v.every(isWord)) ? unpack(v) : undefined,
-  });
-};
 
-// The string table of the message being encoded or decoded: set by the root
-// codec of an interned schema for the length of one call (see schema.js),
-// null otherwise. Interned slots read it, so the codecs between the root and
-// them need no parameter for it.
-const INTERN = { table: null, map: null };
-
-// A string that travels as its index in the message's table.
-const interned = () => {
-  const pack = (v) => {
-    let index = INTERN.map.get(v);
-    if (index === undefined) {
-      index = INTERN.table.length;
-      INTERN.table.push(v);
-      INTERN.map.set(v, index);
-    }
-    return index;
-  };
-  const node = scalar('string', {
-    intern: true,
-    pack,
-    checkedPack: (v) => (typeof v === 'string' ? pack(v) : undefined),
-    unpack: (v) => {
-      const value = typeof v === 'number' ? INTERN.table[v] : undefined;
-      return value === undefined ? v : value;
-    },
-    checkedUnpack: (v) => {
-      const { table } = INTERN;
-      return Number.isInteger(v) && v >= 0 && v < table.length ? table[v] : undefined;
-    },
-  });
-  return node;
-};
-
-// A list of integers that travels as the first one and the differences
-// between neighbours: `[100, 101, 103]` is `[100, 1, 2]`. Nulls keep their
-// places and leave the running value as it is. Only integers have exact
-// differences, so the values are checked on encode whatever `validate` says
-// (`always`).
-const deltas = (item, required) => {
-  const toWire = (v) => {
-    const wire = item.checkedPack === undefined ? v : item.checkedPack(v);
-    return Number.isSafeInteger(wire) ? wire : undefined;
-  };
-  const fromWire = item.unpack === null ? (v) => v : item.unpack;
-  const checkedPack = (v) => {
-    if (!Array.isArray(v)) return undefined;
-    const out = new Array(v.length);
-    let base = 0;
-    for (let i = 0; i < v.length; i++) {
-      out[i] = null;
-      if (v[i] == null) {
-        if (required) return undefined;
-        continue;
-      }
-      const wire = toWire(v[i]);
-      const difference = wire === undefined ? NaN : wire - base;
-      if (!Number.isSafeInteger(difference)) return undefined;
-      out[i] = difference;
-      base = wire;
-    }
-    return out;
-  };
-  const node = scalar('deltas', {
-    item,
-    itemRequired: required,
-    always: true,
-    pack: checkedPack,
-    checkedPack,
-    unpack: (v) => {
-      if (!Array.isArray(v)) return v;
-      const out = new Array(v.length);
-      let base = 0;
-      for (let i = 0; i < v.length; i++) {
-        const d = v[i];
-        if (typeof d !== 'number') out[i] = d;
-        else out[i] = fromWire((base += d));
-      }
-      return out;
-    },
-    checkedUnpack: (v) => {
+  // A list of integers that travels as the first one and the differences
+  // between neighbours: `[100, 101, 103]` is `[100, 1, 2]`. Nulls keep their
+  // places and leave the running value as it is. Only integers have exact
+  // differences, so the values are checked on encode whatever `validate` says
+  // (`always`).
+  const deltas = (item, required) => {
+    const toWire = (v) => {
+      const wire = item.checkedPack === undefined ? v : item.checkedPack(v);
+      return Number.isSafeInteger(wire) ? wire : undefined;
+    };
+    const fromWire = item.unpack === null ? (v) => v : item.unpack;
+    const checkedPack = (v) => {
       if (!Array.isArray(v)) return undefined;
       const out = new Array(v.length);
       let base = 0;
       for (let i = 0; i < v.length; i++) {
-        const d = v[i];
         out[i] = null;
-        if (d == null) {
+        if (v[i] == null) {
           if (required) return undefined;
           continue;
         }
-        base += d;
-        if (!Number.isSafeInteger(d) || !Number.isSafeInteger(base)) return undefined;
-        out[i] = fromWire(base);
+        const wire = toWire(v[i]);
+        const difference = wire === undefined ? NaN : wire - base;
+        if (!Number.isSafeInteger(difference)) return undefined;
+        out[i] = difference;
+        base = wire;
       }
       return out;
+    };
+    const node = scalar('deltas', {
+      item,
+      itemRequired: required,
+      always: true,
+      pack: checkedPack,
+      checkedPack,
+      unpack: (v) => {
+        if (!Array.isArray(v)) return v;
+        const out = new Array(v.length);
+        let base = 0;
+        for (let i = 0; i < v.length; i++) {
+          const d = v[i];
+          if (typeof d !== 'number') out[i] = d;
+          else out[i] = fromWire((base += d));
+        }
+        return out;
+      },
+      checkedUnpack: (v) => {
+        if (!Array.isArray(v)) return undefined;
+        const out = new Array(v.length);
+        let base = 0;
+        for (let i = 0; i < v.length; i++) {
+          const d = v[i];
+          out[i] = null;
+          if (d == null) {
+            if (required) return undefined;
+            continue;
+          }
+          base += d;
+          if (!Number.isSafeInteger(d) || !Number.isSafeInteger(base)) return undefined;
+          out[i] = fromWire(base);
+        }
+        return out;
+      },
+    });
+    node.expected = `[${required ? '' : '?'}${item.expected}]`;
+    return made(node, `T.deltas(${item.recipe},${required})`);
+  };
+
+  // A short string with nothing to escape is its text in quotes; the others
+  // take JSON.stringify. Surrogates take the long way too, so a lone one is
+  // escaped as JSON.stringify escapes it. For the builder in codegen.js.
+  const quoted = (s) => {
+    if (s.length > 64) return JSON.stringify(s);
+    for (let i = 0; i < s.length; i++) {
+      const code = s.charCodeAt(i);
+      if (code < 32 || code === 34 || code === 92 || (code >= 0xd800 && code <= 0xdfff)) {
+        return JSON.stringify(s);
+      }
+    }
+    return `"${s}"`;
+  };
+
+  // The JSON text of a value at `key` of an array, as JSON.stringify of the
+  // array writes it: toJSON called with the key, undefined, a function and a
+  // symbol written as null.
+  const text = (value, key) => {
+    const v =
+      value !== null && typeof value === 'object' && typeof value.toJSON === 'function'
+        ? value.toJSON(`${key}`)
+        : value;
+    const out = JSON.stringify(v);
+    return out === undefined ? 'null' : out;
+  };
+
+  // The functions generated code calls, by the names standalone.js finds them.
+  made(isMap, 'T.isMap');
+  made(listOf, 'T.listOf');
+  made(put, 'T.put');
+  made(quoted, 'T.quoted');
+  made(text, 'T.text');
+
+  // Conversions between a writer's type and a reader's, for Schema.resolve: the
+  // wire is the writer's, the value the reader's. `fallback` is what a writer
+  // value the reader does not know becomes (undefined: an error under
+  // validation; without it the writer's value passes through).
+  const bridge = {
+    // A writer's integer read as a BigInt.
+    bigint: () => {
+      const node = scalar('bigint', {
+        checkedPack: (v) => {
+          if (typeof v === 'bigint') return BigInt.asIntN(54, v) === v ? Number(v) : undefined;
+          return Number.isSafeInteger(v) ? v : undefined;
+        },
+        pack: (v) => (typeof v === 'bigint' ? Number(v) : v),
+        unpack: (v) => (Number.isInteger(v) ? BigInt(v) : v),
+        checkedUnpack: (v) => (Number.isInteger(v) ? BigInt(v) : undefined),
+      });
+      node.expected = 'integer';
+      return node;
     },
-  });
-  node.expected = `[${required ? '' : '?'}${item.expected}]`;
-  return node;
+    // A writer's enum read as the reader's enum, by value, or as a string.
+    enumeration: (writer, reader, fallback) => {
+      const { values, check } = writer;
+      const known = reader.type === 'string' ? () => true : (v) => reader.values.includes(v);
+      const mapped = values.map((value) => (known(value) ? value : fallback));
+      const node = scalar(reader.type, {
+        pack: writer.pack,
+        checkedPack: writer.checkedPack,
+        unpack: (v) => {
+          if (!check(v)) return v;
+          return mapped[v] === undefined ? values[v] : mapped[v];
+        },
+        checkedUnpack: (v) => (check(v) ? mapped[v] : undefined),
+      });
+      node.code = 'enum';
+      node.expected = reader.type === 'string' ? writer.expected : reader.expected;
+      return node;
+    },
+    // A writer's string read as one of the reader's enum values.
+    choice: (reader, fallback) => {
+      const node = scalar('enum', {
+        pack: (v) => v,
+        checkedPack: (v) => (typeof v === 'string' ? v : undefined),
+        unpack: (v) => v,
+        checkedUnpack: (v) => {
+          if (typeof v !== 'string') return undefined;
+          return reader.values.includes(v) ? v : fallback;
+        },
+      });
+      node.code = 'enum';
+      node.expected = reader.expected;
+      return node;
+    },
+    // A writer's flags read by name: the reader's names the writer lacks are
+    // false, the writer's names the reader lacks are dropped.
+    flags: (writer, reader) => {
+      const { names } = reader;
+      const template = literal(names, 'false');
+      const shared = names.filter((name) => writer.names.includes(name));
+      const project = (object) => {
+        const out = { ...template };
+        for (let i = 0; i < shared.length; i++) out[shared[i]] = object[shared[i]];
+        return out;
+      };
+      const isMask = (v) => typeof v === 'number' || Array.isArray(v);
+      return scalar('flags', {
+        names,
+        accept: writer.accept,
+        pack: writer.pack,
+        unpack: (v) => (isMask(v) ? project(writer.unpack(v)) : v),
+        checkedUnpack: (v) => {
+          const object = writer.checkedUnpack(v);
+          return object === undefined ? undefined : project(object);
+        },
+      });
+    },
+    // A value the reader has no use for: whatever the writer sent is dropped,
+    // and the reader's null slot holds nothing else, as a null type's does.
+    ignore: () =>
+      scalar('null', {
+        nullable: true,
+        check: null,
+        pack: () => null,
+        checkedPack: () => undefined,
+        unpack: () => null,
+        checkedUnpack: () => null,
+      }),
+  };
+
+  return {
+    SCALARS,
+    WORD,
+    enumeration,
+    flags,
+    decimal,
+    literal,
+    isMap,
+    listOf,
+    put,
+    bridge,
+    INTERN,
+    interned,
+    deltas,
+    quoted,
+    text,
+  };
 };
 
-// Conversions between a writer's type and a reader's, for Schema.resolve: the
-// wire is the writer's, the value the reader's. `fallback` is what a writer
-// value the reader does not know becomes (undefined: an error under
-// validation; without it the writer's value passes through).
-const bridge = {
-  // A writer's integer read as a BigInt.
-  bigint: () => {
-    const node = scalar('bigint', {
-      checkedPack: (v) => {
-        if (typeof v === 'bigint') return BigInt.asIntN(54, v) === v ? Number(v) : undefined;
-        return Number.isSafeInteger(v) ? v : undefined;
-      },
-      pack: (v) => (typeof v === 'bigint' ? Number(v) : v),
-      unpack: (v) => (Number.isInteger(v) ? BigInt(v) : v),
-      checkedUnpack: (v) => (Number.isInteger(v) ? BigInt(v) : undefined),
-    });
-    node.expected = 'integer';
-    return node;
-  },
-  // A writer's enum read as the reader's enum, by value, or as a string.
-  enumeration: (writer, reader, fallback) => {
-    const { values, check } = writer;
-    const known = reader.type === 'string' ? () => true : (v) => reader.values.includes(v);
-    const mapped = values.map((value) => (known(value) ? value : fallback));
-    const node = scalar(reader.type, {
-      pack: writer.pack,
-      checkedPack: writer.checkedPack,
-      unpack: (v) => {
-        if (!check(v)) return v;
-        return mapped[v] === undefined ? values[v] : mapped[v];
-      },
-      checkedUnpack: (v) => (check(v) ? mapped[v] : undefined),
-    });
-    node.code = 'enum';
-    node.expected = reader.type === 'string' ? writer.expected : reader.expected;
-    return node;
-  },
-  // A writer's string read as one of the reader's enum values.
-  choice: (reader, fallback) => {
-    const node = scalar('enum', {
-      pack: (v) => v,
-      checkedPack: (v) => (typeof v === 'string' ? v : undefined),
-      unpack: (v) => v,
-      checkedUnpack: (v) => {
-        if (typeof v !== 'string') return undefined;
-        return reader.values.includes(v) ? v : fallback;
-      },
-    });
-    node.code = 'enum';
-    node.expected = reader.expected;
-    return node;
-  },
-  // A writer's flags read by name: the reader's names the writer lacks are
-  // false, the writer's names the reader lacks are dropped.
-  flags: (writer, reader) => {
-    const { names } = reader;
-    const template = literal(names, 'false');
-    const shared = names.filter((name) => writer.names.includes(name));
-    const project = (object) => {
-      const out = { ...template };
-      for (let i = 0; i < shared.length; i++) out[shared[i]] = object[shared[i]];
-      return out;
-    };
-    const isMask = (v) => typeof v === 'number' || Array.isArray(v);
-    return scalar('flags', {
-      names,
-      accept: writer.accept,
-      pack: writer.pack,
-      unpack: (v) => (isMask(v) ? project(writer.unpack(v)) : v),
-      checkedUnpack: (v) => {
-        const object = writer.checkedUnpack(v);
-        return object === undefined ? undefined : project(object);
-      },
-    });
-  },
-  // A value the reader has no use for: whatever the writer sent is dropped,
-  // and the reader's null slot holds nothing else, as a null type's does.
-  ignore: () =>
-    scalar('null', {
-      nullable: true,
-      check: null,
-      pack: () => null,
-      checkedPack: () => undefined,
-      unpack: () => null,
-      checkedUnpack: () => null,
-    }),
-};
+const types = kernel(require('./runtime/node.js'));
 
 module.exports = {
-  SCALARS,
-  WORD,
-  enumeration,
-  flags,
-  decimal,
-  literal,
-  isMap,
-  listOf,
-  put,
-  bridge,
-  INTERN,
-  interned,
-  deltas,
+  SCALARS: types.SCALARS,
+  WORD: types.WORD,
+  enumeration: types.enumeration,
+  flags: types.flags,
+  decimal: types.decimal,
+  literal: types.literal,
+  isMap: types.isMap,
+  listOf: types.listOf,
+  put: types.put,
+  bridge: types.bridge,
+  INTERN: types.INTERN,
+  interned: types.interned,
+  deltas: types.deltas,
+  quoted: types.quoted,
+  text: types.text,
+  kernel,
 };

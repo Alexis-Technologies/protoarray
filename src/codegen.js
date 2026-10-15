@@ -13,7 +13,7 @@
 // branch.
 
 const { expectedOf, fail, nest, refuse } = require('./errors.js');
-const { WORD, isMap, listOf, put } = require('./types.js');
+const { WORD, isMap, listOf, put, quoted, text } = require('./types.js');
 
 const str = JSON.stringify;
 
@@ -26,32 +26,6 @@ const outRequired = (own, twin) => (twin === undefined ? own : twin);
 // value instead of a walk over a fresh array) and loses on long lists, where
 // the native serializer's single pass is cheaper (see bench/bench.js).
 const THRESHOLD = 64;
-
-// The JSON text of a value at `key` of an array, as JSON.stringify of the
-// array writes it: toJSON called with the key, undefined, a function and a
-// symbol written as null.
-// A short string with nothing to escape is its text in quotes; the others
-// take JSON.stringify. Surrogates take the long way too, so a lone one is
-// escaped as JSON.stringify escapes it.
-const quoted = (s) => {
-  if (s.length > 64) return JSON.stringify(s);
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    if (code < 32 || code === 34 || code === 92 || (code >= 0xd800 && code <= 0xdfff)) {
-      return JSON.stringify(s);
-    }
-  }
-  return `"${s}"`;
-};
-
-const text = (value, key) => {
-  const v =
-    value !== null && typeof value === 'object' && typeof value.toJSON === 'function'
-      ? value.toJSON(`${key}`)
-      : value;
-  const out = JSON.stringify(v);
-  return out === undefined ? 'null' : out;
-};
 
 let available = true;
 try {
@@ -736,4 +710,4 @@ const build = (plan, options) => {
   return codec;
 };
 
-module.exports = { available, build };
+module.exports = { available, build, generate };

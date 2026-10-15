@@ -32,6 +32,7 @@ const SUBPATHS = [
   { label: 'Registry (registry.js)', entry: 'registry.js' },
   { label: 'Stream (stream.js)', entry: 'stream.js' },
   { label: 'Metaschema (metaschema.js)', entry: 'metaschema.js' },
+  { label: 'Standalone (standalone.js)', entry: 'standalone.js' },
 ];
 
 const bundle = async (entry, platform, minify) => {

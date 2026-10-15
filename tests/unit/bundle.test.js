@@ -84,6 +84,17 @@ const checkBundle = ({ Schema, encode, decode, stringify, parse }) => {
     assert.strictEqual(Wide.decode([0, 16, 1]).f35, 1);
     const Strict = Schema.from({ n: 'number' }, { codegen, validate: 'both' });
     assert.throws(() => Strict.encode({ n: 'x' }), { code: 'type', path: 'n' });
+    // The text generated code writes, through a minifier too.
+    for (const mode of ['auto', 'builder']) {
+      const Typed = Schema.from(
+        { n: 'integer', at: 'date', ok: '?boolean', s: '?string' },
+        { codegen, stringify: mode },
+      );
+      assert.strictEqual(
+        stringify(Typed, { n: 1, at: new Date(2), s: 'a"b' }),
+        '[1,2,null,"a\\"b"]',
+      );
+    }
   }
 };
 

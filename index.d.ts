@@ -384,6 +384,14 @@ export interface SchemaOptions {
    * `[table, body]`, and each string as its index. `intern: false` on a field opts it out.
    */
   readonly intern?: boolean;
+  /**
+   * How `stringify` writes the text: `'auto'` (the default) has generated code write it by hand
+   * for records of booleans, enums, flags, dates, integers and decimals, where that is faster
+   * than `JSON.stringify` of the wire on every engine; `'builder'` does it for any schema (faster
+   * on older engines such as Node.js 20, slower on string-heavy records since Node.js 22);
+   * `'native'` always uses `JSON.stringify`. The text is the same either way.
+   */
+  readonly stringify?: 'auto' | 'builder' | 'native';
   /** Layout of a collection of records (default `'rows'`). */
   readonly layout?: Layout;
   /** Schemas that fields may reference by name. */

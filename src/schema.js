@@ -36,6 +36,7 @@ const INTERNAL = Symbol('plan');
 // The codec of one item of a collection, for the stream helpers.
 const ITEMS = Symbol.for('alexify.protoarray.items');
 const MODES = ['decode', 'encode', 'both'];
+const STRINGIFY = ['auto', 'builder', 'native'];
 const isBoolean = (value) => typeof value === 'boolean';
 
 // What each option accepts; a key not in the table is not an option.
@@ -44,6 +45,7 @@ const VALID = Object.assign(Object.create(null), {
   validate: (value) => isBoolean(value) || MODES.includes(value),
   sparse: isBoolean,
   intern: isBoolean,
+  stringify: (value) => STRINGIFY.includes(value),
   layout: (value) => LAYOUTS.includes(value),
   schemas: (value) => value !== null && typeof value === 'object',
   fingerprint: (value) => typeof value === 'function',
@@ -55,6 +57,7 @@ const readOptions = (options, name) => {
     validate: true,
     sparse: false,
     intern: false,
+    stringify: 'auto',
     layout: 'rows',
     schemas: {},
     fingerprint,
@@ -86,6 +89,23 @@ const checks = (validate, checking) => ({
   encode: checking || validate === 'encode' || validate === 'both',
   decode: checking || validate === true || validate === 'decode' || validate === 'both',
 });
+
+// The records whose text the builder writes faster than JSON.stringify of
+// their wire on every engine measured (Node.js 18 to 24): booleans, enums,
+// flags, dates, integers and decimals, nested records of them included. A
+// string, a float and a collection are written faster by the native
+// serializer since V8 12 (Node.js 22), up to 30% on string-heavy records, so
+// `auto` leaves them to it; `builder` writes them by hand anyway, which pays on
+// older engines (bench/bench.js has the numbers).
+const CONVERTED = /^(integer|boolean|date|enum|flags|null)$/;
+
+const converted = (node) => {
+  if (node === null) return true;
+  if (node.kind === 'scalar') return CONVERTED.test(node.type) || node.decimals !== undefined;
+  if (node.slot !== undefined) return false;
+  if (node.kind === 'struct') return node.fields.every((field) => converted(field.node));
+  return node.kind === 'union' && node.branches.every((branch) => converted(branch.node));
+};
 
 // Whether a plan holds an interned string, in the schemas it embeds too: its
 // payload is then `[table, body]`. A recursion counts once.
@@ -164,6 +184,16 @@ const isolated = (run) => {
 const build = (plan, backend, settings, checking) => {
   const validate = checks(settings.validate, checking);
   const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
+  const interned = internedIn(plan, new Set());
+  // Generated code writes the text of what it encodes where that is faster
+  // than JSON.stringify of the wire: by default for records without strings
+  // (see numeric), on request for any. An interned payload has its table to
+  // put first, so it goes through encode.
+  const { stringify } = settings;
+  const builder =
+    !checking &&
+    !interned &&
+    (stringify === 'builder' || (stringify === 'auto' && plan.kind !== 'array' && converted(plan)));
   let codec = null;
   let fallback;
   if (target.slot !== undefined) {
@@ -175,15 +205,15 @@ const build = (plan, backend, settings, checking) => {
     // rejects this one function (its size, a stricter policy) gets closures.
     // The error is kept, so the fallback can be told from a choice.
     try {
-      codec = codegen.build(target, { validate, checking });
+      codec = codegen.build(target, { validate, checking, builder });
     } catch (error) {
       fallback = error;
       backend = closures;
     }
   }
-  if (codec === null) codec = backend.build(target, { validate, checking });
+  if (codec === null) codec = backend.build(target, { validate, checking, builder });
   if (target !== plan) codec = layouts[plan.layout](codec, plan.item, validate);
-  if (internedIn(plan, new Set())) codec = withTable(codec, validate.decode);
+  if (interned) codec = withTable(codec, validate.decode);
   return { codec, backend, fallback };
 };
 
@@ -428,8 +458,8 @@ class Schema {
   // The same records as rows: `[[...], [...]]`.
   get list() {
     if (this.#list === null) {
-      const { codegen: useCodegen, validate, fingerprint: hash } = this.#settings;
-      const options = { codegen: useCodegen, validate, fingerprint: hash };
+      const { codegen: useCodegen, validate, fingerprint: hash, stringify } = this.#settings;
+      const options = { codegen: useCodegen, validate, fingerprint: hash, stringify };
       this.#list = new Schema(this.name, { array: this }, options);
     }
     return this.#list;
@@ -454,14 +484,14 @@ class Schema {
     return this.#checker;
   }
 
-  #encodeWith(codec, value) {
+  #encodeWith(codec, value, method = 'encode') {
     const { kind } = this[PLAN];
     if (kind !== 'scalar' && (value === null || typeof value !== 'object')) {
       const code = kind === 'array' || kind === 'tuple' ? 'array' : 'object';
       throw boundary(new EncodeError(code), this.name, false);
     }
     try {
-      return this.#interned ? isolated(() => codec.encode(value)) : codec.encode(value);
+      return this.#interned ? isolated(() => codec[method](value)) : codec[method](value);
     } catch (error) {
       throw boundary(error, this.name, false);
     }
@@ -504,7 +534,11 @@ class Schema {
     return each(arrays, (array) => this.decode(array, options), this.name, true);
   }
 
+  // The codec writes the text itself where it can (see codegen.js), the
+  // text JSON.stringify of the wire would be.
   stringify(value) {
+    const codec = this[CODEC];
+    if (codec.stringify !== undefined) return this.#encodeWith(codec, value, 'stringify');
     return JSON.stringify(this.encode(value));
   }
 

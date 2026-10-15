@@ -407,3 +407,81 @@ for (const [backend, options] of BACKENDS) {
     assert.strictEqual(Pair.check({}).code, 'array');
   });
 }
+
+for (const [backend, options] of BACKENDS) {
+  // Generated code writes the text itself; it must be the text of the wire.
+  test(`Codec (${backend}): stringify writes what JSON.stringify of the wire would`, () => {
+    const toJSON = { toJSON: (key) => `at ${key}` };
+    const S = Schema.from(
+      {
+        j: 'json',
+        n: 'number',
+        b: 'boolean',
+        s: 'string',
+        d: 'date',
+        list: { array: { type: 'json', required: false } },
+        recs: { array: '?Rec' },
+        'z?': 'json',
+      },
+      {
+        ...options,
+        stringify: 'builder',
+        schemas: {
+          Rec: Schema.from({ a: 'json', b: '?json' }, { ...options, stringify: 'builder' }),
+        },
+      },
+    );
+    const values = [
+      {
+        j: toJSON,
+        n: 1,
+        b: true,
+        s: 'x',
+        d: new Date(1),
+        list: [toJSON, () => 1],
+        recs: [null, { a: toJSON }],
+      },
+      { j: () => 1, n: NaN, b: 'yes', s: 5, d: 'x', list: [], recs: [], z: Symbol('s') },
+      {
+        j: undefined,
+        n: Infinity,
+        b: null,
+        s: null,
+        d: null,
+        list: [undefined],
+        recs: [{ a: undefined, b: toJSON }],
+      },
+      {
+        j: { toJSON: () => undefined },
+        n: -0,
+        b: false,
+        s: String.fromCharCode(0x2028),
+        d: new Date(NaN),
+        list: null,
+        recs: null,
+        z: toJSON,
+      },
+      { j: 1, n: 1, b: true, s: 'x'.repeat(65), d: null, list: [], recs: [] },
+      { j: 1, n: 1, b: true, s: `a${String.fromCharCode(0xd800)}b`, d: null, list: [], recs: [] },
+      { j: 1, n: 1, b: true, s: `${String.fromCodePoint(0x1f600)}"`, d: null, list: [], recs: [] },
+      { j: 1, n: 1, b: true, s: 'tab\there', d: null, list: [], recs: [] },
+    ];
+    for (const value of values) {
+      assert.strictEqual(S.stringify(value), JSON.stringify(S.encode(value)));
+    }
+    const Sparse = Schema.from(
+      { a: '?json', b: '?json', c: '?json' },
+      { ...options, sparse: true, stringify: 'builder' },
+    );
+    for (const value of [{ b: toJSON }, { a: 1, c: toJSON }, {}]) {
+      assert.strictEqual(Sparse.stringify(value), JSON.stringify(Sparse.encode(value)));
+    }
+    // The option to leave it to JSON.stringify, and nothing else.
+    const Native = Schema.from({ a: 'number' }, { ...options, stringify: 'native' });
+    assert.strictEqual(Native.stringify({ a: 1 }), '[1]');
+    assert.strictEqual(Native[Symbol.for('alexify.protoarray.codec')].stringify, undefined);
+    assert.throws(() => Schema.from({ a: 'number' }, { stringify: 'fast' }), {
+      code: 'ERR_INVALID_OPTIONS',
+    });
+  });
+}

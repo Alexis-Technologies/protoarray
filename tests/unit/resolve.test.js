@@ -467,6 +467,48 @@ for (const [backend, options] of BACKENDS) {
   });
 }
 
+for (const [backend, options] of BACKENDS) {
+  test(`Resolve (${backend}): a resolved schema writes the writer's text`, () => {
+    const W = Schema.from(
+      {
+        union: [
+          { k: { enum: ['a'] }, n: 'integer', gone: 'integer' },
+          { k: { enum: ['z'] }, at: 'date' },
+        ],
+        discriminator: 'k',
+      },
+      options,
+    );
+    for (const stringify of ['auto', 'builder']) {
+      for (const validate of [true, 'both']) {
+        const R = Schema.resolve(
+          W,
+          Schema.from(
+            { union: [{ k: { enum: ['a'] }, n: 'integer' }], discriminator: 'k' },
+            { ...options, stringify, validate },
+          ),
+        );
+        const value = { k: 'a', n: 1 };
+        const expected = (fn) => {
+          try {
+            return fn();
+          } catch (error) {
+            return `${error.code} ${error.path}`;
+          }
+        };
+        assert.strictEqual(
+          expected(() => R.stringify(value)),
+          expected(() => JSON.stringify(R.encode(value))),
+        );
+        assert.strictEqual(
+          expected(() => R.stringify({ k: 'z', at: new Date(1) })),
+          expected(() => JSON.stringify(R.encode({ k: 'z', at: new Date(1) }))),
+        );
+      }
+    }
+  });
+}
+
 test('Resolve: aliases in the option, by reader path', () => {
   const W = Schema.from({ address: { town: 'string' }, orders: { array: { code: 'string' } } });
   const reader = Schema.from({ address: { city: 'string' }, orders: { array: { sku: 'string' } } });

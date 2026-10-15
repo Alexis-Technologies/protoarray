@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
 
+- **`stringify` writes the text itself where that is faster**: generated code builds the JSON
+  text as it encodes instead of encoding an array and handing it to `JSON.stringify`. The text is
+  the text of the wire, byte for byte, with encode's checks and errors (a property-based test
+  holds the two together). The new option `stringify` says when: `'auto'` (the default) for
+  records whose leaves are booleans, enums, flags, dates, integers or decimals, nested records of
+  them included, which measured ×1.0 to ×1.85 against the native path on Node.js 18 to 24;
+  `'builder'` for any schema, which pays on older engines (×1.2 to ×1.8 on Node.js 20) but is up to
+  30% slower on string-heavy records since Node.js 22, whose `JSON.stringify` got a fast path;
+  `'native'` never. Collections longer than 64 records always take `JSON.stringify`.
 - **`@alexify/protoarray/metaschema`**: one definition for both libraries.
   `fromMetaschema(schema, options?)` builds the protoarray schema of a metaschema `Schema` (which
   keeps no raw definition) from its field types: the shared DSL type for type, a type alias
@@ -100,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metaschema reads such a definition as a shorthand, not as a struct.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The bundle budget is 18 KB min+gzip.
+- The bundle budget is 20 KB min+gzip.
 
 ## [1.1.0] - 2026-10-15
 

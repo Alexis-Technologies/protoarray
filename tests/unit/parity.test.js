@@ -55,6 +55,9 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
       { validate: false },
       { validate: 'both' },
       { intern: true },
+      // The builder on any schema, where `auto` keeps it for converted types.
+      { stringify: 'builder' },
+      { stringify: 'builder', validate: 'both', sparse: true },
     ];
     for (const extra of extras) {
       const label = `seed ${seed} ${JSON.stringify(extra)}`;
@@ -86,6 +89,12 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
           outcome(() => B.check(bad)),
           `${label} check ${round}`,
         );
+        // The text codegen builds is the text of the wire, errors included.
+        assert.deepStrictEqual(
+          outcome(() => A.stringify(bad)),
+          outcome(() => B.stringify(bad)),
+          `${label} stringify ${round}`,
+        );
       }
       for (let round = 0; round < 4; round++) {
         const broken = corruptWire(JSON.parse(JSON.stringify(wire)), random);
@@ -101,6 +110,16 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
       }
     }
     const list = [value, value];
+    // Collections, around the length where the builder hands over to JSON.stringify.
+    for (const count of [0, 1, 64, 65]) {
+      const many = Array.from({ length: count }, () => value);
+      const C = Schema.from(definition, { codegen: true, stringify: 'builder' }).list;
+      assert.strictEqual(
+        C.stringify(many),
+        JSON.stringify(C.encode(many)),
+        `seed ${seed} ${count}`,
+      );
+    }
     const rows = [
       Schema.from(definition, { codegen: true }).list,
       Schema.from(definition, { codegen: false }).list,

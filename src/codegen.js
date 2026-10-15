@@ -21,6 +21,38 @@ const str = JSON.stringify;
 // the twin is set, the same flag as decode otherwise.
 const outRequired = (own, twin) => (twin === undefined ? own : twin);
 
+// Above this many records a collection's text comes from JSON.stringify of
+// its wire: building the text by hand wins on small payloads (a call per
+// value instead of a walk over a fresh array) and loses on long lists, where
+// the native serializer's single pass is cheaper (see bench/bench.js).
+const THRESHOLD = 64;
+
+// The JSON text of a value at `key` of an array, as JSON.stringify of the
+// array writes it: toJSON called with the key, undefined, a function and a
+// symbol written as null.
+// A short string with nothing to escape is its text in quotes; the others
+// take JSON.stringify. Surrogates take the long way too, so a lone one is
+// escaped as JSON.stringify escapes it.
+const quoted = (s) => {
+  if (s.length > 64) return JSON.stringify(s);
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code < 32 || code === 34 || code === 92 || (code >= 0xd800 && code <= 0xdfff)) {
+      return JSON.stringify(s);
+    }
+  }
+  return `"${s}"`;
+};
+
+const text = (value, key) => {
+  const v =
+    value !== null && typeof value === 'object' && typeof value.toJSON === 'function'
+      ? value.toJSON(`${key}`)
+      : value;
+  const out = JSON.stringify(v);
+  return out === undefined ? 'null' : out;
+};
+
 let available = true;
 try {
   // oxlint-disable-next-line no-new-func
@@ -40,6 +72,8 @@ const generate = (plan, options) => {
   // A checking codec (Schema#check) calls the checking codecs of the schemas
   // it embeds.
   const via = options.checking ? 'checker' : 'codec';
+  // Whether `stringify` builds the text itself (see textInto).
+  const { builder } = options;
   const helpers = [];
   const slots = new Map();
   const functions = [];
@@ -474,6 +508,186 @@ const generate = (plan, options) => {
 
   const record = (node) => (node.kind === 'union' ? unionFns(node) : structFns(node));
 
+  // The builder: `stringify` writes the JSON text of the wire as it encodes,
+  // with the checks and errors of encode, in its order, and the text
+  // JSON.stringify of the wire would give. `dst` is set to null for a null on
+  // the wire and to its text otherwise; `key` is the position the value has in
+  // its array, for a toJSON. A record or a collection of records is written by
+  // hand; any other value is encoded, then written as JSON.stringify would.
+  const isRecord = (node) =>
+    node.slot !== undefined || node.kind === 'struct' || node.kind === 'union';
+
+  const quote = (w) => `${slot(quoted)}(${w})`;
+
+  // The text of a scalar's wire `w`, not null: typeof tells a trusted value of
+  // another type (written as it is) from one of the type.
+  const textOf = (node, w, key) => {
+    const any = `${slot(text)}(${w},${key})`;
+    const number = `(${w}-${w}===0?''+${w}:'null')`;
+    if (node.type === 'json' || node.type === 'null') return any;
+    if (node.pack === null) {
+      if (node.type === 'number' || node.type === 'integer') {
+        return validate.encode ? `''+${w}` : `(typeof ${w}==='number'?${number}:${any})`;
+      }
+      if (node.type === 'boolean') {
+        return validate.encode
+          ? `(${w}?'true':'false')`
+          : `(${w}===true?'true':${w}===false?'false':${any})`;
+      }
+      if (!validate.encode) return `(typeof ${w}==='string'?${quote(w)}:${any})`;
+      return quote(w);
+    }
+    return `(typeof ${w}==='number'?${number}:${any})`;
+  };
+
+  const textInto = (node, src, dst, path, nullCode, key) => {
+    // An embedded schema's codec writes its own layout: it is called as it is.
+    const recordArray =
+      node.slot === undefined &&
+      node.kind === 'array' &&
+      node.container === undefined &&
+      isRecord(node.item);
+    if (!isRecord(node) && !recordArray) {
+      const w = uid('w');
+      return (
+        `let ${w};${encodeInto(node, src, w, path, nullCode)}` +
+        `${dst}=${w}===null?null:${textOf(node, w, key)};`
+      );
+    }
+    const expected = str(expectedOf(node));
+    const nil =
+      validate.encode && nullCode !== null
+        ? `E(${str(nullCode)},${path},${expected});`
+        : `${dst}=null;`;
+    if (!recordArray) {
+      // An embedded schema writes its own text where its codec can; a nested
+      // record is written in place.
+      const c = node.slot === undefined ? null : `${slot(node.slot)}.codec`;
+      let write;
+      if (c !== null) {
+        write =
+          `${dst}=${c}.stringify!==undefined?${c}.stringify(${src}):` +
+          `${slot(text)}(${c}.encode(${src}),${key});`;
+      } else if (node.kind === 'union') write = `${dst}=${builderFns(node)}(${src});`;
+      else write = structText(node, src, dst, null);
+      return `if(${src}==null)${nil}else try{${write}}catch(error){throw N(error,${path});}`;
+    }
+    const [n, i, x, w] = [uid('n'), uid('i'), uid('x'), uid('w')];
+    const at = `${path}+"["+${i}+"]"`;
+    const itemNull = outRequired(node.itemRequired, node.itemEncodeRequired) ? 'type' : null;
+    return (
+      `if(${src}==null)${nil}else{if(!Array.isArray(${src}))E('array',${path});` +
+      `const ${n}=${src}.length;if(${n}>${THRESHOLD}){let ${w};` +
+      `${encodeInto(node, src, w, path, nullCode)}${dst}=JSON.stringify(${w});}else{` +
+      `let s='[';for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
+      `${textInto(node.item, `${src}[${i}]`, x, at, itemNull, i)}` +
+      `s+=(${i}===0?'':',')+(${x}===null?'null':${x});}${dst}=s+']';}}`
+    );
+  };
+
+  // A function for a union, a union's branch or the root; a record nested in
+  // another is written in place instead (structText).
+  const builderFns = (node) => {
+    const name = uid('s');
+    if (node.kind === 'union') unionBuilder(node, name);
+    else {
+      const d = uid('d');
+      const body = structText(node, 'o', d, node.tag === undefined ? null : 't');
+      const params = node.tag === undefined ? 'o' : 'o,t';
+      functions.push(`function ${name}(${params}){let ${d};${body}return ${d};}`);
+    }
+    return name;
+  };
+
+  // Statements that set `dst` to the text of the record in `o` (a variable),
+  // its tag in `t` for a union's branch. Inlined where a record nests in
+  // another: a call per nested record costs more than the text it writes.
+  const structText = (node, o, dst, t) => {
+    const size = node.fields.length;
+    const lead = t === null ? 0 : 1;
+    const width = size + lead;
+    const tail = node.tail + lead;
+    const out =
+      lead === 0 ? [`if(typeof ${o}!=='object'||Array.isArray(${o}))E('object','');`] : [];
+    const texts = lead === 0 ? [] : [`''+${t}`];
+    const [p, r, q, m, s] = [uid('p'), uid('r'), uid('q'), uid('m'), uid('s')];
+    // A sparse record's positions depend on what is present: `p` counts them.
+    if (node.sparse) out.push(`let ${p}=1;`);
+    for (const field of node.fields) {
+      const required = outRequired(field.required, field.encodeRequired) ? 'required' : null;
+      const x = uid('t');
+      if (node.sparse && field.index > 0 && field.index % WORD === 0) out.push(`${p}++;`);
+      if (field.key === null) {
+        if (validate.encode && required !== null) out.push(`E('required',${str(field.wire)});`);
+        out.push(`const ${x}=null;`);
+      } else {
+        const v = uid('v');
+        const key = str(field.key);
+        const position = node.sparse ? p : field.index + lead;
+        out.push(
+          `const ${v}=${o}[${key}];let ${x};${textInto(field.node, v, x, key, required, position)}`,
+        );
+        if (node.sparse) out.push(`if(${x}!==null)${p}++;`);
+      }
+      texts.push(x);
+    }
+    const textAt = (x) => (lead === 1 && x === texts[0] ? x : `(${x}===null?'null':${x})`);
+    if (node.sparse) {
+      // One mask and its present values per 31 fields; the first segment is
+      // always kept, a later one up to the last that has something in it.
+      out.push(`let ${r}='',${q}='',${m}=0,${s}='';`);
+      for (let i = 0; i < size; i++) {
+        if (i > 0 && i % WORD === 0) {
+          out.push(
+            i === WORD
+              ? `${r}='['+${m}+${s};`
+              : `${q}+=','+${m}+${s};if(${m}!==0){${r}+=${q};${q}='';}`,
+          );
+          out.push(`${m}=0;${s}='';`);
+        }
+        out.push(`if(${texts[i]}!==null){${m}|=${1 << (i % WORD)};${s}+=','+${texts[i]};}`);
+      }
+      out.push(
+        size > WORD
+          ? `${q}+=','+${m}+${s};if(${m}!==0)${r}+=${q};${dst}=${r}+']';`
+          : `${dst}='['+${m}+${s}+']';`,
+      );
+      return out.join('');
+    }
+    // The trailing run of optional fields is trimmed of its nulls: `q` holds
+    // the nulls that a value after them would keep.
+    const head = texts.slice(0, tail).map(textAt);
+    if (tail === width) {
+      out.push(`${dst}='['+${head.join("+','+")}+']';`);
+      return out.join('');
+    }
+    out.push(`let ${s}='['${head.length === 0 ? '' : `+${head.join("+','+")}`},${q}='';`);
+    for (let i = tail; i < width; i++) {
+      const sep = i === 0 ? '' : ',';
+      out.push(
+        `if(${texts[i]}!==null){${s}+=${q}+'${sep}'+${texts[i]};${q}='';}else ${q}+='${sep}null';`,
+      );
+    }
+    out.push(`${dst}=${s}+']';`);
+    return out.join('');
+  };
+
+  const unionBuilder = (node, name) => {
+    const tag = slot(node.tag);
+    const key = str(node.key);
+    const out = [];
+    for (const branch of node.branches) {
+      if (branch.node === null) continue;
+      for (let i = 0; i < branch.count; i++) out.push(`case ${branch.first + i}:`);
+      out.push(`return ${builderFns(branch.node)}(o,t);`);
+    }
+    functions.push(
+      `function ${name}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');` +
+        `const t=${tag}.checkedPack(o[${key}]);switch(t){${out.join('')}}` +
+        `E('union',${key},${str(node.tag.expected)});}`,
+    );
+  };
+
   let encodeBody;
   let decodeBody;
   if (plan.kind === 'struct' || plan.kind === 'union') {
@@ -490,12 +704,23 @@ const generate = (plan, options) => {
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`
         : `let w;${decodeInto(plan, 'v', 'w', '""')}return w;`;
   }
+  // The builder serves the payloads it writes by hand: a record, a union, a
+  // collection.
+  const stringify =
+    builder && (plan.kind === 'struct' || plan.kind === 'union' || plan.kind === 'array');
+  let stringifyBody = '';
+  if (stringify && plan.kind === 'array') {
+    stringifyBody = `let t;${textInto(plan, 'v', 't', '""', null, '""')}return t===null?'null':t;`;
+  } else if (stringify) {
+    stringifyBody = `return v==null?'null':${builderFns(plan)}(v);`;
+  }
   const body = [
     '"use strict";',
     ...functions,
     `function encode(v){${encodeBody}}`,
     `function decode(v,strict){${decodeBody}}`,
-    'return {encode,decode};',
+    stringify ? `function stringify(v){${stringifyBody}}` : '',
+    `return {encode,decode${stringify ? ',stringify' : ''}};`,
   ].join('\n');
   return { body, helpers };
 };

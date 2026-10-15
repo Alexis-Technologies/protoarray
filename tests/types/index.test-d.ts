@@ -310,3 +310,7 @@ expectType<Date[]>(compact.at);
 expectType<number>(compact.id);
 expectType<string>(compact.city);
 expectError(Schema.from({ a: 'string' }, { intern: 'yes' }));
+
+Schema.from({ a: 'integer' }, { stringify: 'builder' });
+Schema.from({ a: 'integer' }, { stringify: 'native' });
+expectError(Schema.from({ a: 'integer' }, { stringify: 'fast' }));

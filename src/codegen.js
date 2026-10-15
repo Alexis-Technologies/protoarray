@@ -115,7 +115,8 @@ const generate = (plan, options) => {
         ? `E(${str(nullCode)},${path},${expected});`
         : `${dst}=null;`;
     if (scalar) {
-      if (!validate.encode || node.accept === null) {
+      // A type checked whatever `validate` says (`always`) takes the checking path.
+      if ((!validate.encode && node.always !== true) || node.accept === null) {
         return `${dst}=${src}==null?null:${pack(node, src)};`;
       }
       const code = str(node.code);

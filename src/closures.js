@@ -32,7 +32,8 @@ const build = (plan, options) => {
   // an index, formatted only on error), so callers need no try/catch.
   const scalarEncoder = (node, path) => {
     const { accept, pack, checkedPack, code, expected } = node;
-    if (!validate.encode || accept === null) return pack;
+    // A type checked whatever `validate` says (`always`) takes the checking path.
+    if ((!validate.encode && node.always !== true) || accept === null) return pack;
     if (checkedPack !== undefined) {
       return (value) => {
         const wire = checkedPack(value);

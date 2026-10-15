@@ -33,6 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
   carry it.
 
+- **`delta: true`**, opt-in: an `integer`, a `number`, a `date` or decimals field of a `columns`
+  collection travels as its first value and the differences between neighbours (`[100, 1, 2]`
+  for ids 100, 101, 103; nulls keep their places); `{ array: 'integer' | 'date' | …, delta: true }`
+  does the same for a list anywhere. Only integers have exact differences, so a value that is not
+  one is an `EncodeError` `type` whatever `validate` says. The canonical form marks it (`id:integer~`,
+  `~[date]`), so it changes the id.
+- **`intern`**, opt-in: `{ type: 'string', intern: true }` on a field, or `{ intern: true }` on
+  the schema for every string of the definition (`intern: false` on a field opts it out). The
+  payload becomes `[table, body]`: the message's distinct interned strings in the order they first
+  appear, then the usual wire with each of them as its index. One table serves the whole message,
+  the schemas it embeds, the records of a collection and recursion included; a schema that embeds
+  an interned one is interned too. A broken table is a `DecodeError` `structure`, an index outside
+  it `type`. The canonical form marks it (`city:string*`).
 - **The rest of metaschema's DSL**, so that one definition serves both libraries:
   - `integer`: a number that must be an integer;
   - `any` and `unknown`: the same slot as `json`, with the same id;
@@ -59,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metaschema reads such a definition as a shorthand, not as a struct.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The bundle budget is 16 KB min+gzip.
+- The bundle budget is 17 KB min+gzip.
 
 ## [1.1.0] - 2026-10-15
 

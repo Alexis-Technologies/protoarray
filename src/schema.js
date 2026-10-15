@@ -2,7 +2,7 @@
 // plan is compiled by the codegen backend (or by closures where code generation
 // is unavailable or switched off), and the instance carries both.
 
-const { SchemaDefinitionError, EncodeError, DecodeError, boundary } = require('./errors.js');
+const { SchemaDefinitionError, EncodeError, DecodeError, boundary, fail } = require('./errors.js');
 const {
   BRAND,
   PLAN,
@@ -15,6 +15,7 @@ const {
   fingerprint,
 } = require('./plan.js');
 const { resolvePlan } = require('./resolve.js');
+const { INTERN } = require('./types.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
@@ -32,6 +33,7 @@ const VALID = Object.assign(Object.create(null), {
   codegen: isBoolean,
   validate: (value) => isBoolean(value) || MODES.includes(value),
   sparse: isBoolean,
+  intern: isBoolean,
   layout: (value) => LAYOUTS.includes(value),
   schemas: (value) => value !== null && typeof value === 'object',
   fingerprint: (value) => typeof value === 'function',
@@ -42,6 +44,7 @@ const readOptions = (options, name) => {
     codegen: undefined,
     validate: true,
     sparse: false,
+    intern: false,
     layout: 'rows',
     schemas: {},
     fingerprint,
@@ -74,6 +77,77 @@ const checks = (validate, checking) => ({
   decode: checking || validate === true || validate === 'decode' || validate === 'both',
 });
 
+// Whether a plan holds an interned string, in the schemas it embeds too: its
+// payload is then `[table, body]`. A recursion counts once.
+const internedIn = (node, seen) => {
+  if (node === null || node.kind === 'scalar') return node !== null && node.intern === true;
+  if (node.slot !== undefined) {
+    const { schema } = node.slot;
+    // A recursion inside a resolved plan calls a codec of its own: the plan
+    // it was built from is traversed where it stands.
+    if (schema === undefined) return false;
+    // A schema under construction is the root being traversed.
+    if (seen.has(schema) || schema[PLAN] === undefined) return false;
+    seen.add(schema);
+    return internedIn(schema[PLAN], seen);
+  }
+  if (node.kind === 'struct') return node.fields.some((field) => internedIn(field.node, seen));
+  if (node.kind === 'union') return node.branches.some((branch) => internedIn(branch.node, seen));
+  if (node.kind === 'tuple') return node.items.some((item) => internedIn(item.node, seen));
+  if (node.kind === 'array') return internedIn(node.item, seen);
+  return internedIn(node.value, seen);
+};
+
+// The root codec of an interned schema: the message's string table is set
+// for the length of one call, and the payload carries it. A codec called
+// inside one (an embedded schema, a record of a layout) finds it set and
+// uses it.
+const withTable = (codec, validate) => ({
+  encode: (value) => {
+    if (INTERN.table !== null) return codec.encode(value);
+    INTERN.table = [];
+    INTERN.map = new Map();
+    try {
+      const body = codec.encode(value);
+      return [INTERN.table, body];
+    } finally {
+      INTERN.table = null;
+      INTERN.map = null;
+    }
+  },
+  decode: (wire, strict) => {
+    if (INTERN.table !== null) return codec.decode(wire, strict);
+    if (!Array.isArray(wire) || wire.length !== 2 || !Array.isArray(wire[0])) {
+      fail('structure', '', 'intern');
+    }
+    const table = wire[0];
+    if (validate && !table.every((entry) => typeof entry === 'string')) {
+      fail('structure', '', 'intern');
+    }
+    INTERN.table = table;
+    try {
+      return codec.decode(wire[1], strict);
+    } finally {
+      INTERN.table = null;
+    }
+  },
+});
+
+// A call from outside into an interned schema starts without a table, even
+// one made midway through another (a getter of the value encoding another
+// payload): the outer table is put back after it.
+const isolated = (run) => {
+  const { table, map } = INTERN;
+  INTERN.table = null;
+  INTERN.map = null;
+  try {
+    return run();
+  } finally {
+    INTERN.table = table;
+    INTERN.map = map;
+  }
+};
+
 // The codec of a plan, compiled by a backend and wrapped in a layout for a
 // collection. A checking codec validates both directions and calls the
 // checking codecs of the schemas it embeds (see Schema#check).
@@ -98,9 +172,8 @@ const build = (plan, backend, settings, checking) => {
     }
   }
   if (codec === null) codec = backend.build(target, { validate, checking });
-  if (target !== plan) {
-    codec = layouts[plan.layout](codec, plan.item.fields.length, validate.encode);
-  }
+  if (target !== plan) codec = layouts[plan.layout](codec, plan.item, validate);
+  if (internedIn(plan, new Set())) codec = withTable(codec, validate.decode);
   return { codec, backend, fallback };
 };
 
@@ -132,6 +205,7 @@ const readAliases = (options, name) => {
 
 class Schema {
   #settings;
+  #interned = false;
   #canonical = null;
   #id = null;
   #list = null;
@@ -201,6 +275,7 @@ class Schema {
     this.backend = backend === codegen ? 'codegen' : 'closures';
     this.layout = plan.kind === 'array' ? plan.layout : plan.sparse === true ? 'sparse' : 'dense';
     this.#settings = settings;
+    this.#interned = internedIn(plan, new Set());
   }
 
   static from(definition, options) {
@@ -274,7 +349,7 @@ class Schema {
       throw boundary(new EncodeError(code), this.name, false);
     }
     try {
-      return codec.encode(value);
+      return this.#interned ? isolated(() => codec.encode(value)) : codec.encode(value);
     } catch (error) {
       throw boundary(error, this.name, false);
     }
@@ -298,8 +373,11 @@ class Schema {
 
   decode(array, options) {
     const strict = options != null && options.strict === true;
+    const codec = this[CODEC];
     try {
-      return this[CODEC].decode(array, strict);
+      return this.#interned
+        ? isolated(() => codec.decode(array, strict))
+        : codec.decode(array, strict);
     } catch (error) {
       throw boundary(error, this.name, true);
     }

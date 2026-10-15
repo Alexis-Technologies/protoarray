@@ -163,7 +163,7 @@ Check these fields are correct:
 
 ```bash
 pnpm pack --dry-run
-pnpm run size --max-gzip 16
+pnpm run size --max-gzip 17
 ```
 
 Review the file list:

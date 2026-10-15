@@ -46,6 +46,9 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     const from = canonical(w);
     const to = canonical(r);
     if (from === to) return r;
+    // The same type on another wire (an interned string, a number written as
+    // differences): the writer's node reads its own wire.
+    if (from.replace(/[*~]$/, '') === to.replace(/[*~]$/, '')) return w;
     // Widening that needs no conversion: what the writer's node decodes to is
     // a value of the reader's type.
     const integer = w.type === 'integer' || (w.type === 'number' && w.decimals === 0);
@@ -79,6 +82,9 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
       return w;
     }
     if (isNull(r)) return bridge.ignore();
+    // A list written as differences reads as a plain one, and a plain one as
+    // a list the reader writes as differences.
+    if (canonical(w) === `~${canonical(r)}` || `~${canonical(w)}` === canonical(r)) return w;
     if (w.kind === 'scalar' && r.kind === 'scalar') {
       return scalar(w, r, path, fallbackOf(required, def));
     }

@@ -40,6 +40,13 @@ export interface LongForm {
   readonly flags?: readonly string[];
   /** With `type: 'number'`: travel as an integer scaled by 10ⁿ, n from 0 to 15. */
   readonly decimals?: number;
+  /** On a string: travel as an index into the message's string table (or opt out of it). */
+  readonly intern?: boolean;
+  /**
+   * On an integer, a number, a date or decimals: travel as differences in a `columns`
+   * collection; on an array of them (`{ type: 'array', value, delta: true }`), everywhere.
+   */
+  readonly delta?: true;
   readonly [option: string]: unknown;
 }
 
@@ -66,7 +73,13 @@ export type FieldDefinition =
   | TypeName
   | AnySchema
   | readonly TupleElement[]
-  | { readonly array: FieldDefinition; readonly required?: boolean; readonly aliases?: readonly string[] }
+  | {
+      readonly array: FieldDefinition;
+      readonly required?: boolean;
+      readonly aliases?: readonly string[];
+      /** A list of integers, dates or decimals that travels as differences. */
+      readonly delta?: true;
+    }
   | { readonly set: FieldDefinition; readonly required?: boolean; readonly aliases?: readonly string[] }
   | {
       readonly map:
@@ -366,6 +379,11 @@ export interface SchemaOptions {
   readonly validate?: boolean | 'decode' | 'encode' | 'both';
   /** Encode a struct as `[mask, ...present values]`, one such segment per 31 fields. */
   readonly sparse?: boolean;
+  /**
+   * Intern every string of the definition: one table of the message's strings travels first,
+   * `[table, body]`, and each string as its index. `intern: false` on a field opts it out.
+   */
+  readonly intern?: boolean;
   /** Layout of a collection of records (default `'rows'`). */
   readonly layout?: Layout;
   /** Schemas that fields may reference by name. */

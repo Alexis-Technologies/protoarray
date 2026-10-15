@@ -237,6 +237,107 @@ const flags = (names) => {
   });
 };
 
+// The string table of the message being encoded or decoded: set by the root
+// codec of an interned schema for the length of one call (see schema.js),
+// null otherwise. Interned slots read it, so the codecs between the root and
+// them need no parameter for it.
+const INTERN = { table: null, map: null };
+
+// A string that travels as its index in the message's table.
+const interned = () => {
+  const pack = (v) => {
+    let index = INTERN.map.get(v);
+    if (index === undefined) {
+      index = INTERN.table.length;
+      INTERN.table.push(v);
+      INTERN.map.set(v, index);
+    }
+    return index;
+  };
+  const node = scalar('string', {
+    intern: true,
+    pack,
+    checkedPack: (v) => (typeof v === 'string' ? pack(v) : undefined),
+    unpack: (v) => {
+      const value = typeof v === 'number' ? INTERN.table[v] : undefined;
+      return value === undefined ? v : value;
+    },
+    checkedUnpack: (v) => {
+      const { table } = INTERN;
+      return Number.isInteger(v) && v >= 0 && v < table.length ? table[v] : undefined;
+    },
+  });
+  return node;
+};
+
+// A list of integers that travels as the first one and the differences
+// between neighbours: `[100, 101, 103]` is `[100, 1, 2]`. Nulls keep their
+// places and leave the running value as it is. Only integers have exact
+// differences, so the values are checked on encode whatever `validate` says
+// (`always`).
+const deltas = (item, required) => {
+  const toWire = (v) => {
+    const wire = item.checkedPack === undefined ? v : item.checkedPack(v);
+    return Number.isSafeInteger(wire) ? wire : undefined;
+  };
+  const fromWire = item.unpack === null ? (v) => v : item.unpack;
+  const checkedPack = (v) => {
+    if (!Array.isArray(v)) return undefined;
+    const out = new Array(v.length);
+    let base = 0;
+    for (let i = 0; i < v.length; i++) {
+      out[i] = null;
+      if (v[i] == null) {
+        if (required) return undefined;
+        continue;
+      }
+      const wire = toWire(v[i]);
+      const difference = wire === undefined ? NaN : wire - base;
+      if (!Number.isSafeInteger(difference)) return undefined;
+      out[i] = difference;
+      base = wire;
+    }
+    return out;
+  };
+  const node = scalar('deltas', {
+    item,
+    itemRequired: required,
+    always: true,
+    pack: checkedPack,
+    checkedPack,
+    unpack: (v) => {
+      if (!Array.isArray(v)) return v;
+      const out = new Array(v.length);
+      let base = 0;
+      for (let i = 0; i < v.length; i++) {
+        const d = v[i];
+        if (typeof d !== 'number') out[i] = d;
+        else out[i] = fromWire((base += d));
+      }
+      return out;
+    },
+    checkedUnpack: (v) => {
+      if (!Array.isArray(v)) return undefined;
+      const out = new Array(v.length);
+      let base = 0;
+      for (let i = 0; i < v.length; i++) {
+        const d = v[i];
+        out[i] = null;
+        if (d == null) {
+          if (required) return undefined;
+          continue;
+        }
+        base += d;
+        if (!Number.isSafeInteger(d) || !Number.isSafeInteger(base)) return undefined;
+        out[i] = fromWire(base);
+      }
+      return out;
+    },
+  });
+  node.expected = `[${required ? '' : '?'}${item.expected}]`;
+  return node;
+};
+
 // Conversions between a writer's type and a reader's, for Schema.resolve: the
 // wire is the writer's, the value the reader's. `fallback` is what a writer
 // value the reader does not know becomes (undefined: an error under
@@ -336,4 +437,7 @@ module.exports = {
   listOf,
   put,
   bridge,
+  INTERN,
+  interned,
+  deltas,
 };

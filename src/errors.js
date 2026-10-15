@@ -11,6 +11,7 @@ const STRUCTURE = {
   length: 'has a wrong length',
   mask: 'is not a sparse mask',
   envelope: 'is not an envelope: [id, payload]',
+  intern: 'is not an interned payload: [table, body]',
   depth: 'is nested too deeply',
 };
 

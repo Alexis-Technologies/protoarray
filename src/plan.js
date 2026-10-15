@@ -3,7 +3,7 @@
 // how a Schema used as a field is embedded in another one.
 
 const { SchemaDefinitionError } = require('./errors.js');
-const { SCALARS, enumeration, flags, decimal } = require('./types.js');
+const { SCALARS, enumeration, flags, decimal, interned, deltas } = require('./types.js');
 
 /**
  * The nodes of a plan, as both backends read them.
@@ -93,6 +93,9 @@ const KEYWORDS = /^(type|array|set|map|object|tuple|schema|enum|flags|union|one|
 // The object forms of a field, which may carry `aliases`: a struct's own keys
 // are its fields.
 const FORMS = /^(type|enum|flags|union|array|set|map|object|tuple|schema)$/;
+// The types whose wire is an integer, or can be checked to be one: they travel
+// as differences with `delta`.
+const INTEGERS = /^(integer|number|date)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
 
@@ -113,6 +116,10 @@ const slotOf = (schema) => ({
     return schema[CHECKER];
   },
 });
+
+const DELTA = 'delta is true on an integer, a number, a date or decimals';
+
+const isInteger = (node) => node.kind === 'scalar' && INTEGERS.test(node.type);
 
 const isPlain = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value) && !isSchema(value);
@@ -144,7 +151,10 @@ const compilePlan = (definition, context) => {
     return values.slice();
   };
 
+  // Under `{ intern: true }` every string of the definition is interned; a
+  // schema used as a field keeps its own options.
   const typeNode = (name, path) => {
+    if (name === 'string' && context.intern) return interned();
     const factory = SCALARS[name];
     if (factory !== undefined) return factory();
     if (!/^[A-Z]/.test(name)) throw error('ERR_UNKNOWN_TYPE', `Unknown type "${name}"`, path);
@@ -197,6 +207,12 @@ const compilePlan = (definition, context) => {
     if (kind === 'tuple') return { node: tuple(short ?? source.value, path), required, def: null };
     if (kind === 'array' || kind === 'set') {
       const item = field(short ?? source.value, `${path}[]`);
+      if (source.delta !== undefined) {
+        if (kind !== 'array' || source.delta !== true || !isInteger(item.node)) {
+          throw error('ERR_INVALID_DEFINITION', DELTA, path);
+        }
+        return { node: deltas(item.node, item.required), required, def: null };
+      }
       const node = { kind: 'array', item: item.node, itemRequired: item.required, layout: 'rows' };
       if (kind === 'set') node.container = 'set';
       return { node, required, def: null };
@@ -289,6 +305,20 @@ const compilePlan = (definition, context) => {
           );
         }
         node = decimal(n);
+      }
+      // A string slot opts in or out of the table; a number slot travels as
+      // differences in a `columns` collection.
+      if (source.intern !== undefined) {
+        if (typeof source.intern !== 'boolean' || node.type !== 'string') {
+          throw error('ERR_INVALID_DEFINITION', 'intern is a boolean on a string', path);
+        }
+        node = source.intern ? interned() : SCALARS.string();
+      }
+      if (source.delta !== undefined) {
+        if (source.delta !== true || !isInteger(node)) {
+          throw error('ERR_INVALID_DEFINITION', DELTA, path);
+        }
+        node.delta = true;
       }
       const hasDefault = source.default !== undefined && node.kind === 'scalar';
       // -0 has no JSON form and would tell the two backends apart.
@@ -463,9 +493,15 @@ const canonical = (node) => {
   if (node.kind === 'union') {
     return `union(${node.key})[${node.branches.map((branch) => canonical(branch.source)).join('|')}]`;
   }
+  if (node.type === 'deltas') {
+    return `~[${node.itemRequired ? '' : '?'}${canonical(node.item)}]`;
+  }
   const values = node.values || node.names;
   let type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
   if (node.decimals !== undefined) type = `${type}(${node.decimals})`;
+  // An interned string and a number written as differences have their own wire.
+  if (node.intern === true) type = `${type}*`;
+  if (node.delta === true) type = `${type}~`;
   // Only a root scalar carries its own optionality; a field's is on the field.
   return node.required === false ? `?${type}` : type;
 };

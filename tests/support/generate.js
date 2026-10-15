@@ -54,6 +54,9 @@ const fieldType = (random, depth) => {
   if (depth > 0 && roll < 0.76) {
     return [{ at: 'date' }, struct(random, depth - 1), { 'z?': 'integer' }];
   }
+  if (roll < 0.78) return { type: pick(random, ['integer', 'date']), delta: true };
+  if (roll < 0.8) return { array: pick(random, ['integer', '?date']), delta: true };
+  if (roll < 0.82) return { type: 'string', intern: true, required: random() < 0.5 };
   const scalar = pick(random, SCALARS);
   return random() < 0.3 ? `?${scalar}` : scalar;
 };
@@ -159,6 +162,11 @@ const valueFor = (random, type) => {
   }
   if (type.flags) return { x: random() < 0.5, z: random() < 0.5 };
   if (type.decimals !== undefined) return decimalValue(random, type.decimals);
+  if (type.delta && type.array) {
+    return Array.from({ length: size(random) }, () =>
+      scalarValue(random, type.array.replace('?', '')),
+    );
+  }
   if (type.type) return scalarValue(random, type.type);
   if (type.array) {
     const count = Math.floor(random() * 4);

@@ -388,6 +388,25 @@ const VECTORS = [
     wire: [[1], [2], [3, 'x'], ['y']],
   },
   {
+    name: 'a list of integers travels as differences',
+    definition: { ids: { array: 'integer', delta: true }, at: { array: 'date', delta: true } },
+    value: { ids: [100, 101, 103, 102], at: [new Date(AT), new Date(AT + 500)] },
+    wire: [
+      [100, 1, 2, -1],
+      [AT, 500],
+    ],
+  },
+  {
+    name: 'interned strings travel as indices into the message table',
+    definition: { role: { type: 'string', intern: true }, tags: { array: '?string' } },
+    options: { intern: true },
+    value: { role: 'admin', tags: ['admin', null, 'editor'] },
+    wire: [
+      ['admin', 'editor'],
+      [0, [0, null, 1]],
+    ],
+  },
+  {
     name: 'root array of records',
     definition: { array: { id: 'number', name: '?string' } },
     value: [{ id: 1 }, { id: 2, name: 'x' }],
@@ -425,6 +444,27 @@ const VECTORS = [
     decoded: [
       { a: 1, b: null },
       { a: 2, b: 'x' },
+    ],
+  },
+  {
+    name: 'columns layout with delta columns',
+    definition: {
+      array: {
+        id: { type: 'integer', delta: true },
+        at: { type: 'date', delta: true },
+        n: 'number',
+      },
+    },
+    options: { layout: 'columns' },
+    value: [
+      { id: 100, at: new Date(AT), n: 1 },
+      { id: 101, at: new Date(AT + 60000), n: 2 },
+      { id: 103, at: new Date(AT + 120000), n: 3 },
+    ],
+    wire: [
+      [100, 1, 2],
+      [AT, 60000, 60000],
+      [1, 2, 3],
     ],
   },
   {

@@ -292,3 +292,21 @@ Schema.from({
   role: { enum: ['a'], aliases: ['r'] },
 });
 expectAssignable<SchemaErrorCode>('ERR_INCOMPATIBLE');
+
+// delta and intern.
+const Compact = Schema.from(
+  {
+    ids: { array: 'integer', delta: true },
+    at: { type: 'array', value: 'date', delta: true },
+    id: { type: 'integer', delta: true },
+    city: { type: 'string', intern: true },
+    name: { type: 'string', intern: false },
+  },
+  { intern: true },
+);
+const compact = Compact.decode([]);
+expectType<number[]>(compact.ids);
+expectType<Date[]>(compact.at);
+expectType<number>(compact.id);
+expectType<string>(compact.city);
+expectError(Schema.from({ a: 'string' }, { intern: 'yes' }));

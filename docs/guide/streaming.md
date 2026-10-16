@@ -28,8 +28,9 @@ iterable (a string counts as a mistake) is an `EncodeError` `iterable` or a `Dec
 ## The stream subpath
 
 `@alexify/protoarray/stream` has the rest, as functions that take the schema first. Its sources are
-a string, an iterable or async iterable of strings or `Uint8Array`s (UTF-8), or a `ReadableStream`
-of them, read through its reader, so a `fetch` body works in every browser:
+a string or a `Uint8Array` (the whole text), an iterable or async iterable of strings or
+`Uint8Array`s (UTF-8), or a `ReadableStream` of them, read through its reader, so a `fetch` body
+works in every browser:
 
 ```js
 const { parseLines, parseItems } = require('@alexify/protoarray/stream');
@@ -38,8 +39,19 @@ const response = await fetch('/users.ndjson');
 for await (const user of parseLines(User, response.body)) handle(user);
 ```
 
-Chunks may cut a line, a string, an escape or a multi-byte character anywhere. Invalid UTF-8 is a
-`DecodeError` `json`, not a replacement character.
+Chunks may cut a line, a string, an escape or a multi-byte character anywhere, and an empty chunk
+changes nothing. Invalid UTF-8 is a `DecodeError` `json`, not a replacement character; a byte
+order mark is dropped, from text and bytes alike. A consumer that stops early (a `break`, an error)
+cancels a `ReadableStream` read through its reader, as the stream's own iterator would.
+
+A parser holds one line or one item at a time, and no more than `maxLength` characters of it: 16
+MiB by default, `{ maxLength: Infinity }` the longest string the engine builds. A longer one is a
+`DecodeError` `structure` at its index (`Field "[3]" is longer than maxLength allows`), after the
+lines or items before it; the text of a peer that never ends a line cannot grow without bound.
+
+```js
+for await (const user of parseLines(User, response.body, { maxLength: 64 * 1024 })) handle(user);
+```
 
 ### NDJSON
 
@@ -73,7 +85,8 @@ neither holds the whole payload. The collection is a schema of rows or `flat` re
 for await (const user of parseItems(User.list, response.body)) handle(user);
 ```
 
-The text is the text of `stringify`, and the items are what `parse` would return, with the
+The text is the text of `stringify`, each record's written by its generated writer where it has
+one, and the items are what `parse` would return, with the
 collection's rules: a `null` item where items are required is a `type` error, a `flat` collection
 gathers each record's slots. A scanner finds where each item ends, outside strings and nested
 values, and hands it to `JSON.parse`; a malformed array is a `DecodeError` `json` naming the item.

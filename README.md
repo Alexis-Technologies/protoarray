@@ -49,7 +49,7 @@ builds the same schema from it:
 // The server
 reply.send(User.snapshot);
 
-// The client: protoarray alone, about 18 KB
+// The client: protoarray alone, about 21 KB
 const User = Schema.from(await (await fetch('/schemas/user')).json());
 ```
 
@@ -78,11 +78,11 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   wraps payloads as `[id, payload]`.
 - **Typed.** A schema takes its TypeScript types from the metaschema schema it is built from;
   hand-written typings for TypeScript 5.0 or newer.
-- **Zero dependencies, about 18 KB min+gzip.** protoarray requires nothing, metaschema included:
+- **Zero dependencies, about 21 KB min+gzip.** protoarray requires nothing, metaschema included:
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
   imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve,
-  streaming and standalone extras are subpaths of 1.5–2.2 KB each. Generated code where the
+  streaming and standalone extras are subpaths of 1.8–2.6 KB each. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
   standalone module generated at build time.
 

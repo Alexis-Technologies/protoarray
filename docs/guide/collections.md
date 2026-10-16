@@ -102,7 +102,9 @@ Each column is an array of the record's values for one field. On a thousand reco
 shape, `columns` is 18–21% smaller than keyed JSON after gzip, brotli or zstd, where rows are
 5–10% smaller: compressors love a run of similar values. New columns are appended at the end and
 ignored by older decoders; a missing column (an older sender) or an explicit `null` in its place
-decodes as `null`s, and the record count comes from the first column present.
+decodes as `null`s, and the record count comes from the first column present. An error about a
+column names it by its field, for every record (`Field "[].city" has a wrong length`), one about a
+value by its record (`[2].city`).
 
 Two opt-in options shrink columns further: `delta` writes an integer, date or decimals column as
 its first value and the differences between neighbours, and `intern` writes a string column of few

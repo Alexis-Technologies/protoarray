@@ -45,7 +45,7 @@ features:
     linkText: Compatibility rules
   - icon: 🪶
     title: Zero dependencies
-    details: "About 18 KB min+gzip, no build step, metaschema not required: a client builds its schemas from snapshots. Generated code where the runtime allows it, a closures fallback or a standalone module under a strict CSP."
+    details: "About 21 KB min+gzip, no build step, metaschema not required: a client builds its schemas from snapshots. Generated code where the runtime allows it, a closures fallback or a standalone module under a strict CSP."
     link: /guide/runtimes
     linkText: Runtimes
   - icon: 🌐

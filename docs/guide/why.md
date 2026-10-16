@@ -59,7 +59,7 @@ small. The payload is still plain JSON.
   [metaschema](https://metaschema.vercel.app/) definition, a plain JavaScript value that also
   validates, generates TypeScript and describes a domain model; its snapshot is plain JSON that a
   server can hand to its clients at runtime.
-- **No dependencies, about 18 KB.** Both backends, the wire checks and every type in about 18 KB
+- **No dependencies, about 21 KB.** Both backends, the wire checks and every type in about 21 KB
   min+gzip, the registry, resolve, streaming and standalone extras in subpaths of their own;
   protobufjs is over 20 KB, msgpackr about 10 KB. protoarray does not require metaschema: a client
   that builds its schemas from snapshots carries protoarray alone.

@@ -53,8 +53,9 @@ objects:
 
 - its `id`, `toString()` and `layout` are the writer's, so it reads and writes what the writer's
   peers send and expect, and a registry or a handshake sees the writer;
-- its `name`, `keys`, key order, types and defaults are the reader's, and so is `validate`; it has
-  no `snapshot` or `source` of its own;
+- its `name`, `keys`, key order, types and defaults are the reader's, and so are `validate` and
+  `stringify`; it has no `snapshot` or `source` of its own, and is no version of its own:
+  `resolve` and a registry refuse it (`ERR_SCHEMA_EXPECTED`), take its writer or its reader;
 - it is compiled by the same backends, recursion and referenced entities included, so it runs at
   the speed of a schema of its own; `list`, `stringify` and `parse` work as on any schema.
 
@@ -68,7 +69,7 @@ When the two signatures are the same (the canonical forms and the entities they 
 | a field of the same key, or one the reader names in `aliases` | read into the reader's key | written from the reader's key |
 | a field only the writer has | skipped | `null` |
 | a field only the reader has | its default, or `null` when optional; a required one without a default is `ERR_INCOMPATIBLE` when resolving | ignored |
-| optional → required | `null` on the wire is the default, or `DecodeError` `required` | — |
+| optional → required (a root scalar too) | `null` on the wire is the default, or `DecodeError` `required` | — |
 | `integer` → `number`, `integer` → `bigint` | widened | narrowed back |
 | `decimals` → more decimals or a plain `number` | read as is | written as the writer's integer |
 | enum → enum | by value; a value the reader dropped becomes its default, `null` when optional, a `DecodeError` `enum` otherwise | by value; one the writer lacks is `null` |
@@ -77,12 +78,13 @@ When the two signatures are the same (the canonical forms and the entities they 
 | anything → `json`, `any`, `unknown` | the value the writer's type decodes to | through the writer's type |
 | anything → `null` | dropped | `null` |
 | array ↔ set, map, object, tuple | element by element; a tuple's extra writer elements skipped, extra reader ones at their defaults | element by element |
-| union → union | branches pair up by their discriminator values; a writer branch with no reader values cannot be decoded (`union`) | a value the writer has no branch for is `EncodeError` `union` |
+| union → union | branches pair up by their discriminator values; a writer branch with no reader values, or a value of one the reader dropped, cannot be decoded (`union`) | a value the writer has no branch for is `EncodeError` `union` |
 | interned string ↔ string, delta ↔ plain | the writer's wire | the writer's wire |
 
 What cannot be read throws `SchemaDefinitionError` `ERR_INCOMPATIBLE` when resolving, with the
 reader's path: a narrowing (`number` → `integer`, fewer decimals), a type of another kind, a union
-on another discriminator or a writer branch whose values the reader split between branches.
+on another discriminator, a writer branch whose values the reader split between branches, or two
+versions whose chain of references is too long for the stack.
 
 ```js
 resolve(Schema.from({ a: 'number' }, { metaschema }), Schema.from({ a: 'integer' }, { metaschema }));
@@ -106,7 +108,8 @@ resolve(Old, New, { aliases: { 'address.city': 'town', 'orders[].sku': ['code'] 
 // { address: { city: 'Kyiv' }, orders: [{ sku: 'A-1' }] }
 ```
 
-A writer field is claimed once: the first reader field that names it gets it.
+A writer field is claimed once: the first reader field that names it gets it. An `aliases` path
+that names no field of the reader is `ERR_INVALID_OPTIONS`: it would lose a value without a word.
 
 ## The registry
 
@@ -139,8 +142,11 @@ registry.encode(V2, { id: 3, name: 'C', role: 'user' }, { as: V1.id }); // ['006
 | `decode(envelope, reader?, options?)`, `parse(text, reader?, options?)` | as its writer wrote it, or as `reader` objects |
 | `SchemaRegistry.from(modelOrSnapshot, options?)` | every entity of a metaschema `Model` or of its snapshot, as `Schema.fromModel` builds them |
 
-An envelope that is not `[id, payload]` is a `DecodeError` `structure`, an id the registry does not
-know a `DecodeError` `schema`. Two schemas of different signatures under one id throw
+An envelope that is not `[id, payload]` is a `DecodeError` `structure`; an id the registry does not
+know, or one of a version the reader cannot resolve, a `DecodeError` `schema` with the id as
+`error.id` (never in the message: the payload gave it) and, for the second, the `ERR_INCOMPATIBLE`
+as `cause`. `decode` and `parse` throw nothing else, and a pair that cannot resolve is tried once.
+Writing `as` an id the registry does not know is `SchemaDefinitionError` `ERR_UNKNOWN_SCHEMA`. Two schemas of different signatures under one id throw
 `ERR_ID_COLLISION` when added: the 32-bit fingerprint is too narrow for that registry, and a wider one is the remedy (see
 [Your own fingerprint](/guide/evolution#your-own-fingerprint)). The registry is a subpath of its
 own, so a program that does not use it does not carry it.

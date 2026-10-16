@@ -171,3 +171,9 @@ JSON of the keyed object), with `--save` and `--compare` to track a change on on
 measures the text builder against the native `stringify` path with the text read once, as sending
 it would (see [Runtimes](/guide/runtimes#how-stringify-writes-the-text)), a resolved schema, an
 inline standalone module, and `parseItems` against parsing the whole text.
+
+Building a schema is no part of these tables. `Schema.from(definition, { metaschema })` has
+metaschema read the definition first and protoarray read its snapshot after: two to four times the
+time 1.x took to parse its own spelling of it (about 70 µs for the nested record with codegen, 40
+µs with closures, once per schema). A schema built from a snapshot skips metaschema, about half of
+that (34 µs); `pnpm bench` prints both and a cold start.

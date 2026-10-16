@@ -7,7 +7,7 @@ involved (`schema`, `''` for a nameless one), so a log line says which contract 
 | --- | --- | --- |
 | `SchemaDefinitionError` | a snapshot protoarray cannot read, or wrong options, when the schema is built | `code`, `schema` (the name), `field` (`address.city`) |
 | `EncodeError` | `encode` gets a value with no wire: the wrong shape, a cycle, a union value outside the union | `code`, `path`, `schema` |
-| `DecodeError` | the wire does not match the schema, or `parse` gets text that is not JSON | `code`, `path`, `schema`, `cause` |
+| `DecodeError` | the wire does not match the schema, or `parse` gets text that is not JSON | `code`, `path`, `schema`, `cause`, `id` (an envelope's) |
 
 A definition is metaschema's to read, so a definition metaschema refuses throws metaschema's own
 `SchemaDefinitionError` (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, …): another class with the
@@ -18,18 +18,22 @@ two by `name` and `code`, or catch both.
 
 | Code | Meaning | Example message |
 | --- | --- | --- |
-| `structure` | not an array where one is expected, a wrong tuple, `flat` or map length, a bad sparse mask, an interned payload that is not `[table, body]`, an envelope that is not `[id, payload]`, a recursive schema's payload nested deeper than the call stack | `Field "address" is not an array`, `Value is nested too deeply` |
+| `structure` | not an array where one is expected, a wrong tuple, `flat` or map length, a bad sparse mask, an interned payload that is not `[table, body]`, an envelope that is not `[id, payload]`, a payload nested deeper than 512 levels of a recursion (or than the call stack), a streamed line or item longer than `maxLength` | `Field "address" is not an array`, `Field "next.next…" is nested too deeply`, `Field "[3]" is longer than maxLength allows` |
 | `required` | a required field is `null` or missing | `Field "email" is required` |
 | `type` | a value of the wrong type, or a `null` element where the item is required | `Field "orders[1].qty" is not of expected type: number` |
-| `enum` | an index outside the enum | `Field "role" is not of enum: admin, editor` |
+| `enum` | an index outside the enum (a long enum names its first 16 values) | `Field "role" is not of enum: admin, editor` |
 | `union` | a union's tag is not one of its indexes (always checked) | `Field "type" is not of union: call, event` |
 | `extra` | elements beyond the schema, with `{ strict: true }` | `Value has extra elements` |
 | `json` | `parse` got text that is not JSON (an NDJSON line, an item of a streamed array); `cause` is the `SyntaxError` | `Value is not valid JSON` |
-| `schema` | an envelope's id is not in the registry | `Value is not a known schema: 08fc117a` |
+| `schema` | an envelope's id is not in the registry, or names a version the reader cannot resolve (`cause` is its `ERR_INCOMPATIBLE`); the id is `error.id` | `Value is not of a schema this reader can read` |
 
 `path` names the slot: `''` for the value itself, keys joined with dots, indexes in brackets:
-`orders[1].qty`, `[2].name` in a collection. Paths cost nothing until an error is thrown. Messages
-name the path and the expected type, never a value from the payload, so they are safe to log.
+`orders[1].qty`, `[2].name` in a collection, `[].price` for a column of a `columns` collection. A
+key that holds a dot, brackets or braces, begins with a quote or is empty is a quoted JSON string
+in brackets (`["a.b"].c`), and so is a dictionary's key that is not a plain name, cut to 64
+characters (`scores["a b"]`): the payload gives it. A path keeps 64 levels at most, both ends.
+Paths cost nothing until an error is thrown. `message`, `path` and `code` never carry a line
+break or an escape sequence from the payload, so they are safe to log; `cause` may quote it.
 
 ```js
 try {
@@ -48,11 +52,11 @@ try {
 
 | Code | Meaning | Example message |
 | --- | --- | --- |
-| `object`, `array`, `set`, `map` | a record that is not an object, a collection or tuple that is not an array, a set that is neither a `Set` nor an array, a map that is not a `Map` | `Field "orders[1]" is not an object` |
+| `object`, `array`, `set`, `map` | a record that is not an object, a collection or tuple that is not an array, a set that is neither a `Set` nor an array, a map that is not a `Map` (told by its brand, not a tag it claims) | `Field "orders[1]" is not an object` |
 | `iterable` | `encodeEach` and the stream helpers got something that is not iterable | `Value is not iterable` |
-| `depth` | a cyclic value, or one nested deeper than the call stack | `Value is nested too deeply` |
+| `depth` | a cyclic value, or one nested deeper than 512 levels of a recursion (or than the call stack) | `Field "next.next…" is nested too deeply` |
 | `union` | a union's discriminator is not one of its values | `Field "type" is not of union: call, event` |
-| `type` | a value a `delta` list or column cannot hold: only integers have exact differences | `Field "ids" is not of expected type: [integer]` |
+| `type` | a value a `delta` list or column cannot hold (only integers have exact differences), a `decimals` number that scales past the safe integers | `Field "ids" is not of expected type: [integer]` |
 
 ## What is validated
 
@@ -98,17 +102,18 @@ Messages say where: `Unknown type "float" at "price"`.
 
 | Code | Cause |
 | --- | --- |
-| `ERR_INVALID_SNAPSHOT` | not a snapshot of format 1, no entity of the name asked for, a field without a type, a schema nested too deeply, a collection without its key or element, a tuple without elements, `decimals` outside 0–15, `aliases` that are not a list of keys |
-| `ERR_UNKNOWN_TYPE` | an unknown type, a custom type with a check of its own and no wire type in `types`, a union without a `discriminator` |
+| `ERR_INVALID_SNAPSHOT` | not a snapshot of format 1, no entity of the name asked for, an entity that is not an object, a field without a type, a schema nested too deeply, a collection without its key or element, a tuple without elements, `decimals` outside 0–15, `aliases` that are not a list of keys, references that lead back to themselves with no record, a snapshot that breaks the reader unchecked (`cause`) |
+| `ERR_UNKNOWN_TYPE` | an unknown type, a custom type with a check of its own and no wire type in `types` |
 | `ERR_INVALID_ENUM`, `ERR_INVALID_FLAGS` | an empty list, duplicates, wrong value types, `__proto__` (neither has a size limit) |
-| `ERR_INVALID_UNION` | an empty union, a branch that is not a dense struct with the discriminator as a required enum without a default, the same value in two branches |
+| `ERR_INVALID_UNION` | a union without a `discriminator`, an empty union, a branch that is not a struct with the discriminator as a required enum without a default, the same value in two branches |
 | `ERR_UNKNOWN_REFERENCE` | a reference to an entity the snapshot does not have (a reference by name needs a `Model`, or the schema's own name) |
 | `ERR_RESERVED_KEY` | `__proto__` as a key |
-| `ERR_INTEGER_KEY` | a key like `'1'`, which JavaScript would order first |
+| `ERR_INTEGER_KEY` | a key or a flag name like `'1'`, which JavaScript would order first |
 | `ERR_INVALID_DEFINITION` | a struct without fields, an empty key |
-| `ERR_INVALID_OPTIONS` | an unknown option, a wrong type, a path that names no place of the schema or a place of another kind (`sparse` on a non-struct, a layout on anything but a collection of records, `delta` on a string, `intern` on anything but a string), an option of one schema given to `Schema.fromModel` instead of `entities`, a snapshot of several entities without `entity` |
+| `ERR_INVALID_OPTIONS` | an unknown option, a wrong type, a path that names no place of the schema or a place of another kind (`sparse` on a non-struct, a layout on anything but a collection of records, `delta` on a string, `intern` on anything but a string), `layout: 'rows'` on anything but a collection, `sparse` on a union's branch, an option of one schema given to `Schema.fromModel` instead of `entities`, an `entities` key that names no entity of the snapshot or an entity's own `entity`, `entities` or `metaschema`, a snapshot of several entities without `entity`, `entity` other than a metaschema Schema's own, a `fingerprint` that gives no non-empty string, an `aliases` path of `resolve` that names no field of the reader, a `maxLength` that is not a positive integer or `Infinity` |
 | `ERR_SCHEMA_EXPECTED` | `Schema.from` got neither a metaschema `Schema` or `Model`, a snapshot, a protoarray schema nor a definition with `{ metaschema }`; `encode(schema, …)` and friends got something that is not a `Schema` |
 | `ERR_CODEGEN_UNAVAILABLE` | `{ codegen: true }` where `new Function` is blocked |
-| `ERR_COMPILED_MISMATCH` | a generated module's codec is of another schema than the snapshot given with it |
-| `ERR_INCOMPATIBLE` | `resolve` cannot read the writer as the reader: a narrowing type change, a required reader field the writer lacks, a union split between branches |
+| `ERR_COMPILED_MISMATCH` | a generated module's codec is of another schema than the snapshot given with it, or the module was generated by another version of protoarray |
+| `ERR_INCOMPATIBLE` | `resolve` cannot read the writer as the reader: a narrowing type change, a required reader field the writer lacks, a union split between branches, a chain of references too long for the stack |
 | `ERR_ID_COLLISION` | a registry got two schemas of different signatures with one id: the fingerprint is too narrow for it |
+| `ERR_UNKNOWN_SCHEMA` | a registry's `encode` got `as` an id it does not know |

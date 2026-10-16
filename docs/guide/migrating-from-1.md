@@ -10,10 +10,12 @@ schema is built from one, and a few places where 1.x read the language its own w
 The wire. A 2.0 schema of the shape of a 1.x schema writes the same payloads and prints the same
 canonical form, and every 1.x payload decodes the same way, so a 1.x peer and a 2.0 peer talk to
 each other while they upgrade. The id is the same too, except for a schema that references
-another entity by name: 2.0 fingerprints the referenced entities with the schema (see
-[Defining a Schema](/guide/schema#properties)), so a handshake or a registry keyed by ids sees a
-new id for it. The decode errors, the layouts, sparse records, `list`, `stringify`, `parse`,
-streaming and the registry work as they did.
+another entity by name (2.0 fingerprints the referenced entities with the schema, see
+[Defining a Schema](/guide/schema#properties)) and for one whose keys, enum values or flag names
+hold the punctuation of the canonical form (`:,{}[]()|?=@;*~<>`), which 2.0 prints quoted: a
+handshake keyed by ids sees a new id for those. The layouts, sparse records, `list`, `stringify`
+and `parse` work as they did; the decode errors too, but for the paths and limits under
+[Behaviour that changed](#behaviour-that-changed).
 
 ## Install metaschema where schemas are defined
 
@@ -113,25 +115,6 @@ const Order = Schema.from(
 
 Or reference an entity of a `Model` by name, which keeps the options given for it in `entities`.
 
-## delta and intern: options by path
-
-`delta: true` and `intern: true` on a field become options that name the field by path, and
-`intern: false` on a field becomes a list of the strings to intern:
-
-```js
-// 1.x
-Schema.from({ ids: { array: 'integer', delta: true }, role: { type: 'string', intern: true } });
-```
-
-```js
-// 2.0
-Schema.from({ ids: { array: 'integer' }, role: 'string' }, { metaschema, delta: ['ids'], intern: ['role'] });
-```
-
-A field of the record of a `columns` collection is `'[].id'`, of a nested collection
-`'orders[].id'` (see [Paths](/guide/schema#paths)). The wire and the canonical form are the ones
-1.x gave.
-
 ## Where metaschema reads differently
 
 1.x read a few forms its own way; 2.0 reads them as metaschema's `check` does:
@@ -188,31 +171,8 @@ if (!result.valid) reply(400, { errors: result.errors });
 
 metaschema's `check` knows every rule of the definition, `length`, `pattern` and `validate`
 included, which 1.x ignored. Encode still throws for what has no wire: `object`, `array`, `set`,
-`map`, `iterable`, `depth`, `union`, and `type` for a value a `delta` list cannot hold;
+`map`, `iterable`, `depth`, `union`, and `type` for a value a `delta` list cannot hold or a `decimals` number past the safe integers;
 `EncodeError`'s `required` and `enum` codes are gone.
-
-## resolve is a subpath
-
-```js
-// 1.x
-Schema.resolve(V1, V2);
-```
-
-```js
-// 2.0
-const { resolve } = require('@alexify/protoarray/resolve');
-resolve(V1, V2);
-// or, once: require('@alexify/protoarray/resolve').register(); then Schema.resolve(V1, V2)
-```
-
-## The metaschema subpath is gone
-
-| 1.x `@alexify/protoarray/metaschema` | 2.0 |
-| --- | --- |
-| `fromMetaschema(schema, options)` | `Schema.from(schema, options)` |
-| `fromModel(model, options)` (a registry) | `SchemaRegistry.from(model, options)`, or `Schema.fromModel(model, options)` for the schemas by name |
-| `types` (`bytes`, `flags`) | nothing: both are built in to metaschema 3.4 |
-| `register()` | nothing: `Schema.from` and `SchemaRegistry.from` take metaschema's objects |
 
 ## TypeScript
 
@@ -230,10 +190,18 @@ type User = ReturnType<typeof User.decode>; // or metaschema's own type of the d
 A schema built from a snapshot or an injected definition is `Schema<unknown>` unless a type
 argument gives it one: `Schema.from<User>(snapshot)`. See [TypeScript](/guide/typescript).
 
-## Standalone modules
+## Behaviour that changed
 
-Generate them again: a 1.x module of the `import` runtime builds its schemas from definition
-literals, which 2.0 no longer reads, where a 2.0 module embeds the snapshots of its schemas and
-builds them with `Schema.fromModel`. The `inline` runtime's exports lose `check`.
-`protoarray compile` reads modules that export protoarray schemas, metaschema `Schema`s or
-metaschema `Model`s (see [Standalone Modules](/guide/standalone)).
+- **Paths.** A dictionary's key, which the payload gives, is written as a plain name or as a
+  quoted JSON string cut to 64 characters (`scores["a b"]`); a record's key that holds `.`,
+  brackets or braces, begins with a quote or is empty is quoted the same way (`["a.b"].c`); a
+  column of a `columns` collection is named by its field (`[].price` where 1.x said `[2]`). A
+  path keeps 64 levels at most.
+- **Depth.** A recursion counts its levels: a value or a payload nested deeper than 512 levels of
+  one is `EncodeError` `depth` or `DecodeError` `structure` on either backend, where 1.x went
+  as deep as the call stack.
+- **Values.** A `decimals` number that scales past the safe integers is `EncodeError` `type`
+  instead of a wire its decoder refuses; a validated `date` decodes whole milliseconds within
+  ±8.64e15 only; a `BigInt` or a `Symbol` as a date encodes as `null` instead of throwing.
+- **Codes.** A union without a discriminator is `ERR_INVALID_UNION`, and a sparse branch of a
+  union `ERR_INVALID_OPTIONS`.

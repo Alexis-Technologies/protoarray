@@ -11,8 +11,8 @@ Key facts:
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`;
   a schema is typed by the metaschema Schema it is built from (`Schema<Output, Input>`,
   `Decoded<T>`)
-- Zero runtime dependencies, no build step, about 18 KB min+gzip for the core; subpaths
-  `/resolve`, `/registry`, `/stream` and `/standalone` add 1.5–2.2 KB each. protoarray never
+- Zero runtime dependencies, no build step, about 21 KB min+gzip for the core; subpaths
+  `/resolve`, `/registry`, `/stream` and `/standalone` add 1.8–2.6 KB each. protoarray never
   requires metaschema: it recognises metaschema objects by their brand, reads snapshots as plain
   JSON, and reads a raw definition only with metaschema injected (`{ metaschema }`)
 - The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
@@ -54,8 +54,9 @@ Key facts:
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge); standalone
   modules (`/standalone`, `protoarray compile`) carry generated code and snapshots to such
   runtimes, without metaschema
-- Streaming (`/stream`): `encodeEach`/`decodeEach`, NDJSON, `TransformStream`s, the items of a large
-  JSON array read as they arrive
+- Streaming: `encodeEach`/`decodeEach` in the core; NDJSON, `TransformStream`s and the items of a
+  large JSON array read as they arrive in `/stream`, a line or an item held at most `maxLength`
+  characters (16 MiB by default)
 - Validation: `validate: true` (default) checks the wire on decode; encode trusts its values, which
   metaschema's `check` and `parse` validate (`schema.source` is the metaschema Schema);
   `EncodeError` and `DecodeError` with `code`, `path` (`orders[1].sku`) and `schema`;

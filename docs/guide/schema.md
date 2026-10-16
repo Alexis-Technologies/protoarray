@@ -78,7 +78,7 @@ const User = Schema.from(snapshot); // what Definition#toSnapshot() or Model#toJ
 ```
 
 A snapshot is JSON, so it can come from a server, a file or a build step, and protoarray reads it
-without metaschema: a client that receives the snapshots of its server's schemas carries 18 KB of
+without metaschema: a client that receives the snapshots of its server's schemas carries 21 KB of
 protoarray and nothing else (see [metaschema and protoarray](/guide/metaschema)). A snapshot of one
 schema names its entity in `root`; a model's snapshot holds several, and `{ entity: 'User' }`
 picks one. The snapshot is read as untrusted input: a broken one is a `SchemaDefinitionError`
@@ -203,8 +203,8 @@ by a reference keeps the options given for it in `entities`.
 | `fingerprint` | FNV-1a 32-bit | `(signature) => string`, computes `id` from the schema's signature (below). See [Schema Evolution](/guide/evolution#your-own-fingerprint) |
 | `references` | `'kind'` | How every reference travels: `'kind'`, `'embed'` or `'id'`. See [References](#references) |
 | `types` | `{}` | The wire type of each custom type with a check of its own: `{ decimal: 'string' }` |
-| `entity` | the snapshot's `root` | The entity of a snapshot to build |
-| `entities` | `{}` | Options of the entities references reach, by name: `{ Address: { sparse: true } }` |
+| `entity` | the snapshot's `root` | The entity of a snapshot to build (a metaschema Schema builds its own) |
+| `entities` | `{}` | Options of the entities references reach, by name: `{ Address: { sparse: true } }`. Each key names an entity of the snapshot, each one's options are checked whether a reference reaches it or not, and an option an entity leaves undefined is the shared one |
 | `metaschema` | none | The metaschema module, to read a definition: `require('@alexify/metaschema')` or its `./definition` |
 | `compiled` | none | The codec of a generated module. See [Standalone Modules](/guide/standalone) |
 
@@ -244,16 +244,20 @@ Customer.toString();
 A path that names no place of the schema, or a place of another kind (`sparse` on a string,
 `delta` on a string), is `ERR_INVALID_OPTIONS`, as is an unknown option or a value of the wrong
 type: `Option "delta" names no place of the schema at "ids"`. A path stays inside its schema: an
-entity reached by a reference takes its options from `entities`.
+entity reached by a reference takes its options from `entities`. A key that holds a dot,
+brackets or braces, begins with a quote or is empty is a quoted JSON string in brackets, in an
+option's path as in an error's: `sparse: ['["a.b"]']`, `delta: ['[]["at.x"]']`. `delta` on a lone
+number outside a `columns` collection marks its form (`id:integer~`) and its id, as 1.x did, and
+changes nothing on the wire.
 
 ## Properties
 
 | Property | Value |
 | --- | --- |
 | `name` | The name given to the constructor, or the metaschema schema's, or the snapshot's `root`; `''` for a nameless one |
-| `snapshot` | The snapshot the schema was read from (`null` for a list or a resolved schema) |
-| `source` | The metaschema `Schema` it was built from, or `null` (a snapshot, a model) |
-| `keys` | Field keys in wire order (frozen; empty for a collection, a tuple or a scalar) |
+| `snapshot` | The snapshot the schema was read from, the object as it was given (`null` for a list or a resolved schema); leave it as it is, since `Schema.from(schema)` and a generated module read it again |
+| `source` | The metaschema `Schema` it was built from, or `null` (a snapshot, a model, another entity of the snapshot of a schema built again) |
+| `keys` | Field keys in wire order (frozen; empty for a collection, a tuple or a scalar); an alias has the keys of what it stands for |
 | `backend` | `'codegen'`, `'closures'`, or `'standalone'` for a schema built with `compiled` |
 | `layout` | `'dense'` or `'sparse'` for a struct; `'rows'`, `'flat'` or `'columns'` for a collection |
 | `id` | A fingerprint of the schema's signature, see below |
@@ -272,7 +276,8 @@ User.id; // 'cecbac56' — FNV-1a of its signature, the same on both sides of th
 reference prints as `@Name` in the canonical form, so the signature brings in what that name
 stands for: when a referenced entity changes, so does the id of every schema that references it.
 A recursion to the schema's own name adds nothing, which is why `User` above is its canonical form
-alone.
+alone, and neither does the schema itself as the record of its `list`. A name that holds the
+form's punctuation prints quoted (see [the canonical form](/guide/wire-format#canonical-form)).
 
 ```js
 const { Model } = require('@alexify/metaschema');
@@ -296,7 +301,10 @@ replaces the hash (see [Schema Evolution](/guide/evolution#your-own-fingerprint)
 ## A snapshot is input
 
 A snapshot that arrives over the network is read as untrusted input: its format, its entity and
-every form in it are checked, nesting is limited, a `__proto__` or integer-like key is refused, and
+every form in it are checked, nesting is limited (64 levels an entity; the entities a reference
+reaches are read from a list, so a long chain of them never exhausts the stack), references that
+come back to themselves with no record between them are refused, a default of another type than
+its field is left to metaschema, a `__proto__` or integer-like key is refused, and
 keys, enum values and defaults reach generated code only through `JSON.stringify`. A peer that
 sends a snapshot still decides your wire, though: accept snapshots only from a peer you trust to
 define it, such as your own server (see [SECURITY.md](https://github.com/Alexis-Technologies/protoarray/blob/main/SECURITY.md)).

@@ -42,8 +42,10 @@ Schema.from(source, { codegen: false }); // closures, everywhere
 Schema.from(source, { codegen: true });  // codegen, or ERR_CODEGEN_UNAVAILABLE
 ```
 
-`{ codegen: false }` is the way to run under a report-only CSP without a violation report, or to
-compare the two.
+The runtime is asked once, when the first schema that may use generated code is built: a program
+that builds every schema with `{ codegen: false }`, or loads them from a
+[standalone module](/guide/standalone), never calls `new Function`, so even a report-only CSP
+reports nothing. `{ codegen: false }` is also the way to compare the two.
 
 ## What the fallback costs
 
@@ -56,6 +58,10 @@ decode against a few in generated code, so a sparse record of 70 fields decodes 
 slower than with codegen. The payload is identical either way; in a fresh process, loading the
 package takes about 4 ms and building a first schema about 2 ms with either backend, a few
 microseconds once warm (`pnpm bench` prints a cold-start table).
+
+A very wide record makes a large function: about 200 to 500 bytes of source a field, 4 ms to build
+for 1,000 fields and 16 ms for 3,000. It still decodes two to ten times faster than closures do,
+so the automatic choice stays codegen however wide a record is.
 
 ## Without code generation, at its speed
 
@@ -75,7 +81,7 @@ go faster by hand everywhere. The `stringify` option picks:
 | `stringify` | Writes the text by hand | Measured against the native path |
 | --- | --- | --- |
 | `'auto'` (default) | records whose leaves are booleans, enums, flags, dates, integers or decimals | ×1.0 to ×1.85 on Node.js 18 to 24 |
-| `'builder'` | any schema with the codegen backend | ×1.2 to ×1.8 on Node.js 20; down to ×0.7 on string-heavy records on Node.js 22 and 24 |
+| `'builder'` | any schema with the codegen backend, but for a `flat` or `columns` collection and an interned schema, whose text is their wire's | ×1.2 to ×1.8 on Node.js 20; down to ×0.7 on string-heavy records on Node.js 22 and 24 |
 | `'native'` | never | — |
 
 The text is the same either way, byte for byte, and so are the errors: a property-based test holds
@@ -88,11 +94,11 @@ backend always does.
 
 | Entry | min+gzip |
 | --- | ---: |
-| `@alexify/protoarray` (Node.js and browser entries) | 18.0 KB, 18.2 KB |
-| `@alexify/protoarray/registry`, over the core (it brings `resolve`) | +2.2 KB |
-| `@alexify/protoarray/resolve`, over the core | +1.7 KB |
-| `@alexify/protoarray/stream`, over the core | +1.5 KB |
-| `@alexify/protoarray/standalone`, over the core | +2.0 KB |
+| `@alexify/protoarray` (Node.js and browser entries) | 21.3 KB, 21.5 KB |
+| `@alexify/protoarray/registry`, over the core (it brings `resolve`) | +2.6 KB |
+| `@alexify/protoarray/resolve`, over the core | +1.9 KB |
+| `@alexify/protoarray/stream`, over the core | +1.8 KB |
+| `@alexify/protoarray/standalone`, over the core | +2.3 KB |
 
 metaschema is not part of any of them: protoarray never requires it. A program that defines its
 schemas brings metaschema itself, the core or the 10.3 KB `./definition` entry that builds schemas

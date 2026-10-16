@@ -20,7 +20,7 @@ const metaschema = require('@alexify/metaschema');
 | `boolean` | boolean | as is | `typeof` |
 | `json`, `any`, `unknown` | anything JSON | as is, by reference | none; never required |
 | `null` | `null` | `null` | nothing else; never required |
-| `date` | `Date` (or a timestamp) | epoch milliseconds | number |
+| `date` | `Date` (or a timestamp) | epoch milliseconds | whole milliseconds within ±8.64e15 |
 | `bigint` | bigint | decimal string, `'12345678901234567890'` | digits only |
 | `bytes` | `Uint8Array` (a `Buffer` too) | base64 with padding, `'iVBORw=='` | canonical base64 |
 | `{ enum: [...] }` | one of the values | its index, `0` for the first | an integer in range |
@@ -59,7 +59,10 @@ S.encode({ at: new Date('2023-11-14T22:13:20Z') }); // [1700000000000]
 S.decode([1700000000000]);                          // { at: 2023-11-14T22:13:20.000Z }
 ```
 
-A number is accepted too (`{ at: 1700000000000 }`), and an invalid date travels as `null`. Epoch
+A number is accepted too (`{ at: 1700000000000 }`); an invalid date, a `BigInt` or a `Symbol`
+travels as `null`. A date is told by its brand, so a date of another realm is one and an object
+that only claims the tag is not. With validation, decode takes whole milliseconds within the range
+of `Date`, ±8.64e15, and nothing else. Epoch
 milliseconds are shorter than ISO strings and ×3 faster to produce than `toISOString()`.
 
 ## Bytes
@@ -97,7 +100,10 @@ S.decode([1999]);                // { price: 19.99 }
 `n` goes from 0 to 15. Rounding is `Math.round`, half up, on the double: `1.005` is stored as
 `1.00499999…` and becomes `100`. Decoding divides the integer by 10ⁿ, which gives back the double
 nearest to the decimal, so `19.99` comes back as the literal `19.99`; an integer on the wire that
-is not a safe integer is a `type` error. `decimals` is a rule of metaschema too since 3.4: its
+is not a safe integer is a `type` error. A number that scales past the safe integers (`1e14` with
+two decimals, `10` with fifteen, `NaN` and the infinities) has no wire its decoder reads, so
+`encode` refuses it with `EncodeError` `type` whatever `validate` says; a value of another type
+travels as it is. `decimals` is a rule of metaschema too since 3.4: its
 `check` rejects a value with more digits after the point.
 
 ## BigInt

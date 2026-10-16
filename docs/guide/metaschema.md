@@ -19,7 +19,7 @@ carries.
 | --- | --- | --- | --- |
 | [A metaschema `Schema`](#from-a-metaschema-schema) | a server, a program that defines its schemas | metaschema and protoarray | yes, `schema.source.check` |
 | [A definition, metaschema injected](#from-a-definition) | a program that keeps definition literals | metaschema (or its `./definition` entry) and protoarray | with the core entry |
-| [A snapshot](#from-a-snapshot) | a client that gets its schemas from its server or a build step | protoarray alone, about 18 KB | no |
+| [A snapshot](#from-a-snapshot) | a client that gets its schemas from its server or a build step | protoarray alone, about 21 KB | no |
 
 ### From a metaschema Schema
 
@@ -77,7 +77,7 @@ app.get('/schemas/user', (request, reply) => reply.send(User.toSnapshot()));
 ```
 
 ```js
-// The client: no metaschema, about 18 KB of protoarray.
+// The client: no metaschema, about 21 KB of protoarray.
 import { Schema } from '@alexify/protoarray';
 
 const User = Schema.from(await (await fetch('/schemas/user')).json());

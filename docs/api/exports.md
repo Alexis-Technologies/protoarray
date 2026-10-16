@@ -159,7 +159,7 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 | `Snapshot`, `ModelLike`, `MetaschemaModule`, `SchemaSource` | what a schema is built from |
 | `AnySchema` | any `Schema` instance, what the functions and the registry accept |
 | `Collection<Output, Input>` | the type of `schema.list` |
-| `SchemaOptions`, `ModelOptions`, `DecodeOptions`, `Backend`, `Layout`, `WireType`, `CompiledCodec` | options and their values |
+| `SchemaOptions`, `ModelOptions`, `EntityOptions`, `DecodeOptions`, `Backend`, `Layout`, `WireType`, `CompiledCodec`, `Codec` | options and their values |
 | `SchemaErrorCode`, `EncodeErrorCode`, `DecodeErrorCode` | the `code` unions |
 
 See [TypeScript](/guide/typescript) for how a schema takes its types from metaschema.
@@ -173,8 +173,6 @@ See [TypeScript](/guide/typescript) for how a schema takes its types from metasc
 | `Schema.keys(keys)` | a definition of `any` fields |
 | `schema.check(value)`, `check(schema, value)`, `validate: 'encode' \| 'both' \| 'decode'` | metaschema's `check` and `parse`; `validate` is a boolean |
 | `schema.definition` | `schema.snapshot`, `schema.source` |
-| `Schema.resolve` | `resolve` from `@alexify/protoarray/resolve`, or its `register()` |
-| `@alexify/protoarray/metaschema` | `Schema.from`, `Schema.fromModel`, `SchemaRegistry.from` |
 | `Infer`, `Input`, `Encoded`, `Definition` and the other definition types | `Schema<Output, Input>`, `Decoded`, `InputOf`, `OutputOf` |
 
 See [Migrating from 1.x](/guide/migrating-from-1).

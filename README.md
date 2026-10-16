@@ -82,7 +82,7 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
   imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve,
-  streaming and standalone extras are subpaths of 1.8–2.6 KB each. Generated code where the
+  streaming and standalone extras are subpaths of 1.8–2.5 KB each. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
   standalone module generated at build time.
 
@@ -136,21 +136,21 @@ text or bytes and back.
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,379,640 (×1.00) | 959,977 (×1.00) | 266 | 212 | 178 |
-| protoarray (codegen) | 2,049,171 (×1.49) | 1,688,759 (×1.76) | 135 | 134 | 110 |
-| protobufjs | 1,297,138 (×0.94) | 1,434,026 (×1.49) | 115 | 127 | 117 |
-| avsc | 1,644,596 (×1.19) | 1,798,371 (×1.87) | 97 | 111 | 101 |
-| msgpackr (records, shared structures) | 1,482,145 (×1.07) | 2,652,598 (×2.76) | 108 | 124 | 112 |
+| JSON | 1,417,812 (×1.00) | 982,136 (×1.00) | 266 | 212 | 178 |
+| protoarray (codegen) | 2,082,841 (×1.47) | 1,726,288 (×1.76) | 135 | 134 | 110 |
+| protobufjs | 1,383,211 (×0.98) | 1,495,901 (×1.52) | 115 | 127 | 117 |
+| avsc | 1,656,205 (×1.17) | 1,851,547 (×1.89) | 97 | 111 | 101 |
+| msgpackr (records, shared structures) | 1,465,051 (×1.03) | 2,728,598 (×2.78) | 108 | 124 | 112 |
 
 **records** — 1000 records of the same shape
 
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| JSON | 1,450 (×1.00) | 924 (×1.00) | 271,215 | 33,793 | 29,133 |
-| protoarray (codegen) | 1,977 (×1.36) | 1,469 (×1.59) | 140,738 | 30,666 | 26,946 |
-| protobufjs | 1,306 (×0.90) | 1,385 (×1.50) | 120,459 | 31,414 | 28,985 |
-| avsc | 1,377 (×0.95) | 1,813 (×1.96) | 101,839 | 29,895 | 27,334 |
-| msgpackr (records, shared structures) | 1,517 (×1.05) | 2,942 (×3.18) | 112,274 | 30,957 | 28,370 |
+| JSON | 1,552 (×1.00) | 912 (×1.00) | 271,215 | 33,793 | 29,133 |
+| protoarray (codegen) | 2,003 (×1.29) | 1,515 (×1.66) | 140,738 | 30,666 | 26,946 |
+| protobufjs | 1,328 (×0.86) | 1,412 (×1.55) | 120,459 | 31,414 | 28,985 |
+| avsc | 1,364 (×0.88) | 1,823 (×2.00) | 101,839 | 29,895 | 27,334 |
+| msgpackr (records, shared structures) | 1,502 (×0.97) | 3,001 (×3.29) | 112,274 | 30,957 | 28,370 |
 
 _Node v24.14.1 (V8 13.6.233.17-node.44), Apple M3 Max, 2026-10-16. Median of 5 rounds in a fresh process per library and scenario (the spread of the rounds is in bench/results/compare.json); bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5._
 

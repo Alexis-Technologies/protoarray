@@ -94,11 +94,11 @@ backend always does.
 
 | Entry | min+gzip |
 | --- | ---: |
-| `@alexify/protoarray` (Node.js and browser entries) | 21.3 KB, 21.5 KB |
-| `@alexify/protoarray/registry`, over the core (it brings `resolve`) | +2.6 KB |
+| `@alexify/protoarray` (Node.js and browser entries) | 21.4 KB, 21.5 KB |
+| `@alexify/protoarray/registry`, over the core (it brings `resolve`) | +2.5 KB |
 | `@alexify/protoarray/resolve`, over the core | +1.9 KB |
 | `@alexify/protoarray/stream`, over the core | +1.8 KB |
-| `@alexify/protoarray/standalone`, over the core | +2.3 KB |
+| `@alexify/protoarray/standalone`, over the core | +2.4 KB |
 
 metaschema is not part of any of them: protoarray never requires it. A program that defines its
 schemas brings metaschema itself, the core or the 10.3 KB `./definition` entry that builds schemas

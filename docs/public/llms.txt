@@ -12,7 +12,7 @@ Key facts:
   a schema is typed by the metaschema Schema it is built from (`Schema<Output, Input>`,
   `Decoded<T>`)
 - Zero runtime dependencies, no build step, about 21 KB min+gzip for the core; subpaths
-  `/resolve`, `/registry`, `/stream` and `/standalone` add 1.8–2.6 KB each. protoarray never
+  `/resolve`, `/registry`, `/stream` and `/standalone` add 1.8–2.5 KB each. protoarray never
   requires metaschema: it recognises metaschema objects by their brand, reads snapshots as plain
   JSON, and reads a raw definition only with metaschema injected (`{ metaschema }`)
 - The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster

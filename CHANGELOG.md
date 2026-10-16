@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-16
+
 2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.
 Schemas are metaschema's: protoarray reads the snapshot a metaschema `Schema` or `Model` writes
 (format 1, plain JSON) into the plan its backends compile, so one definition validates with
@@ -17,9 +19,10 @@ wire (`delta`, `intern`, `sparse`, `layout`) name their places by path; checking
 given to encode is metaschema's. Versions that cannot follow the append-only rules read each
 other through `resolve` and a registry of schemas by id; collections stream item by item and
 shrink further with delta-encoded integers and interned strings; generated code can be written
-into a module for runtimes without code generation. The canonical form did not change: a schema
-of the same shape writes the same wire as in 1.x and every 1.x payload decodes the same way; its
-id is the same too, unless it references another schema by name (see Changed).
+into a module for runtimes without code generation. The wire did not change: a schema of the
+same shape writes the same wire as in 1.x and every 1.x payload decodes the same way; its
+canonical form and id are the same too, unless it references another schema by name or a name
+in it holds the canonical form's punctuation (see Changed).
 
 ### Removed
 
@@ -189,7 +192,7 @@ id is the same too, unless it references another schema by name (see Changed).
 - **The core is larger**, about 21.5 KB min+gzip (the bundle budget is 22 KB): the wire forms of
   metaschema's whole language, the text builder, the compaction options and the assembly of a
   snapshot's entities. The registry, streaming, resolve and standalone extras are subpaths that
-  add 1.8 to 2.6 KB each to a bundle that uses them.
+  add 1.8 to 2.5 KB each to a bundle that uses them.
 - **The entities of one snapshot are read together, then compiled**: every entity a reference
   reaches is read from a list (a chain of thousands of entities reads in linear time and never
   exhausts the stack), whether a payload carries a string table and whether a recursion goes
@@ -249,8 +252,9 @@ id is the same too, unless it references another schema by name (see Changed).
 ### Upgrading from 1.x
 
 The wire did not change: a 2.0 schema of the shape of a 1.x schema writes its payloads and has
-its id (unless it references another schema by name, whose shape the id now covers), so the two
-versions talk to each other. What changes is how a schema is defined:
+its id (unless it references another schema by name, whose shape the id now covers, or a name in
+it holds the canonical form's punctuation, which it now quotes), so the two versions talk to each
+other. What changes is how a schema is defined:
 
 - Define the schema in metaschema and build the protoarray schema from it:
   `Schema.from(new metaschema.Schema('User', definition))`, or keep the definition literal and
@@ -436,7 +440,8 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 - **CI** on GitHub Actions and a VitePress documentation site at
   [protoarray.vercel.app](https://protoarray.vercel.app/).
 
-[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/Alexis-Technologies/protoarray/releases/tag/v0.0.1

@@ -101,9 +101,20 @@ const parseArgs = () => {
   };
 };
 
+// The commit the numbers are of: a branch keeps the version of its last
+// release until it makes the next one.
+const commit = () => {
+  try {
+    const sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname });
+    return `+${String(sha).trim()}`;
+  } catch {
+    return '';
+  }
+};
+
 // Read through the filesystem: some packages do not export their package.json.
 const versionOf = (id) => {
-  if (id.startsWith('protoarray')) return require('../package.json').version;
+  if (id.startsWith('protoarray')) return `${require('../package.json').version}${commit()}`;
   if (id === 'json') return process.version;
   const name = id === 'msgpack' ? '@msgpack/msgpack' : id.replace('-records', '');
   const file = path.join(__dirname, '..', 'node_modules', name, 'package.json');

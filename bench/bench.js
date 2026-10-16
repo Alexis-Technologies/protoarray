@@ -165,8 +165,16 @@ const standalone = (schema) => {
   return module.exports;
 };
 
-// An async scenario: ops/sec as the median of five rounds of `count` runs.
-const benchAsync = async (name, fn, count = 20) => {
+// An async scenario: ops/sec as the median of five rounds, after a warm-up,
+// each round as many runs as fill `budget` milliseconds (a run being slow, a
+// fixed count of them made the spread of a round ±17%).
+const benchAsync = async (name, fn, budget = 250) => {
+  const warmed = performance.now();
+  let count = 0;
+  while (performance.now() - warmed < budget) {
+    await fn();
+    count += 1;
+  }
   const samples = [];
   for (let round = 0; round < 5; round++) {
     const start = performance.now();

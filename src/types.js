@@ -403,8 +403,17 @@ const kernel = (base64) => {
   // The JSON text of a value at `key` of an array, as JSON.stringify of the
   // array writes it, since JSON.stringify writes it: toJSON called once with
   // the key (a BigInt's too), not again on what it gives; undefined, a
-  // function and a symbol written as null.
+  // function and a symbol written as null. A value without toJSON (most
+  // often an array of scalars, written here whole) needs no key: it is
+  // written as it is, without an object around it.
   const text = (value, key) => {
+    const keyed =
+      ((typeof value === 'object' && value !== null) || typeof value === 'bigint') &&
+      typeof value.toJSON === 'function';
+    if (!keyed) {
+      const out = JSON.stringify(value);
+      return out === undefined ? 'null' : out;
+    }
     const name = `${key}`;
     const out = JSON.stringify({ [name]: value });
     return out.length === 2 ? 'null' : out.slice(JSON.stringify(name).length + 2, -1);

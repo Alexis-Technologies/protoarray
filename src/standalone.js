@@ -9,27 +9,36 @@
 // (`recipe`s from types.js):
 //
 // - `runtime: 'import'` (the default) imports this package and builds real
-//   Schema instances from the definitions with `{ compiled }`: the full API,
-//   `instanceof` the package's errors, and an error when the module is older
-//   than the definition (ERR_COMPILED_MISMATCH);
+//   Schema instances from the snapshots they were read from with `{ compiled
+//   }`, the entities of one snapshot together (Schema.fromModel): the full
+//   API, `instanceof` the package's errors, and an error when the module is
+//   older than the schema (ERR_COMPILED_MISMATCH). metaschema is not needed;
 // - `runtime: 'inline'` carries its own runtime instead: the source of the
 //   closed kernels of errors.js, types.js, layouts.js, the browser base64 and
 //   `inline` below, and exports plain objects with `encode`, `decode`,
-//   `stringify`, `parse` and `check`. Nothing to import; errors are told by
-//   their `name` and `code`.
+//   `stringify` and `parse`. Nothing to import; errors are told by their
+//   `name` and `code`.
 //
 // `runtime` is what modules of the first kind import.
 
-const { Schema, SETTINGS, codecOptions } = require('./schema.js');
+const { Schema, SETTINGS, ENTITY, codecOptions } = require('./schema.js');
 const codegen = require('./codegen.js');
 const errors = require('./errors.js');
 const types = require('./types.js');
 const layouts = require('./layouts.js');
 const base64 = require('./runtime/browser.js');
 const { SchemaDefinitionError } = errors;
-const { PLAN, CODEC, CHECKER, FOREIGN, isSchema } = require('./plan.js');
+const { PLAN, CODEC, isSchema } = require('./plan.js');
 
 const invalid = (text) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', text);
+
+// A collection in a layout of its own inside a record: its record's codec in
+// the layout, and the string table where the schema has one. Closed.
+const nesting = (kernelLayouts) => (spec) => {
+  let codec = kernelLayouts[spec.layout](spec.codec, spec.record, spec.validate);
+  if (spec.interned) codec = kernelLayouts.withTable(codec, spec.validate.decode);
+  return { codec };
+};
 
 // A slot over a schema of the module, read when the codec is called: a schema
 // may reach one defined after it, itself included.
@@ -42,28 +51,23 @@ const runtime = {
     get codec() {
       return target()[CODEC];
     },
-    get checker() {
-      return target()[CHECKER];
-    },
   }),
+  nested: nesting(layouts),
 };
 
 // What an inline module defines its schemas with: Schema's work around a
 // codec (the layouts, the string table, the shape of the value, the schema's
-// name on its errors), no more. Closed, like the kernels it runs on.
-const inline = (kernelErrors, kernelTypes, kernelLayouts) => {
+// name on its errors), no more. Closed, like the kernels it runs on, and given
+// `nesting` from outside, since its source is written into the module apart.
+const inline = (kernelErrors, kernelTypes, kernelLayouts, nested) => {
   const { EncodeError, DecodeError, boundary } = kernelErrors;
-  const all = { encode: true, decode: true };
   const define = (spec) => {
-    const wrap = (codec, validate) => {
-      let out = codec;
-      if (spec.layout === 'flat' || spec.layout === 'columns') {
-        out = kernelLayouts[spec.layout](out, spec.record, validate);
-      }
-      return spec.interned ? kernelLayouts.withTable(out, validate.decode) : out;
-    };
-    const codec = wrap(spec.codec, spec.validate);
-    const checker = wrap(spec.checker, all);
+    let codec = spec.codec;
+    const { validate } = spec;
+    if (spec.layout === 'flat' || spec.layout === 'columns') {
+      codec = kernelLayouts[spec.layout](codec, spec.record, validate);
+    }
+    if (spec.interned) codec = kernelLayouts.withTable(codec, validate.decode);
     const run = (call) => (spec.interned ? kernelLayouts.isolated(call) : call());
     const encodeWith = (target, value, method) => {
       if (spec.kind !== 'scalar' && (value === null || typeof value !== 'object')) {
@@ -104,30 +108,17 @@ const inline = (kernelErrors, kernelTypes, kernelLayouts) => {
         }
         return schema.decode(array, options);
       },
-      check: (value) => {
-        try {
-          encodeWith(checker, value, 'encode');
-          return null;
-        } catch (error) {
-          if (error instanceof EncodeError) return error;
-          throw error;
-        }
-      },
       toString: () => spec.canonical,
     };
     Object.defineProperty(schema, 'codec', { value: codec });
-    Object.defineProperty(schema, 'checker', { value: checker });
     return schema;
   };
   const slot = (target) => ({
     get codec() {
       return target().codec;
     },
-    get checker() {
-      return target().checker;
-    },
   });
-  return { define, slot, types: kernelTypes };
+  return { define, slot, nested: nested(kernelLayouts), types: kernelTypes };
 };
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -166,47 +157,24 @@ const exportsOf = (input) => {
   return entries;
 };
 
-// The schemas a plan calls through slots: embedded by value, referenced by
-// name, its own name included.
+// The schemas of the module a plan calls through slots: the entities it
+// references, its own included. A collection in a layout of its own inside a
+// record has no snapshot: its codec is written in place (`R.nested`).
 const reached = (node, out) => {
   if (node === null || node.kind === 'scalar') return;
   if (node.slot !== undefined) {
-    out.add(node.slot.schema);
-    if (node.kind === 'ref') return;
+    if (node.slot.schema.snapshot !== null) {
+      out.add(node.slot.schema);
+      return;
+    }
+    reached(node.slot.schema[PLAN].item, out);
+    return;
   }
   if (node.kind === 'struct') for (const field of node.fields) reached(field.node, out);
   else if (node.kind === 'union') for (const branch of node.branches) reached(branch.node, out);
   else if (node.kind === 'tuple') for (const item of node.items) reached(item.node, out);
   else if (node.kind === 'array') reached(node.item, out);
   else if (node.kind === 'map' || node.kind === 'dict') reached(node.value, out);
-};
-
-// A definition as a literal: schemas by the names the module gives them,
-// calculated fields and other functions left out (they have no position).
-const literal = (value, names) => {
-  if (isSchema(value)) return names.get(value);
-  if (Array.isArray(value)) return `[${value.map((item) => literal(item, names)).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    const keys = Object.keys(value).filter((key) => typeof value[key] !== 'function');
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${literal(value[key], names)}`).join(',')}}`;
-  }
-  return value === undefined ? 'undefined' : JSON.stringify(value);
-};
-
-// A helper of generated code as the expression that makes it again.
-const recipeOf = (helper, names) => {
-  if (Array.isArray(helper)) return JSON.stringify(helper);
-  if (helper.recipe !== undefined) return helper.recipe;
-  return `R.slot(()=>${names.get(helper.schema)})`;
-};
-
-// The codec of one schema as an expression: the generated function body run
-// with its helpers, as codegen.build runs it.
-const codecSource = (schema, checking, names) => {
-  const { target, options } = codecOptions(schema[PLAN], schema[SETTINGS], checking);
-  const { body, helpers } = codegen.generate(target, options);
-  const recipes = helpers.map((helper) => recipeOf(helper, names)).join(',');
-  return `(function(H,F,N,E){${body}})([${recipes}],F,N,E)`;
 };
 
 // What the record of a flat or columns collection is for the layouts.
@@ -219,32 +187,56 @@ const recordOf = (plan) => ({
   })),
 });
 
-const importDefinition = (schema, names) => {
+// A helper of generated code as the expression that makes it again: a type
+// node by its recipe, a schema of the module by its name, a nested layout in
+// place.
+const recipeOf = (helper, names) => {
+  if (Array.isArray(helper)) return JSON.stringify(helper);
+  if (helper.recipe !== undefined) return helper.recipe;
+  const { schema } = helper;
+  if (schema.snapshot !== null) return `R.slot(()=>${names.get(schema)})`;
+  const plan = schema[PLAN];
+  const { interned, options } = codecOptions(plan, schema[SETTINGS]);
+  const spec = [
+    `layout:${JSON.stringify(plan.layout)}`,
+    `record:${JSON.stringify(recordOf(plan))}`,
+    `interned:${interned}`,
+    `validate:${JSON.stringify(options.validate)}`,
+    `codec:${codecSource(schema, names)}`,
+  ];
+  return `R.nested({${spec.join(',')}})`;
+};
+
+// The codec of one schema as an expression: the generated function body run
+// with its helpers, as codegen.build runs it.
+const codecSource = (schema, names) => {
+  const { target, options } = codecOptions(schema[PLAN], schema[SETTINGS]);
+  const { body, helpers } = codegen.generate(target, options);
+  const recipes = helpers.map((helper) => recipeOf(helper, names)).join(',');
+  return `(function(H,F,N,E){${body}})([${recipes}],F,N,E)`;
+};
+
+// The options a schema of the module is built with again, its compiled codec
+// among them. A fingerprint function has no source: the id travels instead.
+const OPTIONS = ['validate', 'sparse', 'layout', 'intern', 'delta', 'stringify', 'references'];
+
+const optionsSource = (schema, names) => {
   const settings = schema[SETTINGS];
-  const options = [];
-  for (const key of ['validate', 'sparse', 'layout', 'intern', 'stringify']) {
-    options.push(`${key}:${JSON.stringify(settings[key])}`);
-  }
-  const by = Object.keys(settings.schemas).filter((key) => isSchema(settings.schemas[key]));
-  if (by.length > 0) {
-    const entries = by.map((key) => `${JSON.stringify(key)}:${names.get(settings.schemas[key])}`);
-    options.push(`schemas:{${entries.join(',')}}`);
-  }
+  const options = OPTIONS.map((key) => `${key}:${JSON.stringify(settings[key])}`);
+  options.push(`types:${JSON.stringify(settings.types)}`);
   const compiled = [
     `canonical:${JSON.stringify(schema.toString())}`,
     `id:${JSON.stringify(schema.id)}`,
-    `codec:${codecSource(schema, false, names)}`,
-    `checker:${codecSource(schema, true, names)}`,
+    `codec:${codecSource(schema, names)}`,
   ];
   options.push(`compiled:{${compiled.join(',')}}`);
-  const definition = literal(schema.definition, names);
-  return `new Schema(${JSON.stringify(schema.name)},${definition},{${options.join(',')}})`;
+  return `{${options.join(',')}}`;
 };
 
 const inlineDefinition = (schema, names) => {
   const plan = schema[PLAN];
   const settings = schema[SETTINGS];
-  const { validate } = codecOptions(plan, settings, false).options;
+  const { interned, options } = codecOptions(plan, settings);
   const spec = [
     `name:${JSON.stringify(schema.name)}`,
     `id:${JSON.stringify(schema.id)}`,
@@ -252,10 +244,9 @@ const inlineDefinition = (schema, names) => {
     `kind:${JSON.stringify(plan.kind)}`,
     `keys:${JSON.stringify(schema.keys)}`,
     `layout:${JSON.stringify(schema.layout)}`,
-    `interned:${codecOptions(plan, settings, false).interned}`,
-    `validate:${JSON.stringify(validate)}`,
-    `codec:${codecSource(schema, false, names)}`,
-    `checker:${codecSource(schema, true, names)}`,
+    `interned:${interned}`,
+    `validate:${JSON.stringify(options.validate)}`,
+    `codec:${codecSource(schema, names)}`,
   ];
   if (schema.layout === 'flat' || schema.layout === 'columns') {
     spec.push(`record:${JSON.stringify(recordOf(plan))}`);
@@ -275,20 +266,12 @@ const toSource = (input, options) => {
     if (plan.text !== undefined) {
       throw invalid('A resolved schema is built at runtime: write its writer and reader instead');
     }
-    if (
-      schema.definition !== null &&
-      typeof schema.definition === 'object' &&
-      schema.definition[FOREIGN] !== undefined
-    ) {
-      throw invalid('A schema of a metaschema Schema: write the one fromMetaschema builds instead');
+    if (schema.snapshot === null) {
+      throw invalid('The list of a schema is built at runtime: write the schema instead');
     }
     names.set(schema, `S${names.size}`);
-    const settings = schema[SETTINGS];
     const deps = new Set();
     reached(plan, deps);
-    for (const key of Object.keys(settings.schemas)) {
-      if (isSchema(settings.schemas[key])) deps.add(settings.schemas[key]);
-    }
     deps.delete(schema);
     for (const dep of deps) visit(dep);
     order.push(schema);
@@ -298,7 +281,7 @@ const toSource = (input, options) => {
   const esm = format === 'esm';
   const lines = [
     `// Generated by @alexify/protoarray toSource (runtime: ${kind}, format: ${format}).`,
-    '// Do not edit: generate it again when a definition changes.',
+    '// Do not edit: generate it again when a schema changes.',
   ];
   if (!esm) lines.push("'use strict';");
   if (kind === 'import') {
@@ -315,16 +298,52 @@ const toSource = (input, options) => {
       'const E = R.refuse;',
       'const T = R.types;',
     );
+    // The entities of one snapshot are built together, so that their
+    // references reach one another; one entity built twice with other options
+    // is built on its own.
+    const groups = new Map();
+    const alone = [];
+    for (const schema of order) {
+      let group = groups.get(schema.snapshot);
+      if (group === undefined) groups.set(schema.snapshot, (group = new Map()));
+      if (group.has(schema[ENTITY])) alone.push(schema);
+      else group.set(schema[ENTITY], schema);
+    }
+    let index = 0;
+    const snapshots = new Map();
+    for (const [snapshot, group] of groups) {
+      const model = `M${index++}`;
+      snapshots.set(snapshot, model);
+      lines.push(`const ${model}$ = ${JSON.stringify(snapshot)};`);
+      const entities = [];
+      for (const [entity, schema] of group) {
+        entities.push(`${JSON.stringify(entity)}:${optionsSource(schema, names)}`);
+      }
+      lines.push(
+        `const ${model} = Schema.fromModel(${model}$,{entities:{${entities.join(',')}}});`,
+      );
+      for (const [entity, schema] of group) {
+        lines.push(`const ${names.get(schema)} = ${model}[${JSON.stringify(entity)}];`);
+      }
+    }
+    for (const schema of alone) {
+      const own = optionsSource(schema, names).slice(0, -1);
+      const model = snapshots.get(schema.snapshot);
+      const entity = `entity:${JSON.stringify(schema[ENTITY])}`;
+      const name = JSON.stringify(schema.name);
+      lines.push(`const ${names.get(schema)} = new Schema(${name},${model}$,${own},${entity}});`);
+    }
   } else {
     lines.push(`const errors = (${errors.kernel})();`);
     lines.push(`const base64 = (${base64.kernel})();`);
     lines.push(`const T = (${types.kernel})(base64);`);
     lines.push(`const layouts = (${layouts.kernel})(errors, T);`);
-    lines.push(`const R = (${inline})(errors, T, layouts);`);
+    lines.push(`const R = (${inline})(errors, T, layouts, ${nesting});`);
     lines.push('const F = errors.fail;', 'const N = errors.nest;', 'const E = errors.refuse;');
+    for (const schema of order) {
+      lines.push(`const ${names.get(schema)} = ${inlineDefinition(schema, names)};`);
+    }
   }
-  const write = kind === 'import' ? importDefinition : inlineDefinition;
-  for (const schema of order) lines.push(`const ${names.get(schema)} = ${write(schema, names)};`);
   if (entries.length === 1 && entries[0][0] === null) {
     const name = names.get(entries[0][1]);
     lines.push(esm ? `export default ${name};` : `module.exports = ${name};`);

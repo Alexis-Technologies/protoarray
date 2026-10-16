@@ -1,5 +1,6 @@
-// Schemas for the CLI tests: one embedded in another, and a recursion.
-const { Schema } = require('../../index.js');
+// Schemas for the CLI tests, in metaschema: one embedded in another, and a
+// recursion.
+const { Schema } = require('@alexify/metaschema');
 
 const Address = new Schema('Address', { city: 'string', zip: '?string' });
 

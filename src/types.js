@@ -43,21 +43,20 @@ const kernel = (base64) => {
   const scalar = (type, rest) => ({ kind: 'scalar', type, expected: type, code: 'type', ...rest });
 
   // An identity type travels as it is: `pack` and `unpack` are null, `check`
-  // validates the wire form and `accept` the value given to encode. A converted
-  // type checks and converts in one call: `checkedUnpack` on the wire, and
-  // `checkedPack` on the value given to encode where checking and converting
-  // share their work (the others keep `accept` and `pack` apart); both give the
-  // converted value, or undefined for one of the wrong type. Without validation
-  // the wire is trusted, so `unpack` must be total: what has no wire form of
-  // the type stays as it is instead of throwing or reading a prototype. An enum
-  // keeps a `check` too: a union reads its tag through it.
+  // validates the wire form. A converted type checks and converts the wire in
+  // one call, `checkedUnpack`, which gives the converted value or undefined for
+  // one of the wrong type. Without validation the wire is trusted, so `unpack`
+  // must be total: what has no wire form of the type stays as it is instead of
+  // throwing or reading a prototype. The values given to encode are trusted
+  // too, but where a value must be looked up or measured (an enum for a
+  // union's tag, the items of a list of differences) `checkedPack` converts it
+  // or gives undefined. An enum keeps a `check` too: a union reads its tag
+  // through it.
   const identity = (type) => {
     // oxlint-disable-next-line valid-typeof
     const check = type === 'json' ? null : (v) => typeof v === type;
-    // NaN and the infinities have no JSON form: they would travel as null.
-    const accept = type === 'number' ? Number.isFinite : check;
     // A json slot holds null as a value, so it is never required.
-    return scalar(type, { check, accept, pack: null, unpack: null, nullable: type === 'json' });
+    return scalar(type, { check, pack: null, unpack: null, nullable: type === 'json' });
   };
 
   // Whether a value is a Set or a Map, from this realm or another one.
@@ -95,13 +94,7 @@ const kernel = (base64) => {
     // metaschema's names for a value of any kind: the same slot as json.
     any: () => identity('json'),
     unknown: () => identity('json'),
-    integer: () =>
-      scalar('integer', {
-        check: Number.isInteger,
-        accept: Number.isInteger,
-        pack: null,
-        unpack: null,
-      }),
+    integer: () => scalar('integer', { check: Number.isInteger, pack: null, unpack: null }),
     // A slot that is always null: whatever is given travels as null, and only
     // null decodes.
     null: () =>
@@ -110,7 +103,6 @@ const kernel = (base64) => {
         check: null,
         pack: () => null,
         unpack: (v) => v,
-        checkedPack: () => undefined,
         checkedUnpack: () => undefined,
       }),
     date: () =>
@@ -124,7 +116,6 @@ const kernel = (base64) => {
       scalar('bytes', {
         // Canonical base64 with padding (RFC 4648 §4): what toBase64 writes.
         // Decoding is the check, so a validated slot decodes once.
-        checkedPack: (v) => (isBytes(v) ? toBase64(v) : undefined),
         pack: (v) => (isBytes(v) ? toBase64(v) : v),
         unpack: (v) => {
           const bytes = typeof v === 'string' ? fromBase64(v) : null;
@@ -137,10 +128,6 @@ const kernel = (base64) => {
       }),
     bigint: () =>
       scalar('bigint', {
-        accept: (v) =>
-          typeof v === 'bigint' ||
-          Number.isSafeInteger(v) ||
-          (typeof v === 'string' && DIGITS.test(v)),
         pack: (v) => String(v),
         unpack: (v) => {
           try {
@@ -166,7 +153,7 @@ const kernel = (base64) => {
       check: (v) => typeof v === 'number' && (v | 0) === v && v >= 0 && v < size,
       // Only a string or a number can be a value: anything else is not looked
       // up, since turning an object into a key may throw on its own. The lookup
-      // coerces its key ('20' finds 20); validation wants the value itself.
+      // coerces its key ('20' finds 20); a union's tag wants the value itself.
       checkedPack: (v) => {
         const t = typeof v;
         if (t !== 'string' && t !== 'number') return undefined;
@@ -231,7 +218,6 @@ const kernel = (base64) => {
     };
     const node = scalar('flags', {
       names,
-      accept: (v) => typeof v === 'object' && !Array.isArray(v),
       pack: (v) => {
         let mask = 0;
         for (let i = 0; i < size && i < WORD; i++) if (v[names[i]]) mask |= 1 << i;
@@ -272,7 +258,6 @@ const kernel = (base64) => {
     const node = scalar('string', {
       intern: true,
       pack,
-      checkedPack: (v) => (typeof v === 'string' ? pack(v) : undefined),
       unpack: (v) => {
         const value = typeof v === 'number' ? INTERN.table[v] : undefined;
         return value === undefined ? v : value;
@@ -394,10 +379,6 @@ const kernel = (base64) => {
     // A writer's integer read as a BigInt.
     bigint: () => {
       const node = scalar('bigint', {
-        checkedPack: (v) => {
-          if (typeof v === 'bigint') return BigInt.asIntN(54, v) === v ? Number(v) : undefined;
-          return Number.isSafeInteger(v) ? v : undefined;
-        },
         pack: (v) => (typeof v === 'bigint' ? Number(v) : v),
         unpack: (v) => (Number.isInteger(v) ? BigInt(v) : v),
         checkedUnpack: (v) => (Number.isInteger(v) ? BigInt(v) : undefined),
@@ -412,7 +393,6 @@ const kernel = (base64) => {
       const mapped = values.map((value) => (known(value) ? value : fallback));
       const node = scalar(reader.type, {
         pack: writer.pack,
-        checkedPack: writer.checkedPack,
         unpack: (v) => {
           if (!check(v)) return v;
           return mapped[v] === undefined ? values[v] : mapped[v];
@@ -427,7 +407,6 @@ const kernel = (base64) => {
     choice: (reader, fallback) => {
       const node = scalar('enum', {
         pack: (v) => v,
-        checkedPack: (v) => (typeof v === 'string' ? v : undefined),
         unpack: (v) => v,
         checkedUnpack: (v) => {
           if (typeof v !== 'string') return undefined;
@@ -452,7 +431,6 @@ const kernel = (base64) => {
       const isMask = (v) => typeof v === 'number' || Array.isArray(v);
       return scalar('flags', {
         names,
-        accept: writer.accept,
         pack: writer.pack,
         unpack: (v) => (isMask(v) ? project(writer.unpack(v)) : v),
         checkedUnpack: (v) => {
@@ -468,7 +446,6 @@ const kernel = (base64) => {
         nullable: true,
         check: null,
         pack: () => null,
-        checkedPack: () => undefined,
         unpack: () => null,
         checkedUnpack: () => null,
       }),

@@ -1,10 +1,9 @@
-// The wire format as data: a definition, a value, the array it travels as and
-// the object it comes back as. Docs examples are drawn from this list, so they
-// cannot drift from the code.
-const { Schema } = require('../../index.js');
+// The wire format as data: a metaschema definition, the options of the wire,
+// a value, the array it travels as and the object it comes back as. Docs
+// examples are drawn from this list, so they cannot drift from the code.
+const { Schema } = require('@alexify/metaschema');
 
 const Address = Schema.from({ city: 'string', zip: '?string' });
-const Items = Schema.from({ array: { a: 'number', b: '?number' } }, { layout: 'flat' });
 
 const AT = 1700000000000;
 
@@ -92,8 +91,9 @@ const VECTORS = [
     decoded: { id: 1, home: { city: 'Kyiv', zip: '01001' }, work: { city: 'Lviv', zip: null } },
   },
   {
-    name: 'a schema with a layout keeps it when used by value',
-    definition: { items: Items },
+    name: 'a collection in a layout of its own inside a record',
+    definition: { items: { array: { a: 'number', b: '?number' } } },
+    options: { layout: { items: 'flat' } },
     value: { items: [{ a: 1 }, { a: 2, b: 3 }] },
     wire: [[1, null, 2, 3]],
     decoded: {
@@ -223,9 +223,15 @@ const VECTORS = [
   },
   {
     name: 'a kind key is metadata',
-    definition: { Entity: {}, a: 'number' },
+    definition: { Struct: {}, a: 'number' },
     value: { a: 1 },
     wire: [1],
+  },
+  {
+    name: 'a stored kind adds the id field of its entity',
+    definition: { Entity: {}, a: 'number' },
+    value: { a: 1, id: 'u-1' },
+    wire: [1, 'u-1'],
   },
   {
     name: 'union: the tag leads and the discriminator does not travel',
@@ -389,7 +395,8 @@ const VECTORS = [
   },
   {
     name: 'a list of integers travels as differences',
-    definition: { ids: { array: 'integer', delta: true }, at: { array: 'date', delta: true } },
+    definition: { ids: { array: 'integer' }, at: { array: 'date' } },
+    options: { delta: ['ids', 'at'] },
     value: { ids: [100, 101, 103, 102], at: [new Date(AT), new Date(AT + 500)] },
     wire: [
       [100, 1, 2, -1],
@@ -398,7 +405,7 @@ const VECTORS = [
   },
   {
     name: 'interned strings travel as indices into the message table',
-    definition: { role: { type: 'string', intern: true }, tags: { array: '?string' } },
+    definition: { role: 'string', tags: { array: '?string' } },
     options: { intern: true },
     value: { role: 'admin', tags: ['admin', null, 'editor'] },
     wire: [
@@ -448,14 +455,8 @@ const VECTORS = [
   },
   {
     name: 'columns layout with delta columns',
-    definition: {
-      array: {
-        id: { type: 'integer', delta: true },
-        at: { type: 'date', delta: true },
-        n: 'number',
-      },
-    },
-    options: { layout: 'columns' },
+    definition: { array: { id: 'integer', at: 'date', n: 'number' } },
+    options: { layout: 'columns', delta: ['[].id', '[].at'] },
     value: [
       { id: 100, at: new Date(AT), n: 1 },
       { id: 101, at: new Date(AT + 60000), n: 2 },
@@ -483,4 +484,4 @@ const VECTORS = [
   },
 ];
 
-module.exports = { VECTORS, Address, Items, AT };
+module.exports = { VECTORS, Address, AT };

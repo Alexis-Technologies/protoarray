@@ -4,6 +4,7 @@ const { Schema, DecodeError, EncodeError, encodeEach, decodeEach } = require('..
 const stream = require('../../stream.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
 const { generate } = require('../support/generate.js');
+const { define, named } = require('../support/schema.js');
 
 const collect = async (iterable) => {
   const out = [];
@@ -38,8 +39,7 @@ const bytes = (text, size) => {
 };
 
 for (const [backend, options] of BACKENDS) {
-  const both = { ...options, validate: 'both' };
-  const User = new Schema('User', { id: 'number', name: '?string' }, both);
+  const User = named('User', { id: 'number', name: '?string' }, options);
 
   test(`Stream (${backend}): encodeEach and decodeEach`, async () => {
     assert.deepStrictEqual(
@@ -61,12 +61,19 @@ for (const [backend, options] of BACKENDS) {
       path: '[0]',
     });
     // An error names the index of its value, and the schema.
+    const Owner = named('Owner', { id: 'number', home: { city: 'string' } }, options);
     assert.throws(
-      () => [...User.encodeEach([{ id: 1 }, { id: 'x' }])],
+      () => [
+        ...Owner.encodeEach([
+          { id: 1, home: { city: 'K' } },
+          { id: 2, home: 5 },
+        ]),
+      ],
       (error) => {
         assert.ok(error instanceof EncodeError);
-        assert.strictEqual(error.path, '[1].id');
-        assert.strictEqual(error.schema, 'User');
+        assert.strictEqual(error.code, 'object');
+        assert.strictEqual(error.path, '[1].home');
+        assert.strictEqual(error.schema, 'Owner');
         return true;
       },
     );
@@ -77,7 +84,7 @@ for (const [backend, options] of BACKENDS) {
     });
     assert.throws(() => [...User.encodeEach([null])], { code: 'object', path: '[0]' });
     // Lazy: nothing is converted before it is asked for.
-    const lazy = User.encodeEach([{ id: 1 }, { id: 'x' }]);
+    const lazy = User.encodeEach([{ id: 1 }, null]);
     assert.deepStrictEqual(lazy.next().value, [1]);
     for (const bad of ['ab', 1, null, {}]) {
       assert.throws(() => User.encodeEach(bad), {
@@ -105,9 +112,10 @@ for (const [backend, options] of BACKENDS) {
       '[1]\n',
       '[2,"é\\"\\n"]\n',
     ]);
-    assert.throws(() => [...stream.stringifyLines(User, [{ id: 1 }, {}])], {
-      code: 'required',
-      path: '[1].id',
+    assert.throws(() => [...stream.stringifyLines(User, [{ id: 1 }, 5])], {
+      code: 'object',
+      path: '[1]',
+      schema: 'User',
     });
     const decoded = [
       { id: 1, name: null },
@@ -173,9 +181,9 @@ for (const [backend, options] of BACKENDS) {
       { id: 2, name: 'é' },
       { id: 3, name: null },
     ]);
-    await rejects(streamOf([{ id: 1 }, { id: 'x' }]).pipeThrough(stream.stringifyStream(User)), {
-      code: 'type',
-      path: '[1].id',
+    await rejects(streamOf([{ id: 1 }, 'x']).pipeThrough(stream.stringifyStream(User)), {
+      code: 'object',
+      path: '[1]',
     });
     await rejects(streamOf(['[1]\n["x"]']).pipeThrough(stream.parseStream(User)), {
       code: 'type',
@@ -206,7 +214,7 @@ for (const [backend, options] of BACKENDS) {
       assert.deepStrictEqual(await collect(stream.parseItems(Users, bytes(text, size))), decoded);
     }
     const spaced = ' \n[ [1 , "x"] ,\t[2] , [3,{"a":[1,{"b":"]"}]}] ]\r\n ';
-    const Loose = Schema.from({ array: { id: 'number', name: '?json' } }, options);
+    const Loose = define({ array: { id: 'number', name: '?json' } }, options);
     assert.deepStrictEqual(await collect(stream.parseItems(Loose, spaced)), Loose.parse(spaced));
     assert.deepStrictEqual(await collect(stream.parseItems(Users, '[]')), []);
     assert.deepStrictEqual(await collect(stream.parseItems(Users, ['[', ' ', ']'])), []);
@@ -216,20 +224,41 @@ for (const [backend, options] of BACKENDS) {
       path: '[1]',
       message: 'Field "[1]" is not of expected type: object',
     });
-    const Optional = Schema.from({ array: { type: 'json', required: false } }, both);
+    const Optional = define({ array: { type: 'json', required: false } }, options);
     assert.deepStrictEqual(await collect(stream.parseItems(Optional, '[null,1]')), [null, 1]);
     assert.deepStrictEqual(
       [...stream.stringifyItems(Optional, [null, { a: 1 }])].join(''),
       '[null,{"a":1}]',
     );
-    const Nullable = Schema.from({ array: { id: 'number' }, required: false }, both);
+    const Nullable = define({ array: { id: 'number' }, required: false }, options);
     assert.deepStrictEqual([...stream.stringifyItems(User.list, [{ id: 1 }])].join(''), '[[1]]');
-    assert.throws(() => [...stream.stringifyItems(Users, [{ id: 1 }, null])], {
-      code: 'type',
+    // The values are trusted: a null record is written as stringify writes it.
+    const holes = [{ id: 1 }, null];
+    assert.strictEqual([...stream.stringifyItems(Users, holes)].join(''), '[[1],null]');
+    assert.strictEqual(Users.stringify(holes), '[[1],null]');
+    assert.deepStrictEqual(Nullable.decode([[1]]), [{ id: 1 }]);
+    // An error inside a record names it, in rows and in a flat collection.
+    assert.throws(() => [...stream.stringifyItems(Users, [{ id: 1 }, 5])], {
+      code: 'object',
       path: '[1]',
     });
-    assert.deepStrictEqual(Nullable.decode([[1]]), [{ id: 1 }]);
-    const Trusting = Schema.from({ array: { id: 'number' } }, { ...options, validate: false });
+    const Flat = define(
+      { array: { id: 'number', at: { array: 'integer' } } },
+      { ...options, layout: 'flat', delta: ['[].at'] },
+    );
+    assert.throws(
+      () => [
+        ...stream.stringifyItems(Flat, [
+          { id: 1, at: [1] },
+          { id: 2, at: [0.5] },
+        ]),
+      ],
+      {
+        code: 'type',
+        path: '[1].at',
+      },
+    );
+    const Trusting = define({ array: { id: 'number' } }, { ...options, validate: false });
     assert.deepStrictEqual([...stream.stringifyItems(Trusting, [null])].join(''), '[null]');
     assert.deepStrictEqual(await collect(stream.parseItems(Trusting, '[null]')), [null]);
     await rejects(stream.parseItems(Users, '[[1],["x"]]'), { code: 'type', path: '[1].id' });
@@ -258,7 +287,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Stream (${backend}): flat collections and what cannot stream`, async () => {
-    const Flat = Schema.from({ array: { a: 'number', b: '?string' } }, { ...both, layout: 'flat' });
+    const Flat = define({ array: { a: 'number', b: '?string' } }, { ...options, layout: 'flat' });
     const values = [{ a: 1 }, { a: 2, b: 'x' }];
     const text = [...stream.stringifyItems(Flat, values)].join('');
     assert.strictEqual(text, '[1,null,2,"x"]');
@@ -274,10 +303,16 @@ for (const [backend, options] of BACKENDS) {
     await rejects(stream.parseItems(Flat, '[1,null,"x",null]'), { code: 'type', path: '[1].a' });
     await rejects(stream.parseItems(Flat, '[1,null,2,"x}]'), { code: 'json', path: '' });
     await rejects(stream.parseItems(Flat, '[1,null,2,x]'), { code: 'json', path: '[1]' });
-    assert.throws(() => [...stream.stringifyItems(Flat, [null])], { code: 'type', path: '[0]' });
+    // A null record is a row of nulls, as stringify writes it.
+    assert.strictEqual([...stream.stringifyItems(Flat, [null])].join(''), '[null,null]');
+    assert.strictEqual(Flat.stringify([null]), '[null,null]');
+    assert.throws(() => [...stream.stringifyItems(Flat, [{ a: 1 }, 5])], {
+      code: 'object',
+      path: '[1]',
+    });
     for (const schema of [
-      Schema.from({ array: { a: 'number' } }, { ...options, layout: 'columns' }),
-      Schema.from({ array: { a: 'string' } }, { ...options, intern: true }),
+      define({ array: { a: 'number' } }, { ...options, layout: 'columns' }),
+      define({ array: { a: 'string' } }, { ...options, intern: true }),
       User,
     ]) {
       assert.throws(() => stream.parseItems(schema, '[]'), {
@@ -291,8 +326,8 @@ for (const [backend, options] of BACKENDS) {
 
   test(`Stream (${backend}): parseItems agrees with parse on generated collections`, async () => {
     for (let seed = 1; seed <= 30; seed++) {
-      const { definition, value } = generate(seed);
-      const List = Schema.from(definition, options).list;
+      const { definition, options: shaped, value } = generate(seed);
+      const List = define(definition, { ...shaped, ...options }).list;
       // An interned collection has one table for the whole payload: no items on their own.
       if (List.toString().includes('string*')) continue;
       const text = List.stringify([value, value]);
@@ -304,7 +339,7 @@ for (const [backend, options] of BACKENDS) {
 }
 
 test('Stream: register() installs the functions as methods of Schema', async () => {
-  const User = Schema.from({ id: 'number' });
+  const User = define({ id: 'number' });
   assert.strictEqual(User.parseLines, undefined);
   stream.register();
   stream.register();
@@ -320,7 +355,7 @@ test('Stream: register() installs the functions as methods of Schema', async () 
 // The scanner finds where items end through escapes, quotes and brackets in
 // strings, whatever byte or character a chunk is cut at.
 test('Stream: parseItems at every split point of strings full of escapes', async () => {
-  const List = Schema.from({ array: { a: 'string', b: '?json' } });
+  const List = define({ array: { a: 'string', b: '?json' } });
   const pool = ['', 'x', '\\', '"', '\\"', 'a\\\\b', '[', ']', '{', '}', ',', 'é', '\u{1F600}'];
   let seed = 7;
   const random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;

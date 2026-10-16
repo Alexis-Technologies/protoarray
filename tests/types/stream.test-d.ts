@@ -1,4 +1,5 @@
 import { expectError, expectType } from 'tsd';
+import { Schema as Definition } from '@alexify/metaschema';
 import { Schema, encodeEach, decodeEach } from '../../index.js';
 import {
   parseItems,
@@ -10,14 +11,14 @@ import {
   stringifyStream,
 } from '../../stream.js';
 
-const User = Schema.from({ id: 'number', name: '?string' });
+const User = Schema.from(Definition.from({ id: 'number', name: '?string' }));
 type User = { id: number; name: string | null };
 declare const asyncUsers: AsyncIterable<{ id: number }>;
 
-expectType<Generator<unknown[], void, undefined>>(User.encodeEach([{ id: 1 }]));
-expectType<AsyncGenerator<unknown[], void, undefined>>(User.encodeEach(asyncUsers));
+expectType<Generator<unknown, void, undefined>>(User.encodeEach([{ id: 1 }]));
+expectType<AsyncGenerator<unknown, void, undefined>>(User.encodeEach(asyncUsers));
 expectType<Generator<User, void, undefined>>(User.decodeEach([[1]], { strict: true }));
-expectType<Generator<unknown[], void, undefined>>(encodeEach(User, [{ id: 1 }]));
+expectType<Generator<unknown, void, undefined>>(encodeEach(User, [{ id: 1 }]));
 expectType<AsyncGenerator<User, void, undefined>>(decodeEach(User, asyncUsers));
 expectError(User.encodeEach([{ id: 'x' }]));
 

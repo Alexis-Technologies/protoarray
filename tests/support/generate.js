@@ -1,5 +1,9 @@
 // Seeded random definitions and matching values for the parity suite: wide
-// enough to reach every node kind, every optionality and nesting.
+// enough to reach every node kind, every optionality and nesting. A shape is
+// drawn in a compact form of its own, with `delta` and `intern` on the fields,
+// and handed out as the metaschema definition and the options by path that
+// make it (translate.js).
+const { translate } = require('./translate.js');
 const SCALARS = [
   'string',
   'number',
@@ -200,8 +204,10 @@ const wide = (random) => {
 
 const generate = (seed) => {
   const random = prng(seed);
-  const definition = seed % 5 === 0 ? wide(random) : struct(random, 2);
-  return { definition, value: record(random, definition), random };
+  const shape = seed % 5 === 0 ? wide(random) : struct(random, 2);
+  const value = record(random, shape);
+  const { definition, options } = translate(shape);
+  return { definition, options, value, random };
 };
 
 module.exports = { generate, prng };

@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@alexify/metaschema':
-        specifier: ^3.3.0
-        version: 3.3.0
+        specifier: ^3.4.0
+        version: 3.4.0
       '@msgpack/msgpack':
         specifier: ^3.1.3
         version: 3.1.3
@@ -59,8 +59,8 @@ importers:
 
 packages:
 
-  '@alexify/metaschema@3.3.0':
-    resolution: {integrity: sha512-ppydpsP+fmqiMGFZULHqVEgkvcYzSAYLZVDdCvboGpycy6z1yB6ocOFkB6LTFCPpbz8NCiDOt7Trdr+WknykSA==}
+  '@alexify/metaschema@3.4.0':
+    resolution: {integrity: sha512-SMZZEVW+zzNlGjSQNw+qcOhG+YKVnGfKC7JzCxFbO5qCl0ha9Y43v/rTrYiFEpvuRHZEZEs7P9lYHGwJzBpKiw==}
     engines: {node: '>=18.0.0'}
 
   '@algolia/abtesting@1.25.0':
@@ -2251,7 +2251,7 @@ packages:
 
 snapshots:
 
-  '@alexify/metaschema@3.3.0': {}
+  '@alexify/metaschema@3.4.0': {}
 
   '@algolia/abtesting@1.25.0':
     dependencies:

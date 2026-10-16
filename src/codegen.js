@@ -17,10 +17,6 @@ const { WORD, isMap, listOf, put, quoted, text } = require('./types.js');
 
 const str = JSON.stringify;
 
-// What encode requires: the writer's flag on a plan from Schema.resolve, where
-// the twin is set, the same flag as decode otherwise.
-const outRequired = (own, twin) => (twin === undefined ? own : twin);
-
 // Above this many records a collection's text comes from JSON.stringify of
 // its wire: building the text by hand wins on small payloads (a call per
 // value instead of a walk over a fresh array) and loses on long lists, where
@@ -40,12 +36,9 @@ try {
 // deterministic, so the source can be generated again on demand instead of
 // being kept on every codec.
 const generate = (plan, options) => {
-  // Which direction is checked: `validate.encode` the values given to encode,
-  // `validate.decode` the wire.
+  // Whether the wire is checked on decode. The values given to encode are
+  // trusted: checking them is metaschema's (`check`, `parse`).
   const { validate } = options;
-  // A checking codec (Schema#check) calls the checking codecs of the schemas
-  // it embeds.
-  const via = options.checking ? 'checker' : 'codec';
   // Whether `stringify` builds the text itself (see textInto).
   const { builder } = options;
   const helpers = [];
@@ -95,56 +88,28 @@ const generate = (plan, options) => {
     return `${check(node, src, path)}${dst}=${unpack(node, src)};`;
   };
 
-  // The encode-side twin of `check`: true when a value given to encode is not
-  // of the type. A nullish value fails it too, so a required identity slot
-  // needs one test, not two.
-  const rejects = (node, v) => {
-    if (node.pack !== null) return `!${slot(node)}.accept(${v})`;
-    // v-v is NaN for NaN and the infinities, which have no JSON form.
-    if (node.type === 'number') return `typeof ${v}!=='number'||${v}-${v}!==0`;
-    return invalid(node, v);
-  };
-
   // An own key of a fresh object; `__proto__` goes through put, which keeps it
   // from setting the prototype.
   const assign = (r, k, x) =>
     `if(${k}==='__proto__')${slot(put)}(${r},${k},${x});else ${r}[${k}]=${x};`;
 
-  // Statements that set `dst` to the wire form of `src`. Under validation a
-  // nullish src with a `nullCode` (`required`, or `type` for an array item)
-  // throws it; otherwise it becomes null. Without validation nothing is
-  // checked, so a trusting codec pays nothing. A slot (a reference by name or
-  // an embedded schema) is called as it is.
-  const encodeInto = (node, src, dst, path, nullCode = null) => {
-    const scalar = node.kind === 'scalar';
-    const expected = str(expectedOf(node));
-    const nil =
-      validate.encode && nullCode !== null
-        ? `E(${str(nullCode)},${path},${expected});`
-        : `${dst}=null;`;
-    if (scalar) {
-      // A type checked whatever `validate` says (`always`) takes the checking path.
-      if ((!validate.encode && node.always !== true) || node.accept === null) {
-        return `${dst}=${src}==null?null:${pack(node, src)};`;
-      }
-      const code = str(node.code);
-      if (node.checkedPack !== undefined) {
-        return (
-          `if(${src}==null)${nil}else{${dst}=${slot(node)}.checkedPack(${src});` +
-          `if(${dst}===undefined)E(${code},${path},${expected});}`
-        );
-      }
-      if (node.pack === null && nullCode !== null) {
-        const which = nullCode === node.code ? code : `${src}==null?${str(nullCode)}:${code}`;
-        return `if(${rejects(node, src)})E(${which},${path},${expected});${dst}=${src};`;
-      }
+  // Statements that set `dst` to the wire form of `src`, null for a nullish
+  // one. Nothing is checked but the shapes the wire is built from and the
+  // values of a list of differences (`always`), which only integers have
+  // exactly. A slot (a reference by name or an embedded schema) is called as
+  // it is.
+  const encodeInto = (node, src, dst, path) => {
+    const nil = `${dst}=null;`;
+    if (node.kind === 'scalar') {
+      if (node.always !== true) return `${dst}=${src}==null?null:${pack(node, src)};`;
+      const failed = `E(${str(node.code)},${path},${str(expectedOf(node))});`;
       return (
-        `if(${src}==null)${nil}else{if(${rejects(node, src)})E(${code},${path},${expected});` +
-        `${dst}=${pack(node, src)};}`
+        `if(${src}==null)${nil}else{${dst}=${slot(node)}.checkedPack(${src});` +
+        `if(${dst}===undefined)${failed}}`
       );
     }
     if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
-      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.encode` : record(node).e;
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.codec.encode` : record(node).e;
       return (
         `if(${src}==null)${nil}else try{${dst}=${callee}(${src});}` +
         `catch(error){throw N(error,${path});}`
@@ -152,37 +117,28 @@ const generate = (plan, options) => {
     }
     if (node.kind === 'map') {
       const [r, i, e, x] = [uid('r'), uid('i'), uid('e'), uid('x')];
-      // An entry's path is its index: a key may be anything until checked.
+      // An entry's path is its index: a key may be anything.
       const at = `${path}+"["+${i}+"]"`;
-      const key = validate.encode
-        ? `if(${rejects(node.key, `${e}[0]`)})E('type',${at},${str(node.key.expected)});`
-        : '';
-      const valueNull = outRequired(node.valueRequired, node.valueEncodeRequired) ? 'type' : null;
       return (
         `if(${src}==null)${nil}else{if(!${slot(isMap)}(${src}))E('map',${path});` +
-        `const ${r}=[];let ${i}=0;for(const ${e} of ${src}){${key}let ${x};` +
-        `${encodeInto(node.value, `${e}[1]`, x, at, valueNull)}${r}.push(${e}[0],${x});${i}++;}` +
+        `const ${r}=[];let ${i}=0;for(const ${e} of ${src}){let ${x};` +
+        `${encodeInto(node.value, `${e}[1]`, x, at)}${r}.push(${e}[0],${x});${i}++;}` +
         `${dst}=${r};}`
       );
     }
+    const identity = (item) => item.kind === 'scalar' && item.pack === null;
     if (node.kind === 'dict') {
       const { value } = node;
       const [ks, r, i, k, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('x')];
       const at = `(${path}===""?${k}:${path}+"."+${k})`;
-      const valueNull = outRequired(node.valueRequired, node.valueEncodeRequired) ? 'type' : null;
       const isObject = `if(typeof ${src}!=='object'||Array.isArray(${src}))E('object',${path});`;
-      const loop = `const ${ks}=Object.keys(${src});for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];let ${x};`;
-      if (value.kind === 'scalar' && value.pack === null) {
-        // Identity values travel in the same object: at most a checking pass.
-        const pass =
-          validate.encode && (value.accept !== null || valueNull !== null)
-            ? `${loop}${encodeInto(value, `${src}[${k}]`, x, at, valueNull)}}`
-            : '';
-        return `if(${src}==null)${nil}else{${isObject}${pass}${dst}=${src};}`;
-      }
+      // Identity values travel in the same object.
+      if (identity(value)) return `if(${src}==null)${nil}else{${isObject}${dst}=${src};}`;
       return (
-        `if(${src}==null)${nil}else{${isObject}const ${r}={};${loop}` +
-        `${encodeInto(value, `${src}[${k}]`, x, at, valueNull)}${assign(r, k, x)}}${dst}=${r};}`
+        `if(${src}==null)${nil}else{${isObject}const ${r}={};` +
+        `const ${ks}=Object.keys(${src});for(let ${i}=0;${i}<${ks}.length;${i}++){` +
+        `const ${k}=${ks}[${i}];let ${x};` +
+        `${encodeInto(value, `${src}[${k}]`, x, at)}${assign(r, k, x)}}${dst}=${r};}`
       );
     }
     const isArray = `if(!Array.isArray(${src}))E('array',${path});`;
@@ -191,14 +147,13 @@ const generate = (plan, options) => {
       const parts = node.items.map((item, i) => {
         const t = uid('t');
         const at = `${path}+${str(`[${i}]`)}`;
-        const required = outRequired(item.required, item.encodeRequired) ? 'required' : null;
-        out.push(`let ${t};${encodeInto(item.node, `${src}[${i}]`, t, at, required)}`);
+        out.push(`let ${t};${encodeInto(item.node, `${src}[${i}]`, t, at)}`);
         return t;
       });
       return `if(${src}==null)${nil}else{${isArray}${out.join('')}${dst}=[${parts}];}`;
     }
     const { item } = node;
-    const [n, i, e, r, x] = [uid('n'), uid('i'), uid('e'), uid('r'), uid('x')];
+    const [n, i, r, x] = [uid('n'), uid('i'), uid('r'), uid('x')];
     // A Set travels as the array of its elements; an array is taken as it is.
     let list = src;
     let head = isArray;
@@ -208,21 +163,13 @@ const generate = (plan, options) => {
         `const ${list}=Array.isArray(${src})?${src}:${slot(listOf)}(${src});` +
         `if(${list}===undefined)E('set',${path});`;
     }
+    // Identity items travel in the same array.
+    if (identity(item)) return `if(${src}==null)${nil}else{${head}${dst}=${list};}`;
     const at = `${path}+"["+${i}+"]"`;
-    const itemNull = outRequired(node.itemRequired, node.itemEncodeRequired) ? 'type' : null;
-    if (item.kind === 'scalar' && item.pack === null) {
-      // Identity items travel in the same array: at most a checking pass.
-      const pass =
-        validate.encode && (item.accept !== null || itemNull !== null)
-          ? `for(let ${i}=0;${i}<${list}.length;${i}++){const ${e}=${list}[${i}];let ${x};` +
-            `${encodeInto(item, e, x, at, itemNull)}}`
-          : '';
-      return `if(${src}==null)${nil}else{${head}${pass}${dst}=${list};}`;
-    }
     return (
       `if(${src}==null)${nil}else{${head}const ${n}=${list}.length,${r}=new Array(${n});` +
       `for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
-      `${encodeInto(item, `${list}[${i}]`, x, at, itemNull)}${r}[${i}]=${x};}${dst}=${r};}`
+      `${encodeInto(item, `${list}[${i}]`, x, at)}${r}[${i}]=${x};}${dst}=${r};}`
     );
   };
 
@@ -232,7 +179,7 @@ const generate = (plan, options) => {
   const decodeInto = (node, src, dst, path) => {
     if (node.kind === 'scalar') return convert(node, src, dst, path);
     if (node.slot !== undefined || node.kind === 'struct' || node.kind === 'union') {
-      const callee = node.slot !== undefined ? `${slot(node.slot)}.${via}.decode` : record(node).d;
+      const callee = node.slot !== undefined ? `${slot(node.slot)}.codec.decode` : record(node).d;
       return `try{${dst}=${callee}(${src},strict);}catch(error){throw N(error,${path});}`;
     }
     if (node.kind === 'dict') {
@@ -361,18 +308,15 @@ const generate = (plan, options) => {
     const enc = lead === 0 ? [`if(typeof o!=='object'||Array.isArray(o))E('object','');`] : [];
     const values = lead === 0 ? [] : ['t'];
     for (const field of node.fields) {
-      const required = outRequired(field.required, field.encodeRequired) ? 'required' : null;
       if (field.key === null) {
-        // A field only the writer has (Schema.resolve): null on the wire,
-        // which a writer that requires it rejects.
-        if (validate.encode && required !== null) enc.push(`E('required',${str(field.wire)});`);
+        // A field only the writer has (Schema.resolve): null on the wire.
         values.push('null');
         continue;
       }
       const v = uid('v');
       const w = uid('w');
       const key = str(field.key);
-      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key, required)}`);
+      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key)}`);
       values.push(w);
     }
     if (node.sparse && size <= WORD) {
@@ -501,20 +445,15 @@ const generate = (plan, options) => {
     if (node.type === 'json' || node.type === 'null') return any;
     if (node.pack === null) {
       if (node.type === 'number' || node.type === 'integer') {
-        return validate.encode ? `''+${w}` : `(typeof ${w}==='number'?${number}:${any})`;
+        return `(typeof ${w}==='number'?${number}:${any})`;
       }
-      if (node.type === 'boolean') {
-        return validate.encode
-          ? `(${w}?'true':'false')`
-          : `(${w}===true?'true':${w}===false?'false':${any})`;
-      }
-      if (!validate.encode) return `(typeof ${w}==='string'?${quote(w)}:${any})`;
-      return quote(w);
+      if (node.type === 'boolean') return `(${w}===true?'true':${w}===false?'false':${any})`;
+      return `(typeof ${w}==='string'?${quote(w)}:${any})`;
     }
     return `(typeof ${w}==='number'?${number}:${any})`;
   };
 
-  const textInto = (node, src, dst, path, nullCode, key) => {
+  const textInto = (node, src, dst, path, key) => {
     // An embedded schema's codec writes its own layout: it is called as it is.
     const recordArray =
       node.slot === undefined &&
@@ -524,15 +463,11 @@ const generate = (plan, options) => {
     if (!isRecord(node) && !recordArray) {
       const w = uid('w');
       return (
-        `let ${w};${encodeInto(node, src, w, path, nullCode)}` +
+        `let ${w};${encodeInto(node, src, w, path)}` +
         `${dst}=${w}===null?null:${textOf(node, w, key)};`
       );
     }
-    const expected = str(expectedOf(node));
-    const nil =
-      validate.encode && nullCode !== null
-        ? `E(${str(nullCode)},${path},${expected});`
-        : `${dst}=null;`;
+    const nil = `${dst}=null;`;
     if (!recordArray) {
       // An embedded schema writes its own text where its codec can; a nested
       // record is written in place.
@@ -548,13 +483,12 @@ const generate = (plan, options) => {
     }
     const [n, i, x, w] = [uid('n'), uid('i'), uid('x'), uid('w')];
     const at = `${path}+"["+${i}+"]"`;
-    const itemNull = outRequired(node.itemRequired, node.itemEncodeRequired) ? 'type' : null;
     return (
       `if(${src}==null)${nil}else{if(!Array.isArray(${src}))E('array',${path});` +
       `const ${n}=${src}.length;if(${n}>${THRESHOLD}){let ${w};` +
-      `${encodeInto(node, src, w, path, nullCode)}${dst}=JSON.stringify(${w});}else{` +
+      `${encodeInto(node, src, w, path)}${dst}=JSON.stringify(${w});}else{` +
       `let s='[';for(let ${i}=0;${i}<${n};${i}++){let ${x};` +
-      `${textInto(node.item, `${src}[${i}]`, x, at, itemNull, i)}` +
+      `${textInto(node.item, `${src}[${i}]`, x, at, i)}` +
       `s+=(${i}===0?'':',')+(${x}===null?'null':${x});}${dst}=s+']';}}`
     );
   };
@@ -588,19 +522,14 @@ const generate = (plan, options) => {
     // A sparse record's positions depend on what is present: `p` counts them.
     if (node.sparse) out.push(`let ${p}=1;`);
     for (const field of node.fields) {
-      const required = outRequired(field.required, field.encodeRequired) ? 'required' : null;
       const x = uid('t');
       if (node.sparse && field.index > 0 && field.index % WORD === 0) out.push(`${p}++;`);
-      if (field.key === null) {
-        if (validate.encode && required !== null) out.push(`E('required',${str(field.wire)});`);
-        out.push(`const ${x}=null;`);
-      } else {
+      if (field.key === null) out.push(`const ${x}=null;`);
+      else {
         const v = uid('v');
         const key = str(field.key);
         const position = node.sparse ? p : field.index + lead;
-        out.push(
-          `const ${v}=${o}[${key}];let ${x};${textInto(field.node, v, x, key, required, position)}`,
-        );
+        out.push(`const ${v}=${o}[${key}];let ${x};${textInto(field.node, v, x, key, position)}`);
         if (node.sparse) out.push(`if(${x}!==null)${p}++;`);
       }
       texts.push(x);
@@ -670,9 +599,8 @@ const generate = (plan, options) => {
     decodeBody = `return ${fns.d}(v,strict);`;
   } else {
     const required = plan.kind === 'scalar' && plan.required;
-    const requiredIn = plan.kind === 'scalar' && outRequired(plan.required, plan.encodeRequired);
     const req = required && validate.decode ? `F('required',"");` : '';
-    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""', requiredIn ? 'required' : null)}return w;`;
+    encodeBody = `let w;${encodeInto(plan, 'v', 'w', '""')}return w;`;
     decodeBody =
       plan.kind === 'scalar'
         ? `let w=null;if(v==null){${req}}else{${decodeInto(plan, 'v', 'w', '""')}}return w;`
@@ -684,7 +612,7 @@ const generate = (plan, options) => {
     builder && (plan.kind === 'struct' || plan.kind === 'union' || plan.kind === 'array');
   let stringifyBody = '';
   if (stringify && plan.kind === 'array') {
-    stringifyBody = `let t;${textInto(plan, 'v', 't', '""', null, '""')}return t===null?'null':t;`;
+    stringifyBody = `let t;${textInto(plan, 'v', 't', '""', '""')}return t===null?'null':t;`;
   } else if (stringify) {
     stringifyBody = `return v==null?'null':${builderFns(plan)}(v);`;
   }

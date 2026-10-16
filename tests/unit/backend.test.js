@@ -14,9 +14,13 @@ try {
   globalThis.Function = RealFunction;
 }
 const { Schema } = protoarray;
+// metaschema is loaded once the stub is gone: only protoarray's probe is under
+// test. The helpers reach the protoarray loaded above, from the module cache.
+const { define } = require('../support/schema.js');
 
 test('Backend: without new Function the closures backend is picked', () => {
-  const schema = Schema.from({ name: 'string', age: '?number' });
+  const schema = define({ name: 'string', age: '?number' });
+  assert.ok(schema instanceof Schema);
   assert.strictEqual(schema.backend, 'closures');
   assert.deepStrictEqual(schema.encode({ name: 'Alex' }), ['Alex']);
   assert.deepStrictEqual(schema.decode(['Alex']), { name: 'Alex', age: null });
@@ -24,9 +28,9 @@ test('Backend: without new Function the closures backend is picked', () => {
 });
 
 test('Backend: asking for codegen where it is unavailable throws', () => {
-  assert.throws(() => Schema.from({ a: 'string' }, { codegen: true }), {
+  assert.throws(() => define({ a: 'string' }, { codegen: true }), {
     code: 'ERR_CODEGEN_UNAVAILABLE',
     message: 'Code generation is not available in this runtime: pass { codegen: false }',
   });
-  assert.strictEqual(Schema.from({ a: 'string' }, { codegen: false }).backend, 'closures');
+  assert.strictEqual(define({ a: 'string' }, { codegen: false }).backend, 'closures');
 });

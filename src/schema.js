@@ -1,6 +1,6 @@
-// A Schema is a compiled codec: the definition is parsed into a plan once, the
-// plan is compiled by the codegen backend (or by closures where code generation
-// is unavailable or switched off), and the instance carries both.
+// A Schema is a compiled codec: the snapshot of a metaschema schema is read into
+// a plan once, the plan is compiled by the codegen backend (or by closures where
+// code generation is unavailable or switched off), and the instance carries both.
 
 const {
   SchemaDefinitionError,
@@ -14,30 +14,51 @@ const {
   BRAND,
   PLAN,
   CODEC,
-  CHECKER,
   FALLBACK,
+  FOREIGN,
   isSchema,
-  compilePlan,
+  slotOf,
   canonical,
+  signature,
   fingerprint,
 } = require('./plan.js');
-const { resolvePlan } = require('./resolve.js');
+const { SCALARS } = require('./types.js');
+const {
+  isSnapshot,
+  isObject,
+  readSnapshot,
+  placesOf,
+  isPaths,
+  isLayouts,
+} = require('./snapshot.js');
 const codegen = require('./codegen.js');
 const closures = require('./closures.js');
 const layouts = require('./layouts.js');
 
-const LAYOUTS = ['rows', 'flat', 'columns'];
-// An option no caller can spell: a plan built elsewhere (Schema.resolve), which
-// the schema compiles instead of parsing a definition. Object.keys does not
-// list it, so readOptions never sees it.
+// An option no caller can spell: a plan built elsewhere (the resolve subpath),
+// which the schema compiles instead of reading a snapshot. Object.keys does
+// not list it, so readOptions never sees it.
 const INTERNAL = Symbol('plan');
 // The codec of one item of a collection, for the stream helpers.
 const ITEMS = Symbol.for('alexify.protoarray.items');
 // The options a schema was built with, for the standalone generator.
 const SETTINGS = Symbol.for('alexify.protoarray.settings');
+// An option no caller can spell: the entities of one snapshot built together,
+// so that references between them reach one schema per entity, a recursion
+// included.
+const ASSEMBLY = Symbol('assembly');
+// Another one: a plan read already, compiled as it is (a collection nested in
+// a layout of its own, the list of a schema's records).
+const PLANNED = Symbol('planned');
+// The entity of the snapshot a schema was read from, for the standalone
+// generator and for a schema built again with other options.
+const ENTITY = Symbol.for('alexify.protoarray.entity');
+// What the id is a fingerprint of: the canonical form with the entities a
+// schema references (see plan.js). Two schemas are the same version when it is.
+const SIGNATURE = Symbol.for('alexify.protoarray.signature');
 
-// What a generated module passes as `compiled`: the codec of the plan, maybe
-// its checking twin, and the canonical form both were generated from.
+// What a generated module passes as `compiled`: the codec of the plan and the
+// canonical form it was generated from.
 const isCompiled = (value) =>
   value !== null &&
   typeof value === 'object' &&
@@ -46,21 +67,40 @@ const isCompiled = (value) =>
   typeof value.codec === 'object' &&
   typeof value.codec.encode === 'function' &&
   typeof value.codec.decode === 'function';
-const MODES = ['decode', 'encode', 'both'];
 const STRINGIFY = ['auto', 'builder', 'native'];
+const REFERENCES = ['kind', 'embed', 'id'];
 const isBoolean = (value) => typeof value === 'boolean';
+
+// What a caller injects to build from a definition: metaschema itself, or
+// its ./definition entry. protoarray never requires it.
+const isMetaschema = (value) =>
+  value !== null &&
+  (typeof value === 'object' || typeof value === 'function') &&
+  typeof value.Schema === 'function';
+
+// The wire types a custom type of metaschema with a check of its own may take.
+const isWireTypes = (value) =>
+  isObject(value) &&
+  Object.keys(value).every(
+    (name) => typeof value[name] === 'string' && SCALARS[value[name]] !== undefined,
+  );
 
 // What each option accepts; a key not in the table is not an option.
 const VALID = Object.assign(Object.create(null), {
   codegen: isBoolean,
-  validate: (value) => isBoolean(value) || MODES.includes(value),
-  sparse: isBoolean,
-  intern: isBoolean,
+  validate: isBoolean,
+  sparse: (value) => isBoolean(value) || isPaths(value),
+  intern: (value) => isBoolean(value) || isPaths(value),
+  delta: isPaths,
   stringify: (value) => STRINGIFY.includes(value),
   compiled: isCompiled,
-  layout: (value) => LAYOUTS.includes(value),
-  schemas: (value) => value !== null && typeof value === 'object',
+  layout: isLayouts,
   fingerprint: (value) => typeof value === 'function',
+  references: (value) => REFERENCES.includes(value),
+  types: isWireTypes,
+  entity: (value) => typeof value === 'string',
+  entities: (value) => isObject(value) && Object.values(value).every(isObject),
+  metaschema: isMetaschema,
 });
 
 const readOptions = (options, name) => {
@@ -69,10 +109,15 @@ const readOptions = (options, name) => {
     validate: true,
     sparse: false,
     intern: false,
+    delta: [],
     stringify: 'auto',
     layout: 'rows',
-    schemas: {},
     fingerprint,
+    references: 'kind',
+    types: {},
+    entity: undefined,
+    entities: {},
+    metaschema: undefined,
   };
   const source = options == null ? {} : options;
   if (typeof source !== 'object') {
@@ -94,13 +139,9 @@ const readOptions = (options, name) => {
   return settings;
 };
 
-// What each direction checks. `true`, the default, is the 1.0 setting: the
-// wire is validated on decode and the values given to encode are trusted, so
-// a codec that only encodes pays nothing for checks it did not ask for.
-const checks = (validate, checking) => ({
-  encode: checking || validate === 'encode' || validate === 'both',
-  decode: checking || validate === true || validate === 'decode' || validate === 'both',
-});
+// What a codec checks: the wire on decode, unless `validate: false` trusts it.
+// The values given to encode are trusted; checking them is metaschema's.
+const checks = (validate) => ({ decode: validate });
 
 // The records whose text the builder writes faster than JSON.stringify of
 // their wire on every engine measured (Node.js 18 to 24): booleans, enums,
@@ -140,14 +181,11 @@ const internedIn = (node, seen) => {
   return internedIn(node.value, seen);
 };
 
-// The codec of a plan, compiled by a backend and wrapped in a layout for a
-// collection. A checking codec validates both directions and calls the
-// checking codecs of the schemas it embeds (see Schema#check).
 // What a backend compiles for a plan, and with which options: the record of
 // a flat or columns collection, the plan itself otherwise. The standalone
 // generator compiles the same.
-const codecOptions = (plan, settings, checking) => {
-  const validate = checks(settings.validate, checking);
+const codecOptions = (plan, settings) => {
+  const validate = checks(settings.validate);
   const target = plan.kind === 'array' && plan.layout !== 'rows' ? plan.item : plan;
   const interned = internedIn(plan, new Set());
   // Generated code writes the text of what it encodes where that is faster
@@ -156,24 +194,25 @@ const codecOptions = (plan, settings, checking) => {
   // table to put first, so it goes through encode.
   const { stringify } = settings;
   const builder =
-    !checking &&
     !interned &&
     (stringify === 'builder' || (stringify === 'auto' && plan.kind !== 'array' && converted(plan)));
-  return { target, interned, options: { validate, checking, builder } };
+  return { target, interned, options: { validate, builder } };
 };
 
-const build = (plan, backend, settings, checking) => {
-  const { target, interned, options } = codecOptions(plan, settings, checking);
+// The codec of a plan, compiled by a backend and wrapped in a layout for a
+// collection.
+const build = (plan, backend, settings) => {
+  const { target, interned, options } = codecOptions(plan, settings);
   const { validate } = options;
   const { compiled } = settings;
   let codec = null;
   let fallback;
   // A generated module's codec, where it has the one asked for.
-  if (compiled !== undefined) codec = (checking ? compiled.checker : compiled.codec) || null;
+  if (compiled !== undefined) codec = compiled.codec;
   if (codec !== null || target.slot !== undefined) {
     // A layout over a compiled schema, or a root reference by name, reuses
     // that codec: nothing new to compile.
-    if (codec === null) codec = checking ? target.slot.checker : target.slot.codec;
+    if (codec === null) codec = target.slot.codec;
   } else if (backend === codegen && settings.codegen === undefined) {
     // The probe only proves that source text compiles: a runtime that still
     // rejects this one function (its size, a stricter policy) gets closures.
@@ -189,32 +228,6 @@ const build = (plan, backend, settings, checking) => {
   if (target !== plan) codec = layouts[plan.layout](codec, plan.item, validate);
   if (interned) codec = layouts.withTable(codec, validate.decode);
   return { codec, backend, fallback };
-};
-
-// The `aliases` option of Schema.resolve: reader paths, as definition errors
-// spell them (`address.city`, `orders[].sku`), to the writer's keys.
-const readAliases = (options, name) => {
-  const invalid = (text) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
-  const aliases = Object.create(null);
-  if (options == null) return aliases;
-  if (typeof options !== 'object') throw invalid('Invalid options: expected an object');
-  for (const key of Object.keys(options)) {
-    if (key !== 'aliases') throw invalid(`Invalid option "${key}"`);
-  }
-  const source = options.aliases;
-  if (source === undefined) return aliases;
-  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
-    throw invalid('Invalid option "aliases"');
-  }
-  for (const path of Object.keys(source)) {
-    const value = source[path];
-    const list = typeof value === 'string' ? [value] : value;
-    if (!Array.isArray(list) || !list.every((key) => typeof key === 'string' && key !== '')) {
-      throw invalid(`Invalid aliases for "${path}"`);
-    }
-    aliases[path] = list;
-  }
-  return aliases;
 };
 
 // An iterable of values, or an async one; a string is iterable and surely a
@@ -279,9 +292,9 @@ const itemCodec = (plan, backend, settings, name) => {
       name,
     );
   }
-  const validate = checks(settings.validate, false);
+  const validate = checks(settings.validate);
   const { item } = plan;
-  const codec = build(item, backend, settings, false).codec;
+  const codec = build(item, backend, settings).codec;
   const required = plan.itemRequired;
   const expected = expectedOf(item);
   const size = plan.layout === 'flat' ? item.fields.length : 0;
@@ -289,10 +302,8 @@ const itemCodec = (plan, backend, settings, name) => {
     size,
     encode: (value, index) => {
       try {
-        if (size !== 0) return layouts.padded(codec, value, size, index, validate.encode);
-        if (value != null) return codec.encode(value);
-        if (required && validate.encode) throw new EncodeError('type', '', expected);
-        return null;
+        if (size !== 0) return layouts.padded(codec, value, size, index);
+        return value == null ? null : codec.encode(value);
       } catch (error) {
         throw boundary(size === 0 ? nest(error, `[${index}]`) : error, name, false);
       }
@@ -309,47 +320,138 @@ const itemCodec = (plan, backend, settings, name) => {
   };
 };
 
+// The options an entity reached by a reference is built with: the ones that
+// shape no place of the schema that refers to it, then its own (`entities`).
+const SHARED = ['codegen', 'validate', 'stringify', 'fingerprint', 'references', 'types'];
+
+const assemblyOf = (snapshot, settings) => {
+  const shared = {};
+  for (const key of SHARED) shared[key] = settings[key];
+  return { snapshot, shared, entities: settings.entities, built: new Map(), building: new Map() };
+};
+
+const brandOf = (value) =>
+  value !== null && typeof value === 'object' ? value[FOREIGN] : undefined;
+
+// What a schema is built from: a snapshot and the entity of it to read, and
+// the metaschema Schema it came from, if any. A definition is metaschema's to
+// read, so it needs metaschema injected: `{ metaschema }`.
+const sourceOf = (source, settings, name, assembly) => {
+  if (assembly !== undefined) {
+    return { snapshot: assembly.snapshot, entity: settings.entity, origin: null };
+  }
+  let origin = null;
+  let snapshot;
+  let entity = settings.entity;
+  if (brandOf(source) === 'Schema') {
+    origin = source;
+    snapshot = source.toSnapshot();
+    entity = snapshot.root;
+  } else if (brandOf(source) === 'Model') {
+    snapshot = source.toJSON();
+  } else if (isSchema(source) && source.snapshot !== null) {
+    // A schema built again with other options, from what it was read from.
+    origin = source.source;
+    snapshot = source.snapshot;
+    if (entity === undefined) entity = source[ENTITY];
+  } else if (isSnapshot(source)) {
+    snapshot = source;
+  } else if (settings.metaschema !== undefined) {
+    origin = new settings.metaschema.Schema(name, source);
+    snapshot = origin.toSnapshot();
+    entity = snapshot.root;
+  } else {
+    const text =
+      'A metaschema Schema or Model, a snapshot, or a definition with { metaschema } expected';
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text, name);
+  }
+  if (entity === undefined) entity = snapshot.root;
+  if (typeof entity !== 'string') {
+    const text = 'Name the entity to build: { entity }';
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+  }
+  return { snapshot, entity, origin };
+};
+
+// The slot of an entity of the assembly: the schema built for it, the one
+// being built (a recursion), or a new one.
+const slotFor = (assembly, entity) => {
+  const built = assembly.built.get(entity);
+  if (built !== undefined) return slotOf(built);
+  const building = assembly.building.get(entity);
+  if (building !== undefined) return building;
+  const own = Object.hasOwn(assembly.entities, entity) ? assembly.entities[entity] : {};
+  const options = { ...assembly.shared, ...own, entity, [ASSEMBLY]: assembly };
+  return slotOf(new Schema(entity, assembly.snapshot, options));
+};
+
 class Schema {
   #settings;
+  #entity = null;
   #interned = false;
   #items = null;
   #canonical = null;
   #id = null;
+  #signature = null;
   #list = null;
-  #checker = null;
 
-  constructor(name, definition, options) {
+  constructor(name, source, options) {
     if (typeof name !== 'string') {
-      options = definition;
-      definition = name;
+      options = source;
+      source = name;
       name = '';
     }
     const settings = readOptions(options, name);
     // What a reference to the schema's own name calls, filled once built.
     const selfSlot = { codec: null, schema: this };
-    Object.defineProperty(selfSlot, 'checker', { get: () => this[CHECKER] });
     const internal = options == null ? undefined : options[INTERNAL];
+    let assembly = options == null ? undefined : options[ASSEMBLY];
+    const planned = options == null ? undefined : options[PLANNED];
     let plan;
-    if (internal === undefined) plan = compilePlan(definition, { ...settings, name, selfSlot });
-    else {
+    let input = null;
+    if (internal === undefined && planned === undefined) {
+      input = sourceOf(source, settings, name, assembly);
+    }
+    if (planned !== undefined) plan = planned;
+    else if (internal === undefined) {
+      if (name === '') name = input.entity;
+      if (assembly === undefined) assembly = assemblyOf(input.snapshot, settings);
+      assembly.building.set(input.entity, selfSlot);
+      plan = readSnapshot({
+        name,
+        entity: input.entity,
+        snapshot: input.snapshot,
+        selfSlot,
+        slotOf: (entity) => slotFor(assembly, entity),
+        // A collection in a layout of its own is a codec of its own.
+        nested: (node) => {
+          const own = { [PLANNED]: node };
+          for (const key of ['codegen', 'validate', 'stringify', 'fingerprint']) {
+            own[key] = settings[key];
+          }
+          return slotOf(new Schema(name, null, own));
+        },
+        references: settings.references,
+        types: settings.types,
+        ...placesOf(settings),
+      });
+    } else {
       // A resolved plan prints as the writer's canonical form: its wire. A
       // recursion back to the root calls this schema's codec through `slot`.
       const { slot, ...rest } = internal.plan;
       plan = { ...rest, text: internal.text };
-      if (slot !== undefined) {
-        slot.schema = this;
-        Object.defineProperty(slot, 'checker', { get: () => this[CHECKER] });
-      }
+      this.#signature = internal.signature;
+      if (slot !== undefined) slot.schema = this;
     }
     const { compiled } = settings;
     if (compiled !== undefined) {
-      // A generated module goes with the definition it was generated from.
+      // A generated module goes with the snapshot it was generated from.
       if (settings.codegen === true || internal !== undefined) {
         const text = 'A compiled codec replaces code generation';
         throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
       }
       if (compiled.canonical !== canonical(plan)) {
-        const text = 'The compiled codec is of another definition: generate it again';
+        const text = 'The compiled codec is of another schema: generate it again';
         throw new SchemaDefinitionError('ERR_COMPILED_MISMATCH', text, name);
       }
     }
@@ -367,19 +469,10 @@ class Schema {
       for (const entry of internal.compiled) {
         if (entry.slot === internal.plan.slot) continue;
         const target = useCodegen ? codegen : closures;
-        entry.slot.codec = build(entry.plan, target, settings, false).codec;
-        let checker = null;
-        Object.defineProperty(entry.slot, 'checker', {
-          get: () => checker || (checker = build(entry.plan, target, settings, true).codec),
-        });
+        entry.slot.codec = build(entry.plan, target, settings).codec;
       }
     }
-    const { codec, backend, fallback } = build(
-      plan,
-      useCodegen ? codegen : closures,
-      settings,
-      false,
-    );
+    const { codec, backend, fallback } = build(plan, useCodegen ? codegen : closures, settings);
     selfSlot.codec = codec;
     if (internal !== undefined && internal.plan.slot !== undefined) {
       internal.plan.slot.codec = codec;
@@ -388,8 +481,13 @@ class Schema {
     if (fallback !== undefined) Object.defineProperty(this, FALLBACK, { value: fallback });
     Object.defineProperty(this, PLAN, { value: plan });
     Object.defineProperty(this, CODEC, { value: codec });
+    if (input !== null) {
+      assembly.building.delete(input.entity);
+      assembly.built.set(input.entity, this);
+    }
     this.name = name;
-    this.definition = definition;
+    this.snapshot = input === null ? null : input.snapshot;
+    this.source = input === null ? null : input.origin;
     this.keys = Object.freeze(plan.kind === 'struct' ? plan.keys.slice() : []);
     this.backend =
       compiled !== undefined ? 'standalone' : backend === codegen ? 'codegen' : 'closures';
@@ -397,60 +495,77 @@ class Schema {
     this.layout = plan.kind === 'array' ? plan.layout : plan.sparse === true ? 'sparse' : 'dense';
     this.#settings = settings;
     this.#interned = internedIn(plan, new Set());
+    this.#entity = input === null ? null : input.entity;
   }
 
-  static from(definition, options) {
-    return new Schema('', definition, options);
+  static from(source, options) {
+    return new Schema('', source, options);
   }
 
-  // What `writer` wrote, read as `reader` objects, and `reader` objects written
-  // as `writer` writes them: the writer's wire and id under the reader's keys,
-  // types and defaults, matched by key, by the reader's aliases or by the
-  // `aliases` option. Compiled like any schema (see resolve.js).
-  static resolve(writer, reader, options) {
-    if (!isSchema(writer) || !isSchema(reader)) {
-      throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
+  // Every entity of a metaschema Model or of its snapshot, in its order, each
+  // with the shared options and its own from `entities`.
+  static fromModel(source, options) {
+    const settings = readOptions(options, '');
+    for (const key of ['sparse', 'layout', 'intern', 'delta', 'entity', 'compiled', 'metaschema']) {
+      if (options != null && options[key] !== undefined) {
+        const text = `Option "${key}" names one schema: give it in "entities"`;
+        throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text);
+      }
     }
-    const aliases = readAliases(options, reader.name);
-    const text = writer.toString();
-    if (text === reader.toString()) return reader;
-    const writerPlan = writer[PLAN];
-    const context = { name: reader.name, aliases };
-    const { plan, compiled } = resolvePlan(writerPlan, reader[PLAN], context);
-    const { codegen: useCodegen, validate } = reader.#settings;
-    return new Schema(reader.name, reader.definition, {
-      codegen: useCodegen,
-      validate,
-      fingerprint: writer.#settings.fingerprint,
-      [INTERNAL]: { plan, compiled, text },
-    });
-  }
-
-  // Keys only: every field is `json`, values travel as they are.
-  static keys(keys, options) {
-    if (!Array.isArray(keys) || keys.some((key) => typeof key !== 'string')) {
-      throw new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Schema.keys takes a list of keys');
+    let snapshot = source;
+    if (brandOf(source) === 'Model') snapshot = source.toJSON();
+    if (!isSnapshot(snapshot)) {
+      const model = brandOf(source) === 'Model';
+      const text = model
+        ? 'A snapshot of format 1 with entities is expected'
+        : 'A metaschema Model or a snapshot expected';
+      throw new SchemaDefinitionError(model ? 'ERR_INVALID_SNAPSHOT' : 'ERR_SCHEMA_EXPECTED', text);
     }
-    const definition = Object.create(null);
-    for (const key of keys) definition[key] = 'json';
-    return new Schema('', definition, options);
+    const assembly = assemblyOf(snapshot, settings);
+    const out = Object.create(null);
+    for (const entity of Object.keys(snapshot.entities)) {
+      slotFor(assembly, entity);
+      out[entity] = assembly.built.get(entity);
+    }
+    return out;
   }
 
   // Fingerprint of the canonical form: two sides agree on the wire format when
   // their ids match, whatever names they use.
   get id() {
-    if (this.#id === null) this.#id = this.#settings.fingerprint(this.toString());
+    if (this.#id === null) this.#id = this.#settings.fingerprint(this[SIGNATURE]);
     return this.#id;
   }
 
-  // The same records as rows: `[[...], [...]]`.
+  // The canonical form with the entities this schema references, by name.
+  get [SIGNATURE]() {
+    if (this.#signature === null) this.#signature = signature(this[PLAN], this);
+    return this.#signature;
+  }
+
+  // The same records as rows: `[[...], [...]]`, each called through this
+  // schema's codec.
   get list() {
     if (this.#list === null) {
       const { codegen: useCodegen, validate, fingerprint: hash, stringify } = this.#settings;
+      const plan = this[PLAN];
+      let item;
+      let itemRequired = true;
+      if (plan.kind === 'scalar') {
+        const { required, ...plain } = plan;
+        item = plain;
+        itemRequired = required;
+      } else item = { ...plan, slot: slotOf(this) };
       const options = { codegen: useCodegen, validate, fingerprint: hash, stringify };
-      this.#list = new Schema(this.name, { array: this }, options);
+      options[PLANNED] = { kind: 'array', item, itemRequired, layout: 'rows' };
+      this.#list = new Schema(this.name, null, options);
     }
     return this.#list;
+  }
+
+  // The entity of the snapshot this schema was read from.
+  get [ENTITY]() {
+    return this.#entity;
   }
 
   // The codec of one item of this collection, for the stream helpers.
@@ -465,16 +580,6 @@ class Schema {
   // The options this schema was built with, for the standalone generator.
   get [SETTINGS]() {
     return this.#settings;
-  }
-
-  // The codec `check` runs, compiled when first asked for: it validates even
-  // where the options say not to, here and in the schemas this one embeds.
-  get [CHECKER]() {
-    if (this.#checker === null) {
-      const backend = this.backend === 'codegen' ? codegen : closures;
-      this.#checker = build(this[PLAN], backend, this.#settings, true).codec;
-    }
-    return this.#checker;
   }
 
   #encodeWith(codec, value, method = 'encode') {
@@ -492,18 +597,6 @@ class Schema {
 
   encode(value) {
     return this.#encodeWith(this[CODEC], value);
-  }
-
-  // What encoding this value with validation would throw, as the EncodeError
-  // itself, or null: a check that never throws over the data.
-  check(value) {
-    try {
-      this.#encodeWith(this[CHECKER], value);
-      return null;
-    } catch (error) {
-      if (error instanceof EncodeError) return error;
-      throw error;
-    }
   }
 
   decode(array, options) {
@@ -551,4 +644,14 @@ class Schema {
   }
 }
 
-module.exports = { Schema, ITEMS, SETTINGS, each, iterable, codecOptions };
+module.exports = {
+  Schema,
+  ITEMS,
+  SETTINGS,
+  ENTITY,
+  SIGNATURE,
+  INTERNAL,
+  each,
+  iterable,
+  codecOptions,
+};

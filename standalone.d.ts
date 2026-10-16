@@ -3,12 +3,13 @@
  * for runtimes that forbid compiling source text.
  */
 
-import type { AnySchema, Definition, EncodeError } from './index.js';
+import type { AnySchema } from './index.js';
 
 export interface SourceOptions {
   /**
    * `'import'` (the default): the module imports this package and exports Schema instances built
-   * with `{ compiled }`. `'inline'`: the module carries its own runtime and imports nothing.
+   * from their snapshots with `{ compiled }`. `'inline'`: the module carries its own runtime and
+   * imports nothing. Neither needs metaschema.
    */
   readonly runtime?: 'import' | 'inline';
   /** `'cjs'` (the default) or `'esm'`. */
@@ -26,7 +27,6 @@ export interface StandaloneSchema {
   decode(array: unknown, options?: { readonly strict?: boolean }): unknown;
   stringify(value: unknown): string;
   parse(text: string, options?: { readonly strict?: boolean }): unknown;
-  check(value: unknown): EncodeError | null;
   toString(): string;
 }
 
@@ -46,13 +46,14 @@ export const runtime: {
   readonly nest: unknown;
   readonly refuse: unknown;
   slot(target: () => AnySchema): unknown;
+  nested(spec: object): unknown;
 };
 
 /** Installs `schema.toSource(options)`. Once per process. */
 export function register(): void;
 
 declare module './index.js' {
-  interface Schema<D extends Definition> {
+  interface Schema<Output, Input> {
     toSource(options?: SourceOptions): string;
   }
 }

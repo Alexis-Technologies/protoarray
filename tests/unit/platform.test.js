@@ -136,3 +136,27 @@ test('Platform: browser.js exports the same names as index.js', () => {
   const browser = require(path.join(ROOT, 'browser.js'));
   assert.deepStrictEqual(Object.keys(browser), Object.keys(node));
 });
+
+// protoarray depends on nothing: metaschema, whose snapshots it reads, is
+// recognised by its brand and injected through an option, never required.
+test('Platform: no dependency, metaschema included', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.strictEqual(pkg.dependencies, undefined);
+  assert.strictEqual(pkg.peerDependencies, undefined);
+  assert.strictEqual(pkg.optionalDependencies, undefined);
+  const offenders = [];
+  const files = [...listFiles(SRC), ...listFiles(path.join(ROOT, 'bin'))];
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8');
+    if (/require\(\s*['"]@alexify\/metaschema|from\s+['"]@alexify\/metaschema/.test(source)) {
+      offenders.push(path.relative(ROOT, file));
+    }
+  }
+  assert.deepStrictEqual(offenders, []);
+  // The typings read metaschema's types by their shape: none imports them.
+  const imports = /from\s+['"]@alexify\/metaschema|import\(\s*['"]@alexify\/metaschema/;
+  for (const dts of ['index.d.ts', 'registry.d.ts', 'resolve.d.ts', 'stream.d.ts']) {
+    assert.ok(!imports.test(fs.readFileSync(path.join(ROOT, dts), 'utf8')), dts);
+  }
+  assert.ok(!imports.test(fs.readFileSync(path.join(ROOT, 'standalone.d.ts'), 'utf8')));
+});

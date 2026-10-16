@@ -3,8 +3,15 @@ const assert = require('node:assert');
 const path = require('node:path');
 const vm = require('node:vm');
 const esbuild = require('esbuild');
+const { define, named } = require('../support/schema.js');
 
 const ROOT = path.join(__dirname, '../..');
+
+// What a bundle is given to build from: the snapshot of a definition, as JSON
+// text would bring it from a server. metaschema stays out of the bundle.
+const snapshotOf = (definition) => JSON.parse(JSON.stringify(define(definition).snapshot));
+const snapshotNamed = (name, definition) =>
+  JSON.parse(JSON.stringify(named(name, definition).snapshot));
 
 // Loads both entry points the way a consumer's bundler would, minified and
 // not, and calls the API through the result: the shipped files must work
@@ -46,9 +53,16 @@ const loadNode = async (minify) => {
 // browser bundle runs in another realm with its own Array and Object.
 const checkBundle = ({ Schema, encode, decode, stringify, parse }) => {
   for (const fn of [encode, decode, stringify, parse]) assert.strictEqual(typeof fn, 'function');
+  // A definition needs metaschema, which protoarray never requires.
+  assert.throws(() => Schema.from({ a: 'number' }), { code: 'ERR_SCHEMA_EXPECTED' });
   for (const codegen of [true, false]) {
     const schema = Schema.from(
-      { name: 'string', age: '?number', 'tags?': { array: 'string' }, 'home?': { city: 'string' } },
+      snapshotOf({
+        name: 'string',
+        age: '?number',
+        'tags?': { array: 'string' },
+        'home?': { city: 'string' },
+      }),
       { codegen },
     );
     assert.strictEqual(schema.backend, codegen ? 'codegen' : 'closures');
@@ -65,29 +79,35 @@ const checkBundle = ({ Schema, encode, decode, stringify, parse }) => {
       '{"name":"Bob","age":null,"tags":null,"home":null}',
     );
     assert.throws(() => decode(schema, [1]), { code: 'type', path: 'name' });
-    const Blob = Schema.from({ data: 'bytes' }, { codegen });
+    const Blob = Schema.from(snapshotOf({ data: 'bytes' }), { codegen });
     const blob = Blob.encode({ data: new Uint8Array([137, 80, 78, 71, 0, 255]) });
     assert.strictEqual(JSON.stringify(blob), '["iVBORwD/"]');
     assert.deepStrictEqual(Array.from(Blob.decode(blob).data), [137, 80, 78, 71, 0, 255]);
     const Packet = Schema.from(
-      { union: [{ k: { enum: ['a'] }, v: 'number' }, { k: { enum: ['b'] } }], discriminator: 'k' },
+      snapshotOf({
+        union: [{ k: { enum: ['a'] }, v: 'number' }, { k: { enum: ['b'] } }],
+        discriminator: 'k',
+      }),
       { codegen },
     );
     assert.strictEqual(JSON.stringify(Packet.encode({ k: 'b' })), '[1]');
     assert.strictEqual(JSON.stringify(Packet.decode([0, 5])), '{"k":"a","v":5}');
-    assert.strictEqual(Packet.check({ k: 'a', v: 'x' }).code, 'type');
-    assert.strictEqual(Packet.check({ k: 'a', v: 1 }), null);
+    assert.throws(() => Packet.decode([0, 'x']), { code: 'type', path: 'v' });
+    assert.throws(() => Packet.encode({ k: 'c' }), { code: 'union', path: 'k' });
     const wide = {};
     for (let i = 0; i < 40; i++) wide[`f${i}`] = '?number';
-    const Wide = Schema.from(wide, { codegen, sparse: true });
+    const Wide = Schema.from(snapshotOf(wide), { codegen, sparse: true });
     assert.strictEqual(JSON.stringify(Wide.encode({ f35: 1 })), '[0,16,1]');
     assert.strictEqual(Wide.decode([0, 16, 1]).f35, 1);
-    const Strict = Schema.from({ n: 'number' }, { codegen, validate: 'both' });
-    assert.throws(() => Strict.encode({ n: 'x' }), { code: 'type', path: 'n' });
+    // Encode trusts the values; decode checks the wire unless told otherwise.
+    const Trusting = Schema.from(snapshotOf({ n: 'number' }), { codegen, validate: false });
+    assert.strictEqual(JSON.stringify(Trusting.encode({ n: 'x' })), '["x"]');
+    assert.strictEqual(Trusting.decode(['x']).n, 'x');
+    assert.throws(() => Trusting.encode(5), { code: 'object', path: '' });
     // The text generated code writes, through a minifier too.
     for (const mode of ['auto', 'builder']) {
       const Typed = Schema.from(
-        { n: 'integer', at: 'date', ok: '?boolean', s: '?string' },
+        snapshotOf({ n: 'integer', at: 'date', ok: '?boolean', s: '?string' }),
         { codegen, stringify: mode },
       );
       assert.strictEqual(
@@ -106,14 +126,34 @@ for (const minify of [false, true]) {
   test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify)));
 }
 
+// metaschema is a devDependency: no entry pulls it into a bundle.
+test('Bundle: no entry bundles metaschema', async () => {
+  const entries = [
+    'browser.js',
+    'index.js',
+    'registry.js',
+    'resolve.js',
+    'standalone.js',
+    'stream.js',
+  ];
+  for (const entry of entries) {
+    const code = await bundle(entry, { platform: 'browser', format: 'iife' });
+    assert.ok(!code.includes('@alexify+metaschema'), entry);
+    assert.ok(!code.includes('@alexify/metaschema'), entry);
+  }
+});
+
 // The browser runtime looks base64 up when it is used, not when it loads.
 test('Bundle: the browser entry loads in a realm without btoa', async () => {
   // Without the platform's own base64 either, so the btoa branch is the one that runs.
   const prelude = 'delete Uint8Array.prototype.toBase64; delete Uint8Array.fromBase64;';
   const context = await loadBrowser(true, {}, prelude);
   const { Schema } = context.protoarray;
-  assert.strictEqual(JSON.stringify(Schema.from({ a: 'number' }).encode({ a: 1 })), '[1]');
-  const Blob = Schema.from({ data: 'bytes' });
+  assert.strictEqual(
+    JSON.stringify(Schema.from(snapshotOf({ a: 'number' })).encode({ a: 1 })),
+    '[1]',
+  );
+  const Blob = Schema.from(snapshotOf({ data: 'bytes' }));
   const bytes = vm.runInContext('new Uint8Array(1)', context);
   assert.throws(() => Blob.encode({ data: bytes }), { name: 'ReferenceError' });
   assert.throws(() => Blob.encode({ data: new Uint8Array(1) }), { name: 'ReferenceError' });
@@ -139,11 +179,11 @@ test('Bundle: the registry subpath bundles for browsers with the core', async ()
     const context = vm.createContext({});
     vm.runInContext(result.outputFiles[0].text, context);
     const { Schema, SchemaRegistry } = context.protoarray;
-    const V1 = new Schema('User', { id: 'number', fullName: 'string' });
-    const V2 = new Schema('User', {
-      id: 'number',
-      name: { type: 'string', aliases: ['fullName'] },
-    });
+    const V1 = new Schema('User', snapshotNamed('User', { id: 'number', fullName: 'string' }));
+    const V2 = new Schema(
+      'User',
+      snapshotNamed('User', { id: 'number', name: { type: 'string', aliases: ['fullName'] } }),
+    );
     const registry = new SchemaRegistry([V1, V2]);
     const text = registry.stringify(V1, { id: 1, fullName: 'Alex' });
     assert.strictEqual(text, `["${V1.id}",[1,"Alex"]]`);
@@ -168,7 +208,7 @@ test('Bundle: the stream subpath bundles for browsers with the core', async () =
   const context = vm.createContext({ TextDecoder, TransformStream });
   vm.runInContext(result.outputFiles[0].text, context);
   const { Schema, stream } = context.protoarray;
-  const User = Schema.from({ id: 'number' });
+  const User = Schema.from(snapshotOf({ id: 'number' }));
   assert.strictEqual(
     [...stream.stringifyLines(User, [{ id: 1 }, { id: 2 }])].join(''),
     '[1]\n[2]\n',
@@ -178,9 +218,12 @@ test('Bundle: the stream subpath bundles for browsers with the core', async () =
   assert.deepStrictEqual(values, [1, 2]);
 });
 
-test('Bundle: the metaschema subpath bundles for browsers without metaschema', async () => {
+test('Bundle: the resolve subpath bundles for browsers with the core', async () => {
   const result = await esbuild.build({
-    entryPoints: [path.join(ROOT, 'metaschema.js')],
+    stdin: {
+      contents: "module.exports = { ...require('./browser.js'), ...require('./resolve.js') };",
+      resolveDir: ROOT,
+    },
     bundle: true,
     write: false,
     logLevel: 'silent',
@@ -191,22 +234,30 @@ test('Bundle: the metaschema subpath bundles for browsers without metaschema', a
   });
   const context = vm.createContext({});
   vm.runInContext(result.outputFiles[0].text, context);
-  const { types, fromMetaschema } = context.protoarray;
-  assert.deepStrictEqual(Object.keys(types), ['bytes', 'flags']);
-  assert.throws(() => fromMetaschema({}), { code: 'ERR_SCHEMA_EXPECTED' });
+  const { Schema, resolve, register } = context.protoarray;
+  const V1 = Schema.from(snapshotOf({ id: 'number', fullName: 'string' }));
+  const V2 = Schema.from(snapshotOf({ id: 'number', note: '?string', name: 'string' }));
+  const Read = resolve(V1, V2, { aliases: { name: 'fullName' } });
+  assert.strictEqual(Read.id, V1.id);
+  assert.strictEqual(
+    JSON.stringify(Read.decode([1, 'Alex'])),
+    '{"id":1,"note":null,"name":"Alex"}',
+  );
+  assert.strictEqual(Schema.resolve, undefined);
+  register();
+  assert.strictEqual(Schema.resolve, resolve);
+  assert.throws(() => resolve({}, V2), { code: 'ERR_SCHEMA_EXPECTED' });
 });
 
 // An inline module carries the source of the kernels: minified, it still runs
 // on its own, without new Function.
 test('Bundle: an inline standalone module survives a minifier', async () => {
   const { toSource } = require('../../standalone.js');
-  const { Schema } = require('../../index.js');
-  const User = new Schema('User', {
-    id: 'integer',
-    name: 'string',
-    tags: { array: { type: 'string', intern: true } },
-    pic: '?bytes',
-  });
+  const User = named(
+    'User',
+    { id: 'integer', name: 'string', tags: { array: 'string' }, pic: '?bytes' },
+    { intern: ['tags[]'] },
+  );
   const result = await esbuild.transform(toSource(User, { runtime: 'inline' }), {
     minify: true,
     format: 'cjs',

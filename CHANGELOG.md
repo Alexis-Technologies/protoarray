@@ -7,133 +7,192 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Versions that cannot follow the append-only rules read each other through `Schema.resolve` and a
-registry of schemas by id; collections stream item by item and shrink further with delta-encoded
-integers and interned strings; the whole of metaschema's DSL is understood, and a metaschema
-`Schema` translates; generated code can be written into a module for runtimes without code
-generation. Every 1.1 payload decodes the same way, and a schema that uses none of the new
-options writes what 1.1 writes. The extras that the core does not need are subpaths.
+2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.
+Schemas are metaschema's: protoarray reads the snapshot a metaschema `Schema` or `Model` writes
+(format 1, plain JSON) into the plan its backends compile, so one definition validates with
+metaschema and travels with protoarray, and a client that receives a snapshot needs no
+metaschema at all. protoarray still depends on nothing: metaschema is recognised by its brand,
+and injected through an option where a definition has to be read. The options that shape the
+wire (`delta`, `intern`, `sparse`, `layout`) name their places by path; checking the values
+given to encode is metaschema's. Versions that cannot follow the append-only rules read each
+other through `resolve` and a registry of schemas by id; collections stream item by item and
+shrink further with delta-encoded integers and interned strings; generated code can be written
+into a module for runtimes without code generation. The canonical form did not change: a schema
+of the same shape writes the same wire as in 1.x and every 1.x payload decodes the same way; its
+id is the same too, unless it references another schema by name (see Changed).
+
+### Removed
+
+- **The definition DSL.** A plain object is no longer a protoarray definition: `new Schema(name,
+  definition)` and `Schema.from(definition)` read a metaschema `Schema`, a metaschema `Model`'s
+  entity, a snapshot, or a definition with metaschema injected (`{ metaschema }`). Definition
+  errors are metaschema's (its own `SchemaDefinitionError`).
+- **`options.schemas`**: a reference by name reaches an entity of a metaschema `Model` (or of the
+  snapshot), and a schema reaches its own name for a recursion.
+- **`Schema.keys`**: a struct of `any` fields, `{ x: 'any', y: 'any' }`, is the same schema.
+- **Checking the values given to encode**: `validate: 'encode' | 'both' | 'decode'`,
+  `schema.check(value)` and `check(schema, value)`. `validate` is a boolean again and only says
+  whether the wire is checked on decode; encode trusts its values, as 1.0 did, and metaschema's
+  `check` and `parse` validate them (`schema.source` is the metaschema Schema it was built from).
+  Encode still throws for what has no wire at all: a value of the wrong shape, a union's
+  discriminator outside the union, a cycle, a value a list of differences cannot hold.
+- **A protoarray `Schema` used by value inside a definition**: embed the metaschema schema (it is
+  inlined, with the options of the schema around it), or reference an entity by name (it keeps the
+  options given for it in `entities`).
+- **`schema.definition`**: `schema.snapshot` is what it was read from, `schema.source` the
+  metaschema Schema, if any.
 
 ### Added
 
-- **`Schema.resolve(writer, reader, options?)`**: a schema that reads what `writer` wrote as
-  `reader` objects and writes `reader` objects the way `writer` does, for versions that the
-  append-only rules cannot bridge. Its wire, id, canonical form and layout are the writer's; its
-  keys, key order, types and defaults the reader's. Fields match by key, by the reader's
-  `aliases` (`name: { type: 'string', aliases: ['fullName'] }`, metaschema's own key, outside
-  the fingerprint) or by the `aliases` option, keyed by reader path (`'address.city': 'town'`,
-  `'orders[].sku'`). The reader may drop writer fields (skipped on decode, null on encode), add
-  optional or defaulted ones, reorder and rename, widen `integer` to `number` or `bigint` and
-  `decimals` to more decimals or a plain number, read an enum by value (a dropped value becomes
-  the default, null when optional, an error otherwise), an enum as a string and a string as an
-  enum, flags by name, and anything as `json`; union branches pair up by their discriminator
-  values. What cannot be read throws `SchemaDefinitionError` `ERR_INCOMPATIBLE` when resolving.
-  The result is compiled by the same backends, recursion and embedded schemas included, so it
-  runs at the speed of a schema of its own.
+- **Schemas from metaschema.** `Schema.from(metaschemaSchema, options?)` builds the schema of a
+  metaschema `Schema` (`toSnapshot()`, metaschema 3.4 or newer), typed by its Standard Schema
+  props; `Schema.from(snapshot, options?)` from a snapshot, with `entity` naming the entity of a
+  model's; `Schema.from(definition, { metaschema })` from a definition, reading it with the
+  metaschema module given (`@alexify/metaschema` or `@alexify/metaschema/definition`, which does
+  not validate); `Schema.from(schema, options?)` the same schema with other options; and
+  `Schema.fromModel(modelOrSnapshot, options?)` every entity of a `Model`, by name, references
+  between them reaching one another, a recursion between two entities included. Every form of
+  metaschema's language has its wire form: `integer`, `any`, `unknown` and `null`; sets (the
+  array of their elements), maps (flat key-value pairs), dictionaries (their keys as JSON keys);
+  tuples of any elements; `bytes`, `flags` and `decimals`, built in to metaschema since 3.4;
+  aliases of types down their chain; calculated fields and functions left out. A reference
+  travels as metaschema's check reads it: a stored kind's id, a memory kind's record, as the
+  field's `embed` says, or as the new option `references: 'kind' | 'embed' | 'id'` says for every
+  reference. A custom type with a check of its own travels as the wire type the new option
+  `types` gives it. A stored kind's id field (`<entity>Id`) is a trailing optional field, as in
+  metaschema.
+- **The snapshot is read as untrusted input**: its format, entity and every form are checked,
+  nesting is limited, a `__proto__` or integer-like key is refused (`ERR_RESERVED_KEY`,
+  `ERR_INTEGER_KEY`), and a broken one is `SchemaDefinitionError` `ERR_INVALID_SNAPSHOT` with the
+  path, so a snapshot sent by a server can define a client's schemas.
+- **Options by path**, named as the errors name a place (`address.city`, `orders[].sku`,
+  `scores{}`, `pair[1]`, `''` for the root): `sparse: true | paths` and `layout: layout | { path:
+  layout }` reach structs and collections inside a record (such a collection is compiled as a codec
+  of its own), `intern: true | paths` and `delta: paths` (see below). A path that names no place
+  of the schema, or a place of another kind, is `ERR_INVALID_OPTIONS`. `entities` gives the
+  entities a reference reaches options of their own.
+- **`@alexify/protoarray/resolve`**: `resolve(writer, reader, options?)` reads what `writer` wrote
+  as `reader` objects and writes `reader` objects the way `writer` does, for versions that the
+  append-only rules cannot bridge; `register()` installs it as `Schema.resolve`. Its wire, id,
+  canonical form and layout are the writer's; its keys, key order, types and defaults the
+  reader's. Fields match by key, by the reader's `aliases` (metaschema's own option) or by the
+  `aliases` option, keyed by reader path (`'address.city': 'town'`, `'orders[].sku'`). The reader
+  may drop writer fields (skipped on decode, null on encode), add optional or defaulted ones,
+  reorder and rename, widen `integer` to `number` or `bigint` and `decimals` to more decimals or a
+  plain number, read an enum by value (a dropped value becomes the default, null when optional,
+  an error otherwise), an enum as a string and a string as an enum, flags by name, and anything as
+  `json`; union branches pair up by their discriminator values. What cannot be read throws
+  `SchemaDefinitionError` `ERR_INCOMPATIBLE`. The result is compiled by the same backends,
+  recursion included, so it runs at the speed of a schema of its own.
 - **`@alexify/protoarray/registry`**: `SchemaRegistry`, schemas by id and by name, and the
   envelope `[id, payload]` that tells a receiver which version wrote a payload.
   `registry.decode(envelope, reader?)` reads it as its writer wrote it or as any reader schema
-  (through `Schema.resolve`, once per pair), `registry.encode(schema, value, { as: id })` writes
-  for a peer on another version, `stringify` and `parse` do the same with text. An unknown id is a
-  `DecodeError` with the new code `schema`, a value that is not `[id, payload]` a `structure`
+  (through `resolve`, once per pair), `registry.encode(schema, value, { as: id })` writes for a
+  peer on another version, `stringify` and `parse` do the same with text, and
+  `SchemaRegistry.from(modelOrSnapshot, options?)` holds every entity of a model. An unknown id is
+  a `DecodeError` with the new code `schema`, a value that is not `[id, payload]` a `structure`
   error; two different schemas under one id (a fingerprint too narrow for the registry) throw
-  `ERR_ID_COLLISION` when added. The registry is a subpath of its own, so the core bundle does not
-  carry it.
+  `ERR_ID_COLLISION` when added.
 - **`@alexify/protoarray/standalone`**: a schema's generated code as the source of a module, for
   runtimes that forbid compiling source text (a strict CSP, Cloudflare Workers, Vercel Edge),
   where schemas otherwise run on the slower closures backend. `toSource(schemas, { runtime,
-  format })` writes a CommonJS or ES module with the code of the schemas given and every schema
-  they reach (embedded, referenced by name, recursive): one schema as the default export, a record
-  of them as named exports. `runtime: 'import'` (the default) imports this package and exports
-  real `Schema` instances built from their definitions with the new `{ compiled }` option, whose
-  `backend` is `'standalone'`; `runtime: 'inline'` carries its own runtime (the source of the
-  package's error classes, type table, layouts and base64) and imports nothing. A generated module
-  never compiles source text; `{ compiled }` throws `ERR_COMPILED_MISMATCH` when the definition no
-  longer matches the code. `register()` adds `schema.toSource(options)`. A resolved schema and one
-  built from a metaschema `Schema` are refused (write their parts instead).
+  format })` writes a CommonJS or ES module with the code of the schemas given and every entity
+  they reach: one schema as the default export, a record of them as named exports. `runtime:
+  'import'` (the default) imports this package and builds real `Schema` instances from the
+  snapshots they were read from with the new `{ compiled }` option, whose `backend` is
+  `'standalone'`; `runtime: 'inline'` carries its own runtime (the source of the package's error
+  classes, type table, layouts and base64) and imports nothing. Neither needs metaschema. A
+  generated module never compiles source text; `{ compiled }` throws `ERR_COMPILED_MISMATCH` when
+  the snapshot no longer matches the code. `register()` adds `schema.toSource(options)`.
 - **The `protoarray` command**: `protoarray compile <module> [--out <file>] [--format cjs|esm]
-  [--runtime import|inline] [--only <A,B>]` loads a module of schemas (CommonJS or ES) and writes
-  their standalone module.
+  [--runtime import|inline] [--only <A,B>]` loads a module (CommonJS or ES) of protoarray schemas,
+  metaschema Schemas or metaschema Models (their entities by name) and writes their standalone
+  module.
 - **`stringify` writes the text itself where that is faster**: generated code builds the JSON
   text as it encodes instead of encoding an array and handing it to `JSON.stringify`. The text is
-  the text of the wire, byte for byte, with encode's checks and errors (a property-based test
-  holds the two together). The new option `stringify` says when: `'auto'` (the default) for
-  records whose leaves are booleans, enums, flags, dates, integers or decimals, nested records of
-  them included, which measured ×1.0 to ×1.85 against the native path on Node.js 18 to 24;
-  `'builder'` for any schema, which pays on older engines (×1.2 to ×1.8 on Node.js 20) but is up to
-  30% slower on string-heavy records since Node.js 22, whose `JSON.stringify` got a fast path;
-  `'native'` never. Collections longer than 64 records always take `JSON.stringify`.
-- **`@alexify/protoarray/metaschema`**: one definition for both libraries.
-  `fromMetaschema(schema, options?)` builds the protoarray schema of a metaschema `Schema` (which
-  keeps no raw definition) from its field types: the shared DSL type for type, a type alias
-  (`{ money: { js: 'number' } }`) as its base, `decimals`, `aliases`, `delta`, `intern` and a
-  primitive `default` carried over (a default factory is metaschema's to apply), calculated fields
-  left out, and references as metaschema's storage view holds them: a stored entity's id, a memory
-  kind or an `embed: true` field as the record. `fromModel(model, options?)` does it for every
-  entity of a `Model` in its order and returns a `SchemaRegistry`. `types` is the custom types
-  table metaschema lacks for `bytes` and `flags` (its `date` is built in), to pass to
-  `new Model(types, entities)` as often as needed. `register()` makes `Schema.from(metaschemaSchema)`,
-  a metaschema `Schema` as a field and `SchemaRegistry.from(model)` work; without it a metaschema
-  `Schema` in a definition is a clear `ERR_UNKNOWN_TYPE` instead of a misread struct.
+  the text of the wire, byte for byte (a property-based test holds the two together). The new
+  option `stringify` says when: `'auto'` (the default) for records whose leaves are booleans,
+  enums, flags, dates, integers or decimals, nested records of them included, which measured ×1.0
+  to ×1.85 against the native path on Node.js 18 to 24; `'builder'` for any schema, which pays on
+  older engines (×1.2 to ×1.8 on Node.js 20) but is up to 30% slower on string-heavy records since
+  Node.js 22, whose `JSON.stringify` got a fast path; `'native'` never. Collections longer than 64
+  records always take `JSON.stringify`.
 - **Streaming.** `schema.encodeEach(values)` and `schema.decodeEach(arrays, options?)` (and the
   free functions of the same names) convert an iterable lazily, a generator for an iterable and
   an async generator for an async one; an error names the index of its value (`[3].name`). The
   `@alexify/protoarray/stream` subpath adds, without any Node builtin:
   - `stringifyLines(schema, values)` and `parseLines(schema, source, options?)`: NDJSON, one
     payload per line, from a string, an iterable or async iterable of strings or UTF-8 bytes, or a
-    `ReadableStream` (read through its reader, async-iterable or not); CRLF and blank lines are
-    accepted, invalid UTF-8 and a line that is not JSON are `DecodeError` `json`;
+    `ReadableStream`; CRLF and blank lines are accepted, invalid UTF-8 and a line that is not JSON
+    are `DecodeError` `json`;
   - `stringifyStream(schema)` and `parseStream(schema, options?)`: the same as `TransformStream`s;
   - `stringifyItems(collection, values)` and `parseItems(collection, source, options?)`: one large
     JSON array of a collection in rows or flat, written a piece per item and read item by item
-    while the text arrives (a scanner finds where each item ends, `JSON.parse` reads it), with the
-    collection's rules for null items and errors that name the item;
+    while the text arrives, with the collection's rules for null items and errors that name the
+    item;
   - `register()`, which installs the six as methods of `Schema`.
 
   A value that is not iterable is `EncodeError` `iterable` or `DecodeError` `structure`.
-- **`delta: true`**, opt-in: an `integer`, a `number`, a `date` or decimals field of a `columns`
-  collection travels as its first value and the differences between neighbours (`[100, 1, 2]`
-  for ids 100, 101, 103; nulls keep their places); `{ array: 'integer' | 'date' | …, delta: true }`
-  does the same for a list anywhere. Only integers have exact differences, so a value that is not
-  one is an `EncodeError` `type` whatever `validate` says. The canonical form marks it (`id:integer~`,
-  `~[date]`), so it changes the id.
-- **`intern`**, opt-in: `{ type: 'string', intern: true }` on a field, or `{ intern: true }` on
-  the schema for every string of the definition (`intern: false` on a field opts it out). The
-  payload becomes `[table, body]`: the message's distinct interned strings in the order they first
-  appear, then the usual wire with each of them as its index. One table serves the whole message,
-  the schemas it embeds, the records of a collection and recursion included; a schema that embeds
-  an interned one is interned too. A broken table is a `DecodeError` `structure`, an index outside
-  it `type`. The canonical form marks it (`city:string*`).
-- **The rest of metaschema's DSL**, so that one definition serves both libraries:
-  - `integer`: a number that must be an integer;
-  - `any` and `unknown`: the same slot as `json`, with the same id;
-  - `null`: a slot that is always `null`;
-  - `{ set: T }`: travels as the array of its elements and decodes as a `Set` (encode takes a
-    `Set` or an array);
-  - `{ map: { string | number: V } }`: travels as flat pairs `[k0, v0, k1, v1, …]` and decodes
-    as a `Map`;
-  - `{ object: { string: V } }`: a dictionary whose keys travel as JSON keys and whose values are
-    converted like any field (a `__proto__` key stays an own property, never the prototype);
-  - tuples of any elements: structs, collections, unions and schemas, named elements
-    (`{ x: 'number' }`, `{ 'y?': 'string' }`) and long forms with defaults;
-  - the long forms `{ type: 'array' | 'set', value }`, `{ type: 'map' | 'object', key, value }`,
-    `{ type: 'tuple', value }`, `{ tuple: [...] }` and `{ schema: {...} }` / `{ type: 'schema',
-    schema }`.
-
-  The encode errors gain the structural codes `set` and `map`; a map entry's path is its index
-  (`scores[2]`), a dictionary value's its key (`prices.tea`).
+- **`delta`**, opt-in by path: an `integer`, a `number`, a `date` or decimals column of a `columns`
+  collection travels as its first value and the differences between neighbours (`[100, 1, 2]` for
+  ids 100, 101, 103; nulls keep their places), and a list of them anywhere does the same
+  (`delta: ['ids', '[].at']`). Only integers have exact differences, so a value that is not one is
+  an `EncodeError` `type`. The canonical form marks it (`id:integer~`, `~[date]`), so it changes
+  the id.
+- **`intern`**, opt-in: `{ intern: true }` for every string of the schema, or the paths of the
+  strings to intern. The payload becomes `[table, body]`: the message's distinct interned strings
+  in the order they first appear, then the usual wire with each of them as its index. One table
+  serves the whole message, the entities it reaches, the records of a collection and recursion
+  included. A broken table is a `DecodeError` `structure`, an index outside it `type`. The
+  canonical form marks it (`city:string*`).
 
 ### Changed
 
-- A struct whose first key is `integer`, `any`, `unknown` or `null` is now a
-  `SchemaDefinitionError` `ERR_UNKNOWN_TYPE`, as one starting with `string` already was:
-  metaschema reads such a definition as a shorthand, not as a struct.
+- **The id covers the entities a schema references.** `schema.id` is the fingerprint of the
+  canonical form followed by the canonical form of every other entity the schema reaches by
+  reference (`;Address={city:string}`, by name); the `fingerprint` option receives that text. A
+  reference prints as a name, so in 1.x two versions whose referenced schema changed had one id,
+  and a registry or `resolve` took them for one version and misread the payload. A schema that
+  references no other schema (a recursion to its own name included) keeps its 1.x id; one that
+  does gets a new one. `toString()` is unchanged.
+- **TypeScript**: a schema is typed by the metaschema Schema it is built from, through its
+  Standard Schema props (`~standard.types`) read by their shape: `Schema<Output, Input>`, the
+  output as decode gives it (`Decoded<T>`: every key present, the missing ones `null`), the input
+  as metaschema's. The definition-literal types (`Definition`, `Infer`, `Input`, `Encoded`,
+  `FieldDefinition` and their kin) are gone. `EncodeErrorCode` loses `required` and `enum`;
+  `SchemaErrorCode` gains `ERR_INVALID_SNAPSHOT`, `ERR_COMPILED_MISMATCH` and `ERR_ID_COLLISION`;
+  `Backend` gains `'standalone'`.
 - `encode`, `decode`, `stringify` and `parse` as free functions are typed after the methods of
   the schema they get (`Parameters`/`ReturnType`), which accepts any schema or collection.
-- The core is larger, about 20 KB min+gzip (the bundle budget is 20 KB), and a fresh process
-  loads it in about 4 ms instead of 3 and builds a first schema in about 2 ms instead of 1.5; a
-  warm build is unchanged. The registry, streaming, metaschema and standalone extras are subpaths
-  that add 0.4 to 2 KB each to a bundle that uses them.
+- **The core is larger**, about 18 KB min+gzip (the bundle budget is 19 KB): the wire forms of
+  metaschema's whole language, the text builder and the compaction options; the snapshot reader
+  is smaller than the definition parser it replaces. The registry, streaming, resolve and
+  standalone extras are subpaths that add 1.5 to 2.2 KB each to a bundle that uses them.
+
+### Upgrading from 1.x
+
+The wire did not change: a 2.0 schema of the shape of a 1.x schema writes its payloads and has
+its id (unless it references another schema by name, whose shape the id now covers), so the two
+versions talk to each other. What changes is how a schema is defined:
+
+- Define the schema in metaschema and build the protoarray schema from it:
+  `Schema.from(new metaschema.Schema('User', definition))`, or keep the definition literal and
+  inject metaschema: `Schema.from(definition, { metaschema })`. The spelling of the 1.x DSL is
+  metaschema's, so most definitions stay as they are.
+- `'?User'` with `options.schemas` becomes an entity of a `Model` (`Schema.fromModel(model)`);
+  a schema reaches its own name without one.
+- Reading as metaschema does differs where 1.x went its own way: a reference to a stored kind
+  (`Entity`, …) travels as its id unless the field says `embed: true` (or the option
+  `references: 'embed'`); a stored kind adds its trailing id field (`<entity>Id`, `id` when
+  anonymous), which replaces a field of that name and moves when a field is appended after it, so
+  declare it (`userId: '?string'`) to keep its position; a struct whose first key is a type name
+  needs a kind first, `{ Struct: {}, type: … }`.
+- `delta: true` and `intern: true` on a field become options by path, `{ delta: ['ids'] }`,
+  `{ intern: ['role'] }`; a protoarray schema used by value with its own `layout` or `sparse`
+  becomes the path option of the schema around it, `{ layout: { items: 'flat' } }`.
+- `Schema.keys(['x', 'y'])` becomes a definition of `any` fields.
+- `{ validate: 'both' }` and `check()` become metaschema's `check` or `parse` before `encode`.
+- `Schema.resolve` needs `register()` from `@alexify/protoarray/resolve`, or its `resolve`.
 
 ## [1.1.0] - 2026-10-15
 

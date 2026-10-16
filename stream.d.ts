@@ -3,7 +3,7 @@
  * of a large JSON array, a piece at a time.
  */
 
-import type { AnySchema, DecodeOptions, Definition } from './index.js';
+import type { AnySchema, DecodeOptions } from './index.js';
 
 /** A piece of text: a string, or UTF-8 bytes. */
 export type Chunk = string | Uint8Array;
@@ -63,7 +63,7 @@ export function parseItems<S extends AnySchema>(
 export function register(): void;
 
 declare module './index.js' {
-  interface Schema<D extends Definition> {
+  interface Schema<Output, Input> {
     stringifyLines(values: Iterable<unknown> | AsyncIterable<unknown>): Generator<string> | AsyncGenerator<string>;
     parseLines(source: Source, options?: DecodeOptions): AsyncGenerator<unknown, void, undefined>;
     stringifyStream(): TransformStream<unknown, string>;

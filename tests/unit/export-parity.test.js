@@ -22,7 +22,7 @@ const entryPoints = [
   ['browser.js', 'index.d.ts'],
   ['registry.js', 'registry.d.ts'],
   ['stream.js', 'stream.d.ts'],
-  ['metaschema.js', 'metaschema.d.ts'],
+  ['resolve.js', 'resolve.d.ts'],
   ['standalone.js', 'standalone.d.ts'],
 ];
 
@@ -31,7 +31,7 @@ const SUBPATHS = [
   ['@alexify/protoarray', 'index.d.ts'],
   ['@alexify/protoarray/registry', 'registry.d.ts'],
   ['@alexify/protoarray/stream', 'stream.d.ts'],
-  ['@alexify/protoarray/metaschema', 'metaschema.d.ts'],
+  ['@alexify/protoarray/resolve', 'resolve.d.ts'],
   ['@alexify/protoarray/standalone', 'standalone.d.ts'],
 ];
 

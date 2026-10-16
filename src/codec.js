@@ -1,6 +1,6 @@
-// Functional entry points over a compiled Schema. They do not compile a
-// definition on the fly: compiling costs more than a call, and a literal in a
-// hot loop would pay it every time.
+// Functional entry points over a compiled Schema. They do not compile a schema
+// on the fly: compiling costs more than a call, and doing it in a hot loop
+// would pay it every time.
 
 const { SchemaDefinitionError } = require('./errors.js');
 const { isSchema } = require('./plan.js');
@@ -18,10 +18,8 @@ const stringify = (schema, value) => expect(schema).stringify(value);
 
 const parse = (schema, text, options) => expect(schema).parse(text, options);
 
-const check = (schema, value) => expect(schema).check(value);
-
 const encodeEach = (schema, values) => expect(schema).encodeEach(values);
 
 const decodeEach = (schema, arrays, options) => expect(schema).decodeEach(arrays, options);
 
-module.exports = { encode, decode, stringify, parse, check, encodeEach, decodeEach };
+module.exports = { encode, decode, stringify, parse, encodeEach, decodeEach };

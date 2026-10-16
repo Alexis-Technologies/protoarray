@@ -7,17 +7,19 @@
 //
 // A resolved struct keeps the writer's fields in wire order; each one has the
 // reader's `key` (null for one the reader does not have, which decode skips
-// and encode writes as null), the reader's `required` and `def` for decode and
-// the writer's `encodeRequired` for encode. `order` is the reader's key order
-// for the decoded object and `extras` the reader's fields the writer does not
-// have, decoded as their default. Collections and tuples carry the same twin
-// flags (`itemEncodeRequired`, `valueEncodeRequired`, an item's
-// `encodeRequired`); a tuple's `skip` items and `extras` play the part of a
-// struct's skipped fields and extras.
+// and encode writes as null) and the reader's `required` and `def` for
+// decode. `order` is the reader's key order for the decoded object and
+// `extras` the reader's fields the writer does not have, decoded as their
+// default; a tuple's `skip` items and `extras` play the part of a struct's
+// skipped fields and extras.
+//
+// The `@alexify/protoarray/resolve` subpath: kept out of the core, which does
+// not need it; `register()` installs `Schema.resolve`.
 
 const { SchemaDefinitionError } = require('./errors.js');
-const { PLAN, canonical } = require('./plan.js');
+const { PLAN, canonical, isSchema } = require('./plan.js');
 const { bridge } = require('./types.js');
+const { Schema, SETTINGS, SIGNATURE, INTERNAL } = require('./schema.js');
 
 // What a slot falls back to when the writer's value has no reader value (an
 // enum value the reader dropped): its default, null for an optional slot,
@@ -36,7 +38,7 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
   const pairs = new Map();
   const compiled = [];
 
-  // A schema used by value or by name stands for its own plan.
+  // A schema reached through a slot (an entity, a nested layout) stands for its own plan.
   const target = (node) => (node.slot !== undefined ? node.slot.schema[PLAN] : node);
 
   const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
@@ -129,7 +131,6 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     }
     const at = w.kind === 'array' ? `${path}[]` : `${path}{}`;
     const node = { ...r, [item]: slot(w[item], r[item], at, r[required], null) };
-    node[w.kind === 'array' ? 'itemEncodeRequired' : 'valueEncodeRequired'] = w[required];
     if (w.kind === 'array') node.layout = w.layout;
     return node;
   };
@@ -142,7 +143,6 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
       wire: field.key,
       index: field.index,
       required: false,
-      encodeRequired: field.required,
       def: null,
       node: field.node,
     }));
@@ -207,17 +207,11 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     const items = w.items.map((item, i) => {
       const other = r.items[i];
       if (other === undefined) {
-        return {
-          node: item.node,
-          required: false,
-          encodeRequired: item.required,
-          def: null,
-          skip: true,
-        };
+        return { node: item.node, required: false, def: null, skip: true };
       }
       const at = `${path}[${i}]`;
       const node = slot(item.node, other.node, at, other.required, other.def);
-      return { node, required: other.required, encodeRequired: item.required, def: other.def };
+      return { node, required: other.required, def: other.def };
     });
     const extras = r.items.slice(w.items.length).map((item, i) => {
       if (item.required && item.def === null) {
@@ -229,14 +223,75 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     return { kind: 'tuple', items, extras };
   };
 
-  // A root scalar keeps its own optionality: the reader's on decode, the
-  // writer's on encode.
+  // A root scalar keeps the reader's optionality.
   let plan;
   if (writerPlan.kind === 'scalar' && readerPlan.kind === 'scalar') {
     const node = slot(writerPlan, readerPlan, '', readerPlan.required, null);
-    plan = { ...node, required: readerPlan.required, encodeRequired: writerPlan.required };
+    plan = { ...node, required: readerPlan.required };
   } else plan = isJson(readerPlan) ? target(writerPlan) : resolve(writerPlan, readerPlan, '');
   return { plan, compiled };
 };
 
-module.exports = { resolvePlan };
+// The `aliases` option: reader paths, as the errors spell them
+// (`address.city`, `orders[].sku`), to the writer's keys.
+const readAliases = (options, name) => {
+  const invalid = (text) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+  const aliases = Object.create(null);
+  if (options == null) return aliases;
+  if (typeof options !== 'object') throw invalid('Invalid options: expected an object');
+  for (const key of Object.keys(options)) {
+    if (key !== 'aliases') throw invalid(`Invalid option "${key}"`);
+  }
+  const source = options.aliases;
+  if (source === undefined) return aliases;
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    throw invalid('Invalid option "aliases"');
+  }
+  for (const path of Object.keys(source)) {
+    const value = source[path];
+    const list = typeof value === 'string' ? [value] : value;
+    if (!Array.isArray(list) || !list.every((key) => typeof key === 'string' && key !== '')) {
+      throw invalid(`Invalid aliases for "${path}"`);
+    }
+    aliases[path] = list;
+  }
+  return aliases;
+};
+
+// What `writer` wrote, read as `reader` objects, and `reader` objects written
+// as `writer` writes them: the writer's wire and id under the reader's keys,
+// types and defaults, matched by key, by the reader's aliases or by the
+// `aliases` option. Compiled like any schema.
+const resolve = (writer, reader, options) => {
+  if (!isSchema(writer) || !isSchema(reader)) {
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
+  }
+  const aliases = readAliases(options, reader.name);
+  // The same version, the entities it references included: nothing to bridge.
+  if (writer[SIGNATURE] === reader[SIGNATURE]) return reader;
+  const text = writer.toString();
+  const context = { name: reader.name, aliases };
+  const { plan, compiled } = resolvePlan(writer[PLAN], reader[PLAN], context);
+  const { codegen, validate } = reader[SETTINGS];
+  return new Schema(reader.name, null, {
+    codegen,
+    validate,
+    fingerprint: writer[SETTINGS].fingerprint,
+    [INTERNAL]: { plan, compiled, text, signature: writer[SIGNATURE] },
+  });
+};
+
+let registered = false;
+
+// Installs `Schema.resolve`, non-enumerable, once.
+const register = () => {
+  if (registered) return;
+  registered = true;
+  Object.defineProperty(Schema, 'resolve', {
+    value: resolve,
+    writable: true,
+    configurable: true,
+  });
+};
+
+module.exports = { resolve, register };

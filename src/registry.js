@@ -3,9 +3,10 @@
 // its payloads as any reader schema through Schema.resolve, and writes for a
 // peer on an older version the same way.
 
-const { Schema } = require('./schema.js');
+const { Schema, SIGNATURE } = require('./schema.js');
+const { resolve } = require('./resolve.js');
 const { SchemaDefinitionError, DecodeError, boundary } = require('./errors.js');
-const { HOOKS, isSchema } = require('./plan.js');
+const { isSchema } = require('./plan.js');
 
 const expect = (schema) => {
   if (isSchema(schema)) return schema;
@@ -26,24 +27,19 @@ class SchemaRegistry {
     for (const schema of schemas) this.add(schema);
   }
 
-  // A metaschema Model's entities, through the metaschema module's register().
-  static from(model, options) {
-    if (HOOKS.model === null) {
-      throw new SchemaDefinitionError(
-        'ERR_UNKNOWN_TYPE',
-        "SchemaRegistry.from needs register() from '@alexify/protoarray/metaschema'",
-      );
-    }
-    return HOOKS.model(model, options);
+  // Every entity of a metaschema Model or of its snapshot (Schema.fromModel).
+  static from(source, options) {
+    const schemas = Schema.fromModel(source, options);
+    return new SchemaRegistry(Object.keys(schemas).map((name) => schemas[name]));
   }
 
-  // Two schemas with one id must print the same: a different one under a
+  // Two schemas with one id must sign the same: a different one under a
   // known id means the fingerprint is too narrow for this registry.
   add(schema) {
     expect(schema);
     const { id } = schema;
     const known = this.#byId.get(id);
-    if (known !== undefined && known.toString() !== schema.toString()) {
+    if (known !== undefined && known[SIGNATURE] !== schema[SIGNATURE]) {
       throw new SchemaDefinitionError(
         'ERR_ID_COLLISION',
         `Schemas "${known.name}" and "${schema.name}" share the id ${id}: use a wider fingerprint`,
@@ -82,11 +78,11 @@ class SchemaRegistry {
     expect(reader);
     const writer = this.#byId.get(id);
     if (writer === undefined) throw boundary(new DecodeError('schema', '', id), reader.name, true);
-    if (writer.toString() === reader.toString()) return reader;
+    if (writer[SIGNATURE] === reader[SIGNATURE]) return reader;
     let byReader = this.#resolved.get(id);
     if (byReader === undefined) this.#resolved.set(id, (byReader = new WeakMap()));
     let resolved = byReader.get(reader);
-    if (resolved === undefined) byReader.set(reader, (resolved = Schema.resolve(writer, reader)));
+    if (resolved === undefined) byReader.set(reader, (resolved = resolve(writer, reader)));
     return resolved;
   }
 

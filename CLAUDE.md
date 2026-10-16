@@ -13,9 +13,11 @@ in Node.js ≥ 18 and browsers.
 
 It is maintained by Alexis Technologies and set up like the sibling libraries
 `@alexify/metaschema`, `@alexify/kerberos` and `@alexify/migronaut`. `origin` is
-`Alexis-Technologies/protoarray`. The definition DSL is metaschema's (all of it but unions
-without a discriminator), so one definition can serve both libraries; `./metaschema` translates a
-metaschema `Schema` and registers protoarray's extra types there.
+`Alexis-Technologies/protoarray`. **Since 2.0 schemas are metaschema's:** protoarray has no
+definition DSL of its own; it reads the snapshot (format 1) a metaschema `Schema` or `Model`
+writes (`toSnapshot()`, `toJSON()`, metaschema ≥ 3.4) into its plan, so one definition validates
+with metaschema and travels with protoarray. 1.0 and 1.1 (on npm) had their own DSL; the wire,
+the canonical form and the ids did not change.
 
 Package manager is **pnpm** (pinned in `packageManager`).
 
@@ -30,7 +32,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over every d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench bin
 pnpm run format                    # oxfmt src tests scripts bench bin (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 20 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 19 KB min+gzip
 node bin/protoarray.js compile <module> [--out f] [--format cjs|esm] [--runtime import|inline] [--only A,B]   # the CLI
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--save]   # against JSON, protobufjs, avsc, msgpackr, …
@@ -46,26 +48,26 @@ pre-merge gate. There is no build step.
 - `src/` is plain CommonJS (`require`/`module.exports`) and ships as is. No TypeScript syntax, no
   `import`/`export`, no `'use strict'`.
 - The root `index.js` is a one-line shim over `src/index.js`. `browser.js` intentionally mirrors
-  it. Do not deduplicate the two (see "Platform"). The subpaths `registry.js`, `stream.js`,
-  `metaschema.js` and `standalone.js` are one-line shims over `src/` modules of the same names,
-  each with its own d.ts; they hold what the core does not need, as free functions with the
-  schema first, and `register()` installs the methods (`Schema.prototype`, non-enumerable) or the
-  hooks (`HOOKS` in `plan.js`) where a subpath has any. Their d.ts declare those methods by module
-  augmentation of `Schema`.
+  it. Do not deduplicate the two (see "Platform"). The subpaths `registry.js`, `resolve.js`,
+  `stream.js` and `standalone.js` are one-line shims over `src/` modules of the same names, each
+  with its own d.ts; they hold what the core does not need, as free functions with the schema
+  first, and `register()` installs the methods (`Schema.prototype`, or `Schema.resolve`,
+  non-enumerable). Their d.ts declare those methods by module augmentation of `Schema`.
 - `src/index.js` lists every export **by name** (`module.exports = { Schema, encode, … }`), never by
   spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/protoarray'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. `tests/unit/export-parity.test.js` compares
   runtime exports with the declared value exports for both entries and imports every name from ESM.
-  `tests/types/*.test-d.ts` (tsd) pin signatures and the `Infer`/`Input` inference.
-  `check:dts` needs `--target es2022` because there is no tsconfig. `Infer`/`Input` are mapped and
-  conditional types over the definition literal; `AnySchema` (not `Schema<any>`) is what
-  `FieldDefinition` and `options.schemas` accept, because comparing two generic `Schema` types
-  recurses through `list` and makes TypeScript give up ("excessively deep"). For the same reason
-  `Value`/`Shape` tell a schema used as a field by its shape (`SchemaOf`: `definition` and
-  `backend`), and collections dispatch through `CollectionKind`; the free functions are typed
-  after the schema's methods (`Parameters<S['encode']>`), not through overloads over `Schema<D>`.
+  `tests/types/*.test-d.ts` (tsd) pin signatures and the inference. `check:dts` needs `--target
+  es2022` because there is no tsconfig. **The typings import nothing of metaschema** (not even
+  types: a consumer without it must compile): `Schema<Output, Input>` takes its types from a
+  source's Standard Schema props (`'~standard'.types`, read by their shape: `Typed`, `InputOf`,
+  `OutputOf`), the output through `Decoded<T>` (optional keys present and `| null`, as decode
+  gives them); a snapshot or a definition is `Schema<unknown>` unless a type argument says more.
+  The tsd tests import `@alexify/metaschema` (a devDependency) to build typed sources. `AnySchema`
+  (not `Schema<any>`) is what registries and free functions accept; the free functions are typed
+  after the schema's methods (`Parameters<S['encode']>`).
 - `package.json` has a closed `exports` map (`.`: `types`, `browser`, `default`; each subpath:
   `types`, `default`), a `bin` (`protoarray` → `bin/protoarray.js`) and a `files` allowlist: the
   root shims and d.ts files, `bin`, `src`, README, CHANGELOG, LICENSE and SECURITY.
@@ -73,22 +75,30 @@ pre-merge gate. There is no build step.
 
 ## Zero dependencies
 
-There is no `dependencies` key in `package.json`, and there won't be one. If a small helper is
-needed, copy it into `src/` with an attribution header rather than adding a dependency.
-devDependencies are fine (the comparative benchmark has several).
+There is no `dependencies` key in `package.json`, and there won't be one, **nor a
+`peerDependencies` one** (Alex's decision, 2026-10-15). Another library reaches protoarray by
+dependency injection through options, or by a structural contract, never by a require:
+metaschema's objects are told by their global brand (`Symbol.for('alexify.metaschema.brand')`,
+`FOREIGN` in `plan.js`) and their public methods called (`toSnapshot()`, `toJSON()`), and a raw
+definition is read by the metaschema module the caller passes (`{ metaschema }`).
+`platform.test.js` fails on a require or import of `@alexify/metaschema` in `src/`, `bin/` or the
+d.ts files. If a small helper is needed, copy it into `src/` with an attribution header.
+devDependencies are fine (metaschema for the tests, the comparative benchmark's libraries).
 
 ## Repository layout
 
 ```
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
-registry.js stream.js metaschema.js standalone.js (+ .d.ts)   subpath shims + types
+registry.js resolve.js stream.js standalone.js (+ .d.ts)   subpath shims + types
 bin/protoarray.js   the CLI: `protoarray compile` (Node, outside src/)
 src/
   index.js          public barrel (explicit named exports)
-  schema.js         Schema class: options, plan → backend, list/id/stringify/parse/check,
-                    Schema.resolve, encodeEach/decodeEach, the `compiled` option
-  plan.js           definition DSL → plan (node tree), canonical form, FNV-1a fingerprint, HOOKS
-  resolve.js        writer plan × reader plan → resolved plan (Schema.resolve)
+  schema.js         Schema class: sources (metaschema Schema/Model, snapshot, `{ metaschema }`),
+                    options, the assembly of a snapshot's entities, plan → backend,
+                    list/id/stringify/parse, fromModel, encodeEach/decodeEach, `compiled`
+  snapshot.js       metaschema snapshot (format 1) → plan, the options by path, hardening
+  plan.js           the plan's node typedefs, slots, canonical form, FNV-1a fingerprint
+  resolve.js        writer plan × reader plan → resolved plan; resolve()/register() (./resolve)
   types.js          scalar type table (a closed kernel): checks, conversions, bridges, interned
                     strings, delta lists, recipes; shared by both backends
   runtime/          base64 twin for `bytes`: node.js (Buffer) and browser.js (a closed kernel)
@@ -99,12 +109,12 @@ src/
   errors.js         SchemaDefinitionError, EncodeError, DecodeError, fail/nest helpers (a closed kernel)
   registry.js       SchemaRegistry and the [id, payload] envelope (./registry)
   stream.js         NDJSON, TransformStreams, stringifyItems/parseItems (./stream)
-  metaschema.js     fromMetaschema, fromModel, custom types, register (./metaschema)
   standalone.js     toSource, the import runtime, the inline kernel, register (./standalone)
 tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
-  support/          BACKENDS + normalize, the wire-format vectors, the random generator
-  fixtures/         modules of schemas for the CLI tests
+  support/          BACKENDS + normalize, define/named/model (metaschema injected), the
+                    wire-format vectors, the random generator and its translate
+  fixtures/         modules of metaschema schemas for the CLI tests, golden-1x.json
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 bench/              engine harness (bench.js), comparison (compare.js + compare/), report.js;
@@ -115,25 +125,40 @@ docs/               VitePress site (protoarray.vercel.app), not published
 
 ## Architecture
 
-`new Schema(name, definition, options)` runs three steps once, at construction:
+`new Schema(name?, source, options)` runs three steps once, at construction:
 
-1. **`plan.js`** parses the definition into a plan: a tree of nodes (`struct`, `union`, `array`
-   (a `Set` with `container: 'set'`), `map`, `dict`, `tuple`, `scalar`, `ref`). A struct node holds `fields` (`key`, `index`, `required`, `def`,
-   `node`), `keys`, `sparse` and `tail` (the index where the trailing run of optional fields
-   starts, the only part that may be trimmed off the wire). Scalar nodes come from `types.js` and
-   carry `check` (the wire), `accept` (a value given to encode), `pack` and `unpack` (null for
-   identity types). A `union` node holds the discriminator `key`, a `tag` enum over the values of
-   all branches and `branches` (`node`, `first`, `count`, `source`): each branch is a fresh struct
-   node without the discriminator, with `tag` (`key`, `position`, `keys`, `values`), always
-   inlined from its plan so the union's options apply. A `Schema` used as a field embeds its
-   plan node (for the canonical form) **with a `slot` to its compiled codec**; a name (`'User'`)
-   becomes a `ref` node with the same kind of slot, which is also how self-recursion works (the
-   slot is filled after the build). Both backends call a slot wherever one is present, so an
-   embedded schema keeps its own options and layout and is compiled once; a root never keeps a
-   slot (this schema's options apply to it), except a root `ref`, which aliases the referenced
-   codec. Every slot also has a lazy `checker`: the codec `schema.check` runs. The plan also has a canonical string (`schema.toString()`, with a `?` prefix for an
-   optional root scalar) and its fingerprint (`schema.id`: FNV-1a 32-bit, or the `fingerprint`
-   option's function of the canonical string).
+1. **`snapshot.js`** reads the source's snapshot into a plan. The source (`sourceOf` in
+   `schema.js`) is a metaschema Schema (`toSnapshot()`), a Model (`toJSON()` and `entity`), a
+   protoarray schema built again with other options (its `snapshot`), a snapshot object, or a
+   definition read by the injected `{ metaschema }`. The plan is a tree of nodes (`struct`,
+   `union`, `array` (a `Set` with `container: 'set'`), `map`, `dict`, `tuple`, `scalar`, `ref`).
+   A struct node holds `fields` (`key`, `index`, `required`, `def`, `node`, `aliases`), `keys`,
+   `sparse` and `tail` (the index where the trailing run of optional fields starts, the only part
+   that may be trimmed off the wire). Scalar nodes come from `types.js` and carry `check` (the
+   wire), `pack` and `unpack` (null for identity types). A `union` node holds the discriminator
+   `key`, a `tag` enum over the values of all branches and `branches` (`node`, `first`, `count`,
+   `source`): each branch is a fresh struct node without the discriminator, with `tag` (`key`,
+   `position`, `keys`, `values`). A reference to an entity that travels as the record (`embed`,
+   `references`, the store of the target's kind, as metaschema's check decides) becomes a `ref`
+   node with a **`slot`** to that entity's compiled codec: the entities of one snapshot are built
+   together in an *assembly* (`assemblyOf`, `slotFor`: built, being built, or built now with the
+   shared options and its own `entities` options), which is how a recursion, a mutual one
+   included, works (the slot is filled after the build). A collection inside a record with a
+   layout of its own (`layout: { path }`) is compiled as a root of its own (the module-private
+   `PLANNED` option) and called through a slot too, as is the item codec of `schema.list`. Both
+   backends call a slot wherever one is present; a root never keeps one, except a root `ref`,
+   which aliases the referenced codec. The options that shape the wire name their places by path
+   (`placesOf`): the reader marks each place it meets and reports a path that names none. The
+   snapshot is untrusted input: every form is checked, nesting is limited (64), `__proto__` and
+   integer-like keys are refused. The plan also has a canonical string (`schema.toString()`, with
+   a `?` prefix for an optional root scalar; a reference prints as `@Name`) and a *signature*
+   (`signature` in `plan.js`, `schema[Symbol.for('alexify.protoarray.signature')]`): the
+   canonical string followed by `;Name=<canonical>` for every other entity reached by reference,
+   by name. `schema.id` is the fingerprint of the signature (FNV-1a 32-bit, or the `fingerprint`
+   option's function of it), so a changed referenced entity changes the id; `resolve` and the
+   registry compare signatures. Without references to other entities the signature is the
+   canonical string, and both are what 1.x computed from its own DSL:
+   `tests/fixtures/golden-1x.json` holds them to it.
 2. **A backend builds `{ encode, decode }` from the plan.** `codegen.js` emits one encode and one
    decode function per struct through `new Function` (array and object literals, so every decoded
    object has the hidden class an object literal would). `closures.js` composes closures over the
@@ -143,11 +168,10 @@ docs/               VitePress site (protoarray.vercel.app), not published
    in automatic mode a `codegen.build` that throws for one schema falls back to closures. Both
    backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values,
    corrupted values and corrupted wires, and every behavioural suite loops over
-   `tests/support/backends.js`. `validate` is a direction (`schema.js` turns `true`/`'decode'`,
-   `'encode'`, `'both'` and `false` into `{ encode, decode }` flags): decode checks are emitted
-   only under `validate.decode`, encode checks only under `validate.encode` (codegen decides at
-   generation time, closures through build-time flags), so a codec that does not ask for a check
-   carries none and the default encode costs what 1.0 did. The codegen codec's source is
+   `tests/support/backends.js`. `validate` (a boolean, `{ decode }` inside) says whether decode
+   checks the wire; encode trusts its values (checking them is metaschema's: `schema.source`), and
+   checks only what the wire is built from (shapes, a union's discriminator, depth, the values of a
+   list of differences). The codegen codec's source is
    reachable as `codec.source` through `schema[Symbol.for('alexify.protoarray.codec')]` (not
    public API), generated again on each read so a codec does not hold the text. In automatic
    mode the error that made `codegen.build` fall back to closures is kept behind
@@ -160,15 +184,16 @@ docs/               VitePress site (protoarray.vercel.app), not published
    slots are ordinary converted scalars to both backends; `Schema` calls isolate a nested root
    call (`isolated`), and a codec without intern is unchanged.
 
-**`Schema.resolve(writer, reader)`** (`resolve.js`) walks the two plans together into a third
-one, compiled like any plan: a resolved struct keeps the writer's fields in wire order, each with
-the reader's `key` (null: skipped on decode, null on encode), `required`/`def` for decode and the
-writer's `encodeRequired` for encode, plus `order` (the reader's key order) and `extras` (reader
-fields the writer lacks); collections and tuples carry the same twin flags. Scalar conversions are
-`bridge` nodes of `types.js`. Schema boundaries (embedded schemas, references, the roots) resolve
-once per pair; a pair met again while in progress is a recursion that calls a codec compiled for
-it, and so is a layout inside a record. The resolved root prints as its writer (`text`) and keeps
-the writer's id and fingerprint; `schema.js` builds it through a module-private option symbol.
+**`resolve(writer, reader)`** (`resolve.js`, the `./resolve` subpath; `register()` installs
+`Schema.resolve`) walks the two plans together into a third one, compiled like any plan: a
+resolved struct keeps the writer's fields in wire order, each with the reader's `key` (null:
+skipped on decode, null on encode) and `required`/`def`, plus `order` (the reader's key order) and
+`extras` (reader fields the writer lacks). Scalar conversions are `bridge` nodes of `types.js`.
+Schema boundaries (references, nested layouts, the roots) resolve once per pair; a pair met again
+while in progress is a recursion that calls a codec compiled for it, and so is a layout inside a
+record. The resolved root prints as its writer (`text`) and keeps the writer's id and
+fingerprint; it is built through the module-private `INTERNAL` option of `schema.js`, which the
+subpath requires (as it does `SETTINGS`).
 
 **The text builder** (`codegen.js`): with `builder` set, generated code has a `stringify` that
 writes the JSON text as it encodes, with encode's checks and errors and the exact text of
@@ -183,14 +208,12 @@ native path on every engine measured. Parity tests force it on random schemas.
 Every scalar node and helper function of `types.js` carries a `recipe`, the expression that makes
 it again; `toSource` runs `codegen.generate` (with the options `codecOptions` gives `build`) and
 writes each helper as its recipe and each slot as a lazy reference to another schema of the module.
-The `import` runtime builds real schemas with `{ compiled }` (checked against the canonical form,
-`backend: 'standalone'`); the `inline` runtime embeds the kernels and the `inline` kernel of
-`standalone.js`, which does Schema's work around a codec.
-
-`schema.check(value)` runs a second codec, `schema[Symbol.for('alexify.protoarray.checker')]`,
-built on first use from the same plan with validation on and `checking` set: it calls each slot's
-`checker` instead of its `codec`, so embedded schemas and recursive references built with
-`validate: false` are checked too.
+The `import` runtime embeds each snapshot once and builds its entities together,
+`Schema.fromModel(snapshot, { entities: { E: { …options, compiled } } })` (checked against the
+canonical form, `backend: 'standalone'`), so references reach the module's own compiled schemas
+and nothing is compiled at runtime; a collection inside a record with a layout of its own is
+written in place (`R.nested`). The `inline` runtime embeds the kernels and the `inline` kernel of
+`standalone.js`, which does Schema's work around a codec. Neither needs metaschema.
 
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
 on `EncodeError`/`DecodeError` and turns a stack overflow (a recursive payload nested deeper than
@@ -201,10 +224,10 @@ without decode validation), and every check starts with `typeof` so in-process v
 mask, a Symbol index) fail like wire values; a sparse mask is a non-negative 31-bit integer and a
 union tag is checked in every mode. A converted type checks and converts in one call
 (`checkedUnpack` on the wire, `checkedPack` on a value where the two share their work); an
-identity type is checked inline. Encode always checks shape (`object`/`array`, an array is not a
-record) and a union's discriminator (`union`); under `validate.encode` it also checks `required`,
-`type` and `enum`, with paths built on error branches like decode's. An enum or union lookup
-never turns the value into a property key, so `check()` throws nothing over the data.
+identity type is checked inline. Encode checks shape (`object`/`array`, an array is not a
+record), a union's discriminator (`union`) and the values of a list of differences (`type`), with
+paths built on error branches like decode's; nothing else: the values are trusted. An enum or
+union lookup never turns the value into a property key.
 
 Wire rules (normative in `docs/guide/wire-format.md`, as data in `tests/support/vectors.js`):
 one field per position in declaration order; `undefined`, `null` and a missing key travel as
@@ -217,7 +240,7 @@ decode assigns every key in schema order and gives `null` (or the default) for w
 extra trailing elements are ignored unless `{ strict: true }`.
 
 By default the wire is validated on decode and the values given to encode are trusted (1.0's
-behaviour); `{ validate: 'both' }` validates the values too. Errors are
+behaviour; metaschema's `check`/`parse` validate values before encode). Errors are
 `EncodeError`/`DecodeError` with a path like `orders[1].sku`. Paths are built only on error
 branches: generated code embeds static keys and loop indices in the throw, nested calls re-throw
 through `nest()` which prepends the key. `{ validate: false }` skips type checks but never the
@@ -266,7 +289,7 @@ time.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
-- Bundle budget: 20 KB min+gzip for either entry (`pnpm size --max-gzip 20` in CI). Size does not
+- Bundle budget: 19 KB min+gzip for either entry (`pnpm size --max-gzip 19` in CI). Size does not
   limit features: when a change needs more, raise the gate to the next whole KB above the measured
   size, in the same commit. Measure after any change to `src/`.
 
@@ -292,11 +315,21 @@ change. **This file wins** if they ever disagree.
   `test('Area: description', …)`; keep that style.
 - Behavioural suites loop over `BACKENDS` from `tests/support/backends.js` so codegen and closures
   are tested with the same cases; `normalize` from the same file turns Dates, BigInts,
-  `Uint8Array`s, Sets and Maps into comparable objects and keeps a `__proto__` key an own one. `tests/support/vectors.js` is the wire format as data and the source of the
-  docs examples; add a vector when the format gains a rule.
+  `Uint8Array`s, Sets and Maps into comparable objects and keeps a `__proto__` key an own one.
+  Suites build schemas through `tests/support/schema.js`: `define(definition, options)` and
+  `named(name, definition, options)` inject metaschema (a devDependency), `model(entities,
+  options, types)` builds a metaschema Model's entities for references by name.
+  `tests/support/vectors.js` is the wire format as data (metaschema definitions and the options
+  of the wire) and the source of the docs examples; add a vector when the format gains a rule.
+- `tests/fixtures/golden-1x.json` holds what protoarray 1.x computed from its own DSL before 2.0
+  removed it: the canonical form of every vector, and the canonical form, id and `stringify` text
+  of 120 random schemas. `snapshot.test.js` holds 2.0 to it: the wire contract does not move.
+  Do not regenerate it.
 - `tests/unit/parity.test.js` generates random definitions and values (`tests/support/generate.js`,
   seeded: unions, bytes, flags past 31 names, sets, maps, dictionaries, tuples of records, delta
-  and interned fields, and every fifth schema 32–70 fields wide for sparse segments) and asserts
+  and interned places, and every fifth schema 32–70 fields wide for sparse segments; a shape is
+  drawn with `delta`/`intern` on its fields and `translate.js` turns it into the metaschema
+  definition and the options by path) and asserts
   the two backends agree on wires, decoded objects, key order and errors, on corrupted values
   (encode) and corrupted wires (decode), with the builder forced too. A second test resolves each
   schema against a mutated reader (renamed through `aliases`, dropped, shuffled, extended) and
@@ -306,9 +339,9 @@ change. **This file wins** if they ever disagree.
   `codeGeneration: { strings: false }`, the package bundled into it, and compares them with the
   schemas on the vectors and random definitions; it also runs the `inline` kernel in process,
   since c8 attributes code run from embedded source to the `vm` script, not to `src/`.
-  `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/`; generated files go to the
-  gitignored `tests/.generated/`. `metaschema.test.js` uses `@alexify/metaschema` (a
-  devDependency). `stream.test.js` splits payloads at every byte and character for the scanner.
+  `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/` (modules of metaschema schemas);
+  generated files go to the gitignored `tests/.generated/`. `stream.test.js` splits payloads at
+  every byte and character for the scanner.
 - `tests/unit/backend.test.js` stubs `globalThis.Function` before the first `require`, which is
   the only way to reach the probe's fallback branch; each test file is its own process.
   `schema.test.js` stubs `codegen.build` through the module object for the per-schema fallback,
@@ -346,7 +379,8 @@ published to npm, and lint/format do not cover it.
   logo): `docs/public/logo-mark*.svg`, `favicon.svg` (follows `prefers-color-scheme`),
   `favicon.png` and `logo.png` (the 1200×630 og:image, rendered from SVG with `rsvg-convert`).
 - When behavior changes, update README and the matching docs page together. Keep example outputs in
-  the docs true to the code: the examples come from `tests/support/vectors.js`.
+  the docs true to the code: the examples come from `tests/support/vectors.js`. Examples define
+  schemas in metaschema (`import { Schema as Definition } from '@alexify/metaschema'`).
 - The benchmark tables in README and `docs/guide/benchmarks.md` sit between
   `<!-- bench:compare:start -->` markers and are generated by `pnpm bench:report` from
   `bench/results/compare.json`; do not edit them by hand.

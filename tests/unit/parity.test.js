@@ -1,8 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { Schema, DecodeError, EncodeError } = require('../../index.js');
+const { DecodeError, EncodeError } = require('../../index.js');
+const { resolve } = require('../../resolve.js');
 const { normalize } = require('../support/backends.js');
 const { generate } = require('../support/generate.js');
+const { define } = require('../support/schema.js');
 
 const SEEDS = 120;
 const GARBAGE = ['oops', 1.5, [], {}, null, true, -1];
@@ -43,26 +45,35 @@ const corruptWire = (wire, random) => {
   return copy;
 };
 
+// The options by path of a record, for a collection of such records.
+const within = (options) => {
+  const out = {};
+  for (const key of Object.keys(options)) out[key] = options[key].map((path) => `[].${path}`);
+  return out;
+};
+
 // Both backends must be indistinguishable on random schemas: same wire, same
 // objects in the same key order, same errors with the same paths, and a wire
-// that encodes the decoded value back to itself.
+// that encodes the decoded value back to itself. The values given to encode
+// are trusted, so a corrupted one is written as it is or refused for its
+// shape (an object, an array, a union's discriminator, a list of differences)
+// by both alike.
 test('Parity: codegen and closures agree on generated schemas and values', () => {
   for (let seed = 1; seed <= SEEDS; seed++) {
-    const { definition, value, random } = generate(seed);
+    const { definition, options, value, random } = generate(seed);
     const extras = [
       {},
       { sparse: true },
       { validate: false },
-      { validate: 'both' },
       { intern: true },
       // The builder on any schema, where `auto` keeps it for converted types.
       { stringify: 'builder' },
-      { stringify: 'builder', validate: 'both', sparse: true },
+      { stringify: 'builder', validate: false, sparse: true },
     ];
     for (const extra of extras) {
       const label = `seed ${seed} ${JSON.stringify(extra)}`;
-      const A = Schema.from(definition, { codegen: true, ...extra });
-      const B = Schema.from(definition, { codegen: false, ...extra });
+      const A = define(definition, { ...options, codegen: true, ...extra });
+      const B = define(definition, { ...options, codegen: false, ...extra });
       assert.strictEqual(A.id, B.id, label);
       const wire = A.encode(value);
       assert.deepStrictEqual(normalize(wire), normalize(B.encode(value)), label);
@@ -83,11 +94,6 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
           outcome(() => A.encode(bad)),
           outcome(() => B.encode(bad)),
           `${label} encode ${round}`,
-        );
-        assert.deepStrictEqual(
-          outcome(() => A.check(bad)),
-          outcome(() => B.check(bad)),
-          `${label} check ${round}`,
         );
         // The text codegen builds is the text of the wire, errors included.
         assert.deepStrictEqual(
@@ -113,7 +119,7 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
     // Collections, around the length where the builder hands over to JSON.stringify.
     for (const count of [0, 1, 64, 65]) {
       const many = Array.from({ length: count }, () => value);
-      const C = Schema.from(definition, { codegen: true, stringify: 'builder' }).list;
+      const C = define(definition, { ...options, codegen: true, stringify: 'builder' }).list;
       assert.strictEqual(
         C.stringify(many),
         JSON.stringify(C.encode(many)),
@@ -121,8 +127,8 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
       );
     }
     const rows = [
-      Schema.from(definition, { codegen: true }).list,
-      Schema.from(definition, { codegen: false }).list,
+      define(definition, { ...options, codegen: true }).list,
+      define(definition, { ...options, codegen: false }).list,
     ];
     assert.deepStrictEqual(
       normalize(rows[0].encode(list)),
@@ -130,8 +136,8 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
       `seed ${seed} rows`,
     );
     for (const layout of ['flat', 'columns']) {
-      const F = Schema.from({ array: definition }, { codegen: true, layout });
-      const G = Schema.from({ array: definition }, { codegen: false, layout });
+      const F = define({ array: definition }, { ...within(options), codegen: true, layout });
+      const G = define({ array: definition }, { ...within(options), codegen: false, layout });
       const wire = F.encode(list);
       assert.deepStrictEqual(normalize(wire), normalize(G.encode(list)), `seed ${seed} ${layout}`);
       assert.deepStrictEqual(
@@ -172,17 +178,33 @@ const mutate = (definition, random) => {
   return { reader: Object.fromEntries(reader), aliases, renamed };
 };
 
+// The writer's options by path for the reader: under the reader's names,
+// without the fields it dropped.
+const rename = (options, renamed) => {
+  const names = new Map(Object.keys(renamed).map((name) => [renamed[name], name]));
+  const out = {};
+  for (const key of Object.keys(options)) {
+    out[key] = [];
+    for (const path of options[key]) {
+      const top = /^[^.[{]+/.exec(path)[0];
+      if (names.has(top)) out[key].push(names.get(top) + path.slice(top.length));
+    }
+  }
+  return out;
+};
+
 test('Parity: codegen and closures agree on resolved schemas', () => {
   for (let seed = 1; seed <= SEEDS; seed++) {
-    const { definition, value, random } = generate(seed);
+    const { definition, options, value, random } = generate(seed);
     const { reader, aliases, renamed } = mutate(definition, random);
-    for (const extra of [{}, { sparse: true }, { validate: 'both' }]) {
+    const readerOptions = rename(options, renamed);
+    for (const extra of [{}, { sparse: true }, { validate: false }]) {
       const label = `seed ${seed} ${JSON.stringify(extra)}`;
       const sides = [true, false].map((codegen) => {
-        const writer = Schema.from(definition, { codegen, ...extra });
+        const writer = define(definition, { ...options, codegen, ...extra });
         const { sparse, ...rest } = extra;
-        const read = Schema.from(reader, { codegen, ...rest });
-        return { writer, resolved: Schema.resolve(writer, read, { aliases }) };
+        const read = define(reader, { ...readerOptions, codegen, ...rest });
+        return { writer, resolved: resolve(writer, read, { aliases }) };
       });
       const [A, B] = sides.map((side) => side.resolved);
       const W = sides[0].writer;

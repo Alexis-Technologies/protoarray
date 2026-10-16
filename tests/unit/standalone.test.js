@@ -12,8 +12,10 @@ const types = require('../../src/types.js');
 const layouts = require('../../src/layouts.js');
 const codegen = require('../../src/codegen.js');
 const { codecOptions, SETTINGS } = require('../../src/schema.js');
+const { resolve } = require('../../resolve.js');
 const { VECTORS } = require('../support/vectors.js');
 const { generate } = require('../support/generate.js');
+const { ms, define, named, model } = require('../support/schema.js');
 
 const ROOT = path.join(__dirname, '../..');
 const PLAN = Symbol.for('alexify.protoarray.plan');
@@ -90,13 +92,14 @@ const run = (source, context) => {
   return module.exports;
 };
 
+// The kernel of an inline module, run in process: a collection nested in a
+// layout of its own is this process's.
+const kernel = () => standalone.inline(errors, types, layouts, () => standalone.runtime.nested);
+
 // The same schema, compiled in process for the inline kernel.
 const inlineOf = (schema) => {
-  const { define } = standalone.inline(errors, types, layouts);
   const plan = schema[PLAN];
-  const settings = schema[SETTINGS];
-  const own = codecOptions(plan, settings, false);
-  const checking = codecOptions(plan, settings, true);
+  const { target, interned, options } = codecOptions(plan, schema[SETTINGS]);
   const spec = {
     name: schema.name,
     id: schema.id,
@@ -104,13 +107,19 @@ const inlineOf = (schema) => {
     kind: plan.kind,
     keys: schema.keys,
     layout: schema.layout,
-    interned: own.interned,
-    validate: own.options.validate,
-    codec: codegen.build(own.target, own.options),
-    checker: codegen.build(checking.target, checking.options),
+    interned,
+    validate: options.validate,
+    codec: codegen.build(target, options),
   };
   if (schema.layout === 'flat' || schema.layout === 'columns') spec.record = plan.item;
-  return define(spec);
+  return kernel().define(spec);
+};
+
+// The options by path of a record, for a collection of such records.
+const within = (options) => {
+  const out = {};
+  for (const key of Object.keys(options)) out[key] = options[key].map((place) => `[].${place}`);
+  return out;
 };
 
 // What a module's schema and the reference agree on: the wire, the text, the
@@ -158,23 +167,19 @@ const agree = (copy, reference, value, label) => {
       label,
     );
     assert.deepStrictEqual(
-      outcome(() => copy.check(bad)),
-      outcome(() => reference.check(bad)),
+      outcome(() => copy.stringify(bad)),
+      outcome(() => reference.stringify(bad)),
       label,
     );
   }
-  assert.deepStrictEqual(
-    outcome(() => copy.check(value)),
-    outcome(() => reference.check(value)),
-    label,
-  );
 };
 
 test('Standalone: modules of both runtimes agree with the schemas on the vectors', async () => {
   const context = await restricted();
-  assert.strictEqual(context.protoarray.core.Schema.from({ a: 'number' }).backend, 'closures');
+  const { snapshot } = define({ a: 'number' });
+  assert.strictEqual(context.protoarray.core.Schema.from(snapshot).backend, 'closures');
   for (const vector of VECTORS) {
-    const reference = Schema.from(vector.definition, vector.options);
+    const reference = define(vector.definition, vector.options);
     for (const runtime of ['import', 'inline']) {
       const label = `${vector.name} (${runtime})`;
       const copy = run(standalone.toSource(reference, { runtime }), context);
@@ -191,9 +196,9 @@ test('Standalone: modules of both runtimes agree with the schemas on the vectors
 test('Standalone: modules agree with the schemas on generated definitions', async () => {
   const context = await restricted();
   for (let seed = 1; seed <= 40; seed++) {
-    const { definition, value } = generate(seed);
-    for (const options of [{}, { validate: 'both', sparse: true }, { intern: true }]) {
-      const reference = Schema.from(definition, options);
+    const { definition, options: wire, value } = generate(seed);
+    for (const options of [{}, { validate: false, sparse: true }, { intern: true }]) {
+      const reference = define(definition, { ...wire, ...options });
       const label = `seed ${seed} ${JSON.stringify(options)}`;
       for (const runtime of ['import', 'inline']) {
         agree(run(standalone.toSource(reference, { runtime }), context), reference, value, label);
@@ -201,7 +206,7 @@ test('Standalone: modules agree with the schemas on generated definitions', asyn
       agree(inlineOf(reference), reference, value, label);
     }
     for (const layout of ['flat', 'columns']) {
-      const reference = Schema.from({ array: definition }, { layout });
+      const reference = define({ array: definition }, { ...within(wire), layout });
       const label = `seed ${seed} ${layout}`;
       for (const runtime of ['import', 'inline']) {
         agree(
@@ -218,22 +223,27 @@ test('Standalone: modules agree with the schemas on generated definitions', asyn
 
 test('Standalone: a module of several schemas, embedded and recursive ones included', async () => {
   const context = await restricted();
-  const Address = new Schema('Address', { city: 'string', zip: '?string' });
-  const Tag = Schema.from({ union: [{ k: { enum: ['a'] }, n: 'integer' }], discriminator: 'k' });
-  const User = new Schema(
-    'User',
+  const Embedded = ms.Schema.from({ city: 'string', zip: '?string' });
+  const { User, Address, Tag } = model(
     {
-      id: 'integer',
-      name: 'string',
-      home: Address,
-      'work?': 'Address',
-      'boss?': 'User',
-      tags: { array: Tag },
-      calc: (user) => user.id,
-      at: { type: 'integer', default: 0 },
+      Address: { Struct: {}, city: 'string', zip: '?string' },
+      Tag: { union: [{ k: { enum: ['a'] }, n: 'integer' }], discriminator: 'k' },
+      User: {
+        Struct: {},
+        id: 'integer',
+        name: 'string',
+        home: Embedded,
+        'work?': 'Address',
+        'boss?': 'User',
+        tags: { array: 'Tag' },
+        calc: (user) => user.id,
+        at: { type: 'integer', default: 0 },
+      },
     },
-    { schemas: { Address }, validate: 'both', stringify: 'builder' },
+    { stringify: 'builder' },
   );
+  // One entity built again with options of its own is built on its own.
+  const Sparse = Schema.from(Address, { sparse: true });
   const value = {
     id: 1,
     name: 'A',
@@ -243,13 +253,19 @@ test('Standalone: a module of several schemas, embedded and recursive ones inclu
     tags: [{ k: 'a', n: 3 }],
   };
   for (const runtime of ['import', 'inline']) {
-    const source = standalone.toSource({ User, Address }, { runtime });
-    const { User: copy, Address: address } = run(source, context);
-    agree(copy, User, value, runtime);
-    agree(address, Address, { city: 'K' }, runtime);
-    assert.deepStrictEqual(plain(copy.keys), plain(User.keys));
+    const source = standalone.toSource({ User, Address, Tag, Sparse }, { runtime });
+    const copies = run(source, context);
+    agree(copies.User, User, value, runtime);
+    agree(copies.Address, Address, { city: 'K' }, runtime);
+    agree(copies.Tag, Tag, { k: 'a', n: 1 }, runtime);
+    agree(copies.Sparse, Sparse, { zip: '1' }, runtime);
+    assert.deepStrictEqual(plain(copies.User.keys), plain(User.keys));
   }
-  // A module checks the definition it was generated from.
+  // The entities of one snapshot are built together, from the snapshot.
+  const source = standalone.toSource({ User, Sparse });
+  assert.strictEqual(source.match(/Schema\.fromModel\(/g).length, 1);
+  assert.strictEqual(source.match(/new Schema\(/g).length, 1);
+  assert.match(source, /= new Schema\("Address",M0\$,\{[\s\S]*,entity:"Address"\}\);\n/);
   const { User: copy } = run(standalone.toSource({ User }), context);
   assert.strictEqual(copy.list.backend, 'closures');
   assert.deepStrictEqual(
@@ -258,67 +274,148 @@ test('Standalone: a module of several schemas, embedded and recursive ones inclu
   );
 });
 
-test('Standalone: an import module runs in this process too', () => {
-  const Address = new Schema('Address', { city: 'string' });
-  const User = new Schema('User', { home: Address, 'boss?': 'User', n: 'integer' });
+test('Standalone: a collection inside a record in a layout of its own', async () => {
+  const context = await restricted();
+  const Outer = define(
+    {
+      items: { array: { a: 'number', b: '?number' } },
+      cols: { array: { s: 'string', at: 'date' } },
+      tag: 'string',
+    },
+    {
+      layout: { items: 'flat', cols: 'columns' },
+      intern: ['cols[].s', 'tag'],
+      delta: ['cols[].at'],
+    },
+  );
+  const value = {
+    items: [{ a: 1 }, { a: 2, b: 3 }],
+    cols: [
+      { s: 'x', at: new Date(5) },
+      { s: 'x', at: new Date(7) },
+    ],
+    tag: 'x',
+  };
+  for (const runtime of ['import', 'inline']) {
+    const source = standalone.toSource(Outer, { runtime });
+    // Written in place: a nested layout has no snapshot of its own.
+    assert.strictEqual(source.match(/R\.nested\(/g).length, 2, runtime);
+    agree(run(source, context), Outer, value, runtime);
+  }
+  agree(inlineOf(Outer), Outer, value, 'in process');
+  // Interned strings in the nested collection alone: the record is interned
+  // too, and the message has one table.
+  const Inner = define(
+    { cols: { array: { s: 'string' } }, n: 'number' },
+    { layout: { cols: 'columns' }, intern: ['cols[].s'] },
+  );
+  const inner = { cols: [{ s: 'x' }, { s: 'x' }], n: 1 };
+  assert.deepStrictEqual(Inner.encode(inner), [['x'], [[[0, 0]], 1]]);
+  for (const runtime of ['import', 'inline']) {
+    const source = standalone.toSource(Inner, { runtime });
+    assert.match(source, /R\.nested\(\{[^]*interned:true/, runtime);
+    agree(run(source, context), Inner, inner, runtime);
+  }
+  agree(inlineOf(Inner), Inner, inner, 'in process');
+});
+
+// An import module of these schemas, run in this process.
+const local = (schemas) => {
   const module = { exports: {} };
   const load = vm.runInThisContext(
-    `(function (module, require) {${standalone.toSource({ User })}\n})`,
+    `(function (module, require) {${standalone.toSource(schemas)}\n})`,
   );
   load(module, (id) =>
     require(id === '@alexify/protoarray' ? '../../index.js' : '../../standalone.js'),
   );
-  const copy = module.exports.User;
+  return module.exports;
+};
+
+test('Standalone: an import module runs in this process too', () => {
+  const { User } = model({
+    Address: { Struct: {}, city: 'string' },
+    User: { Struct: {}, home: 'Address', 'boss?': 'User', n: 'integer' },
+  });
+  const copy = local({ User }).User;
   const value = { home: { city: 'K' }, boss: { home: { city: 'L' }, n: 2 }, n: 1 };
   assert.ok(copy instanceof Schema);
+  assert.strictEqual(copy.backend, 'standalone');
+  assert.strictEqual(copy.id, User.id);
   assert.deepStrictEqual(copy.decode(copy.encode(value)), User.decode(User.encode(value)));
-  assert.strictEqual(
-    copy.check({ ...value, boss: { home: { city: 1 }, n: 2 } }).path,
-    'boss.home.city',
+  assert.throws(() => copy.decode([['K'], [[1], null, 2], 1]), {
+    code: 'type',
+    path: 'boss.home.city',
+    schema: 'User',
+  });
+  // Built from the snapshot it embeds, without metaschema.
+  assert.deepStrictEqual(copy.snapshot, User.snapshot);
+  assert.strictEqual(copy.source, null);
+  // A collection in a layout of its own, through the runtime's `nested`.
+  const Outer = define(
+    { items: { array: { s: 'string', n: '?number' } }, tag: 'string' },
+    { layout: { items: 'columns' }, intern: ['items[].s', 'tag'] },
   );
+  const outer = local({ Outer }).Outer;
+  agree(outer, Outer, { items: [{ s: 'a' }, { s: 'a', n: 2 }], tag: 'a' }, 'nested');
 });
 
 test('Standalone: the inline kernel', () => {
-  const { define, slot } = standalone.inline(errors, types, layouts);
-  const target = { codec: 'codec', checker: 'checker' };
+  const { define: build, slot, nested, types: kernelTypes } = kernel();
+  const target = { codec: 'codec' };
   const reference = slot(() => target);
   assert.strictEqual(reference.codec, 'codec');
-  assert.strictEqual(reference.checker, 'checker');
-  // An error that is not the data's passes through check.
-  const Plain = Schema.from({ a: 'json' });
-  const copy = inlineOf(Plain);
+  assert.strictEqual(nested, standalone.runtime.nested);
+  assert.strictEqual(kernelTypes, types);
+  assert.strictEqual(typeof build, 'function');
+  // An error that is not the data's passes through encode.
+  const copy = inlineOf(define({ a: 'json' }));
   const broken = {
     get a() {
       throw new RangeError('not a depth problem');
     },
   };
-  assert.throws(() => copy.check(broken), RangeError);
-  assert.strictEqual(typeof define, 'function');
+  assert.throws(() => copy.encode(broken), RangeError);
+  assert.throws(() => copy.stringify(broken), RangeError);
+});
+
+test('Standalone: the runtime of import modules', () => {
+  const { runtime } = standalone;
+  assert.deepStrictEqual(Object.keys(runtime), [
+    'types',
+    'fail',
+    'nest',
+    'refuse',
+    'slot',
+    'nested',
+  ]);
+  const A = define({ a: 'integer' });
+  const slot = runtime.slot(() => A);
+  assert.strictEqual(slot.codec, A[CODEC]);
 });
 
 test('Standalone: the compiled option', () => {
-  const A = Schema.from({ a: 'integer' });
+  const A = define({ a: 'integer' });
   const codec = A[CODEC];
   const compiled = { canonical: A.toString(), id: 'custom', codec };
-  const B = Schema.from({ a: 'integer' }, { compiled });
+  const B = define({ a: 'integer' }, { compiled });
   assert.strictEqual(B.backend, 'standalone');
   assert.strictEqual(B.id, 'custom');
   assert.deepStrictEqual(B.encode({ a: 1 }), [1]);
-  assert.strictEqual(B.check({ a: 'x' }).path, 'a');
-  assert.strictEqual(Schema.from({ a: 'integer' }, { compiled: { ...compiled, id: 1 } }).id, A.id);
+  assert.throws(() => B.decode(['x']), { code: 'type', path: 'a' });
+  assert.strictEqual(define({ a: 'integer' }, { compiled: { ...compiled, id: 1 } }).id, A.id);
   assert.throws(
-    () => Schema.from({ a: 'string' }, { compiled }),
+    () => define({ a: 'string' }, { compiled }),
     (error) => {
       assert.ok(error instanceof SchemaDefinitionError);
       assert.strictEqual(error.code, 'ERR_COMPILED_MISMATCH');
       assert.strictEqual(
         error.message,
-        'The compiled codec is of another definition: generate it again',
+        'The compiled codec is of another schema: generate it again',
       );
       return true;
     },
   );
-  assert.throws(() => Schema.from({ a: 'integer' }, { compiled, codegen: true }), {
+  assert.throws(() => define({ a: 'integer' }, { compiled, codegen: true }), {
     code: 'ERR_INVALID_OPTIONS',
     message: 'A compiled codec replaces code generation',
   });
@@ -326,50 +423,56 @@ test('Standalone: the compiled option', () => {
     {},
     { canonical: 1, codec },
     { canonical: 'x', codec: {} },
+    { canonical: 'x', codec: null },
+    { canonical: 'x', codec: { encode: () => 1 } },
     { canonical: 'x' },
+    null,
   ]) {
-    assert.throws(() => Schema.from({ a: 'integer' }, { compiled: bad }), {
+    assert.throws(() => define({ a: 'integer' }, { compiled: bad }), {
       code: 'ERR_INVALID_OPTIONS',
     });
   }
 });
 
 test('Standalone: what toSource refuses', () => {
-  const W = Schema.from({ a: 'integer' });
-  const R = Schema.resolve(W, Schema.from({ a: 'number' }));
+  const W = define({ a: 'integer' });
+  const R = resolve(W, define({ a: 'number' }));
   assert.throws(() => standalone.toSource(R), {
     code: 'ERR_INVALID_OPTIONS',
     message: 'A resolved schema is built at runtime: write its writer and reader instead',
   });
-  const foreign = { [Symbol.for('alexify.metaschema.brand')]: 'Schema' };
-  require('../../src/plan.js').HOOKS.foreign = () => W;
-  try {
-    assert.throws(() => standalone.toSource(Schema.from(foreign)), {
-      message: 'A schema of a metaschema Schema: write the one fromMetaschema builds instead',
-    });
-  } finally {
-    require('../../src/plan.js').HOOKS.foreign = null;
-  }
+  assert.throws(() => standalone.toSource({ List: W.list }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'The list of a schema is built at runtime: write the schema instead',
+  });
   for (const options of [1, { other: 1 }, { runtime: 'remote' }, { format: 'umd' }]) {
     assert.throws(() => standalone.toSource(W, options), { code: 'ERR_INVALID_OPTIONS' });
   }
+  assert.throws(() => standalone.toSource(W, 1), {
+    message: 'Invalid options: expected an object',
+  });
   assert.throws(() => standalone.toSource({ 'not-a-name': W }), {
     code: 'ERR_INVALID_OPTIONS',
     message: '"not-a-name" is not a name a module can export',
   });
-  assert.throws(() => standalone.toSource({ A: 1 }), { code: 'ERR_SCHEMA_EXPECTED' });
-  assert.throws(() => standalone.toSource(null), { code: 'ERR_SCHEMA_EXPECTED' });
+  assert.throws(() => standalone.toSource({ A: 1 }), {
+    code: 'ERR_SCHEMA_EXPECTED',
+    message: '"A" is not a schema',
+  });
+  // A metaschema Schema is built into a protoarray one first.
+  assert.throws(() => standalone.toSource({ A: W.source }), { code: 'ERR_SCHEMA_EXPECTED' });
+  assert.throws(() => standalone.toSource(null), {
+    code: 'ERR_SCHEMA_EXPECTED',
+    message: 'A schema or a record of schemas expected',
+  });
   assert.strictEqual(standalone.toSource(W, null), standalone.toSource(W));
-  // An undefined in a definition is written as one.
-  const Loose = Schema.from({ a: { type: 'number', default: undefined, required: false } });
-  assert.match(standalone.toSource(Loose), /"default":undefined/);
 });
 
 test('Standalone: ES modules import and export by name', () => {
   const dir = path.join(ROOT, 'tests', '.generated');
   fs.mkdirSync(dir, { recursive: true });
-  const User = new Schema('User', { id: 'integer', name: 'string' });
-  const Note = Schema.from({ text: 'string' });
+  const User = named('User', { id: 'integer', name: 'string' });
+  const Note = define({ text: 'string' });
   for (const runtime of ['import', 'inline']) {
     const file = path.join(dir, `module-${runtime}.mjs`);
     fs.writeFileSync(file, standalone.toSource({ User, Note }, { runtime, format: 'esm' }));
@@ -388,7 +491,7 @@ test('Standalone: ES modules import and export by name', () => {
 });
 
 test('Standalone: register() adds schema.toSource()', () => {
-  const S = Schema.from({ a: 'integer' });
+  const S = define({ a: 'integer' });
   assert.strictEqual(S.toSource, undefined);
   standalone.register();
   standalone.register();

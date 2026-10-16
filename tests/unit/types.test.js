@@ -2,20 +2,16 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { Schema } = require('../../index.js');
 const { BACKENDS } = require('../support/backends.js');
+const { define } = require('../support/schema.js');
 
+// The values given to encode are trusted, whatever `validate` says (it is about
+// the wire): a value with no wire form of its type travels as null or as it is.
+// Checking a value is metaschema's (`schema.source.check`).
 for (const [backend, options] of BACKENDS) {
-  // Encode errors below need the values checked: 'both'.
-  const both = { ...options, validate: 'both' };
-
   test(`Types (${backend}): enum`, () => {
-    const E = Schema.from({ role: { enum: ['admin', 'editor'] } }, both);
-    assert.throws(() => E.encode({ role: 'nope' }), {
-      code: 'enum',
-      path: 'role',
-      message: 'Field "role" is not of enum: admin, editor',
-    });
+    const E = define({ role: { enum: ['admin', 'editor'] } }, options);
     for (const validate of [false, true]) {
-      const LooseE = Schema.from(E.definition, { ...options, validate });
+      const LooseE = Schema.from(E, { ...options, validate });
       assert.deepStrictEqual(LooseE.encode({ role: 'nope' }), [null]);
       assert.deepStrictEqual(LooseE.encode({ role: {} }), [null]);
     }
@@ -23,46 +19,49 @@ for (const [backend, options] of BACKENDS) {
     for (const bad of [1.5, '1', 2, -1, true]) {
       assert.throws(() => E.decode([bad]), { code: 'enum' });
     }
-    const Optional = Schema.from({ role: { enum: ['admin'], required: false } }, options);
+    assert.throws(() => E.decode([2]), {
+      code: 'enum',
+      path: 'role',
+      message: 'Field "role" is not of enum: admin, editor',
+    });
+    const Optional = define({ role: { enum: ['admin'], required: false } }, options);
     assert.deepStrictEqual(Optional.encode({}), []);
     assert.deepStrictEqual(Optional.decode([]), { role: null });
-    const Numeric = Schema.from({ code: { enum: [10, 20] } }, options);
+    const Numeric = define({ code: { enum: [10, 20] } }, options);
     assert.deepStrictEqual(Numeric.encode({ code: 20 }), [1]);
     assert.deepStrictEqual(Numeric.decode([1]), { code: 20 });
-    const Defaulted = Schema.from({ role: { enum: ['a', 'b'], default: 'b' } }, options);
+    const Defaulted = define({ role: { enum: ['a', 'b'], default: 'b' } }, options);
     assert.deepStrictEqual(Defaulted.decode([]), { role: 'b' });
     assert.deepStrictEqual(Defaulted.decode([0]), { role: 'a' });
     assert.throws(() => E.decode([Symbol('admin')]), { code: 'enum', path: 'role' });
     const values = Array.from({ length: 40 }, (_, i) => `v${i}`);
-    const Wide = Schema.from({ role: { enum: values } }, options);
+    const Wide = define({ role: { enum: values } }, options);
     assert.deepStrictEqual(Wide.encode({ role: 'v39' }), [39]);
     assert.deepStrictEqual(Wide.decode([39]), { role: 'v39' });
     assert.throws(() => Wide.decode([40]), { code: 'enum' });
   });
 
   test(`Types (${backend}): date`, () => {
-    const D = Schema.from({ at: 'date', list: { array: 'date' } }, both);
+    const D = define({ at: 'date', list: { array: 'date' } }, options);
     assert.deepStrictEqual(D.encode({ at: new Date(5), list: [new Date(1), 2] }), [5, [1, 2]]);
-    assert.throws(() => D.encode({ at: 'nope', list: [] }), { code: 'type', path: 'at' });
-    assert.throws(() => D.encode({ at: 1, list: [new Date(NaN)] }), {
-      code: 'type',
-      path: 'list[0]',
-      message: 'Field "list[0]" is not of expected type: date',
-    });
     for (const validate of [false, true]) {
-      const LooseD = Schema.from(D.definition, { ...options, validate });
+      const LooseD = Schema.from(D, { ...options, validate });
       assert.deepStrictEqual(LooseD.encode({ at: 'nope', list: [new Date(NaN)] }), [null, [null]]);
     }
     assert.deepStrictEqual(D.decode([5, [1]]), { at: new Date(5), list: [new Date(1)] });
     assert.throws(() => D.decode(['x']), { code: 'type', path: 'at' });
     assert.throws(() => D.decode([5, [1, 'x']]), { code: 'type', path: 'list[1]' });
-    assert.throws(() => D.decode([5, [1, null]]), { code: 'type', path: 'list[1]' });
-    const Loose = Schema.from({ list: { array: '?date' } }, options);
+    assert.throws(() => D.decode([5, [1, null]]), {
+      code: 'type',
+      path: 'list[1]',
+      message: 'Field "list[1]" is not of expected type: date',
+    });
+    const Loose = define({ list: { array: '?date' } }, options);
     assert.deepStrictEqual(Loose.decode([[1, null]]), { list: [new Date(1), null] });
   });
 
   test(`Types (${backend}): bigint`, () => {
-    const B = Schema.from({ n: 'bigint' }, options);
+    const B = define({ n: 'bigint' }, options);
     assert.deepStrictEqual(B.encode({ n: 10n }), ['10']);
     assert.deepStrictEqual(B.encode({ n: -5 }), ['-5']);
     assert.deepStrictEqual(B.decode(['10']), { n: 10n });
@@ -73,19 +72,11 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Types (${backend}): flags`, () => {
-    const F = Schema.from({ p: { flags: ['a', 'b', 'c'] } }, both);
+    const F = define({ p: { flags: ['a', 'b', 'c'] } }, options);
     assert.deepStrictEqual(F.encode({ p: { a: true, c: 1, zzz: true } }), [5]);
     assert.deepStrictEqual(F.encode({ p: {} }), [0]);
-    assert.throws(() => F.encode({ p: 'str' }), {
-      code: 'type',
-      path: 'p',
-      message: 'Field "p" is not of expected type: flags',
-    });
     for (const validate of [false, true]) {
-      assert.deepStrictEqual(
-        Schema.from(F.definition, { ...options, validate }).encode({ p: 'str' }),
-        [0],
-      );
+      assert.deepStrictEqual(Schema.from(F, { ...options, validate }).encode({ p: 'str' }), [0]);
     }
     assert.deepStrictEqual(F.decode([5]), { p: { a: true, b: false, c: true } });
     assert.deepStrictEqual(F.decode([13]), { p: { a: true, b: false, c: true } });
@@ -93,7 +84,10 @@ for (const [backend, options] of BACKENDS) {
     for (const bad of [1.5, -1, '5', 5n, Symbol('5')]) {
       assert.throws(() => F.decode([bad]), { code: 'type', path: 'p' });
     }
-    const Optional = Schema.from({ p: { flags: ['a'], required: false } }, options);
+    assert.throws(() => F.decode(['5']), {
+      message: 'Field "p" is not of expected type: flags',
+    });
+    const Optional = define({ p: { flags: ['a'], required: false } }, options);
     assert.deepStrictEqual(Optional.encode({}), []);
     assert.deepStrictEqual(Optional.decode([]), { p: null });
     // A decoder takes the array form too, and ignores the words it has no names for.
@@ -105,7 +99,7 @@ for (const [backend, options] of BACKENDS) {
 
   test(`Types (${backend}): flags past 31 names take an array of words`, () => {
     const names = Array.from({ length: 70 }, (_, i) => `n${i}`);
-    const W = Schema.from({ p: { flags: names } }, options);
+    const W = define({ p: { flags: names } }, options);
     assert.deepStrictEqual(W.encode({ p: {} }), [0]);
     assert.deepStrictEqual(W.encode({ p: { n0: true, n30: true } }), [1073741825]);
     assert.deepStrictEqual(W.encode({ p: { n31: true } }), [[0, 1]]);
@@ -120,21 +114,21 @@ for (const [backend, options] of BACKENDS) {
     assert.strictEqual(W.decode([1]).p.n31, false);
     assert.strictEqual(W.decode([[0, 1]]).p.n31, true);
     // Without validation a stray value stays as it is and a stray word counts as 0.
-    const Loose = Schema.from(W.definition, { ...options, validate: false });
+    const Loose = Schema.from(W, { ...options, validate: false });
     assert.strictEqual(Loose.decode(['x']).p, 'x');
     assert.strictEqual(Loose.decode([[1, 'x', 1n]]).p.n0, true);
     assert.strictEqual(Loose.decode([[1, 'x', 1n]]).p.n62, false);
   });
 
   test(`Types (${backend}): decimals travel as scaled integers`, () => {
-    const P = Schema.from(
+    const P = define(
       {
         price: { type: 'number', decimals: 2 },
         rate: { type: 'number', decimals: 4, required: false },
         whole: { type: 'number', decimals: 0, required: false },
         list: { array: { type: 'number', decimals: 1 }, required: false },
       },
-      both,
+      options,
     );
     assert.deepStrictEqual(P.encode({ price: 19.99 }), [1999]);
     assert.deepStrictEqual(P.decode([1999]).price, 19.99);
@@ -161,23 +155,19 @@ for (const [backend, options] of BACKENDS) {
         message: 'Field "price" is not of expected type: number(2)',
       });
     }
-    for (const bad of ['19.99', NaN, Infinity, 1e14]) {
-      assert.throws(() => P.encode({ price: bad }), { code: 'type', path: 'price' });
-    }
-    assert.throws(() => P.encode({ price: 1, list: [1, 'x'] }), { code: 'type', path: 'list[1]' });
-    const Loose = Schema.from(P.definition, { ...options, validate: false });
+    const Loose = Schema.from(P, { ...options, validate: false });
     assert.deepStrictEqual(Loose.encode({ price: 'x' }), ['x']);
     assert.deepStrictEqual(Loose.decode(['x']).price, 'x');
     assert.deepStrictEqual(Loose.decode([19.99]).price, 0.1999);
-    // By default the value is trusted on the way in and the wire checked on the way out.
-    const Default = Schema.from(P.definition, options);
-    assert.deepStrictEqual(Default.encode({ price: 'x' }), ['x']);
-    assert.deepStrictEqual(Default.encode({ price: 1e14 }), [1e16]);
-    assert.throws(() => Default.decode([1e16]), { code: 'type', path: 'price' });
+    // The value is trusted on the way in and the wire checked on the way out:
+    // a value past the safe range comes back as an error.
+    assert.deepStrictEqual(P.encode({ price: 'x' }), ['x']);
+    assert.deepStrictEqual(P.encode({ price: 1e14 }), [1e16]);
+    assert.throws(() => P.decode([1e16]), { code: 'type', path: 'price' });
   });
 
   test(`Types (${backend}): bytes travel as base64`, () => {
-    const B = Schema.from({ data: 'bytes', list: { array: '?bytes', required: false } }, both);
+    const B = define({ data: 'bytes', list: { array: '?bytes', required: false } }, options);
     const cases = [
       [[], ''],
       [[1], 'AQ=='],
@@ -201,28 +191,26 @@ for (const [backend, options] of BACKENDS) {
     assert.strictEqual(back.list[0].buffer.byteLength, 1000);
     assert.strictEqual(back.list[1], null);
     assert.ok(!Buffer.isBuffer(back.data));
-    for (const bad of [[1, 2], new Uint16Array(2), new ArrayBuffer(2), 'AQI=', {}]) {
-      assert.throws(() => B.encode({ data: bad }), {
+    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 'AB==', '-_8=', 'AQ\rI=', 5]) {
+      assert.throws(() => B.decode([bad]), {
         code: 'type',
         path: 'data',
         message: 'Field "data" is not of expected type: bytes',
       });
     }
-    for (const bad of ['AQI', 'AQI==', 'A=QI', 'a b=', '*AQI', 'AB==', '-_8=', 'AQ\rI=', 5]) {
-      assert.throws(() => B.decode([bad]), { code: 'type', path: 'data' });
-    }
     assert.throws(() => B.decode([null]), { code: 'required', path: 'data' });
-    // Without validation a value with no wire form of its type stays as it is.
-    const Loose = Schema.from(B.definition, { ...options, validate: false });
+    // A value with no wire form of its type stays as it is: on encode always,
+    // on decode without validation.
+    const Loose = Schema.from(B, { ...options, validate: false });
     assert.deepStrictEqual(Loose.encode({ data: 'AQI=' }), ['AQI=']);
-    assert.deepStrictEqual(Schema.from(B.definition, options).encode({ data: 'AQI=' }), ['AQI=']);
+    assert.deepStrictEqual(B.encode({ data: 'AQI=' }), ['AQI=']);
     assert.strictEqual(Loose.decode(['AQI']).data, 'AQI');
     assert.strictEqual(Loose.decode([5]).data, 5);
     assert.deepStrictEqual(Array.from(Loose.decode(['AQI=']).data), [1, 2]);
   });
 
   test(`Types (${backend}): json is never required`, () => {
-    const J = Schema.from({ j: 'json', k: { type: 'json' }, n: 'number' }, options);
+    const J = define({ j: 'json', k: { type: 'json' }, n: 'number' }, options);
     assert.deepStrictEqual(J.decode([null, undefined, 1]), { j: null, k: null, n: 1 });
     assert.deepStrictEqual(J.encode({ n: 1 }), [null, null, 1]);
     assert.deepStrictEqual(J.encode({ j: [1, { x: undefined }], n: 1 }), [
@@ -230,19 +218,17 @@ for (const [backend, options] of BACKENDS) {
       null,
       1,
     ]);
-    const List = Schema.from({ array: 'json' }, options);
+    const List = define({ array: 'json' }, options);
     const values = [1, null, 'x'];
     assert.strictEqual(List.decode(values), values);
   });
 
   test(`Types (${backend}): tuples have a fixed arity`, () => {
-    const T = Schema.from({ t: ['number', '?string', 'date'] }, both);
+    const T = define({ t: ['number', '?string', 'date'] }, options);
     assert.deepStrictEqual(T.encode({ t: [1, 'x', new Date(5)] }), [[1, 'x', 5]]);
-    assert.throws(() => T.encode({ t: [1] }), { code: 'required', path: 't[2]' });
-    assert.throws(() => T.encode({ t: ['1', 'x', 5] }), { code: 'type', path: 't[0]' });
     assert.deepStrictEqual(T.encode({ t: [1, null, 5, 'extra'] }), [[1, null, 5]]);
     for (const validate of [false, true]) {
-      const LooseT = Schema.from(T.definition, { ...options, validate });
+      const LooseT = Schema.from(T, { ...options, validate });
       assert.deepStrictEqual(LooseT.encode({ t: [1] }), [[1, null, null]]);
     }
     assert.deepStrictEqual(T.decode([[1, null, 5]]), { t: [1, null, new Date(5)] });
@@ -255,9 +241,9 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => T.decode([[null, 'x', 5]]), { code: 'required', path: 't[0]' });
     assert.throws(() => T.decode([[1, 'x', null]]), { code: 'required', path: 't[2]' });
     assert.throws(() => T.decode(['x']), { code: 'structure', path: 't' });
-    const Loose = Schema.from({ t: ['number', 'string'] }, { ...options, validate: false });
+    const Loose = define({ t: ['number', 'string'] }, { ...options, validate: false });
     assert.deepStrictEqual(Loose.decode([['x']]), { t: ['x', null] });
-    const Root = Schema.from(['number', 'string'], both);
+    const Root = define(['number', 'string'], options);
     assert.deepStrictEqual(Root.encode([1, 's']), [1, 's']);
     assert.throws(() => Root.decode([1]), { code: 'structure', path: '' });
     assert.throws(() => Root.decode(null), { code: 'structure', path: '' });
@@ -268,7 +254,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Types (${backend}): defaults are decoded values`, () => {
-    const D = Schema.from(
+    const D = define(
       {
         n: { type: 'number', default: 0 },
         s: { type: 'string', default: 'x' },
@@ -284,32 +270,25 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(D.encode({}), []);
     assert.throws(() => D.decode(['x']), { code: 'type', path: 'n' });
     // -0 has no JSON form: it is +0 everywhere, so both backends agree.
-    const Z = Schema.from({ z: { type: 'number', default: -0 } }, options);
+    const Z = define({ z: { type: 'number', default: -0 } }, options);
     assert.ok(Object.is(Z.decode([]).z, 0));
     assert.strictEqual(Z.toString(), '{z:?number=0}');
   });
 
   test(`Types (${backend}): arrays of converted scalars`, () => {
-    const A = Schema.from(
-      { list: { array: { enum: ['a', 'b'] } }, big: { array: 'bigint' } },
-      both,
-    );
-    assert.throws(() => A.encode({ list: ['b', 'zzz'], big: [1n] }), {
-      code: 'enum',
-      path: 'list[1]',
-    });
-    assert.throws(() => A.encode({ list: ['b', null], big: [1n] }), {
+    const A = define({ list: { array: { enum: ['a', 'b'] } }, big: { array: 'bigint' } }, options);
+    assert.deepStrictEqual(A.encode({ list: ['b'], big: [1n, 2, '-3'] }), [[1], ['1', '2', '-3']]);
+    for (const validate of [false, true]) {
+      const LooseA = Schema.from(A, { ...options, validate });
+      assert.deepStrictEqual(LooseA.encode({ list: ['b', 'zzz'], big: [1n] }), [[1, null], ['1']]);
+      assert.deepStrictEqual(LooseA.encode({ list: ['b', null], big: [] }), [[1, null], []]);
+    }
+    assert.deepStrictEqual(A.decode([[1, 0], ['1']]), { list: ['b', 'a'], big: [1n] });
+    assert.throws(() => A.decode([[1, null], ['1']]), {
       code: 'type',
       path: 'list[1]',
       message: 'Field "list[1]" is not of expected type: a, b',
     });
-    assert.deepStrictEqual(A.encode({ list: ['b'], big: [1n, 2, '-3'] }), [[1], ['1', '2', '-3']]);
-    for (const validate of [false, true]) {
-      const LooseA = Schema.from(A.definition, { ...options, validate });
-      assert.deepStrictEqual(LooseA.encode({ list: ['b', 'zzz'], big: [1n] }), [[1, null], ['1']]);
-    }
-    assert.deepStrictEqual(A.decode([[1, 0], ['1']]), { list: ['b', 'a'], big: [1n] });
-    assert.throws(() => A.decode([[1, null], ['1']]), { code: 'type', path: 'list[1]' });
     assert.throws(() => A.decode([[1, 7], ['1']]), { code: 'enum', path: 'list[1]' });
     assert.throws(() => A.decode([[1], 'x']), { code: 'structure', path: 'big' });
   });
@@ -321,7 +300,7 @@ for (const [backend, options] of BACKENDS) {
   test(`Types (${backend}): flags at the word boundaries`, () => {
     for (const size of [31, 32, 62, 63]) {
       const names = Array.from({ length: size }, (_, i) => `n${i}`);
-      const F = Schema.from({ p: { flags: names } }, options);
+      const F = define({ p: { flags: names } }, options);
       const last = names[size - 1];
       const wire = F.encode({ p: { [last]: true } });
       const words = Math.ceil(size / 31);
@@ -332,97 +311,88 @@ for (const [backend, options] of BACKENDS) {
       assert.strictEqual(decoded[last], true);
       assert.strictEqual(names.filter((name) => decoded[name]).length, 1);
     }
-    const F = Schema.from({ p: { flags: ['a', 'b'] } }, { ...options, validate: 'both' });
+    const F = define({ p: { flags: ['a', 'b'] } }, options);
     // The array form decodes whatever it holds, even where one word would do.
     assert.deepStrictEqual(F.decode([[1, 0]]).p, { a: true, b: false });
     assert.deepStrictEqual(F.decode([[1]]).p, { a: true, b: false });
-    // An array is not a set of flags; any other object is read by name, so a
-    // Date or a Map has none set.
-    for (const bad of [[], ['a'], 'a', 1, true]) {
-      assert.throws(() => F.encode({ p: bad }), { code: 'type', path: 'p' });
+    // A value is read by name, so an array, a primitive, a Date or a Map has
+    // none set.
+    for (const value of [[], ['a'], 'a', 1, true, new Date(0), new Map([['a', true]])]) {
+      assert.deepStrictEqual(F.encode({ p: value }), [0]);
     }
-    assert.deepStrictEqual(F.encode({ p: new Date(0) }), [0]);
-    assert.deepStrictEqual(F.encode({ p: new Map([['a', true]]) }), [0]);
-    assert.deepStrictEqual(Schema.from(F.definition, options).encode({ p: ['a'] }), [0]);
   });
 
   test(`Types (${backend}): decimals at the edges`, () => {
-    const both = { ...options, validate: 'both' };
-    const P = Schema.from({ n: { type: 'number', decimals: 2 } }, both);
-    for (const bad of [-Infinity, -1e14, 1e14, '1']) {
-      assert.throws(() => P.encode({ n: bad }), { code: 'type', path: 'n' });
-    }
+    const P = define({ n: { type: 'number', decimals: 2 } }, options);
     assert.deepStrictEqual(P.encode({ n: -1e13 }), [-1e15]);
     assert.deepStrictEqual(P.decode([-(2 ** 53 - 1)]).n, -(2 ** 53 - 1) / 100);
     assert.throws(() => P.decode([-(2 ** 53)]), { code: 'type', path: 'n' });
-    const Fine = Schema.from({ n: { type: 'number', decimals: 15 } }, both);
+    // Past the safe range on the way in, the wire is refused on the way out.
+    assert.throws(() => P.decode(P.encode({ n: -1e14 })), { code: 'type', path: 'n' });
+    const Fine = define({ n: { type: 'number', decimals: 15 } }, options);
     assert.deepStrictEqual(Fine.encode({ n: 0.5 }), [500000000000000]);
     assert.deepStrictEqual(Fine.decode([500000000000000]).n, 0.5);
-    assert.throws(() => Fine.encode({ n: 10 }), { code: 'type', path: 'n' });
-    // At the root, in a sparse record, in a union, in a layout; checked by check().
+    assert.throws(() => Fine.decode(Fine.encode({ n: 10 })), { code: 'type', path: 'n' });
+    // At the root, in a sparse record, in a union, in a layout; checked on decode.
     const Price = { type: 'number', decimals: 2 };
-    const Root = Schema.from(Price, both);
+    const Root = define(Price, options);
     assert.strictEqual(Root.encode(1.5), 150);
     assert.strictEqual(Root.decode(150), 1.5);
-    assert.strictEqual(Root.check('x').code, 'type');
-    const Sparse = Schema.from({ a: '?string', p: Price }, { ...both, sparse: true });
+    assert.throws(() => Root.decode(1.5), { code: 'type', path: '' });
+    const Sparse = define({ a: '?string', p: Price }, { ...options, sparse: true });
     assert.deepStrictEqual(Sparse.encode({ p: 1.5 }), [2, 150]);
     assert.deepStrictEqual(Sparse.decode([2, 150]), { a: null, p: 1.5 });
-    const U = Schema.from({ union: [{ k: { enum: ['a'] }, p: Price }], discriminator: 'k' }, both);
+    const U = define({ union: [{ k: { enum: ['a'] }, p: Price }], discriminator: 'k' }, options);
     assert.deepStrictEqual(U.encode({ k: 'a', p: 1.5 }), [0, 150]);
     assert.deepStrictEqual(U.decode([0, 150]), { k: 'a', p: 1.5 });
-    assert.strictEqual(U.check({ k: 'a', p: 'x' }).path, 'p');
+    assert.throws(() => U.decode([0, 'x']), { code: 'type', path: 'p' });
     for (const layout of ['flat', 'columns']) {
-      const L = Schema.from({ array: { p: Price } }, { ...both, layout });
+      const L = define({ array: { p: Price } }, { ...options, layout });
       const wire = L.encode([{ p: 1.5 }, { p: 2 }]);
       assert.deepStrictEqual(L.decode(wire), [{ p: 1.5 }, { p: 2 }]);
-      assert.strictEqual(L.check([{ p: 'x' }]).path, '[0].p');
+      const bad = layout === 'flat' ? [1.5] : [[1.5]];
+      assert.throws(() => L.decode(bad), { code: 'type', path: '[0].p' });
     }
-    const T = Schema.from({ t: [Price, '?number'] }, both);
+    const T = define({ t: [Price, '?number'] }, options);
     assert.deepStrictEqual(T.encode({ t: [1.5] }), [[150, null]]);
     assert.deepStrictEqual(T.decode([[150, null]]), { t: [1.5, null] });
   });
 }
 
 for (const [backend, options] of BACKENDS) {
-  const both = { ...options, validate: 'both' };
-
   test(`Types (${backend}): integer, any, unknown and null`, () => {
-    const S = Schema.from({ n: 'integer', a: 'any', u: 'unknown', z: 'null' }, both);
+    const S = define({ n: 'integer', a: 'any', u: 'unknown', z: 'null' }, options);
     assert.deepStrictEqual(S.decode([3]), { n: 3, a: null, u: null, z: null });
-    for (const bad of [1.5, '1', NaN, Infinity]) {
-      assert.throws(() => S.encode({ n: bad }), { code: 'type', path: 'n' });
-    }
     assert.throws(() => S.decode([1.5]), {
       code: 'type',
       path: 'n',
       message: 'Field "n" is not of expected type: integer',
     });
     assert.throws(() => S.decode([]), { code: 'required', path: 'n' });
-    // A null slot holds nothing else: validated, a value is a type error;
-    // trusted, it travels as null.
-    assert.throws(() => S.encode({ n: 1, z: 0 }), {
+    // A null slot holds nothing else: whatever is given travels as null, and
+    // validated, only null decodes.
+    assert.deepStrictEqual(S.encode({ n: 1, z: 0 }), [1]);
+    assert.throws(() => S.decode([1, null, null, 0]), {
       code: 'type',
+      path: 'z',
       message: 'Field "z" is not of expected type: null',
     });
-    assert.throws(() => S.decode([1, null, null, 0]), { code: 'type', path: 'z' });
-    const Loose = Schema.from(S.definition, { ...options, validate: false });
+    const Loose = Schema.from(S, { ...options, validate: false });
     assert.deepStrictEqual(Loose.encode({ n: 1.5, z: 'x' }), [1.5]);
     assert.deepStrictEqual(Loose.decode([1.5, 1, 2, 'x']), { n: 1.5, a: 1, u: 2, z: 'x' });
-    assert.strictEqual(S.check({ n: 2 }), null);
     // A default of an integer is an integer; any and unknown are json.
-    const D = Schema.from({ n: { type: 'integer', default: 2 } }, options);
+    const D = define({ n: { type: 'integer', default: 2 } }, options);
     assert.deepStrictEqual(D.decode([]), { n: 2 });
-    assert.strictEqual(Schema.from({ a: 'any' }).id, Schema.from({ a: 'json' }).id);
-    const Items = Schema.from({ list: { array: 'integer' }, opt: { array: '?null' } }, both);
+    assert.strictEqual(define({ a: 'any' }).id, define({ a: 'json' }).id);
+    const Items = define({ list: { array: 'integer' }, opt: { array: '?null' } }, options);
     assert.throws(() => Items.decode([[1, 2.5]]), { code: 'type', path: 'list[1]' });
-    assert.throws(() => Items.encode({ list: [1, 0.5] }), { code: 'type', path: 'list[1]' });
     assert.deepStrictEqual(Items.encode({ list: [1], opt: [null] }), [[1], [null]]);
-    assert.throws(() => Items.encode({ list: [1], opt: [null, 1] }), { path: 'opt[1]' });
+    assert.deepStrictEqual(Items.encode({ list: [1], opt: [null, 1] }), [[1], [null, null]]);
+    assert.throws(() => Items.decode([[1], [null, 1]]), { code: 'type', path: 'opt[1]' });
   });
 
   test(`Types (${backend}): sets`, () => {
-    const S = Schema.from({ tags: { set: 'string' }, at: { set: '?date', required: false } }, both);
+    const S = define({ tags: { set: 'string' }, at: { set: '?date', required: false } }, options);
     assert.deepStrictEqual(S.encode({ tags: ['a', 'b'] }), [['a', 'b']]);
     assert.deepStrictEqual(S.encode({ tags: new Set(['a']), at: new Set([new Date(1), null]) }), [
       ['a'],
@@ -439,11 +409,10 @@ for (const [backend, options] of BACKENDS) {
         message: 'Field "tags" is not a set',
       });
     }
-    assert.throws(() => S.encode({ tags: new Set([1]) }), { code: 'type', path: 'tags[0]' });
     assert.throws(() => S.decode([new Set()]), { code: 'structure', path: 'tags' });
     assert.throws(() => S.decode([[1]]), { code: 'type', path: 'tags[0]' });
     assert.throws(() => S.decode([['a'], ['x']]), { code: 'type', path: 'at[0]' });
-    const Records = Schema.from({ s: { set: { id: 'number' } } }, options);
+    const Records = define({ s: { set: { id: 'number' } } }, options);
     const wire = Records.encode({ s: new Set([{ id: 1 }, { id: 2 }]) });
     assert.deepStrictEqual(wire, [[[1], [2]]]);
     assert.deepStrictEqual([...Records.decode(wire).s], [{ id: 1 }, { id: 2 }]);
@@ -452,14 +421,14 @@ for (const [backend, options] of BACKENDS) {
       path: 's[0]',
       message: 'Field "s[0]" is not of expected type: object',
     });
-    const Nested = Schema.from({ s: { array: { set: 'number' } } }, both);
+    const Nested = define({ s: { array: { set: 'number' } } }, options);
     assert.throws(() => Nested.decode([[null]]), {
       message: 'Field "s[0]" is not of expected type: set',
     });
   });
 
   test(`Types (${backend}): maps`, () => {
-    const M = Schema.from({ m: { map: { string: 'date' } } }, both);
+    const M = define({ m: { map: { string: 'date' } } }, options);
     const value = new Map([
       ['a', new Date(1)],
       ['b', new Date(2)],
@@ -473,50 +442,28 @@ for (const [backend, options] of BACKENDS) {
         message: 'Field "m" is not a map',
       });
     }
-    assert.throws(() => M.encode({ m: new Map([[1, new Date(0)]]) }), {
-      code: 'type',
-      path: 'm[0]',
-      message: 'Field "m[0]" is not of expected type: string',
-    });
-    assert.throws(
-      () =>
-        M.encode({
-          m: new Map([
-            ['a', new Date(0)],
-            ['b', 'x'],
-          ]),
-        }),
-      {
-        code: 'type',
-        path: 'm[1]',
-      },
-    );
-    assert.throws(() => M.encode({ m: new Map([['a', null]]) }), { code: 'type', path: 'm[0]' });
     assert.throws(() => M.decode([['a']]), {
       code: 'structure',
       path: 'm',
       message: 'Field "m" has a wrong length',
     });
     assert.throws(() => M.decode([{}]), { code: 'structure', path: 'm' });
-    assert.throws(() => M.decode([[1, 1]]), { code: 'type', path: 'm[0]' });
+    assert.throws(() => M.decode([[1, 1]]), {
+      code: 'type',
+      path: 'm[0]',
+      message: 'Field "m[0]" is not of expected type: string',
+    });
     assert.throws(() => M.decode([['a', 1, 'b', 'x']]), { code: 'type', path: 'm[1]' });
     assert.throws(() => M.decode([['a', null]]), {
       code: 'type',
       message: 'Field "m[0]" is not of expected type: date',
     });
-    const Loose = Schema.from(M.definition, { ...options, validate: false });
     // Trusted: a key travels as it is, a value with no wire form as null.
+    assert.deepStrictEqual(M.encode({ m: new Map([[1, 'x']]) }), [[1, null]]);
+    const Loose = Schema.from(M, { ...options, validate: false });
     assert.deepStrictEqual(Loose.encode({ m: new Map([[1, 'x']]) }), [[1, null]]);
     assert.deepStrictEqual(Loose.decode([[1, 'x']]).m, new Map([[1, 'x']]));
-    const Numbers = Schema.from({ m: { map: { number: { id: '?number' } } } }, both);
-    assert.throws(() => Numbers.encode({ m: new Map([[NaN, {}]]) }), {
-      code: 'type',
-      path: 'm[0]',
-    });
-    assert.throws(() => Numbers.encode({ m: new Map([[1, { id: 'x' }]]) }), {
-      code: 'type',
-      path: 'm[0].id',
-    });
+    const Numbers = define({ m: { map: { number: { id: '?number' } } } }, options);
     assert.throws(() => Numbers.decode([[1, ['x']]]), { code: 'type', path: 'm[0].id' });
     assert.deepStrictEqual(
       Numbers.decode([[1, [], 2, [3]]]).m,
@@ -529,14 +476,13 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Types (${backend}): object dictionaries`, () => {
-    const D = Schema.from({ d: { object: { string: 'date' } } }, both);
+    const D = define({ d: { object: { string: 'date' } } }, options);
     assert.deepStrictEqual(D.encode({ d: { a: new Date(1) } }), [{ a: 1 }]);
     assert.deepStrictEqual(D.decode([{ a: 1 }]), { d: { a: new Date(1) } });
     for (const bad of [[], 'x']) {
       assert.throws(() => D.encode({ d: bad }), { code: 'object', path: 'd' });
     }
-    assert.throws(() => D.encode({ d: { a: 'x' } }), { code: 'type', path: 'd.a' });
-    assert.throws(() => D.encode({ d: { a: null } }), { code: 'type', path: 'd.a' });
+    assert.deepStrictEqual(D.encode({ d: { a: 'x' } }), [{ a: null }]);
     for (const bad of [[], null, 'x']) {
       assert.throws(() => D.decode([bad === null ? 1 : bad]), { code: 'structure', path: 'd' });
     }
@@ -552,41 +498,33 @@ for (const [backend, options] of BACKENDS) {
     const wire = D.encode({ d: decoded });
     assert.strictEqual(JSON.stringify(wire), '[{"__proto__":1,"b":2}]');
     // Values that travel as they are keep the object itself.
-    const Plain = Schema.from({ d: { object: { string: '?number' } } }, options);
+    const Plain = define({ d: { object: { string: '?number' } } }, options);
     const source = { a: 1, b: null };
     assert.strictEqual(Plain.encode({ d: source })[0], source);
     assert.strictEqual(Plain.decode([source]).d, source);
-    const Checked = Schema.from(Plain.definition, both);
-    assert.throws(() => Checked.encode({ d: { a: 'x' } }), { code: 'type', path: 'd.a' });
-    assert.throws(() => Checked.decode([{ a: 'x' }]), { code: 'type', path: 'd.a' });
-    const Required = Schema.from({ d: { object: { string: 'number' } } }, both);
+    assert.throws(() => Plain.decode([{ a: 'x' }]), { code: 'type', path: 'd.a' });
+    const Required = define({ d: { object: { string: 'number' } } }, options);
     assert.throws(() => Required.decode([{ a: null }]), { code: 'type', path: 'd.a' });
-    assert.throws(() => Required.encode({ d: { a: null } }), { code: 'type', path: 'd.a' });
-    const Root = Schema.from({ object: { string: { id: 'number' } } }, both);
+    const Root = define({ object: { string: { id: 'number' } } }, options);
     assert.deepStrictEqual(Root.encode({ x: { id: 1 } }), { x: [1] });
-    assert.throws(() => Root.encode({ x: { id: 'a' } }), { code: 'type', path: 'x.id' });
     assert.throws(() => Root.decode({ x: ['a'] }), { code: 'type', path: 'x.id' });
   });
 
   test(`Types (${backend}): tuples of any elements`, () => {
-    const T = Schema.from(
+    const T = define(
       {
         t: [{ at: 'date' }, { x: 'number', y: '?number' }, { 'tag?': 'string' }, { list: 'json' }],
       },
-      both,
+      options,
     );
     assert.deepStrictEqual(T.encode({ t: [new Date(1), { x: 1 }, null, 5] }), [[1, [1], null, 5]]);
     assert.deepStrictEqual(T.decode([[1, [1], null, null]]), {
       t: [new Date(1), { x: 1, y: null }, null, null],
     });
-    assert.throws(() => T.encode({ t: [new Date(1), { x: 'a' }] }), {
-      code: 'type',
-      path: 't[1].x',
-    });
-    assert.throws(() => T.encode({ t: [new Date(1)] }), { code: 'required', path: 't[1]' });
+    assert.strictEqual(T.toString(), '{t:(date,{x:number,y:?number},?string,?json)}');
     assert.throws(() => T.decode([[1, ['a'], null, null]]), { code: 'type', path: 't[1].x' });
     assert.throws(() => T.decode([[1, null, null, null]]), { code: 'required', path: 't[1]' });
-    const D = Schema.from({ t: [{ type: 'number', default: 5 }, 'string'] }, options);
+    const D = define({ t: [{ type: 'number', default: 5 }, 'string'] }, options);
     assert.deepStrictEqual(D.decode([[null, 'a']]), { t: [5, 'a'] });
     assert.strictEqual(D.toString(), '{t:(?number=5,string)}');
   });

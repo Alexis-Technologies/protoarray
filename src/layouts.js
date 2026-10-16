@@ -12,13 +12,11 @@ const kernel = (errors, types) => {
   const { fail, nest, refuse } = errors;
   const { INTERN } = types;
 
-  // A row of exactly `size` slots; a null record is a run of nulls, which only
-  // a trusting codec writes: it would not decode as null.
-  const padded = (item, record, size, index, validate) => {
+  // A row of exactly `size` slots; a null record is a run of nulls, which
+  // decodes as a record of nulls, not as null.
+  const padded = (item, record, size, index) => {
     let row = [];
-    if (record == null) {
-      if (validate) refuse('type', `[${index}]`, 'object');
-    } else {
+    if (record != null) {
       try {
         row = item.encode(record);
       } catch (error) {
@@ -41,14 +39,14 @@ const kernel = (errors, types) => {
     return out;
   };
 
-  const flat = (item, record, validate) => {
+  const flat = (item, record) => {
     const size = record.fields.length;
     return {
       encode: (list) => {
         if (!Array.isArray(list)) refuse('array', '');
         const out = [];
         for (let i = 0; i < list.length; i++) {
-          out.push(...padded(item, list[i], size, i, validate.encode));
+          out.push(...padded(item, list[i], size, i));
         }
         return out;
       },
@@ -111,7 +109,7 @@ const kernel = (errors, types) => {
         const out = [];
         for (let j = 0; j < size; j++) out.push(new Array(list.length));
         for (let i = 0; i < list.length; i++) {
-          const row = padded(item, list[i], size, i, validate.encode);
+          const row = padded(item, list[i], size, i);
           for (let j = 0; j < size; j++) out[j][i] = row[j];
         }
         for (const delta of deltas) differences(out[delta.index], delta);

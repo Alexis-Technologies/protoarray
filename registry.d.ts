@@ -3,13 +3,13 @@
  * `[id, payload]` envelope.
  */
 
-import type { AnySchema, DecodeOptions, Definition, Schema, SchemaOptions } from './index.js';
+import type { AnySchema, DecodeOptions, ModelLike, ModelOptions, Snapshot } from './index.js';
 
 /** A payload with the id of the schema that wrote it: `[id, payload]`. */
 export type Envelope = [id: string, payload: unknown];
 
 export interface EnvelopeOptions {
-  /** Write the payload for a peer that knows this id, through `Schema.resolve`. */
+  /** Write the payload for a peer that knows this id, read through `resolve`. */
   readonly as?: string;
 }
 
@@ -17,11 +17,8 @@ export interface EnvelopeOptions {
 export class SchemaRegistry implements Iterable<AnySchema> {
   constructor(schemas?: Iterable<AnySchema>);
 
-  /**
-   * The schemas of a metaschema Model's entities, by name and by id. Needs `register()` from
-   * `@alexify/protoarray/metaschema`.
-   */
-  static from(model: unknown, options?: SchemaOptions): SchemaRegistry;
+  /** The schemas of the entities of a metaschema Model or of its snapshot (`Schema.fromModel`). */
+  static from(source: ModelLike | Snapshot, options?: ModelOptions): SchemaRegistry;
 
   /** How many ids are known. */
   readonly size: number;
@@ -37,7 +34,7 @@ export class SchemaRegistry implements Iterable<AnySchema> {
   find(name: string): AnySchema | undefined;
 
   /** The schema that reads what the schema with this id wrote, as `reader` objects. */
-  resolve<const R extends Definition>(id: string, reader: Schema<R>): Schema<R>;
+  resolve<S extends AnySchema>(id: string, reader: S): S;
 
   encode<S extends AnySchema>(
     schema: S,

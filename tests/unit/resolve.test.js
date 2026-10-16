@@ -1,11 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { Schema, SchemaDefinitionError } = require('../../index.js');
+const { resolve, register } = require('../../resolve.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
+const { define, named, model } = require('../support/schema.js');
 
 const incompatible = (writer, reader, expected, options) => {
   assert.throws(
-    () => Schema.resolve(writer, reader, options),
+    () => resolve(writer, reader, options),
     (error) => {
       assert.ok(error instanceof SchemaDefinitionError);
       assert.strictEqual(error.code, 'ERR_INCOMPATIBLE');
@@ -17,11 +19,10 @@ const incompatible = (writer, reader, expected, options) => {
 };
 
 for (const [backend, options] of BACKENDS) {
-  const both = { ...options, validate: 'both' };
-
   test(`Resolve (${backend}): the writer's wire under the reader's keys`, () => {
-    const V1 = Schema.from({ id: 'number', fullName: 'string', legacy: '?string' }, options);
-    const V2 = new Schema(
+    const definition = { id: 'number', fullName: 'string', legacy: '?string' };
+    const V1 = define(definition, options);
+    const V2 = named(
       'User',
       {
         email: { type: 'string', default: 'none' },
@@ -31,10 +32,9 @@ for (const [backend, options] of BACKENDS) {
       },
       options,
     );
-    const R = Schema.resolve(V1, V2);
+    const R = resolve(V1, V2);
     assert.strictEqual(R.backend, backend);
     assert.strictEqual(R.name, 'User');
-    assert.strictEqual(R.definition, V2.definition);
     assert.deepStrictEqual(R.keys, ['email', 'id', 'name', 'nick']);
     assert.strictEqual(R.id, V1.id);
     assert.strictEqual(R.toString(), V1.toString());
@@ -52,8 +52,8 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => R.decode([1]), { code: 'required', path: 'name' });
     assert.throws(() => R.decode(['x', 'y']), { code: 'type', path: 'id' });
     // The same canonical form: nothing to resolve.
-    const Same = Schema.from(V1.definition, options);
-    assert.strictEqual(Schema.resolve(Same, V1), V1);
+    const Same = define(definition, options);
+    assert.strictEqual(resolve(Same, V1), V1);
     // A collection of resolved records reads the writer's rows.
     assert.strictEqual(R.list.id, V1.list.id);
     assert.deepStrictEqual(R.list.decode([wire, [3, 'C']]), [
@@ -63,26 +63,19 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Resolve (${backend}): validation follows the reader's options`, () => {
-    const W = Schema.from({ a: 'number', b: '?string', c: 'string' }, options);
-    const R = Schema.resolve(W, Schema.from({ a: 'number', b: 'string' }, both));
-    // Required on decode is the reader's, on encode the writer's: c is
-    // required by the writer and the reader has no value for it.
+    const W = define({ a: 'number', b: '?string', c: 'string' }, options);
+    const R = resolve(W, define({ a: 'number', b: 'string' }, options));
+    // Required on decode is the reader's.
     assert.throws(() => R.decode([1, null, 'x']), { code: 'required', path: 'b' });
-    assert.throws(() => R.encode({ a: 1, b: 'x' }), {
-      code: 'required',
-      path: 'c',
-      message: 'Field "c" is required',
-    });
-    assert.strictEqual(R.check({ a: 1, b: 'x' }).path, 'c');
-    const Trusting = Schema.resolve(W, Schema.from({ a: 'number', b: 'string' }, options));
-    assert.deepStrictEqual(Trusting.encode({ a: 1, b: 'x' }), [1, 'x', null]);
-    assert.strictEqual(Trusting.check({ a: 'x', b: 'x' }).path, 'a');
-    const Loose = Schema.resolve(W, Schema.from({ a: 'number' }, { ...options, validate: false }));
+    // Encode trusts the values: c, required by the writer, has no value in
+    // the reader's object and is written as null.
+    assert.deepStrictEqual(R.encode({ a: 1, b: 'x' }), [1, 'x', null]);
+    const Loose = resolve(W, define({ a: 'number' }, { ...options, validate: false }));
     assert.deepStrictEqual(Loose.decode(['x']), { a: 'x' });
   });
 
   test(`Resolve (${backend}): scalar conversions`, () => {
-    const W = Schema.from(
+    const W = define(
       {
         i: 'integer',
         big: 'integer',
@@ -97,9 +90,9 @@ for (const [backend, options] of BACKENDS) {
       },
       options,
     );
-    const R = Schema.resolve(
+    const R = resolve(
       W,
-      Schema.from(
+      define(
         {
           i: 'number',
           big: 'bigint',
@@ -112,7 +105,7 @@ for (const [backend, options] of BACKENDS) {
           gone: 'null',
           any: 'json',
         },
-        both,
+        options,
       ),
     );
     const wire = W.encode({
@@ -147,12 +140,10 @@ for (const [backend, options] of BACKENDS) {
     const back = R.encode({ ...decoded, e: 'a', choice: 'x', f: { write: true, admin: true } });
     assert.deepStrictEqual(back, [3, 2 ** 40, 125, 250, 0, 1, 'x', 2, null, 5]);
     const valid = { ...decoded, e: 'a' };
-    assert.throws(() => R.encode({ ...valid, big: 2n ** 60n }), { code: 'type', path: 'big' });
-    assert.throws(() => R.encode({ ...valid, big: 1.5 }), { code: 'type', path: 'big' });
+    assert.deepStrictEqual(R.encode({ ...valid, big: 7n })[1], 7);
     assert.deepStrictEqual(R.encode({ ...valid, big: 7 })[1], 7);
-    assert.throws(() => R.encode({ ...valid, choice: 1 }), { code: 'enum', path: 'choice' });
-    // The reader's null for a value the writer requires.
-    assert.throws(() => R.encode(decoded), { code: 'required', path: 'e' });
+    // The reader's null for a value the writer requires is written as null.
+    assert.deepStrictEqual(R.encode(decoded)[4], null);
     assert.throws(() => R.decode([1.5, 1, 1, 1, 0, 0, 'x', 0, null, 1]), { path: 'i' });
     assert.throws(() => R.decode([1, 1.5, 1, 1, 0, 0, 'x', 0, null, 1]), {
       code: 'type',
@@ -176,40 +167,34 @@ for (const [backend, options] of BACKENDS) {
       path: 'f',
     });
     // A value the reader cannot place in a required slot is an error.
-    const Strict = Schema.resolve(W, Schema.from({ e: { enum: ['a'] } }, options));
+    const Strict = resolve(W, define({ e: { enum: ['a'] } }, options));
     assert.throws(() => Strict.decode([1, 1, 1, 1, 1]), { code: 'enum', path: 'e' });
     assert.deepStrictEqual(Strict.decode([1, 1, 1, 1, 0]), { e: 'a' });
     // Trusted, the writer's value passes through.
-    const Loose = Schema.resolve(
-      W,
-      Schema.from({ e: { enum: ['a'] } }, { ...options, validate: false }),
-    );
+    const Loose = resolve(W, define({ e: { enum: ['a'] } }, { ...options, validate: false }));
     assert.deepStrictEqual(Loose.decode([1, 1, 1, 1, 1]), { e: 'b' });
     assert.deepStrictEqual(Loose.decode([1, 1, 1, 1, 9]), { e: 9 });
-    const LooseBig = Schema.resolve(
-      W,
-      Schema.from({ big: 'bigint' }, { ...options, validate: false }),
-    );
+    const LooseBig = resolve(W, define({ big: 'bigint' }, { ...options, validate: false }));
     assert.deepStrictEqual(LooseBig.decode([1, 'x']), { big: 'x' });
     // The writer's required fields after it keep their places as nulls.
     assert.deepStrictEqual(LooseBig.encode({ big: 'x' }), [null, 'x', ...Array(8).fill(null)]);
-    const LooseFlags = Schema.resolve(
+    const LooseFlags = resolve(
       W,
-      Schema.from({ f: { flags: ['old'] } }, { ...options, validate: false }),
+      define({ f: { flags: ['old'] } }, { ...options, validate: false }),
     );
     assert.deepStrictEqual(LooseFlags.decode([1, 1, 1, 1, 0, 0, 'x', 'z']), { f: 'z' });
     assert.deepStrictEqual(LooseFlags.decode([1, 1, 1, 1, 0, 0, 'x', [4]]), { f: { old: true } });
   });
 
   test(`Resolve (${backend}): conversions without validation`, () => {
-    const W = Schema.from(
+    const W = define(
       { big: 'integer', e: { enum: ['a', 'b'] }, s: 'string', gone: '?string' },
       options,
     );
     const loose = { ...options, validate: false };
-    const R = Schema.resolve(
+    const R = resolve(
       W,
-      Schema.from({ big: 'bigint', e: { enum: ['a'] }, s: { enum: ['x'] }, gone: 'null' }, loose),
+      define({ big: 'bigint', e: { enum: ['a'] }, s: { enum: ['x'] }, gone: 'null' }, loose),
     );
     assert.deepStrictEqual(R.decode([1, 0, 'x', 'dropped']), {
       big: 1n,
@@ -219,25 +204,38 @@ for (const [backend, options] of BACKENDS) {
     });
     assert.deepStrictEqual(R.decode([1, 1, 'q']), { big: 1n, e: 'b', s: 'q', gone: null });
     assert.deepStrictEqual(R.encode({ big: 2n, e: 'b', s: 'x', gone: 'any' }), [2, 1, 'x']);
-    const Optional = Schema.from({ big: 'integer', gone: '?string' }, options);
-    const Checked = Schema.resolve(Optional, Schema.from({ gone: 'null', big: 'number' }, both));
-    assert.throws(() => Checked.encode({ big: 1, gone: 'x' }), {
-      code: 'type',
-      message: 'Field "gone" is not of expected type: null',
-    });
+    // The reader's null slot holds nothing: whatever it is given, it writes null.
+    const Optional = define({ big: 'integer', gone: '?string' }, options);
+    const Dropped = resolve(Optional, define({ gone: 'null', big: 'number' }, options));
+    assert.deepStrictEqual(Dropped.encode({ big: 1, gone: 'x' }), [1]);
+    assert.deepStrictEqual(Dropped.decode([1, 'x']), { gone: null, big: 1 });
     // One schema used twice resolves once, and both places share it.
-    const Address = Schema.from({ city: 'string' }, options);
-    const Twice = Schema.from({ home: Address, work: Address }, options);
-    const Reader = Schema.from({ city: 'string', zip: '?string' }, options);
-    const RT = Schema.resolve(Twice, Schema.from({ home: Reader, work: Reader }, options));
+    const twice = { Struct: {}, home: 'Address', work: 'Address' };
+    const { Twice } = model({ Address: { Struct: {}, city: 'string' }, Twice: twice }, options);
+    const Reader = model(
+      {
+        Address: { Struct: {}, city: 'string', zip: '?string' },
+        Twice: { ...twice, note: '?string' },
+      },
+      options,
+    ).Twice;
+    const RT = resolve(Twice, Reader);
+    assert.notStrictEqual(RT, Reader);
+    assert.strictEqual(RT.toString(), '{home:@Address,work:@Address}');
     assert.deepStrictEqual(RT.decode([['a'], ['b']]), {
       home: { city: 'a', zip: null },
       work: { city: 'b', zip: null },
+      note: null,
     });
+    assert.throws(() => RT.decode([['a'], [1]]), { code: 'type', path: 'work.city' });
+    assert.deepStrictEqual(RT.encode({ home: { city: 'a', zip: 'z' }, work: { city: 'b' } }), [
+      ['a'],
+      ['b'],
+    ]);
   });
 
   test(`Resolve (${backend}): collections, tuples and nested records`, () => {
-    const W = Schema.from(
+    const W = define(
       {
         list: { array: { a: 'number', b: '?string' } },
         tags: { set: 'string' },
@@ -249,9 +247,9 @@ for (const [backend, options] of BACKENDS) {
       },
       options,
     );
-    const R = Schema.resolve(
+    const R = resolve(
       W,
-      Schema.from(
+      define(
         {
           nested: { y: '?number', z: { type: 'string', default: 'z' } },
           list: { set: { b: '?string', a: 'number' } },
@@ -261,7 +259,7 @@ for (const [backend, options] of BACKENDS) {
           pair: ['number', 'string'],
           short: ['number', '?string', { type: 'number', default: 3 }],
         },
-        both,
+        options,
       ),
     );
     const wire = W.encode({
@@ -305,18 +303,18 @@ for (const [backend, options] of BACKENDS) {
         path: 'list[1].a',
       },
     );
-    assert.throws(() => R.encode({ ...decoded, list: [null] }), { code: 'type', path: 'list[0]' });
-    assert.throws(() => R.encode({ ...decoded, seen: new Map([['k', null]]) }), {
-      code: 'type',
-      path: 'seen[0]',
+    assert.throws(() => R.encode({ ...decoded, list: new Set([5]) }), {
+      code: 'object',
+      path: 'list[0]',
     });
+    assert.throws(() => R.encode({ ...decoded, seen: { k: 1 } }), { code: 'map', path: 'seen' });
     // The writer's third element of `pair` is optional: the reader's two
     // elements leave it null.
     assert.deepStrictEqual(R.encode(decoded)[4], [1, 'p', null]);
   });
 
   test(`Resolve (${backend}): unions pair branches by their values`, () => {
-    const W = Schema.from(
+    const W = define(
       {
         union: [
           { k: { enum: ['a'] }, x: 'number' },
@@ -327,9 +325,9 @@ for (const [backend, options] of BACKENDS) {
       },
       options,
     );
-    const R = Schema.resolve(
+    const R = resolve(
       W,
-      Schema.from(
+      define(
         {
           union: [
             { y: '?string', k: { enum: ['c', 'b'] } },
@@ -337,7 +335,7 @@ for (const [backend, options] of BACKENDS) {
           ],
           discriminator: 'k',
         },
-        both,
+        options,
       ),
     );
     assert.deepStrictEqual(R.decode(W.encode({ k: 'a', x: 1 })), { k: 'a', x: 1, extra: 9 });
@@ -351,55 +349,56 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => R.decode(W.encode({ k: 'z' })), { code: 'union', path: 'k' });
     assert.throws(() => R.encode({ k: 'z' }), { code: 'union', path: 'k' });
     assert.throws(() => R.encode({ k: 'q' }), { code: 'union', path: 'k' });
-    const List = Schema.resolve(W.list, R.list);
+    const List = resolve(W.list, R.list);
     assert.deepStrictEqual(List.decode([[0, 1]]), [{ k: 'a', x: 1, extra: 9 }]);
   });
 
-  test(`Resolve (${backend}): recursion and embedded schemas`, () => {
-    const T1 = new Schema('Tree', { v: 'number', kids: { array: 'Tree' }, x: '?string' }, options);
-    const T2 = new Schema(
+  test(`Resolve (${backend}): recursion and schemas reached by a reference`, () => {
+    const T1 = named('Tree', { v: 'number', kids: { array: 'Tree' }, x: '?string' }, options);
+    const T2 = named(
       'Tree',
       { value: { type: 'number', aliases: ['v'] }, kids: { array: 'Tree' } },
-      both,
+      options,
     );
-    const RT = Schema.resolve(T1, T2);
+    const RT = resolve(T1, T2);
     const tree = { v: 1, kids: [{ v: 2, kids: [], x: 'a' }] };
     const read = { value: 1, kids: [{ value: 2, kids: [] }] };
     assert.deepStrictEqual(RT.decode(T1.encode(tree)), read);
     assert.deepStrictEqual(RT.encode(read), [1, [[2, []]]]);
-    assert.strictEqual(
-      RT.check({ value: 1, kids: [{ value: 'x', kids: [] }] }).path,
-      'kids[0].value',
-    );
-    // A recursion inside an embedded schema compiles a codec of its own.
-    const N1 = new Schema('Node', { id: 'number', next: '?Node' }, options);
-    const N2 = new Schema('Node', { id: 'number', next: '?Node', tag: '?string' }, both);
-    const H1 = Schema.from({ head: N1, size: 'number' }, options);
-    const RH = Schema.resolve(H1, Schema.from({ size: 'number', head: N2 }, both));
+    // Errors name the reader's keys, through the recursion.
+    assert.throws(() => RT.decode([1, [['x', []]]]), { code: 'type', path: 'kids[0].value' });
+    // A recursion inside a schema reached by a reference compiles a codec of its own.
+    const node = { Struct: {}, id: 'number', next: '?Node' };
+    const head = { Struct: {}, head: 'Node', size: 'number' };
+    const H1 = model({ Node: node, Head: head }, options).Head;
+    const H2 = model(
+      { Node: { ...node, tag: '?string' }, Head: { Struct: {}, size: 'number', head: 'Node' } },
+      options,
+    ).Head;
+    const RH = resolve(H1, H2);
     const wire = H1.encode({ head: { id: 1, next: { id: 2 } }, size: 2 });
-    const head = { id: 1, next: { id: 2, next: null, tag: null }, tag: null };
-    assert.deepStrictEqual(RH.decode(wire), { size: 2, head });
-    assert.deepStrictEqual(RH.encode({ size: 2, head }), wire);
-    assert.strictEqual(
-      RH.check({ size: 2, head: { id: 1, next: { id: 'x' } } }).path,
-      'head.next.id',
-    );
+    const value = { id: 1, next: { id: 2, next: null, tag: null }, tag: null };
+    assert.deepStrictEqual(RH.decode(wire), { size: 2, head: value });
+    assert.deepStrictEqual(RH.encode({ size: 2, head: value }), wire);
+    assert.throws(() => RH.decode([[1, ['x']], 2]), { code: 'type', path: 'head.next.id' });
     // A layout inside a record reads the writer's layout.
-    const Flat = Schema.from({ array: { a: 'number' } }, { ...options, layout: 'flat' });
-    const P1 = Schema.from({ items: Flat }, options);
-    const P2 = Schema.from({ items: { array: { a: 'number', b: '?number' } } }, both);
-    const RP = Schema.resolve(P1, P2);
+    const P1 = define(
+      { items: { array: { a: 'number' } } },
+      { ...options, layout: { items: 'flat' } },
+    );
+    const P2 = define({ items: { array: { a: 'number', b: '?number' } } }, options);
+    const RP = resolve(P1, P2);
     const items = [
       { a: 1, b: null },
       { a: 2, b: null },
     ];
     assert.deepStrictEqual(RP.decode([[1, 2]]), { items });
     assert.deepStrictEqual(RP.encode({ items }), [[1, 2]]);
-    assert.strictEqual(RP.check({ items: [{ a: 'x' }] }).path, 'items[0].a');
+    assert.throws(() => RP.decode([[1, 'x']]), { code: 'type', path: 'items[1].a' });
     // A reader json slot takes the writer's decoded value.
-    const RJ = Schema.resolve(P1, Schema.from({ items: 'json' }, options));
+    const RJ = resolve(P1, define({ items: 'json' }, options));
     assert.deepStrictEqual(RJ.decode([[1, 2]]), { items: [{ a: 1 }, { a: 2 }] });
-    const Root = Schema.resolve(H1, Schema.from('json', options));
+    const Root = resolve(H1, define('json', options));
     assert.deepStrictEqual(Root.decode(wire), {
       head: { id: 1, next: { id: 2, next: null } },
       size: 2,
@@ -408,22 +407,13 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Resolve (${backend}): layouts and sparse records are the writer's`, () => {
-    const S1 = Schema.from(
-      { a: '?number', b: '?string', c: '?number' },
-      { ...options, sparse: true },
-    );
-    const RS = Schema.resolve(S1, Schema.from({ c: '?number', a: '?number' }, options));
+    const S1 = define({ a: '?number', b: '?string', c: '?number' }, { ...options, sparse: true });
+    const RS = resolve(S1, define({ c: '?number', a: '?number' }, options));
     assert.strictEqual(RS.layout, 'sparse');
     assert.deepStrictEqual(RS.decode(S1.encode({ a: 1, b: 'x', c: 3 })), { c: 3, a: 1 });
     assert.deepStrictEqual(RS.encode({ c: 5 }), [4, 5]);
-    const C1 = Schema.from(
-      { array: { a: 'number', b: 'string' } },
-      { ...options, layout: 'columns' },
-    );
-    const RC = Schema.resolve(
-      C1,
-      Schema.from({ array: { b: 'string', a: 'number', z: '?string' } }, options),
-    );
+    const C1 = define({ array: { a: 'number', b: 'string' } }, { ...options, layout: 'columns' });
+    const RC = resolve(C1, define({ array: { b: 'string', a: 'number', z: '?string' } }, options));
     assert.strictEqual(RC.layout, 'columns');
     const rows = [
       { a: 1, b: 'x' },
@@ -437,8 +427,8 @@ for (const [backend, options] of BACKENDS) {
     // A wide sparse record skips the reader's missing fields in every segment.
     const wide = {};
     for (let i = 0; i < 40; i++) wide[`f${i}`] = '?number';
-    const W = Schema.from(wide, { ...options, sparse: true });
-    const RW = Schema.resolve(W, Schema.from({ f35: '?number', f2: '?number' }, options));
+    const W = define(wide, { ...options, sparse: true });
+    const RW = resolve(W, define({ f35: '?number', f2: '?number' }, options));
     assert.deepStrictEqual(RW.decode(W.encode({ f1: 1, f2: 2, f31: 3, f35: 4 })), {
       f35: 4,
       f2: 2,
@@ -448,28 +438,26 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Resolve (${backend}): root scalars and tuples`, () => {
-    const R = Schema.resolve(Schema.from('?integer', options), Schema.from('bigint', both));
+    const R = resolve(define('?integer', options), define('bigint', options));
     assert.strictEqual(R.decode(5), 5n);
     assert.throws(() => R.decode(null), { code: 'required' });
     assert.strictEqual(R.encode(null), null);
     assert.strictEqual(R.encode(7n), 7);
-    const W = Schema.from(['number', 'string'], options);
-    const T = Schema.resolve(W, Schema.from(['number'], both));
+    const W = define(['number', 'string'], options);
+    const T = resolve(W, define(['number'], options));
     assert.deepStrictEqual(T.decode([1, 'x']), [1]);
-    // The writer requires the element the reader does not have.
-    assert.throws(() => T.encode([1]), { code: 'required', path: '[1]' });
-    assert.deepStrictEqual(Schema.resolve(W, Schema.from(['number'], options)).encode([1]), [
-      1,
-      null,
-    ]);
-    const Required = Schema.resolve(Schema.from('integer', options), Schema.from('number', both));
-    assert.throws(() => Required.encode(null), { code: 'required' });
+    // The element the writer requires and the reader does not have is written as null.
+    assert.deepStrictEqual(T.encode([1]), [1, null]);
+    const Required = resolve(define('integer', options), define('number', options));
+    assert.strictEqual(Required.decode(3), 3);
+    assert.throws(() => Required.decode(null), { code: 'required' });
+    assert.strictEqual(Required.encode(null), null);
   });
 }
 
 for (const [backend, options] of BACKENDS) {
   test(`Resolve (${backend}): a resolved schema writes the writer's text`, () => {
-    const W = Schema.from(
+    const W = define(
       {
         union: [
           { k: { enum: ['a'] }, n: 'integer', gone: 'integer' },
@@ -480,10 +468,10 @@ for (const [backend, options] of BACKENDS) {
       options,
     );
     for (const stringify of ['auto', 'builder']) {
-      for (const validate of [true, 'both']) {
-        const R = Schema.resolve(
+      for (const validate of [true, false]) {
+        const R = resolve(
           W,
-          Schema.from(
+          define(
             { union: [{ k: { enum: ['a'] }, n: 'integer' }], discriminator: 'k' },
             { ...options, stringify, validate },
           ),
@@ -510,10 +498,10 @@ for (const [backend, options] of BACKENDS) {
 }
 
 test('Resolve: aliases in the option, by reader path', () => {
-  const W = Schema.from({ address: { town: 'string' }, orders: { array: { code: 'string' } } });
-  const reader = Schema.from({ address: { city: 'string' }, orders: { array: { sku: 'string' } } });
+  const W = define({ address: { town: 'string' }, orders: { array: { code: 'string' } } });
+  const reader = define({ address: { city: 'string' }, orders: { array: { sku: 'string' } } });
   incompatible(W, reader, { field: 'address.city' });
-  const R = Schema.resolve(W, reader, {
+  const R = resolve(W, reader, {
     aliases: { 'address.city': 'town', 'orders[].sku': ['old', 'code'] },
   });
   assert.deepStrictEqual(R.decode([['Kyiv'], [['A-1']]]), {
@@ -521,14 +509,17 @@ test('Resolve: aliases in the option, by reader path', () => {
     orders: [{ sku: 'A-1' }],
   });
   // A writer field is claimed once: the first reader field to name it wins.
-  const Twice = Schema.resolve(
-    Schema.from({ a: 'string' }),
-    Schema.from({
-      x: { type: 'string', aliases: ['a'] },
-      y: { type: 'string', aliases: ['a'], required: false },
-    }),
+  // metaschema refuses one alias on two fields, the option does not.
+  const Twice = resolve(
+    define({ a: 'string' }),
+    define({ x: { type: 'string', aliases: ['a'] }, y: '?string' }),
+    { aliases: { y: 'a' } },
   );
   assert.deepStrictEqual(Twice.decode(['v']), { x: 'v', y: null });
+  const Option = resolve(define({ a: 'string' }), define({ x: 'string', y: '?string' }), {
+    aliases: { x: 'a', y: 'a' },
+  });
+  assert.deepStrictEqual(Option.decode(['v']), { x: 'v', y: null });
   for (const options of [
     1,
     { other: 1 },
@@ -536,16 +527,37 @@ test('Resolve: aliases in the option, by reader path', () => {
     { aliases: { a: 1 } },
     { aliases: { a: [''] } },
   ]) {
-    assert.throws(() => Schema.resolve(W, reader, options), { code: 'ERR_INVALID_OPTIONS' });
+    assert.throws(() => resolve(W, reader, options), { code: 'ERR_INVALID_OPTIONS' });
   }
-  assert.strictEqual(Schema.resolve(W, Schema.from(W.definition), {}).toString(), W.toString());
-  assert.strictEqual(Schema.resolve(W, Schema.from(W.definition), { aliases: undefined }).id, W.id);
-  assert.throws(() => Schema.resolve(W, {}), { code: 'ERR_SCHEMA_EXPECTED' });
-  assert.throws(() => Schema.resolve(null, W), { code: 'ERR_SCHEMA_EXPECTED' });
+  assert.strictEqual(resolve(W, Schema.from(W), {}).toString(), W.toString());
+  assert.strictEqual(resolve(W, Schema.from(W), { aliases: undefined }).id, W.id);
+  // Both sides are protoarray schemas: a metaschema one is built first.
+  for (const [writer, other] of [
+    [W, {}],
+    [null, W],
+    [W.source, W],
+    [W, reader.source],
+  ]) {
+    assert.throws(() => resolve(writer, other), {
+      code: 'ERR_SCHEMA_EXPECTED',
+      message: 'Schema instance expected',
+    });
+  }
+});
+
+test('Resolve: register() installs Schema.resolve', () => {
+  const W = define({ id: 'number', fullName: 'string' });
+  const reader = define({ id: 'number', name: { type: 'string', aliases: ['fullName'] } });
+  assert.strictEqual(Schema.resolve, undefined);
+  register();
+  register();
+  assert.strictEqual(Schema.resolve, resolve);
+  assert.ok(!Object.keys(Schema).includes('resolve'));
+  assert.deepStrictEqual(Schema.resolve(W, reader).decode([1, 'A']), { id: 1, name: 'A' });
 });
 
 test('Resolve: what cannot be read is an error when resolving', () => {
-  const from = (definition) => Schema.from(definition);
+  const from = (definition) => define(definition);
   incompatible(from({ a: 'string' }), from({ a: 'string', b: 'number' }), {
     field: 'b',
     message: 'Field "b" is required and the writer does not have it at "b"',
@@ -596,14 +608,32 @@ test('Resolve: what cannot be read is an error when resolving', () => {
   );
   // A null slot on the reader's side drops the writer's value; on the writer's
   // side it fills an optional reader slot.
+  assert.deepStrictEqual(resolve(from({ a: 'null' }), from({ a: '?string' })).decode([null]), {
+    a: null,
+  });
   assert.deepStrictEqual(
-    Schema.resolve(from({ a: 'null' }), from({ a: '?string' })).decode([null]),
+    resolve(from({ a: { x: 'string' } }), from({ a: 'null' })).decode([['x']]),
     {
       a: null,
     },
   );
-  assert.deepStrictEqual(
-    Schema.resolve(from({ a: { x: 'string' } }), from({ a: 'null' })).decode([['x']]),
-    { a: null },
+});
+
+test('Resolve: a referenced entity that changed is read through', () => {
+  const versions = [
+    { city: 'string', street: 'string' },
+    { street: 'string', city: 'string' },
+  ].map(
+    (address) =>
+      model({ Address: { Struct: {}, ...address }, User: { Struct: {}, home: 'Address' } }).User,
   );
+  const [writer, reader] = versions;
+  const resolved = resolve(writer, reader);
+  assert.notStrictEqual(resolved, reader);
+  assert.strictEqual(resolved.id, writer.id);
+  const wire = writer.encode({ home: { city: 'Kyiv', street: 'Main' } });
+  assert.deepStrictEqual(resolved.decode(wire), { home: { street: 'Main', city: 'Kyiv' } });
+  // The same version, references and all: the reader itself.
+  const same = Schema.from(writer);
+  assert.strictEqual(resolve(writer, same), same);
 });

@@ -23,7 +23,7 @@ test('Scripts: size reports both entries and enforces the gzip budget', () => {
   );
   assert.match(
     ok.stdout,
-    /\| Metaschema \(metaschema\.js\), over the core \| \| \+[\d.]+ KB \| \+[\d.]+ KB \|/,
+    /\| Resolve \(resolve\.js\), over the core \| \| \+[\d.]+ KB \| \+[\d.]+ KB \|/,
   );
   assert.match(
     ok.stdout,

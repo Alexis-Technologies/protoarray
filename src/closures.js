@@ -8,42 +8,22 @@ const { WORD, literal, isMap, listOf, put } = require('./types.js');
 // Paths are passed as a key or an element index and only formatted on error.
 const at = (path) => (typeof path === 'number' ? `[${path}]` : path);
 
-// What encode requires: the writer's flag on a plan from Schema.resolve, where
-// the twin is set, the same flag as decode otherwise.
-const outRequired = (own, twin) => (twin === undefined ? own : twin);
-
 const build = (plan, options) => {
-  // Which direction is checked: `validate.encode` the values given to encode,
-  // `validate.decode` the wire.
+  // Whether the wire is checked on decode. The values given to encode are
+  // trusted: checking them is metaschema's (`check`, `parse`).
   const { validate } = options;
-  // A checking codec (Schema#check) calls the checking codecs of the schemas
-  // it embeds.
-  const via = options.checking ? 'checker' : 'codec';
-
-  // Identity scalars are checked in the loops that read them, through their
-  // own `accept` (one small function per type), with no encoder of their own.
-  const inlineAccept = (node) =>
-    validate.encode && node.kind === 'scalar' && node.pack === null && node.accept !== null
-      ? node.accept
-      : null;
 
   // A scalar slot as a function of a non-null value, or null when the value
-  // travels as it is with nothing to check. It knows its own path (a key or
-  // an index, formatted only on error), so callers need no try/catch.
+  // travels as it is. A list of differences (`always`) checks its values
+  // whatever `validate` says, since only integers have exact differences; it
+  // knows its own path (a key or an index, formatted only on error).
   const scalarEncoder = (node, path) => {
-    const { accept, pack, checkedPack, code, expected } = node;
-    // A type checked whatever `validate` says (`always`) takes the checking path.
-    if ((!validate.encode && node.always !== true) || accept === null) return pack;
-    if (checkedPack !== undefined) {
-      return (value) => {
-        const wire = checkedPack(value);
-        if (wire === undefined) refuse(code, at(path), expected);
-        return wire;
-      };
-    }
+    const { pack, checkedPack, code, expected } = node;
+    if (node.always !== true) return pack;
     return (value) => {
-      if (!accept(value)) refuse(code, at(path), expected);
-      return pack === null ? value : pack(value);
+      const wire = checkedPack(value);
+      if (wire === undefined) refuse(code, at(path), expected);
+      return wire;
     };
   };
 
@@ -51,22 +31,11 @@ const build = (plan, options) => {
   // reference by name or an embedded schema) is called as it is.
   // One element of a map or a dictionary: null, its own wire form or a throw
   // with its path (an index or a key, formatted on error).
-  const elementEncoder = (node, required) => {
-    const scalar = node.kind === 'scalar';
-    const accept = inlineAccept(node);
-    const encode =
-      scalar && node.pack === null ? null : scalar ? scalarEncoder(node, '') : encoder(node);
-    const nullType = validate.encode && required;
-    const expected = expectedOf(node);
+  const elementEncoder = (node) => {
+    const encode = node.kind === 'scalar' ? scalarEncoder(node, '') : encoder(node);
     return (value, path) => {
-      if (value == null) {
-        if (nullType) refuse('type', at(path), expected);
-        return null;
-      }
-      if (encode === null) {
-        if (accept !== null && !accept(value)) refuse('type', at(path), expected);
-        return value;
-      }
+      if (value == null) return null;
+      if (encode === null) return value;
       try {
         return encode(value);
       } catch (error) {
@@ -76,45 +45,34 @@ const build = (plan, options) => {
   };
 
   const encoder = (node) => {
-    if (node.slot !== undefined) return (value) => node.slot[via].encode(value);
+    if (node.slot !== undefined) return (value) => node.slot.codec.encode(value);
     if (node.kind === 'struct') return structEncoder(node);
     if (node.kind === 'union') return unionEncoder(node);
     if (node.kind === 'tuple') return tupleEncoder(node);
     if (node.kind === 'map') return mapEncoder(node);
     if (node.kind === 'dict') return dictEncoder(node);
     const { item } = node;
-    const scalar = item.kind === 'scalar';
-    // Identity items travel in the same array: at most a checking pass.
-    const identity = scalar && item.pack === null;
-    const accept = inlineAccept(item);
-    const encode = identity ? null : scalar ? scalarEncoder(item, '') : encoder(item);
-    const nullType = validate.encode && outRequired(node.itemRequired, node.itemEncodeRequired);
-    const expected = expectedOf(item);
+    // Identity items travel in the same array.
+    const encode = item.kind === 'scalar' ? scalarEncoder(item, '') : encoder(item);
     const set = node.container === 'set';
     return (input) => {
       // A Set travels as the array of its elements; an array is taken as it is.
       const list = set && !Array.isArray(input) ? listOf(input) : input;
       if (list === undefined) refuse('set', '');
       if (!Array.isArray(list)) refuse('array', '');
-      if (identity && accept === null && !nullType) return list;
+      if (encode === null) return list;
       const count = list.length;
-      const out = identity ? list : new Array(count);
+      const out = new Array(count);
       for (let i = 0; i < count; i++) {
         const value = list[i];
-        let wire = null;
-        if (value == null) {
-          if (nullType) refuse('type', `[${i}]`, expected);
-        } else if (encode === null) {
-          if (accept !== null && !accept(value)) refuse('type', `[${i}]`, expected);
-          wire = value;
-        } else {
+        if (value == null) out[i] = null;
+        else {
           try {
-            wire = encode(value);
+            out[i] = encode(value);
           } catch (error) {
             throw nest(error, `[${i}]`);
           }
         }
-        if (!identity) out[i] = wire;
       }
       return out;
     };
@@ -134,39 +92,27 @@ const build = (plan, options) => {
         }
       };
     });
-    const required = node.items.map(
-      (item) => validate.encode && outRequired(item.required, item.encodeRequired),
-    );
     return (list) => {
       if (!Array.isArray(list)) refuse('array', '');
       const out = new Array(size);
       for (let i = 0; i < size; i++) {
         const value = list[i];
         const encode = encoders[i];
-        if (value == null) {
-          if (required[i]) refuse('required', `[${i}]`);
-          out[i] = null;
-        } else out[i] = encode === null ? value : encode(value);
+        out[i] = value == null ? null : encode === null ? value : encode(value);
       }
       return out;
     };
   };
 
   // `[k0, v0, k1, v1, …]`; an entry's path is its index, since a key may be
-  // anything until checked.
+  // anything.
   const mapEncoder = (node) => {
-    const value = elementEncoder(
-      node.value,
-      outRequired(node.valueRequired, node.valueEncodeRequired),
-    );
-    const key = validate.encode ? node.key.accept : null;
-    const expected = node.key.expected;
+    const value = elementEncoder(node.value);
     return (map) => {
       if (!isMap(map)) refuse('map', '');
       const out = [];
       let i = 0;
       for (const entry of map) {
-        if (key !== null && !key(entry[0])) refuse('type', `[${i}]`, expected);
         out.push(entry[0], value(entry[1], i));
         i++;
       }
@@ -176,20 +122,15 @@ const build = (plan, options) => {
 
   const dictEncoder = (node) => {
     const { value } = node;
-    const identity = value.kind === 'scalar' && value.pack === null;
-    const required = outRequired(node.valueRequired, node.valueEncodeRequired);
-    const element = elementEncoder(value, required);
-    // Identity values travel in the same object: at most a checking pass.
-    const pass = identity && (!validate.encode || (value.accept === null && !required));
+    // Identity values travel in the same object.
+    const identity = value.kind === 'scalar' && scalarEncoder(value, '') === null;
+    const element = elementEncoder(value);
     return (object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
-      if (pass) return object;
+      if (identity) return object;
       const keys = Object.keys(object);
-      const out = identity ? object : {};
-      for (let i = 0; i < keys.length; i++) {
-        const wire = element(object[keys[i]], keys[i]);
-        if (!identity) put(out, keys[i], wire);
-      }
+      const out = {};
+      for (let i = 0; i < keys.length; i++) put(out, keys[i], element(object[keys[i]], keys[i]));
       return out;
     };
   };
@@ -199,35 +140,22 @@ const build = (plan, options) => {
   const structEncoder = (node) => {
     const { tail, sparse } = node;
     // A field only the writer has (Schema.resolve) has no key: it is null on
-    // the wire, which a writer that requires it rejects.
+    // the wire.
     const keys = node.fields.map((field) => field.key);
     const size = keys.length;
     const lead = node.tag === undefined ? 0 : 1;
     const width = size + lead;
     const end = tail + lead;
-    const accepts = node.fields.map((field) => inlineAccept(field.node));
-    const expected = node.fields.map((field) => field.node.expected);
-    const encoders = node.fields.map((field, i) => {
-      if (accepts[i] !== null) return null;
-      return field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node);
-    });
-    const required = node.fields.map(
-      (field) => validate.encode && outRequired(field.required, field.encodeRequired),
+    const encoders = node.fields.map((field) =>
+      field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node),
     );
     // The wire form of one field, or null for one that is missing.
     const wireOf = (object, i) => {
       const key = keys[i];
       const value = key === null ? null : object[key];
-      if (value == null) {
-        if (required[i]) refuse('required', key === null ? node.fields[i].wire : key);
-        return null;
-      }
+      if (value == null) return null;
       const encode = encoders[i];
-      if (encode === null) {
-        const accept = accepts[i];
-        if (accept !== null && !accept(value)) refuse('type', keys[i], expected[i]);
-        return value;
-      }
+      if (encode === null) return value;
       try {
         return encode(value);
       } catch (error) {
@@ -327,7 +255,7 @@ const build = (plan, options) => {
       const slot = slotDecoder(node, false, null);
       return (value, strict) => slot(value, '', strict);
     }
-    if (node.slot !== undefined) return (value, strict) => node.slot[via].decode(value, strict);
+    if (node.slot !== undefined) return (value, strict) => node.slot.codec.decode(value, strict);
     if (node.kind === 'struct') return structDecoder(node);
     if (node.kind === 'union') return unionDecoder(node);
     if (node.kind === 'tuple') return tupleDecoder(node);
@@ -534,15 +462,9 @@ const build = (plan, options) => {
 
   const encode = plan.kind === 'scalar' ? scalarEncoder(plan, '') : encoder(plan);
   const decode = decoder(plan);
-  const required = plan.kind === 'scalar' && plan.required;
-  const requiredIn =
-    plan.kind === 'scalar' && validate.encode && outRequired(plan.required, plan.encodeRequired);
-  const requiredOut = required && validate.decode;
+  const requiredOut = plan.kind === 'scalar' && plan.required && validate.decode;
   return {
-    encode: (value) => {
-      if (value == null && requiredIn) refuse('required', '');
-      return value == null ? null : encode === null ? value : encode(value);
-    },
+    encode: (value) => (value == null ? null : encode === null ? value : encode(value)),
     decode: (value, strict) => {
       if (plan.kind !== 'scalar' || value != null) return decode(value, strict);
       if (requiredOut) fail('required', '');

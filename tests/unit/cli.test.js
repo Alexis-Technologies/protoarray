@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const { Schema } = require('../../index.js');
+const { define } = require('../support/schema.js');
 
 const ROOT = path.join(__dirname, '../..');
 const CLI = path.join(ROOT, 'bin', 'protoarray.js');
@@ -29,7 +30,8 @@ test('CLI: compile writes the module of the schemas a module exports', () => {
     User.stringify({ id: 1, name: 'A', home: { city: 'K' }, role: 'user' }),
     '[1,"A",["K"],null,1]',
   );
-  assert.strictEqual(User.id, require('../fixtures/schemas.js').User.id);
+  // The fixture exports metaschema schemas: the module has the ids protoarray gives them.
+  assert.strictEqual(User.id, Schema.from(require('../fixtures/schemas.js').User).id);
   const only = cli('compile', 'tests/fixtures/schemas.js', '--only', 'Address', '--format', 'esm');
   assert.strictEqual(only.status, 0, only.stderr);
   assert.match(only.stdout, /^export \{ S0 as Address \};$/m);
@@ -46,7 +48,38 @@ test('CLI: --out, an ES module and a single schema', () => {
   assert.strictEqual(written.stdout, '');
   const single = runInline(fs.readFileSync(out, 'utf8'));
   assert.strictEqual(single.stringify({ id: 1, at: new Date(2) }), '[1,2]');
-  assert.strictEqual(single.toString(), Schema.from({ id: 'integer', at: 'date' }).toString());
+  assert.strictEqual(single.toString(), define({ id: 'integer', at: 'date' }).toString());
+});
+
+test('CLI: protoarray schemas and the entities of a metaschema Model', () => {
+  const dir = path.join(ROOT, 'tests', '.generated');
+  fs.mkdirSync(dir, { recursive: true });
+  const prelude = [
+    "const ms = require('@alexify/metaschema');",
+    "const { Schema } = require('../../index.js');",
+    'const entities = new Map([',
+    "  ['Point', { Struct: {}, x: 'integer', y: 'integer' }],",
+    "  ['Path', { Struct: {}, points: { array: 'Point' } }],",
+    ']);',
+    'const model = new ms.Model({}, entities);',
+    "const Tag = Schema.from({ name: 'string' }, { metaschema: ms, intern: true });",
+  ];
+  const file = path.join(dir, 'model.js');
+  fs.writeFileSync(file, [...prelude, 'module.exports = { model, Tag };\n'].join('\n'));
+  const result = cli('compile', file, '--runtime', 'inline');
+  assert.strictEqual(result.status, 0, result.stderr);
+  const { Point, Path, Tag } = runInline(result.stdout);
+  assert.strictEqual(Point.stringify({ x: 1, y: 2 }), '[1,2]');
+  assert.strictEqual(Path.stringify({ points: [{ x: 1, y: 2 }] }), '[[[1,2]]]');
+  assert.strictEqual(Path.toString(), '{points:[@Point]}');
+  // A protoarray schema keeps the options it was built with.
+  assert.strictEqual(Tag.stringify({ name: 'a' }), '[["a"],[0]]');
+  const twice = path.join(dir, 'twice.js');
+  const source = [...prelude, 'module.exports = { model, Point: Tag };\n'].join('\n');
+  fs.writeFileSync(twice, source);
+  const clash = cli('compile', twice);
+  assert.strictEqual(clash.status, 1);
+  assert.strictEqual(clash.stderr, 'Two schemas are exported as "Point"\n');
 });
 
 test('CLI: what it refuses', () => {

@@ -1,21 +1,23 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { Schema } = require('../../index.js');
+const { resolve } = require('../../resolve.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
+const { define, named, model } = require('../support/schema.js');
 
 for (const [backend, options] of BACKENDS) {
-  const both = { ...options, validate: 'both' };
   const loose = { ...options, validate: false };
 
   test(`Delta (${backend}): columns of integers, dates and decimals`, () => {
     const record = {
-      id: { type: 'integer', delta: true },
-      at: { type: 'date', delta: true, required: false },
-      price: { type: 'number', decimals: 2, delta: true },
-      n: { type: 'number', delta: true },
+      id: 'integer',
+      at: { type: 'date', required: false },
+      price: { type: 'number', decimals: 2 },
+      n: 'number',
       name: 'string',
     };
-    const C = Schema.from({ array: record }, { ...options, layout: 'columns' });
+    const delta = ['[].id', '[].at', '[].price', '[].n'];
+    const C = define({ array: record }, { ...options, layout: 'columns', delta });
     assert.strictEqual(
       C.toString(),
       'columns[{id:integer~,at:?date~,price:number(2)~,n:number~,name:string}]',
@@ -35,7 +37,7 @@ for (const [backend, options] of BACKENDS) {
     ]);
     assert.deepStrictEqual(normalize(C.decode(wire)), normalize(rows));
     // Only integers have exact differences: checked whatever `validate` says.
-    for (const schema of [C, Schema.from(C.definition, { ...loose, layout: 'columns' })]) {
+    for (const schema of [C, Schema.from(C, { ...loose, layout: 'columns', delta })]) {
       assert.throws(() => schema.encode([{ ...rows[0], n: 1.5 }]), {
         code: 'type',
         path: '[0].n',
@@ -63,27 +65,41 @@ for (const [backend, options] of BACKENDS) {
     }
     // A column that is missing is a column of nulls, as without delta.
     assert.throws(() => C.decode([[1]]), { code: 'required', path: '[0].price' });
-    const Loose = Schema.from(C.definition, { ...loose, layout: 'columns' });
+    const Loose = Schema.from(C, { ...loose, layout: 'columns', delta });
     const looseRows = Loose.decode([[1, 'x', 2], null, [1, 1, 1], [0, 0, 0], ['a', 'b', 'c']]);
     assert.deepStrictEqual(
       looseRows.map((row) => row.id),
       [1, 'x', 3],
     );
     // Outside columns `delta` changes nothing on the wire.
-    const Rows = Schema.from({ array: record }, options);
+    const Rows = define({ array: record }, { ...options, delta });
     assert.deepStrictEqual(Rows.encode(rows)[1], [101, null, 125, 7, 'b']);
-    const Flat = Schema.from({ array: record }, { ...options, layout: 'flat' });
+    const Flat = define({ array: record }, { ...options, layout: 'flat', delta });
     assert.deepStrictEqual(Flat.encode(rows).slice(0, 5), [100, 1000, 150, 7, 'a']);
   });
 
+  test(`Delta (${backend}): lists of decimals take only numbers they can scale`, () => {
+    const Prices = define(
+      { p: { array: { type: 'number', decimals: 2 } } },
+      { ...options, delta: ['p'] },
+    );
+    assert.strictEqual(Prices.toString(), '{p:~[number(2)]}');
+    assert.deepStrictEqual(Prices.encode({ p: [1.5, 1.75] }), [[150, 25]]);
+    assert.deepStrictEqual(Prices.decode([[150, 25]]), { p: [1.5, 1.75] });
+    for (const bad of ['1.5', 1e300]) {
+      assert.throws(() => Prices.encode({ p: [1, bad] }), { code: 'type', path: 'p' });
+    }
+  });
+
   test(`Delta (${backend}): lists of integers`, () => {
-    const S = Schema.from(
+    const delta = ['ids', 'at', 'prices'];
+    const S = define(
       {
-        ids: { array: 'integer', delta: true },
-        at: { type: 'array', value: '?date', delta: true, required: false },
-        prices: { array: { type: 'number', decimals: 2 }, delta: true },
+        ids: { array: 'integer' },
+        at: { type: 'array', value: '?date', required: false },
+        prices: { array: { type: 'number', decimals: 2 } },
       },
-      both,
+      { ...options, delta },
     );
     assert.strictEqual(S.toString(), '{ids:~[integer],at:?~[?date],prices:~[number(2)]}');
     const value = { ids: [5, 7, 6], at: [new Date(10), null, new Date(4)], prices: [1.5, 1.75] };
@@ -109,7 +125,7 @@ for (const [backend, options] of BACKENDS) {
       });
     }
     // Checked on encode whatever `validate` says.
-    const Loose = Schema.from(S.definition, loose);
+    const Loose = Schema.from(S, { ...loose, delta });
     assert.throws(() => Loose.encode({ ids: [0.5], prices: [] }), { code: 'type', path: 'ids' });
     assert.deepStrictEqual(Loose.encode({ ids: [2], prices: [] }), [[2], null, []]);
     for (const ids of [[1.5], [null], ['x'], 'x', [Number.MAX_SAFE_INTEGER, 1]]) {
@@ -120,39 +136,51 @@ for (const [backend, options] of BACKENDS) {
       at: null,
       prices: 'y',
     });
-    for (const definition of [
-      { a: { array: 'string', delta: true } },
-      { a: { array: 'integer', delta: 1 } },
-      { a: { set: 'integer', delta: true } },
-      { a: { type: 'string', delta: true } },
-      { a: { type: 'boolean', delta: false } },
+    // `delta` names the lists and the numbers it applies to, and only those.
+    for (const a of [
+      { array: 'string' },
+      { set: 'integer' },
+      'string',
+      'boolean',
+      { x: 'integer' },
     ]) {
-      assert.throws(() => Schema.from(definition), {
-        code: 'ERR_INVALID_DEFINITION',
-        message: 'delta is true on an integer, a number, a date or decimals at "a"',
+      assert.throws(() => define({ a }, { ...options, delta: ['a'] }), {
+        name: 'SchemaDefinitionError',
+        code: 'ERR_INVALID_OPTIONS',
+        field: 'a',
+        message:
+          'Option "delta" takes an integer, a number, a date or decimals, or a list of them at "a"',
       });
     }
-    assert.throws(() => Schema.from({ a: { set: 'integer', delta: true } }), {
-      code: 'ERR_INVALID_DEFINITION',
+    assert.throws(() => define({ a: { array: 'integer' } }, { ...options, delta: ['b'] }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Option "delta" names no place of the schema at "b"',
     });
+    for (const invalid of [true, 1, 'a', [1]]) {
+      assert.throws(() => define({ a: { array: 'integer' } }, { ...options, delta: invalid }), {
+        code: 'ERR_INVALID_OPTIONS',
+        message: 'Invalid option "delta"',
+      });
+    }
   });
 
   test(`Intern (${backend}): one string table per message`, () => {
-    const Address = Schema.from(
-      { city: { type: 'string', intern: true }, street: 'string' },
-      options,
-    );
-    const User = new Schema(
-      'User',
-      {
+    const entities = {
+      Address: { Struct: {}, city: 'string', street: 'string' },
+      User: {
+        Struct: {},
         name: 'string',
-        role: { type: 'string', intern: true },
-        home: Address,
+        role: 'string',
+        home: { city: 'string', street: 'string' },
         work: '?Address',
-        tags: { array: { type: 'string', intern: true } },
+        tags: { array: 'string' },
       },
-      { ...both, schemas: { Address } },
-    );
+    };
+    const interned = {
+      Address: { intern: ['city'] },
+      User: { intern: ['role', 'home.city', 'tags[]'] },
+    };
+    const { Address, User } = model(entities, { ...options, entities: interned });
     assert.strictEqual(
       User.toString(),
       '{name:string,role:string*,home:{city:string*,street:string},work:?@Address,tags:[string*]}',
@@ -180,9 +208,15 @@ for (const [backend, options] of BACKENDS) {
       'guest',
     ]);
     assert.deepStrictEqual(Address.encode({ city: 'Lviv', street: 'S' }), [['Lviv'], [0, 'S']]);
-    assert.strictEqual(User.check(value), null);
-    assert.strictEqual(User.check({ ...value, role: 1 }).path, 'role');
-    assert.throws(() => User.encode({ ...value, role: 1 }), { code: 'type', path: 'role' });
+    // An embedded schema is inlined: the options it was built with stay its own.
+    const Alone = define({ city: 'string', street: 'string' }, { ...options, intern: ['city'] });
+    assert.strictEqual(Alone.toString(), '{city:string*,street:string}');
+    assert.strictEqual(
+      define({ home: Alone.source }, options).toString(),
+      '{home:{city:string,street:string}}',
+    );
+    // The values are trusted: what is not a string goes to the table as it is.
+    assert.deepStrictEqual(User.encode({ ...value, role: 1 })[0][0], 1);
     for (const bad of [null, [], [[]], [['a'], [], 1], {}, [{}, []]]) {
       assert.throws(() => User.decode(bad), {
         code: 'structure',
@@ -198,39 +232,50 @@ for (const [backend, options] of BACKENDS) {
       });
     }
     // Trusted, a stray index or table passes through.
-    const Loose = new Schema('User', User.definition, { ...loose, schemas: { Address } });
+    const Loose = model(entities, { ...loose, entities: interned }).User;
     assert.deepStrictEqual(Loose.decode([[1], ['A', 5, [0, 'x'], null, []]]).role, 5);
     assert.deepStrictEqual(Loose.decode([[1], ['A', 0, [0, 'x'], null, []]]).role, 1);
     assert.deepStrictEqual(Loose.decode([[1], ['A', 'q', [0, 'x'], null, []]]).role, 'q');
     assert.deepStrictEqual(Loose.encode({ ...value, role: 1 })[0][0], 1);
   });
 
-  test(`Intern (${backend}): the schema option, opting out, and recursion`, () => {
-    const S = Schema.from(
-      {
-        a: 'string',
-        b: { type: 'string', intern: false },
-        c: ['string', '?string'],
-        d: { map: { string: 'string' } },
-        e: { enum: ['x'] },
-      },
-      { ...options, intern: true },
+  test(`Intern (${backend}): every string or the ones named, and recursion`, () => {
+    const definition = {
+      a: 'string',
+      b: 'string',
+      c: ['string', '?string'],
+      d: { map: { string: 'string' } },
+      e: { enum: ['x'] },
+    };
+    // Every string of the schema, map keys excepted.
+    const All = define(definition, { ...options, intern: true });
+    assert.strictEqual(
+      All.toString(),
+      '{a:string*,b:string*,c:(string*,?string*),d:map<string,string*>,e:enum(x)}',
     );
+    const value = { a: 'k', b: 'k', c: ['k', 'm'], d: new Map([['key', 'm']]), e: 'x' };
+    const all = All.encode(value);
+    assert.deepStrictEqual(all, [
+      ['k', 'm'],
+      [0, 0, [0, 1], ['key', 1], 0],
+    ]);
+    assert.deepStrictEqual(normalize(All.decode(all)), normalize(value));
+    // A string left out of the paths travels as it is.
+    const S = define(definition, { ...options, intern: ['a', 'c[0]', 'c[1]', 'd{}'] });
     assert.strictEqual(
       S.toString(),
       '{a:string*,b:string,c:(string*,?string*),d:map<string,string*>,e:enum(x)}',
     );
-    const value = { a: 'k', b: 'k', c: ['k', 'm'], d: new Map([['key', 'm']]), e: 'x' };
     const wire = S.encode(value);
     assert.deepStrictEqual(wire, [
       ['k', 'm'],
       [0, 'k', [0, 1], ['key', 1], 0],
     ]);
     assert.deepStrictEqual(normalize(S.decode(wire)), normalize(value));
-    const Tree = new Schema(
+    const Tree = named(
       'Tree',
-      { label: { type: 'string', intern: true }, kids: { array: 'Tree' } },
-      options,
+      { label: 'string', kids: { array: 'Tree' } },
+      { ...options, intern: ['label'] },
     );
     const tree = { label: 'a', kids: [{ label: 'b', kids: [{ label: 'a', kids: [] }] }] };
     const treeWire = Tree.encode(tree);
@@ -240,29 +285,66 @@ for (const [backend, options] of BACKENDS) {
     ]);
     assert.deepStrictEqual(Tree.decode(treeWire), tree);
     for (const layout of ['flat', 'columns']) {
-      const L = Schema.from(
-        { array: { n: { type: 'string', intern: true } } },
-        { ...options, layout },
-      );
+      const L = define({ array: { n: 'string' } }, { ...options, layout, intern: ['[].n'] });
       const listWire = L.encode([{ n: 'a' }, { n: 'b' }, { n: 'a' }]);
       assert.deepStrictEqual(listWire[0], ['a', 'b']);
       assert.deepStrictEqual(L.decode(listWire), [{ n: 'a' }, { n: 'b' }, { n: 'a' }]);
     }
-    assert.throws(() => Schema.from({ n: { type: 'number', intern: true } }), {
-      code: 'ERR_INVALID_DEFINITION',
-      message: 'intern is a boolean on a string at "n"',
-    });
-    assert.throws(() => Schema.from({ n: { type: 'string', intern: 1 } }), {
-      code: 'ERR_INVALID_DEFINITION',
-    });
-    assert.throws(() => Schema.from({ n: 'string' }, { intern: 'yes' }), {
+    for (const n of ['number', 'date']) {
+      assert.throws(() => define({ n }, { ...options, intern: ['n'] }), {
+        name: 'SchemaDefinitionError',
+        code: 'ERR_INVALID_OPTIONS',
+        field: 'n',
+        message: 'Option "intern" takes a string at "n"',
+      });
+    }
+    for (const n of [{ array: 'string' }, { enum: ['x'] }, { s: 'string' }]) {
+      assert.throws(() => define({ n }, { ...options, intern: ['n'] }), {
+        name: 'SchemaDefinitionError',
+        code: 'ERR_INVALID_OPTIONS',
+        field: 'n',
+      });
+    }
+    assert.throws(() => define({ n: 'string' }, { ...options, intern: ['x'] }), {
       code: 'ERR_INVALID_OPTIONS',
+      message: 'Option "intern" names no place of the schema at "x"',
     });
+    for (const intern of ['yes', 1, [1], { n: true }]) {
+      assert.throws(() => define({ n: 'string' }, { ...options, intern }), {
+        code: 'ERR_INVALID_OPTIONS',
+        message: 'Invalid option "intern"',
+      });
+    }
+  });
+
+  test(`Intern (${backend}): a collection in a layout of its own shares the table`, () => {
+    const Outer = define(
+      { items: { array: { city: 'string' } }, n: 'number' },
+      { ...options, layout: { items: 'flat' }, intern: ['items[].city'] },
+    );
+    const value = { items: [{ city: 'Kyiv' }, { city: 'Kyiv' }], n: 1 };
+    assert.strictEqual(Outer.toString(), '{items:flat[{city:string*}],n:number}');
+    assert.deepStrictEqual(Outer.encode(value), [['Kyiv'], [[0, 0], 1]]);
+    assert.deepStrictEqual(Outer.decode(Outer.encode(value)), value);
+    // Only a string takes the option, whatever the place is.
+    for (const [definition, place] of [
+      [{ n: { array: 'string' } }, 'n'],
+      [{ n: { enum: ['a'] } }, 'n'],
+      [{ n: { s: 'string' } }, 'n'],
+    ]) {
+      assert.throws(() => define(definition, { ...options, intern: [place] }), {
+        code: 'ERR_INVALID_OPTIONS',
+        message: `Option "intern" takes a string at "${place}"`,
+      });
+    }
   });
 
   test(`Intern (${backend}): a call from inside another starts its own table`, () => {
-    const Inner = Schema.from({ s: { type: 'string', intern: true } }, options);
-    const Outer = Schema.from({ s: { type: 'string', intern: true }, raw: 'json' }, both);
+    const Inner = define({ s: 'string' }, { ...options, intern: ['s'] });
+    const Outer = define(
+      { s: 'string', raw: 'json', 'o?': { x: 'number' } },
+      { ...options, intern: ['s'] },
+    );
     let inner;
     const value = {
       s: 'outer',
@@ -274,36 +356,22 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Outer.encode(value), [['outer'], [0, { s: 'x' }]]);
     assert.deepStrictEqual(inner, [['inner'], [0]]);
     // A failed call leaves no table behind.
-    assert.throws(() => Outer.encode({ s: 1, raw: null }), { code: 'type' });
+    assert.throws(() => Outer.encode({ s: 'a', raw: null, o: 5 }), { code: 'object', path: 'o' });
     assert.deepStrictEqual(Inner.encode({ s: 'y' }), [['y'], [0]]);
   });
 }
 
 for (const [backend, options] of BACKENDS) {
   test(`Delta and intern (${backend}): resolved across wires`, () => {
-    const W = Schema.from(
-      {
-        s: { type: 'string', intern: true },
-        plain: 'string',
-        n: { type: 'integer', delta: true },
-        d: { array: 'integer', delta: true },
-        p: { array: 'integer' },
-      },
-      options,
-    );
-    const R = Schema.resolve(
-      W,
-      Schema.from(
-        {
-          s: 'string',
-          plain: { type: 'string', intern: true },
-          n: 'integer',
-          d: { array: 'integer' },
-          p: { array: 'integer', delta: true },
-        },
-        options,
-      ),
-    );
+    const definition = {
+      s: 'string',
+      plain: 'string',
+      n: 'integer',
+      d: { array: 'integer' },
+      p: { array: 'integer' },
+    };
+    const W = define(definition, { ...options, intern: ['s'], delta: ['n', 'd'] });
+    const R = resolve(W, define(definition, { ...options, intern: ['plain'], delta: ['p'] }));
     // The writer's wire: its table, its differences.
     const wire = W.encode({ s: 'x', plain: 'y', n: 1, d: [1, 2], p: [3, 4] });
     assert.deepStrictEqual(wire, [['x'], [0, 'y', 1, [1, 1], [3, 4]]]);
@@ -313,11 +381,11 @@ for (const [backend, options] of BACKENDS) {
       [0, 'q', 2, [5, 2], [6]],
     ]);
     // A delta column the reader does not have is still the writer's.
-    const C = Schema.from(
-      { array: { id: 'integer', n: { type: 'number', delta: true } } },
-      { ...options, layout: 'columns' },
+    const C = define(
+      { array: { id: 'integer', n: 'number' } },
+      { ...options, layout: 'columns', delta: ['[].n'] },
     );
-    const RC = Schema.resolve(C, Schema.from({ array: { id: 'integer' } }, options));
+    const RC = resolve(C, define({ array: { id: 'integer' } }, options));
     assert.deepStrictEqual(
       RC.decode(
         C.encode([

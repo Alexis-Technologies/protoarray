@@ -2,9 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { Schema, DecodeError } = require('../../index.js');
 const { SchemaRegistry } = require('../../registry.js');
+const { ms, named } = require('../support/schema.js');
 
-const V1 = new Schema('User', { id: 'number', fullName: 'string' });
-const V2 = new Schema('User', {
+const V1 = named('User', { id: 'number', fullName: 'string' });
+const V2 = named('User', {
   id: 'number',
   name: { type: 'string', aliases: ['fullName'] },
   email: '?string',
@@ -23,7 +24,7 @@ test('Registry: schemas by id and by name', () => {
   assert.strictEqual(registry.find('Other'), undefined);
   assert.deepStrictEqual([...registry], [V1, V2]);
   // The same schema again, or another copy of it, changes nothing.
-  registry.add(V1).add(Schema.from(V1.definition));
+  registry.add(V1).add(Schema.from(V1));
   assert.strictEqual(registry.size, 2);
   assert.strictEqual(registry.get(V1.id), V1);
   assert.strictEqual(new SchemaRegistry().size, 0);
@@ -33,8 +34,8 @@ test('Registry: schemas by id and by name', () => {
 
 test('Registry: a narrow fingerprint is a collision, not a silent mix-up', () => {
   const narrow = () => 'x';
-  const A = new Schema('A', { a: 'number' }, { fingerprint: narrow });
-  const B = new Schema('B', { b: 'string' }, { fingerprint: narrow });
+  const A = named('A', { a: 'number' }, { fingerprint: narrow });
+  const B = named('B', { b: 'string' }, { fingerprint: narrow });
   const registry = new SchemaRegistry([A]);
   assert.throws(() => registry.add(B), {
     name: 'SchemaDefinitionError',
@@ -55,7 +56,7 @@ test('Registry: envelopes carry the id of the schema that wrote them', () => {
   // Resolved once per writer and reader.
   assert.strictEqual(registry.resolve(V1.id, V2), registry.resolve(V1.id, V2));
   assert.strictEqual(registry.resolve(V2.id, V2), V2);
-  assert.strictEqual(registry.resolve(V1.id, Schema.from(V1.definition)).id, V1.id);
+  assert.strictEqual(registry.resolve(V1.id, Schema.from(V1)).id, V1.id);
   // Writing for a peer on the older version.
   const old = registry.encode(V2, { id: 2, name: 'Bo', email: 'b@x' }, { as: V1.id });
   assert.deepStrictEqual(old, [V1.id, [2, 'Bo']]);
@@ -107,21 +108,62 @@ test('Registry: what cannot be decoded', () => {
   assert.throws(() => registry.decode([V1.id, ['x']], V2), { code: 'type', path: 'id' });
 });
 
-test('Registry: from(model) needs the metaschema module', () => {
-  assert.throws(() => SchemaRegistry.from({}), {
-    code: 'ERR_UNKNOWN_TYPE',
-    message: "SchemaRegistry.from needs register() from '@alexify/protoarray/metaschema'",
-  });
-  // What register() plugs in builds it; the hook is stubbed here.
-  const { HOOKS } = require('../../src/plan.js');
-  const model = {};
-  HOOKS.model = (source, options) => ({ source, options });
-  try {
-    assert.deepStrictEqual(SchemaRegistry.from(model, { validate: false }), {
-      source: model,
-      options: { validate: false },
-    });
-  } finally {
-    HOOKS.model = null;
+test('Registry: from a metaschema Model or its snapshot', () => {
+  const entities = new Map([
+    ['Address', { Struct: {}, city: 'string' }],
+    ['User', { Struct: {}, id: 'number', home: 'Address' }],
+  ]);
+  const model = new ms.Model({}, entities);
+  const registry = SchemaRegistry.from(model, { entities: { User: { sparse: true } } });
+  assert.ok(registry instanceof SchemaRegistry);
+  assert.strictEqual(registry.size, 2);
+  const User = registry.find('User');
+  assert.strictEqual(User.layout, 'sparse');
+  assert.strictEqual(registry.find('Address').toString(), '{city:string}');
+  assert.strictEqual(registry.get(User.id), User);
+  const envelope = registry.encode(User, { id: 1, home: { city: 'Kyiv' } });
+  assert.deepStrictEqual(envelope, [User.id, [3, 1, ['Kyiv']]]);
+  assert.deepStrictEqual(registry.decode(envelope), { id: 1, home: { city: 'Kyiv' } });
+  // The snapshot of the model builds the same schemas, with the options given.
+  const plain = SchemaRegistry.from(model.toJSON(), { validate: false });
+  assert.strictEqual(plain.find('User').layout, 'dense');
+  assert.deepStrictEqual(plain.find('User').decode(['x', [1]]), { id: 'x', home: { city: 1 } });
+  // The sparse User reads the payloads of the dense one, another version of it.
+  const Dense = plain.find('User');
+  registry.add(Dense);
+  const read = registry.decode([Dense.id, [1, ['K']]], User);
+  assert.deepStrictEqual(read, { id: 1, home: { city: 'K' } });
+  for (const source of [{}, null, V1]) {
+    assert.throws(() => SchemaRegistry.from(source), { code: 'ERR_SCHEMA_EXPECTED' });
   }
+  assert.throws(() => SchemaRegistry.from(model, { sparse: true }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Option "sparse" names one schema: give it in "entities"',
+  });
+});
+
+// A reference prints as a name: the id covers the shape of the entity it
+// names, so two versions of it are two versions of the schema that refers.
+test('Registry: versions that differ in a referenced entity are two versions', () => {
+  const entities = (address) => ({
+    Address: { Struct: {}, ...address },
+    User: { Struct: {}, home: 'Address' },
+  });
+  const A1 = Schema.fromModel(
+    new ms.Model({}, new Map(Object.entries(entities({ city: 'string', street: 'string' })))),
+  ).User;
+  const A2 = Schema.fromModel(
+    new ms.Model({}, new Map(Object.entries(entities({ street: 'string', city: 'string' })))),
+  ).User;
+  assert.strictEqual(A1.toString(), A2.toString());
+  assert.notStrictEqual(A1.id, A2.id);
+  const registry = new SchemaRegistry([A1, A2]);
+  assert.strictEqual(registry.size, 2);
+  const envelope = registry.encode(A1, { home: { city: 'Kyiv', street: 'Main' } });
+  assert.deepStrictEqual(registry.decode(envelope, A2), { home: { street: 'Main', city: 'Kyiv' } });
+  // A fingerprint too narrow to tell them apart is a collision, not one version.
+  const narrow = { fingerprint: () => 'same' };
+  const W1 = Schema.from(A1, narrow);
+  const W2 = Schema.from(A2, narrow);
+  assert.throws(() => new SchemaRegistry([W1, W2]), { code: 'ERR_ID_COLLISION' });
 });

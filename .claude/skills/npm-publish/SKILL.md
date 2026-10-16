@@ -31,7 +31,7 @@ pnpm run lint                    # oxlint
 pnpm run format:check            # oxfmt
 pnpm run test:coverage           # tests under the c8 coverage gate
 pnpm run test:types              # tsd
-pnpm run check:dts               # tsc over index.d.ts
+pnpm run check:dts               # tsc over index.d.ts and the d.ts of every subpath
 ```
 
 These are the same gates `prepublishOnly` runs. Then in parallel: `pnpm outdated` and `pnpm audit` (report to user; devDependencies only, the package has no runtime dependencies).
@@ -117,8 +117,8 @@ Keep all existing links intact.
 
 The types are hand-written in `index.d.ts`:
 
-1. `pnpm run check:dts` and `pnpm run test:types` must pass with no errors
-2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js` and `browser.js` with the declared value exports; it must pass
+1. `pnpm run check:dts` and `pnpm run test:types` must pass with no errors; `check:dts` compiles `index.d.ts` and the d.ts of the four subpaths
+2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js`, `browser.js` and the four subpaths with their declared value exports, and checks each subpath against `exports` and `files`; it must pass
 3. Read `src/index.js` and `index.d.ts` and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations
 4. If the release includes API changes, update `index.d.ts` and `tests/types/*.test-d.ts` accordingly
 
@@ -133,8 +133,9 @@ Scan for staleness:
 3. **docs/**: guide and API pages for anything the release changed; the nav version label is read from `package.json` automatically. `pnpm run docs:build` must pass (dead links fail it)
 4. **docs/public/llms.txt**: key facts (exports, Node.js version, size)
 5. **SECURITY.md**: the supported-versions table on a major release, and the threat model
-   whenever a release changes what `encode`, `decode` or `check` guarantee (what is checked by
-   default, which errors can escape)
+   whenever a release changes what `encode`, `decode`, the stream parsers, the registry or a
+   generated module guarantee (what is checked by default, which errors can escape, what a
+   message may quote, what is bounded)
 6. **CONTRIBUTING.md**: the commands and gates it quotes (`pnpm size --max-gzip <KB>`, the
    coverage thresholds) must match `package.json` and `.github/workflows/ci.yml`
 7. **Benchmarks**: when `src/` changed, `pnpm bench --compare` against `bench/baseline.json`
@@ -152,7 +153,7 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 Check these fields are correct:
 
 - `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first,
-  for `.` and for every subpath (`./registry`, `./stream`, `./metaschema`, `./standalone`)
+  for `.` and for every subpath (`./registry`, `./resolve`, `./stream`, `./standalone`)
 - `"bin"` — `protoarray` points to `bin/protoarray.js`, which is executable and starts with a shebang
 - `"types"` — points to `index.d.ts`
 - `"files"` — the explicit allowlist includes everything that ships and nothing else (there is no `.npmignore`)
@@ -165,7 +166,7 @@ Check these fields are correct:
 
 ```bash
 pnpm pack --dry-run
-pnpm run size --max-gzip 20
+pnpm run size --max-gzip 22
 ```
 
 Review the file list:

@@ -146,6 +146,55 @@ test('Schema: what is not a schema to read', () => {
       message: 'A metaschema Model or a snapshot expected',
     });
   }
+  // The brand without the method that writes the snapshot.
+  invalid(() => Schema.from({ [BRAND]: 'Schema' }), {
+    code: 'ERR_SCHEMA_EXPECTED',
+    message: 'A metaschema Schema with toSnapshot() expected',
+  });
+  invalid(() => Schema.fromModel({ [BRAND]: 'Model' }), {
+    code: 'ERR_SCHEMA_EXPECTED',
+    message: 'A metaschema Model with toJSON() expected',
+  });
+  // A method that writes no snapshot.
+  for (const written of [null, {}, 5]) {
+    invalid(() => Schema.from({ [BRAND]: 'Schema', toSnapshot: () => written }), {
+      code: 'ERR_INVALID_SNAPSHOT',
+      schema: '',
+    });
+  }
+  invalid(() => new Schema('X', { [BRAND]: 'Schema', toSnapshot: () => ({ root: 'T' }) }), {
+    code: 'ERR_INVALID_SNAPSHOT',
+    schema: 'X',
+  });
+  const rootless = { format: 1, entities: { A: { fields: { a: field('number') } } } };
+  invalid(() => Schema.from({ [BRAND]: 'Schema', toSnapshot: () => rootless }), {
+    code: 'ERR_INVALID_SNAPSHOT',
+    message: 'The snapshot has no root',
+  });
+});
+
+test('Schema: a metaschema Schema is its own entity', () => {
+  const entities = new Map([
+    ['Address', { Struct: {}, city: 'string' }],
+    ['User', { Struct: {}, name: 'string', home: 'Address' }],
+  ]);
+  const User = new ms.Model({}, entities).entities.get('User');
+  const schema = Schema.from(User, { entity: 'User' });
+  assert.strictEqual(schema.source, User);
+  invalid(() => Schema.from(User, { entity: 'Address' }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'A metaschema Schema builds its own entity "User", not "Address"',
+  });
+  invalid(() => Schema.from({ a: 'number' }, { metaschema: ms, entity: 'B' }), {
+    code: 'ERR_INVALID_OPTIONS',
+  });
+  // Built again, another entity of its snapshot has no metaschema Schema: the
+  // one it was read from checks other values.
+  assert.strictEqual(Schema.from(schema).source, User);
+  assert.strictEqual(Schema.from(schema, { entity: 'User', sparse: true }).source, User);
+  const address = Schema.from(schema, { entity: 'Address' });
+  assert.strictEqual(address.toString(), '{city:string}');
+  assert.strictEqual(address.source, null);
 });
 
 test('Schema: a snapshot of another format or without the entity', () => {
@@ -168,7 +217,7 @@ test('Schema: a snapshot of another format or without the entity', () => {
   });
   invalid(() => new Schema({ format: 1, root: 'T', entities: { T: 5 } }), {
     code: 'ERR_INVALID_SNAPSHOT',
-    message: 'The snapshot has no entity "T"',
+    message: 'The entity "T" is not an object',
   });
   // An inherited member is not an entity.
   invalid(() => new Schema({ format: 1, root: 'toString', entities: {} }), {
@@ -252,6 +301,94 @@ test('Schema: a snapshot nested too deeply', () => {
   let fine = { a: field('string') };
   for (let i = 0; i < 63; i++) fine = { a: struct(fine) };
   assert.ok(new Schema(snapshotOf(fine)));
+});
+
+test('Schema: a long chain of references is read without a recursion', () => {
+  // Every entity is read before any is compiled, from a list: the stack does
+  // not grow with the chain, however deep each entity is.
+  const entities = {};
+  let deep = { v: field('number') };
+  for (let i = 0; i < 62; i++) deep = { a: struct(deep) };
+  for (let i = 0; i < 600; i++) {
+    const next = { n: field(`E${i + 1}`, { one: `E${i + 1}`, required: false }) };
+    entities[`E${i}`] = { fields: { ...deep, ...(i < 599 ? next : {}) } };
+  }
+  const head = new Schema({ format: 1, root: 'E0', entities }, { codegen: false });
+  assert.match(head.id, /^[0-9a-f]{8}$/);
+  const all = Schema.fromModel({ format: 1, entities }, { codegen: false });
+  assert.strictEqual(`${all.E599}`.slice(0, -1), `${head}`.replace(/,n:\?@E1}$/, ''));
+  assert.strictEqual(all.E0.id, head.id);
+});
+
+test('Schema: references alone that come back stand for no record', () => {
+  const message = (name) => `The entity "${name}" refers to itself through references alone`;
+  const ref = (name) => ({ type: { type: name, one: name } });
+  invalid(() => new Schema({ format: 1, root: 'R', entities: { R: ref('R') } }), {
+    code: 'ERR_INVALID_SNAPSHOT',
+    message: message('R'),
+  });
+  const cycle = { format: 1, root: 'A', entities: { A: ref('B'), B: ref('C'), C: ref('A') } };
+  invalid(() => new Schema(cycle), { code: 'ERR_INVALID_SNAPSHOT', message: message('A') });
+  invalid(() => Schema.fromModel(cycle), { code: 'ERR_INVALID_SNAPSHOT' });
+  // A record between two references is a recursion, not a cycle.
+  const R = new Schema({
+    format: 1,
+    root: 'A',
+    entities: { A: ref('B'), B: { fields: { a: field('A', { one: 'A', required: false }) } } },
+  });
+  assert.deepStrictEqual(R.encode({ a: { a: null } }), [[]]);
+});
+
+test('Schema: a hole in a list of the snapshot is a missing element', () => {
+  const holed = (list) => {
+    const out = list.slice();
+    delete out[1];
+    return out;
+  };
+  const tuple = field('tuple', { value: holed([field('number'), field('number')]) });
+  refused({ t: tuple }, { code: 'ERR_INVALID_SNAPSHOT', field: 't[1]' });
+  const branch = struct({ k: field('enum', { enum: ['a'] }) });
+  const union = field('union', { discriminator: 'k', union: holed([branch, branch]) });
+  refused({ u: union }, { code: 'ERR_INVALID_SNAPSHOT', field: 'u[1]' });
+  const aliases = holed(['a', 'b', 'c']);
+  refused({ n: field('string', { aliases }) }, { code: 'ERR_INVALID_SNAPSHOT', field: 'n' });
+});
+
+test('Schema: what breaks the reader unchecked is an invalid snapshot', () => {
+  const cause = new Error('a getter that throws');
+  const entity = {
+    get fields() {
+      throw cause;
+    },
+  };
+  assert.throws(
+    () => new Schema({ format: 1, root: 'T', entities: { T: entity } }),
+    (error) => {
+      assert.ok(error instanceof SchemaDefinitionError);
+      assert.strictEqual(error.code, 'ERR_INVALID_SNAPSHOT');
+      assert.strictEqual(error.message, 'The snapshot cannot be read');
+      assert.strictEqual(error.schema, 'T');
+      assert.strictEqual(error.cause, cause);
+      return true;
+    },
+  );
+  // The names of Object.prototype are no custom types, nor wire types given.
+  for (const name of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
+    const types = Object.defineProperty({}, name, { value: {}, enumerable: true });
+    invalid(() => new Schema(snapshotOf({ a: field(name) }, types)), {
+      code: 'ERR_UNKNOWN_TYPE',
+      field: 'a',
+    });
+  }
+  // An enum longer than a call takes arguments, in a union.
+  const values = Array.from({ length: 200000 }, (_, i) => `v${i}`);
+  const branch = struct({ k: field('enum', { enum: values }) });
+  const union = new Schema({
+    format: 1,
+    root: 'U',
+    entities: { U: { type: field('union', { discriminator: 'k', union: [branch] }) } },
+  });
+  assert.deepStrictEqual(union.encode({ k: 'v199999' }), [199999]);
 });
 
 test('Schema: a schema of one type held as a field keeps its own optionality', () => {
@@ -399,9 +536,23 @@ test('Schema: defaults the wire carries', () => {
   assert.throws(() => define({ n: { type: 'string', default: null } }).decode([]), {
     code: 'required',
   });
-  assert.strictEqual(
-    new Schema(snapshotOf({ n: field('number', { default: 'x' }) })).toString(),
-    '{n:?number="x"}',
+  // A default of another type is no value of the slot: the wire has no use for it.
+  for (const [type, more, text] of [
+    ['number', { default: 'x' }, 'number'],
+    ['boolean', { default: 'yes' }, 'boolean'],
+    ['string', { default: 5 }, 'string'],
+    ['enum', { enum: ['a', 'b'], default: 'zzz' }, 'enum(a|b)'],
+    ['enum', { enum: ['a', 'b'], default: 'b' }, '?enum(a|b)="b"'],
+    ['enum', { enum: [1, 2], default: 2 }, '?enum(1|2)=2'],
+  ]) {
+    const schema = new Schema(snapshotOf({ n: field(type, more) }));
+    assert.strictEqual(schema.toString(), `{n:${text}}`, text);
+  }
+  assert.throws(
+    () => new Schema(snapshotOf({ n: field('boolean', { default: 'yes' }) })).decode([]),
+    {
+      code: 'required',
+    },
   );
 });
 
@@ -409,12 +560,22 @@ test('Schema: union errors', () => {
   const u = (union, more) => field('union', { discriminator: 'k', union, ...more });
   const branch = (k, more) => struct({ k: field('enum', { enum: [k], ...more }) });
   invalid(() => define({ u: { union: [{ k: { enum: ['a'] } }] } }), {
-    code: 'ERR_UNKNOWN_TYPE',
+    code: 'ERR_INVALID_UNION',
     field: 'u',
     message: 'A union needs a discriminator at "u"',
   });
-  refused({ u: u([branch('a')], { discriminator: '' }) }, { code: 'ERR_UNKNOWN_TYPE' });
-  refused({ u: u([branch('a')], { discriminator: 1 }) }, { code: 'ERR_UNKNOWN_TYPE' });
+  refused({ u: u([branch('a')], { discriminator: '' }) }, { code: 'ERR_INVALID_UNION' });
+  refused({ u: u([branch('a')], { discriminator: 1 }) }, { code: 'ERR_INVALID_UNION' });
+  // A branch leads with its tag: it cannot be a sparse record.
+  invalid(
+    () =>
+      define({ u: { union: [{ k: { enum: ['a'] } }], discriminator: 'k' } }, { sparse: ['u[0]'] }),
+    {
+      code: 'ERR_INVALID_OPTIONS',
+      field: 'u[0]',
+      message: 'Option "sparse" takes no branch of a union at "u[0]"',
+    },
+  );
   const code = 'ERR_INVALID_UNION';
   for (const union of [[], 'x', undefined]) {
     refused(
@@ -440,7 +601,10 @@ test('Schema: union errors', () => {
   );
   // A sparse branch has no position for its tag.
   const definition = { u: { union: [{ k: { enum: ['a'] }, v: '?number' }], discriminator: 'k' } };
-  invalid(() => define(definition, { sparse: ['u[0]'] }), { code, field: 'u[0]' });
+  invalid(() => define(definition, { sparse: ['u[0]'] }), {
+    code: 'ERR_INVALID_OPTIONS',
+    field: 'u[0]',
+  });
   refused(
     { u: u([branch('a', {}), struct({ k: field('enum', { enum: [] }) })]) },
     {
@@ -471,13 +635,13 @@ test('Schema: keys a struct cannot have', () => {
   });
   invalid(() => define({ '': 'string' }), {
     code: 'ERR_INVALID_DEFINITION',
-    field: '',
-    message: 'Invalid key ""',
+    field: '[""]',
+    message: 'Invalid key "" at "[""]"',
   });
   invalid(() => define({ a: { '': 'string' } }), {
     code: 'ERR_INVALID_DEFINITION',
-    field: 'a.',
-    message: 'Invalid key "" at "a."',
+    field: 'a[""]',
+    message: 'Invalid key "" at "a[""]"',
   });
   // A struct needs a position: calculated fields have none.
   invalid(() => define({ Struct: {} }), {
@@ -655,6 +819,22 @@ test('Schema: options by path', () => {
   assert.strictEqual(define({ array: { a: 'number' } }, { layout: { '': 'flat' } }).layout, 'flat');
 });
 
+test('Schema: a layout names a collection, rows included', () => {
+  for (const layout of ['rows', 'flat']) {
+    invalid(() => define({ name: 'string' }, { layout: { name: layout } }), {
+      code: 'ERR_INVALID_OPTIONS',
+      field: 'name',
+    });
+  }
+  assert.throws(() => define({ name: 'string' }, { layout: { name: 'rows' } }), {
+    message: 'Option "layout" "rows" takes an array at "name"',
+  });
+  assert.strictEqual(
+    define({ tags: { array: 'string' } }, { layout: { tags: 'rows' } }).toString(),
+    '{tags:[string]}',
+  );
+});
+
 test('Schema: option errors', () => {
   const values = [
     1,
@@ -755,6 +935,100 @@ test('Schema: options of a model', () => {
   const again = Schema.fromModel(Model.toJSON(), { entities: { B: { sparse: true } } });
   assert.strictEqual(again.B.toString(), 'sparse{n:number,s:string}');
   assert.strictEqual(Schema.fromModel(Model).A.toString(), '{b:@B}');
+  // An entity's own options are checked, reached or not, and name an entity.
+  const misnamed = { entities: { Bee: { sparse: true } } };
+  for (const build of [
+    () => Schema.fromModel(Model, misnamed),
+    () => Schema.from(Model, { ...misnamed, entity: 'B' }),
+  ]) {
+    invalid(build, {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Option "entities" names no entity of the snapshot: "Bee"',
+    });
+  }
+  invalid(() => Schema.from(Model, { entity: 'B', entities: { A: { bogus: 1 } } }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Invalid option "bogus"',
+    schema: 'A',
+  });
+  for (const key of ['entity', 'entities', 'metaschema']) {
+    const own = { entity: 'A', entities: {}, metaschema: ms };
+    invalid(() => Schema.fromModel(Model, { entities: { B: { [key]: own[key] } } }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: `Option "${key}" is no option of an entity`,
+    });
+  }
+  // An option an entity leaves undefined is the shared one.
+  const shared = Schema.fromModel(Model, {
+    codegen: false,
+    entities: { B: { codegen: undefined } },
+  });
+  assert.strictEqual(shared.B.backend, 'closures');
+});
+
+test('Schema: an alias stands for the entity it names', () => {
+  const Model = new ms.Model(
+    {},
+    new Map([
+      ['Id', 'string'],
+      ['UserId', 'Id'],
+      ['Point', { Struct: {}, x: 'number', y: '?number' }],
+      ['Spot', 'Point'],
+      ['Place', 'Spot'],
+      ['Points', { array: 'Point' }],
+      ['Path', 'Points'],
+    ]),
+  );
+  const { UserId, Point, Spot, Place, Path } = Schema.fromModel(Model);
+  assert.strictEqual(UserId.toString(), '@Id');
+  assert.deepStrictEqual(UserId.encode('u1'), 'u1');
+  assert.strictEqual(UserId.decode('u1'), 'u1');
+  for (const alias of [Spot, Place]) {
+    assert.deepStrictEqual(alias.keys, Point.keys);
+    assert.strictEqual(alias.layout, 'dense');
+    assert.deepStrictEqual(alias.encode({ x: 1 }), [1]);
+    assert.throws(() => alias.encode(5), { code: 'object' });
+  }
+  assert.strictEqual(Path.layout, 'rows');
+  assert.deepStrictEqual(Path.encode([{ x: 1 }]), [[1]]);
+  assert.throws(() => Path.encode({}), { code: 'array' });
+  assert.deepStrictEqual(Path.list.encode([[{ x: 1 }]]), [[[1]]]);
+  // Its items are the items of what it stands for.
+  const { stringifyItems } = require('../../stream.js');
+  assert.strictEqual(Array.from(stringifyItems(Path, [{ x: 1 }, { x: 2 }])).join(''), '[[1],[2]]');
+});
+
+test('Schema: the list of a recursive schema has the id of its canonical form', () => {
+  const { fingerprint } = require('../../src/plan.js');
+  const User = model({ User: { Struct: {}, name: '?string', next: '?User' } }).User;
+  assert.strictEqual(User.id, fingerprint(User.toString()));
+  assert.strictEqual(User.list.toString(), '[{name:?string,next:?@User}]');
+  assert.strictEqual(User.list.id, fingerprint(User.list.toString()));
+});
+
+test('Schema: a fingerprint gives a non-empty string', () => {
+  for (const id of [42, '', null]) {
+    const schema = define({ a: 'number' }, { fingerprint: () => id });
+    invalid(() => schema.id, {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Option "fingerprint" returns a non-empty string',
+    });
+  }
+  assert.strictEqual(define({ a: 'number' }, { fingerprint: () => 'v1' }).id, 'v1');
+});
+
+test('Schema: the options a schema is built with are its own', () => {
+  const delta = ['[].n'];
+  const layout = { '': 'columns' };
+  const schema = define({ array: { n: 'integer' } }, { delta, layout });
+  delta.push('[].m');
+  layout[''] = 'flat';
+  const settings = schema[Symbol.for('alexify.protoarray.settings')];
+  assert.ok(Object.isFrozen(settings));
+  assert.deepStrictEqual(settings.delta, ['[].n']);
+  assert.strictEqual(settings.layout[''], 'columns');
+  assert.strictEqual(Object.getPrototypeOf(settings.types), null);
+  assert.strictEqual(Schema.from(schema, settings).toString(), schema.toString());
 });
 
 // `validate` is about the wire only: decode checks it unless told to trust
@@ -937,4 +1211,122 @@ test('Schema: a mutated snapshot throws nothing but SchemaDefinitionError', () =
     }
   }
   assert.ok(read > 0 && rejected > 0, `${read} read, ${rejected} rejected`);
+});
+
+test('Schema: a key that holds what a path is made of is quoted in every path', () => {
+  for (const [backend, options] of BACKENDS) {
+    const schema = define(
+      {
+        'a.b': { c: 'number' },
+        a: { b: { c: 'number' } },
+        'list[]': { array: 'number' },
+        u: { union: [{ 'k.d': { enum: ['x'] }, n: 'number' }], discriminator: 'k.d' },
+      },
+      { ...options, sparse: ['["a.b"]'] },
+    );
+    assert.strictEqual(
+      schema.toString().startsWith('{a.b:sparse{c:number},a:{b:{c:number}}'),
+      true,
+    );
+    assert.throws(() => schema.decode([[1, 'x']]), { code: 'type', path: '["a.b"].c' }, backend);
+    assert.throws(() => schema.decode([[1, 1], [['x']]]), { code: 'type', path: 'a.b.c' }, backend);
+    assert.throws(
+      () => schema.decode([[1, 1], [[1]], ['x']]),
+      { code: 'type', path: '["list[]"][0]' },
+      backend,
+    );
+    assert.throws(
+      () => schema.encode({ 'a.b': {}, a: { b: {} }, 'list[]': [], u: { 'k.d': 'nope' } }),
+      { code: 'union', path: 'u["k.d"]' },
+      backend,
+    );
+    assert.throws(() => schema.decode([[1, 1], [[1]], [], [5]]), { path: 'u["k.d"]' }, backend);
+    const columns = define(
+      { array: { 'at.x': 'integer' } },
+      { ...options, layout: 'columns', delta: ['[]["at.x"]'] },
+    );
+    assert.throws(() => columns.decode([[1, 'x']]), { code: 'type', path: '[1]["at.x"]' }, backend);
+  }
+  // An option path names the key quoted too.
+  assert.throws(() => define({ 'a.b': { c: 'number' } }, { sparse: ['a.b'] }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Option "sparse" names no place of the schema at "a.b"',
+  });
+  // A flag name like an integer would come first among the decoded keys.
+  invalid(() => define({ f: { flags: ['read', '1'] } }), {
+    code: 'ERR_INTEGER_KEY',
+    field: 'f',
+    message: 'Integer-like flag name "1": JavaScript orders it first at "f"',
+  });
+});
+
+test('Schema: an error names what it is about, briefly', () => {
+  // An entity a reference reached says which reference did.
+  const snapshot = {
+    format: 1,
+    root: 'A',
+    entities: {
+      A: { fields: { b: field('B', { one: 'B' }) } },
+      B: { fields: { c: field('nope') } },
+    },
+  };
+  invalid(() => new Schema(snapshot), {
+    code: 'ERR_UNKNOWN_TYPE',
+    schema: 'B',
+    field: 'c',
+    message: 'Unknown type "nope" at "c" (reached from "A" at "b")',
+  });
+  // A layout of a path names the path.
+  invalid(() => define({ list: { array: { a: 'number' } } }, { layout: { list: 'grid' } }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Invalid option "layout" at "list": rows, flat or columns',
+  });
+  // A long enum's expected values are its first ones.
+  const values = Array.from({ length: 200 }, (_, i) => `v${i}`);
+  const big = define({ e: { enum: values } });
+  assert.throws(
+    () => big.decode([500]),
+    (error) => {
+      assert.strictEqual(error.code, 'enum');
+      assert.ok(error.message.endsWith(`${values.slice(0, 16).join(', ')}, …`));
+      return true;
+    },
+  );
+  assert.throws(() => define({ e: { enum: ['a', 'b'] } }).decode([5]), {
+    message: 'Field "e" is not of enum: a, b',
+  });
+});
+
+test('Schema: a collection in a layout of its own that falls back is its schema fallback', () => {
+  const codegen = require('../../src/codegen.js');
+  const FALLBACK = Symbol.for('alexify.protoarray.fallback');
+  const { build } = codegen;
+  // Generated code is refused for the record of the collection alone.
+  codegen.build = (plan, options) => {
+    if (plan.kind === 'struct' && plan.keys.includes('sku')) throw new EvalError('refused');
+    return build(plan, options);
+  };
+  try {
+    const schema = define(
+      { id: 'number', items: { array: { sku: 'string' } } },
+      { layout: { items: 'flat' } },
+    );
+    assert.strictEqual(schema.backend, 'codegen');
+    assert.strictEqual(schema[FALLBACK].message, 'refused');
+    assert.deepStrictEqual(schema.decode(schema.encode({ id: 1, items: [{ sku: 'a' }] })), {
+      id: 1,
+      items: [{ sku: 'a' }],
+    });
+    // A schema that fell back itself keeps its own.
+    codegen.build = () => {
+      throw new EvalError('everything');
+    };
+    const all = define(
+      { id: 'number', items: { array: { sku: 'string' } } },
+      { layout: { items: 'flat' } },
+    );
+    assert.strictEqual(all[FALLBACK].message, 'everything');
+  } finally {
+    codegen.build = build;
+  }
 });

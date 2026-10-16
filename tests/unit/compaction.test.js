@@ -71,7 +71,8 @@ for (const [backend, options] of BACKENDS) {
       looseRows.map((row) => row.id),
       [1, 'x', 3],
     );
-    // Outside columns `delta` changes nothing on the wire.
+    // Outside columns `delta` marks a lone number's form, as 1.x did, and
+    // changes nothing on the wire.
     const Rows = define({ array: record }, { ...options, delta });
     assert.deepStrictEqual(Rows.encode(rows)[1], [101, null, 125, 7, 'b']);
     const Flat = define({ array: record }, { ...options, layout: 'flat', delta });
@@ -130,6 +131,23 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Loose.encode({ ids: [2], prices: [] }), [[2], null, []]);
     for (const ids of [[1.5], [null], ['x'], 'x', [Number.MAX_SAFE_INTEGER, 1]]) {
       assert.throws(() => S.decode([ids, null, []]), { code: 'type', path: 'ids' });
+    }
+    // A date of another realm is a date; an object that claims the tag is not.
+    const realm = require('node:vm').runInNewContext('new Date(10)');
+    assert.deepStrictEqual(S.encode({ ids: [], at: [realm], prices: [] })[1], [10]);
+    const fake = { [Symbol.toStringTag]: 'Date', valueOf: () => 10 };
+    assert.throws(() => S.encode({ ids: [], at: [fake], prices: [] }), {
+      code: 'type',
+      path: 'at',
+    });
+    // Values a JSON text cannot hold are checked before they are added.
+    const hostile = {
+      valueOf: () => {
+        throw new RangeError('not a number');
+      },
+    };
+    for (const ids of [[1n], [Symbol('x')], [hostile], [1, 2n]]) {
+      assert.throws(() => S.decode([ids, null, []]), { name: 'DecodeError', code: 'type' });
     }
     assert.deepStrictEqual(Loose.decode([[1, 'x', 2], null, 'y']), {
       ids: [1, 'x', 3],
@@ -358,6 +376,64 @@ for (const [backend, options] of BACKENDS) {
     // A failed call leaves no table behind.
     assert.throws(() => Outer.encode({ s: 'a', raw: null, o: 5 }), { code: 'object', path: 'o' });
     assert.deepStrictEqual(Inner.encode({ s: 'y' }), [['y'], [0]]);
+  });
+
+  test(`Intern (${backend}): a recursion between entities writes one wire, whichever is built first`, () => {
+    const A = { Struct: {}, s: 'string', b: '?B' };
+    const B = { Struct: {}, n: 'number', a: '?A' };
+    const interned = { ...options, entities: { A: { intern: ['s'] } } };
+    const value = { n: 1, a: { s: 'x', b: { n: 2, a: { s: 'x', b: null } } } };
+    const wire = [['x'], [1, [0, [2, [0]]]]];
+    const built = [
+      model({ A, B }, interned).B,
+      model({ B, A }, interned).B,
+      new Schema(model({ A, B }).A.snapshot, { ...interned, entity: 'B' }),
+    ];
+    for (const schema of built) {
+      assert.deepStrictEqual(schema.encode(value), wire);
+      assert.deepStrictEqual(schema.list.encode([value]), [['x'], [[1, [0, [2, [0]]]]]]);
+      for (const other of built) assert.deepStrictEqual(other.decode(schema.encode(value)), value);
+      assert.strictEqual(schema.id, built[0].id);
+    }
+    // Both ends of the recursion carry the table, and so does an entity
+    // that only calls one of them.
+    const C = { Struct: {}, b: 'B' };
+    const { A: a, C: c } = model({ C, A, B }, interned);
+    assert.deepStrictEqual(a.encode({ s: 'y', b: null }), [['y'], [0]]);
+    assert.deepStrictEqual(c.encode({ b: { n: 3, a: null } }), [[], [[3]]]);
+    // The head of a long chain of entities carries the table of its tail.
+    const chain = {};
+    for (let i = 0; i < 3000; i++) chain[`E${i}`] = { Struct: {}, 'next?': `E${i + 1}` };
+    chain.E3000 = { Struct: {}, s: 'string' };
+    const head = model(chain, { ...options, entities: { E3000: { intern: true } } }).E0;
+    assert.deepStrictEqual(head.encode({ next: null }), [[], []]);
+    assert.deepStrictEqual(head.encode({ next: { next: null } }), [[], [[]]]);
+  });
+
+  test(`Intern (${backend}): resolved across a recursion that holds the strings`, () => {
+    const node = {
+      fields: {
+        name: { type: 'string' },
+        kids: { type: 'array', required: false, value: { type: 'Node', one: 'Node' } },
+      },
+    };
+    const snapshot = (more) => ({
+      format: 1,
+      root: 'Doc',
+      entities: {
+        Doc: {
+          fields: { title: { type: 'number' }, tree: { type: 'Node', one: 'Node' }, ...more },
+        },
+        Node: node,
+      },
+    });
+    const interned = { ...options, entities: { Node: { intern: true } } };
+    const W = Schema.from(snapshot({}), interned);
+    const R = Schema.from(snapshot({ extra: { type: 'string', required: false } }), interned);
+    const value = { title: 1, tree: { name: 'a', kids: [{ name: 'b', kids: [] }] } };
+    const resolved = resolve(W, R);
+    assert.deepStrictEqual(resolved.encode(value), W.encode(value));
+    assert.deepStrictEqual(resolved.decode(W.encode(value)), { ...value, extra: null });
   });
 }
 

@@ -3,14 +3,21 @@
 // its payloads as any reader schema through Schema.resolve, and writes for a
 // peer on an older version the same way.
 
-const { Schema, SIGNATURE } = require('./schema.js');
+const { Schema, SAME } = require('./schema.js');
 const { resolve } = require('./resolve.js');
 const { SchemaDefinitionError, DecodeError, boundary } = require('./errors.js');
-const { isSchema } = require('./plan.js');
+const { PLAN, isSchema } = require('./plan.js');
 
 const expect = (schema) => {
-  if (isSchema(schema)) return schema;
-  throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
+  if (!isSchema(schema)) {
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
+  }
+  // A resolved schema has its writer's id: it would stand for its writer.
+  if (schema[PLAN].text !== undefined) {
+    const text = 'A resolved schema is no version of its own: give its writer or its reader';
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text, schema.name);
+  }
+  return schema;
 };
 
 const isEnvelope = (value) =>
@@ -39,7 +46,7 @@ class SchemaRegistry {
     expect(schema);
     const { id } = schema;
     const known = this.#byId.get(id);
-    if (known !== undefined && known[SIGNATURE] !== schema[SIGNATURE]) {
+    if (known !== undefined && !known[SAME](schema)) {
       throw new SchemaDefinitionError(
         'ERR_ID_COLLISION',
         `Schemas "${known.name}" and "${schema.name}" share the id ${id}: use a wider fingerprint`,
@@ -73,17 +80,35 @@ class SchemaRegistry {
   }
 
   // The schema that reads what the schema with this id wrote as `reader`
-  // objects: the reader itself for its own id, else Schema.resolve, once.
-  resolve(id, reader) {
-    expect(reader);
+  // objects (the reader itself for its own version, else Schema.resolve), or
+  // the error that says it cannot, null for an id the registry does not know.
+  // Once per pair: a payload's id costs neither a comparison of signatures
+  // nor another attempt at what failed.
+  #pair(id, reader) {
     const writer = this.#byId.get(id);
-    if (writer === undefined) throw boundary(new DecodeError('schema', '', id), reader.name, true);
-    if (writer[SIGNATURE] === reader[SIGNATURE]) return reader;
+    if (writer === undefined) return null;
     let byReader = this.#resolved.get(id);
     if (byReader === undefined) this.#resolved.set(id, (byReader = new WeakMap()));
-    let resolved = byReader.get(reader);
-    if (resolved === undefined) byReader.set(reader, (resolved = resolve(writer, reader)));
-    return resolved;
+    let entry = byReader.get(reader);
+    if (entry === undefined) {
+      try {
+        const same = writer.id === reader.id && writer[SAME](reader);
+        entry = same ? reader : resolve(writer, reader);
+      } catch (error) {
+        if (!(error instanceof SchemaDefinitionError)) throw error;
+        entry = error;
+      }
+      byReader.set(reader, entry);
+    }
+    return entry;
+  }
+
+  resolve(id, reader) {
+    expect(reader);
+    const entry = this.#pair(id, reader);
+    if (entry === null) throw boundary(new DecodeError('schema', '', id), reader.name, true);
+    if (entry instanceof SchemaDefinitionError) throw entry;
+    return entry;
   }
 
   // `as` writes for a peer that knows an older (or newer) id.
@@ -91,19 +116,32 @@ class SchemaRegistry {
     expect(schema);
     const as = options == null ? undefined : options.as;
     if (as === undefined || as === schema.id) return [schema.id, schema.encode(value)];
+    if (!this.#byId.has(as)) {
+      const text = `The registry has no schema of the id "${as}"`;
+      throw new SchemaDefinitionError('ERR_UNKNOWN_SCHEMA', text, schema.name);
+    }
     return [as, this.resolve(as, schema).encode(value)];
   }
 
-  // Without a reader the payload decodes as its writer wrote it.
+  // Without a reader the payload decodes as its writer wrote it. The id is
+  // the payload's: one this reader cannot read is a DecodeError, whatever
+  // keeps it from reading (the cause says).
   decode(envelope, reader, options) {
     if (!isEnvelope(envelope)) {
       throw boundary(new DecodeError('structure', '', 'envelope'), '', true);
     }
     const id = envelope[0];
-    if (reader != null) return this.resolve(id, reader).decode(envelope[1], options);
-    const writer = this.#byId.get(id);
-    if (writer === undefined) throw boundary(new DecodeError('schema', '', id), '', true);
-    return writer.decode(envelope[1], options);
+    let schema = this.#byId.get(id);
+    if (reader != null) {
+      expect(reader);
+      schema = this.#pair(id, reader);
+    }
+    if (schema == null || schema instanceof SchemaDefinitionError) {
+      const cause = schema == null ? undefined : schema;
+      const name = reader == null ? '' : reader.name;
+      throw boundary(new DecodeError('schema', '', id, cause), name, true);
+    }
+    return schema.decode(envelope[1], options);
   }
 
   stringify(schema, value, options) {

@@ -287,8 +287,8 @@ for (const [backend, options] of BACKENDS) {
 
 test('Union: definition errors', () => {
   // metaschema reads a union without a discriminator; protoarray has no wire for it.
-  invalid({ union: [Call, Event] }, 'ERR_UNKNOWN_TYPE', 'A union needs a discriminator');
-  invalid({ union: ['string', 'number'] }, 'ERR_UNKNOWN_TYPE', 'A union needs a discriminator');
+  invalid({ union: [Call, Event] }, 'ERR_INVALID_UNION', 'A union needs a discriminator');
+  invalid({ union: ['string', 'number'] }, 'ERR_INVALID_UNION', 'A union needs a discriminator');
   // The tag is the index of a value among all of them: 1 and '1' would share it.
   invalid(
     {
@@ -302,11 +302,10 @@ test('Union: definition errors', () => {
     'The values of the discriminator must be unique',
   );
   // A sparse branch would put its mask where the tag goes.
-  const branch = 'A branch must be a struct with the required enum "type" without a default';
   invalid(
     { union: [Event, Call], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-    `${branch} at "[1]"`,
+    'ERR_INVALID_OPTIONS',
+    'Option "sparse" takes no branch of a union at "[1]"',
     {
       sparse: ['[1]'],
     },

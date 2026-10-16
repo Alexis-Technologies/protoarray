@@ -10,8 +10,12 @@
  * metaschema Model stands for its entities, each under its name. A module
  * whose export is one schema gives a module with that one as its default
  * export; otherwise the schemas keep their export names. `--only` keeps the
- * named ones. Without `--out` the source goes to stdout. The generated module
- * needs no metaschema.
+ * named ones. Without `--out` the source goes to stdout; `--out` makes the
+ * directory it names and never writes over the module it reads. The generated
+ * module needs no metaschema.
+ *
+ * Exit codes: 0 done (`--help` included), 1 the module or its schemas could
+ * not be compiled, 2 the command line is wrong.
  */
 
 const fs = require('node:fs');
@@ -32,18 +36,24 @@ const isForeign = (value, brand) => isObject(value) && value[FOREIGN] === brand;
 
 const VALUED = new Set(['--out', '--format', '--runtime', '--only']);
 
+// A mistake on the command line, and what the CLI itself refuses of a module
+// that loads: told from an error inside the module, whose stack is reported.
+class UsageError extends Error {}
+class Refusal extends Error {}
+
 const parseArgs = (argv) => {
+  if (argv.includes('--help') || argv.includes('-h')) return { help: true };
   const [command, ...rest] = argv;
-  if (command !== 'compile') throw new Error(USAGE);
+  if (command !== 'compile') throw new UsageError(USAGE);
   const options = {};
   const files = [];
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (!arg.startsWith('--')) files.push(arg);
     else if (VALUED.has(arg) && i + 1 < rest.length) options[arg.slice(2)] = rest[++i];
-    else throw new Error(`Unknown or incomplete option ${arg}\n${USAGE}`);
+    else throw new UsageError(`Unknown or incomplete option ${arg}\n${USAGE}`);
   }
-  if (files.length !== 1) throw new Error(USAGE);
+  if (files.length !== 1) throw new UsageError(USAGE);
   return { file: files[0], ...options };
 };
 
@@ -72,7 +82,7 @@ const schemaOf = (value) => {
 const exported = (loaded) => {
   const out = {};
   const add = (name, schema) => {
-    if (Object.hasOwn(out, name)) throw new Error(`Two schemas are exported as "${name}"`);
+    if (Object.hasOwn(out, name)) throw new Refusal(`Two schemas are exported as "${name}"`);
     out[name] = schema;
   };
   for (const name of Object.keys(loaded)) {
@@ -88,33 +98,59 @@ const exported = (loaded) => {
   return out;
 };
 
-// The schemas a module exports: itself when it is one, its schemas by name
-// otherwise (an ES module's default export when it has nothing else).
+// The schemas a module exports: itself when it is one, the entities of a
+// Model it is, its schemas by name otherwise (an ES module's default export
+// when it has nothing else).
 const schemasOf = (loaded, only) => {
   const single = schemaOf(loaded);
   if (single !== null) return single;
-  const all = exported(loaded);
+  const all = isForeign(loaded, 'Model') ? { ...Schema.fromModel(loaded) } : exported(loaded);
   const names = Object.keys(all);
   if (names.length === 1 && names[0] === 'default') return all.default;
-  const chosen = only === undefined ? names : only.split(',');
+  const chosen = only === undefined ? names : only.split(',').map((name) => name.trim());
   const out = {};
   for (const name of chosen) {
-    if (!Object.hasOwn(all, name)) throw new Error(`The module exports no schema "${name}"`);
+    if (!Object.hasOwn(all, name)) throw new Refusal(`The module exports no schema "${name}"`);
     out[name] = all[name];
   }
-  if (Object.keys(out).length === 0) throw new Error('The module exports no schema');
+  if (Object.keys(out).length === 0) throw new Refusal('The module exports no schema');
   return out;
 };
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    process.stdout.write(`${USAGE}\n`);
+    return;
+  }
+  if (args.out !== undefined && path.resolve(args.out) === path.resolve(args.file)) {
+    throw new UsageError(`--out names the module it compiles: ${args.out}`);
+  }
   const schemas = schemasOf(await load(args.file), args.only);
   const source = toSource(schemas, { runtime: args.runtime, format: args.format });
   if (args.out === undefined) process.stdout.write(source);
-  else fs.writeFileSync(args.out, source);
+  else {
+    fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true });
+    fs.writeFileSync(args.out, source);
+  }
+};
+
+// What went wrong, enough to act on: an error of protoarray or metaschema with
+// its code and the schema and field it names; anything else (a module that
+// does not load) with its stack, which names the file and the line.
+const report = (error) => {
+  if (error instanceof UsageError || error instanceof Refusal) return error.message;
+  if (error instanceof Error && error.name === 'SchemaDefinitionError') {
+    const where = [];
+    if (error.schema) where.push(`schema "${error.schema}"`);
+    if (error.field) where.push(`field "${error.field}"`);
+    const place = where.length === 0 ? '' : ` (${where.join(', ')})`;
+    return `${error.name} ${error.code}: ${error.message}${place}`;
+  }
+  return error instanceof Error ? String(error.stack) : String(error);
 };
 
 main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+  process.stderr.write(`${report(error)}\n`);
+  process.exitCode = error instanceof UsageError ? 2 : 1;
 });

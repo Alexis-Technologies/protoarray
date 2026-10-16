@@ -94,9 +94,20 @@ test('Registry: what cannot be decoded', () => {
     code: 'schema',
     path: '',
     schema: '',
-    message: 'Value is not a known schema: nope',
+    id: 'nope',
+    message: 'Value is not of a schema this reader can read',
   });
   assert.throws(() => registry.decode(['nope', []], V2), { code: 'schema', schema: 'User' });
+  // The id is the payload's: on the error, never in its message.
+  const forged = 'x\n2026-10-16 INFO admin logged in\u001b[2K';
+  assert.throws(
+    () => registry.parse(JSON.stringify([forged + 'y'.repeat(100000), [1]])),
+    (error) => {
+      assert.strictEqual(error.id.length, forged.length + 100000);
+      assert.strictEqual(error.message, 'Value is not of a schema this reader can read');
+      return true;
+    },
+  );
   assert.throws(
     () => registry.parse('[', V2),
     (error) => {
@@ -166,4 +177,85 @@ test('Registry: versions that differ in a referenced entity are two versions', (
   const W1 = Schema.from(A1, narrow);
   const W2 = Schema.from(A2, narrow);
   assert.throws(() => new SchemaRegistry([W1, W2]), { code: 'ERR_ID_COLLISION' });
+});
+
+test('Registry: a version the reader cannot read is a DecodeError, tried once', () => {
+  const Numeric = named('User', { id: 'number', fullName: 'number' });
+  const registry = new SchemaRegistry([V1]);
+  const decoding = (error) => {
+    assert.ok(error instanceof DecodeError);
+    assert.strictEqual(error.code, 'schema');
+    assert.strictEqual(error.id, V1.id);
+    assert.strictEqual(error.schema, 'User');
+    assert.strictEqual(error.cause.code, 'ERR_INCOMPATIBLE');
+    return true;
+  };
+  assert.throws(() => registry.decode([V1.id, [1, 'A']], Numeric), decoding);
+  // The pair is not resolved again: the same error, from the registry.
+  let first;
+  try {
+    registry.decode([V1.id, [1, 'A']], Numeric);
+  } catch (error) {
+    first = error.cause;
+  }
+  assert.throws(() => registry.parse(JSON.stringify([V1.id, [1, 'A']]), Numeric), decoding);
+  assert.throws(
+    () => registry.resolve(V1.id, Numeric),
+    (error) => error === first,
+  );
+  assert.throws(() => registry.resolve('nope', Numeric), { code: 'schema', id: 'nope' });
+  // Writing for an id the registry does not know is the caller's error.
+  assert.throws(() => registry.encode(V1, { id: 1, fullName: 'A' }, { as: 'deadbeef' }), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_UNKNOWN_SCHEMA',
+    message: 'The registry has no schema of the id "deadbeef"',
+  });
+  // An error that is not about the versions passes through.
+  const broken = Schema.from(V1);
+  Object.defineProperty(broken, 'id', {
+    get() {
+      throw new RangeError('not about versions');
+    },
+  });
+  assert.throws(() => registry.decode([V1.id, []], broken), RangeError);
+});
+
+test('Registry: one id for two versions is a collision, whatever tells them apart', () => {
+  const { model: build } = require('../support/schema.js');
+  const fingerprint = () => 'same';
+  const versions = [
+    build({ A: { Struct: {}, b: 'B' }, B: { Struct: {}, n: 'number' } }, { fingerprint }).A,
+    // Another canonical form.
+    build({ A: { Struct: {}, b: '?B' }, B: { Struct: {}, n: 'number' } }, { fingerprint }).A,
+    // The same form, an entity more reached.
+    build(
+      {
+        A: { Struct: {}, b: 'B' },
+        B: { Struct: {}, n: 'number', 'c?': 'C' },
+        C: { Struct: {}, s: 'string' },
+      },
+      { fingerprint },
+    ).A,
+    // The same form and count, another entity's form.
+    build({ A: { Struct: {}, b: 'B' }, B: { Struct: {}, n: 'string' } }, { fingerprint }).A,
+  ];
+  for (const other of versions.slice(1)) {
+    assert.throws(() => new SchemaRegistry([versions[0], other]), {
+      code: 'ERR_ID_COLLISION',
+      message: 'Schemas "A" and "A" share the id same: use a wider fingerprint',
+    });
+  }
+  // The same version again changes nothing.
+  const again = build(
+    { A: { Struct: {}, b: 'B' }, B: { Struct: {}, n: 'number' } },
+    { fingerprint },
+  );
+  assert.strictEqual(new SchemaRegistry([versions[0], again.A]).size, 1);
+  // A resolved schema is no reader the registry takes either.
+  const { resolve } = require('../../resolve.js');
+  const resolved = resolve(V1, V2);
+  const registry = new SchemaRegistry([V1]);
+  assert.throws(() => registry.decode([V1.id, [1, 'A']], resolved), {
+    code: 'ERR_SCHEMA_EXPECTED',
+  });
 });

@@ -16,11 +16,15 @@ const {
   CODEC,
   FALLBACK,
   FOREIGN,
+  INTERNED,
+  children,
   isSchema,
   slotOf,
   canonical,
+  referenced,
   signature,
   fingerprint,
+  identify,
 } = require('./plan.js');
 const { SCALARS } = require('./types.js');
 const {
@@ -43,12 +47,11 @@ const INTERNAL = Symbol('plan');
 const ITEMS = Symbol.for('alexify.protoarray.items');
 // The options a schema was built with, for the standalone generator.
 const SETTINGS = Symbol.for('alexify.protoarray.settings');
-// An option no caller can spell: the entities of one snapshot built together,
-// so that references between them reach one schema per entity, a recursion
-// included.
-const ASSEMBLY = Symbol('assembly');
+// An option no caller can spell: an entity of a snapshot, read with every
+// entity it reaches (see assemble) and compiled as it was read.
+const UNIT = Symbol('unit');
 // Another one: a plan read already, compiled as it is (a collection nested in
-// a layout of its own, the list of a schema's records).
+// a layout of its own, the list of a schema's records), with the slot it fills.
 const PLANNED = Symbol('planned');
 // The entity of the snapshot a schema was read from, for the standalone
 // generator and for a schema built again with other options.
@@ -56,17 +59,30 @@ const ENTITY = Symbol.for('alexify.protoarray.entity');
 // What the id is a fingerprint of: the canonical form with the entities a
 // schema references (see plan.js). Two schemas are the same version when it is.
 const SIGNATURE = Symbol.for('alexify.protoarray.signature');
+// Whether another schema is the same version: what comparing the signatures
+// says, without writing either out.
+const SAME = Symbol('same');
+// What a schema's values are, an alias (an entity whose root is a reference)
+// looked through: the plan its encode checks the shape of, its keys and layout.
+const SHAPE = Symbol('shape');
+// Whether a recursion goes through the schema: its codec counts the levels.
+const RECURSIVE = Symbol('recursive');
 
-// What a generated module passes as `compiled`: the codec of the plan and the
-// canonical form it was generated from.
+const isCodec = (value) =>
+  value !== null &&
+  typeof value === 'object' &&
+  typeof value.encode === 'function' &&
+  typeof value.decode === 'function';
+
+// What a generated module passes as `compiled`: the codec of the plan, the
+// canonical form it was generated from, and the codec of one record of a rows
+// collection, for the stream helpers.
 const isCompiled = (value) =>
   value !== null &&
   typeof value === 'object' &&
   typeof value.canonical === 'string' &&
-  value.codec !== null &&
-  typeof value.codec === 'object' &&
-  typeof value.codec.encode === 'function' &&
-  typeof value.codec.decode === 'function';
+  isCodec(value.codec) &&
+  (value.items === undefined || isCodec(value.items));
 const STRINGIFY = ['auto', 'builder', 'native'];
 const REFERENCES = ['kind', 'embed', 'id'];
 const isBoolean = (value) => typeof value === 'boolean';
@@ -103,6 +119,22 @@ const VALID = Object.assign(Object.create(null), {
   metaschema: isMetaschema,
 });
 
+// The options that are lists or records, copied: a schema keeps what it was
+// built with, whatever the caller does with its objects afterwards. A record
+// is a dictionary, never read from a prototype.
+const LISTS = ['sparse', 'intern', 'delta'];
+const RECORDS = ['layout', 'types', 'entities'];
+
+// What is wrong with an option: its name, and the place a record of places
+// names wrongly.
+const invalidOption = (key, value) => {
+  if (key === 'layout' && isObject(value)) {
+    const path = Object.keys(value).find((place) => !isLayouts(value[place]));
+    return `Invalid option "layout" at "${path}": rows, flat or columns`;
+  }
+  return `Invalid option "${key}"`;
+};
+
 const readOptions = (options, name) => {
   const settings = {
     codegen: undefined,
@@ -114,9 +146,9 @@ const readOptions = (options, name) => {
     layout: 'rows',
     fingerprint,
     references: 'kind',
-    types: {},
+    types: Object.create(null),
     entity: undefined,
-    entities: {},
+    entities: Object.create(null),
     metaschema: undefined,
   };
   const source = options == null ? {} : options;
@@ -132,11 +164,14 @@ const readOptions = (options, name) => {
     const valid = VALID[key];
     if (value === undefined && valid !== undefined) continue;
     if (valid === undefined || !valid(value)) {
-      throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', `Invalid option "${key}"`, name);
+      throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', invalidOption(key, value), name);
     }
-    settings[key] = value;
+    if (LISTS.includes(key) && Array.isArray(value)) settings[key] = value.slice();
+    else if (RECORDS.includes(key) && isObject(value)) {
+      settings[key] = Object.assign(Object.create(null), value);
+    } else settings[key] = value;
   }
-  return settings;
+  return Object.freeze(settings);
 };
 
 // What a codec checks: the wire on decode, unless `validate: false` trusts it.
@@ -156,29 +191,23 @@ const converted = (node) => {
   if (node === null) return true;
   if (node.kind === 'scalar') return CONVERTED.test(node.type) || node.decimals !== undefined;
   if (node.slot !== undefined) return false;
-  if (node.kind === 'struct') return node.fields.every((field) => converted(field.node));
-  return node.kind === 'union' && node.branches.every((branch) => converted(branch.node));
+  return (node.kind === 'struct' || node.kind === 'union') && children(node).every(converted);
 };
 
-// Whether a plan holds an interned string, in the schemas it embeds too: its
-// payload is then `[table, body]`. A recursion counts once.
+// Whether a plan holds an interned string, in the schemas it calls too: its
+// payload is then `[table, body]`. A slot says it for the schema it calls. A
+// recursion inside a resolved plan calls a codec compiled for the node it
+// stands on, which is traversed where it stands, once.
 const internedIn = (node, seen) => {
-  if (node === null || node.kind === 'scalar') return node !== null && node.intern === true;
+  if (node === null) return false;
+  if (node.kind === 'scalar') return node.intern === true;
   if (node.slot !== undefined) {
-    const { schema } = node.slot;
-    // A recursion inside a resolved plan calls a codec of its own: the plan
-    // it was built from is traversed where it stands.
-    if (schema === undefined) return false;
-    // A schema under construction is the root being traversed.
-    if (seen.has(schema) || schema[PLAN] === undefined) return false;
-    seen.add(schema);
-    return internedIn(schema[PLAN], seen);
+    const { slot } = node;
+    if (slot.interned !== undefined) return slot.interned;
+    if (node.kind === 'ref' || seen.has(slot)) return false;
+    seen.add(slot);
   }
-  if (node.kind === 'struct') return node.fields.some((field) => internedIn(field.node, seen));
-  if (node.kind === 'union') return node.branches.some((branch) => internedIn(branch.node, seen));
-  if (node.kind === 'tuple') return node.items.some((item) => internedIn(item.node, seen));
-  if (node.kind === 'array') return internedIn(node.item, seen);
-  return internedIn(node.value, seen);
+  return children(node).some((child) => internedIn(child, seen));
 };
 
 // What a backend compiles for a plan, and with which options: the record of
@@ -191,10 +220,12 @@ const codecOptions = (plan, settings) => {
   // Generated code writes the text of what it encodes where that is faster
   // than JSON.stringify of the wire: by default for records of converted
   // types (see converted), on request for any. An interned payload has its
-  // table to put first, so it goes through encode.
+  // table to put first, and a flat or columns collection is laid out from its
+  // records' wire: both go through encode.
   const { stringify } = settings;
   const builder =
     !interned &&
+    target === plan &&
     (stringify === 'builder' || (stringify === 'auto' && plan.kind !== 'array' && converted(plan)));
   return { target, interned, options: { validate, builder } };
 };
@@ -280,6 +311,15 @@ const each = (values, convert, name, decoding) => {
   return run(values, convert, name, decoding);
 };
 
+// The codec of one record of a collection from a generated module, where the
+// module has it: a flat collection's codec is its record's, a rows collection
+// carries one as `items`.
+const recordOf = (plan, settings) => {
+  const { compiled } = settings;
+  if (compiled === undefined) return undefined;
+  return plan.layout === 'rows' ? compiled.items : compiled.codec;
+};
+
 // The items of a collection one at a time, with the collection's rules: a
 // null item where items are required, a row of a flat collection. Only rows
 // and flat collections without interned strings have items that stand on
@@ -294,18 +334,32 @@ const itemCodec = (plan, backend, settings, name) => {
   }
   const validate = checks(settings.validate);
   const { item } = plan;
-  const codec = build(item, backend, settings).codec;
+  const own = recordOf(plan, settings);
+  const codec =
+    own !== undefined ? own : build(item, backend, { ...settings, compiled: undefined }).codec;
   const required = plan.itemRequired;
   const expected = expectedOf(item);
   const size = plan.layout === 'flat' ? item.fields.length : 0;
+  const encode = (value, index) => {
+    try {
+      if (size !== 0) return layouts.padded(codec, value, size, index);
+      return value == null ? null : codec.encode(value);
+    } catch (error) {
+      throw boundary(size === 0 ? nest(error, `[${index}]`) : error, name, false);
+    }
+  };
   return {
     size,
-    encode: (value, index) => {
+    encode,
+    // The text of one item: the record's codec writes it where it can.
+    text: (value, index) => {
+      if (size !== 0 || value == null || codec.stringify === undefined) {
+        return JSON.stringify(encode(value, index));
+      }
       try {
-        if (size !== 0) return layouts.padded(codec, value, size, index);
-        return value == null ? null : codec.encode(value);
+        return codec.stringify(value);
       } catch (error) {
-        throw boundary(size === 0 ? nest(error, `[${index}]`) : error, name, false);
+        throw boundary(nest(error, `[${index}]`), name, false);
       }
     },
     decode: (wire, index, strict) => {
@@ -323,43 +377,346 @@ const itemCodec = (plan, backend, settings, name) => {
 // The options an entity reached by a reference is built with: the ones that
 // shape no place of the schema that refers to it, then its own (`entities`).
 const SHARED = ['codegen', 'validate', 'stringify', 'fingerprint', 'references', 'types'];
+// What an entity's own options cannot hold: its name is its key, its snapshot
+// is the one of the schema around it.
+const OWN = ['entity', 'entities', 'metaschema'];
+// What a schema built from another one's plan is compiled with: a collection
+// nested in a layout of its own, the list of a schema's records, a resolved
+// schema (the reader's, with the writer's fingerprint).
+const INHERITED = ['codegen', 'validate', 'stringify', 'fingerprint'];
 
-const assemblyOf = (snapshot, settings) => {
+const inherited = (settings) => {
+  const out = {};
+  for (const key of INHERITED) out[key] = settings[key];
+  return out;
+};
+
+// The shared options, then an entity's own, where it gives one.
+const merged = (shared, own) => {
+  const out = { ...shared };
+  for (const key of Object.keys(own)) if (own[key] !== undefined) out[key] = own[key];
+  return out;
+};
+
+// The entities of one snapshot built together. Every entity a reference
+// reaches is read first, from a list of pending entities rather than by a
+// recursion, so a long chain of references cannot exhaust the stack; whether
+// each payload carries a string table is then decided over the whole graph,
+// the same whichever entity is built first; each one is compiled last, an
+// alias after the entity it stands for (see assemble).
+const assemblyOf = (snapshot, settings, name) => {
   const shared = {};
   for (const key of SHARED) shared[key] = settings[key];
-  return { snapshot, shared, entities: settings.entities, built: new Map(), building: new Map() };
+  const { entities } = settings;
+  const invalid = (text) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+  for (const key of Object.keys(entities)) {
+    const own = entities[key];
+    for (const option of OWN) {
+      if (own[option] !== undefined) throw invalid(`Option "${option}" is no option of an entity`);
+    }
+    readOptions(own, key);
+    if (isSnapshot(snapshot) && !Object.hasOwn(snapshot.entities, key)) {
+      throw invalid(`Option "entities" names no entity of the snapshot: "${key}"`);
+    }
+  }
+  return { snapshot, shared, entities, units: new Map(), queue: [], nested: [] };
+};
+
+// The unit of an entity: read once, by whichever schema reaches it first,
+// which an error in it names (`via`).
+const unitOf = (assembly, entity, settings, name, origin, via) => {
+  let unit = assembly.units.get(entity);
+  if (unit !== undefined) return unit;
+  let own = settings;
+  if (own === undefined) {
+    const given = Object.hasOwn(assembly.entities, entity) ? assembly.entities[entity] : {};
+    own = readOptions({ ...merged(assembly.shared, given), entity }, entity);
+  }
+  unit = {
+    entity,
+    name: name === undefined ? entity : name,
+    settings: own,
+    snapshot: assembly.snapshot,
+    origin: origin === undefined ? null : origin,
+    slot: { codec: null, schema: null, interned: undefined },
+    plan: null,
+    via,
+  };
+  assembly.units.set(entity, unit);
+  assembly.queue.push(unit);
+  return unit;
+};
+
+const readUnit = (assembly, unit) => {
+  const { settings } = unit;
+  return readSnapshot({
+    name: unit.name,
+    entity: unit.entity,
+    snapshot: assembly.snapshot,
+    selfSlot: unit.slot,
+    slotOf: (entity, path) => {
+      const via = path === '' ? `"${unit.entity}"` : `"${unit.entity}" at "${path}"`;
+      return unitOf(assembly, entity, undefined, undefined, undefined, via).slot;
+    },
+    // A collection in a layout of its own is a codec of its own, compiled
+    // with the entities.
+    nested: (node) => {
+      const slot = { codec: null, schema: null, interned: undefined };
+      assembly.nested.push({ name: unit.name, plan: node, slot, owner: unit });
+      return slot;
+    },
+    references: settings.references,
+    types: settings.types,
+    ...placesOf(settings),
+  });
+};
+
+// The slots a plan read from a snapshot calls, and whether it holds an
+// interned string itself.
+const scan = (node, slots) => {
+  if (node.kind === 'scalar') return node.intern === true;
+  if (node.slot !== undefined) {
+    slots.push(node.slot);
+    return false;
+  }
+  // Every child, the ones after an interned string too: all slots count.
+  let found = false;
+  for (const child of children(node)) found = scan(child, slots) || found;
+  return found;
+};
+
+// The units a recursion goes through: the ones on a cycle of calls, as the
+// strongly connected components of Tarjan find them, from a list of frames
+// rather than by a recursion.
+const cyclic = (all, callees) => {
+  const index = new Map();
+  const low = new Map();
+  const stack = [];
+  const open = new Set();
+  const out = new Set();
+  const enter = (unit, frames) => {
+    index.set(unit, index.size);
+    low.set(unit, low.size);
+    stack.push(unit);
+    open.add(unit);
+    frames.push({ unit, next: 0 });
+  };
+  for (const root of all) {
+    if (index.has(root)) continue;
+    const frames = [];
+    enter(root, frames);
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1];
+      const { unit } = frame;
+      const next = callees.get(unit);
+      if (frame.next < next.length) {
+        const callee = next[frame.next++];
+        if (!index.has(callee)) enter(callee, frames);
+        else if (open.has(callee)) low.set(unit, Math.min(low.get(unit), index.get(callee)));
+        continue;
+      }
+      frames.pop();
+      if (frames.length > 0) {
+        const caller = frames[frames.length - 1].unit;
+        low.set(caller, Math.min(low.get(caller), low.get(unit)));
+      }
+      if (low.get(unit) !== index.get(unit)) continue;
+      const component = [];
+      let member;
+      do {
+        member = stack.pop();
+        open.delete(member);
+        component.push(member);
+      } while (member !== unit);
+      if (component.length > 1 || next.includes(unit)) for (const one of component) out.add(one);
+    }
+  }
+  return out;
+};
+
+// Whether each payload carries a string table: its own interned strings, or
+// those of any schema it calls, through any chain of references. What holds
+// one marks every caller, and their callers in turn. And whether a recursion
+// goes through each entity, which then counts its levels.
+const analyse = (assembly) => {
+  const all = [...assembly.units.values(), ...assembly.nested];
+  const bySlot = new Map();
+  for (const unit of all) bySlot.set(unit.slot, unit);
+  const callers = new Map();
+  const callees = new Map();
+  const found = [];
+  for (const unit of all) {
+    const slots = [];
+    unit.interned = scan(unit.plan, slots);
+    callees.set(unit, []);
+    for (const slot of slots) {
+      const callee = bySlot.get(slot);
+      callees.get(unit).push(callee);
+      const list = callers.get(callee);
+      if (list === undefined) callers.set(callee, [unit]);
+      else list.push(unit);
+    }
+    if (unit.interned) found.push(unit);
+  }
+  const recursive = cyclic(all, callees);
+  for (const unit of assembly.units.values()) unit.recursive = recursive.has(unit);
+  for (let i = 0; i < found.length; i++) {
+    const list = callers.get(found[i]);
+    if (list === undefined) continue;
+    for (const caller of list) {
+      if (caller.interned) continue;
+      caller.interned = true;
+      found.push(caller);
+    }
+  }
+  for (const unit of all) unit.slot.interned = unit.interned;
+};
+
+// The units in the order they are compiled: an alias (an entity whose root is
+// a reference) after the entity it stands for, whose codec it reuses. A cycle
+// of aliases stands for no record at all.
+const ordered = (assembly) => {
+  const bySlot = new Map();
+  for (const unit of assembly.units.values()) bySlot.set(unit.slot, unit);
+  const out = [];
+  const placed = new Set();
+  for (const unit of assembly.units.values()) {
+    const pending = [];
+    const seen = new Set();
+    let current = unit;
+    while (!placed.has(current)) {
+      if (seen.has(current)) {
+        const text = `The entity "${unit.entity}" refers to itself through references alone`;
+        throw new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', text, unit.name);
+      }
+      seen.add(current);
+      pending.push(current);
+      if (current.plan.kind !== 'ref') break;
+      current = bySlot.get(current.plan.slot);
+    }
+    for (let i = pending.length - 1; i >= 0; i--) {
+      placed.add(pending[i]);
+      out.push(pending[i]);
+    }
+  }
+  return out;
+};
+
+// A collection nested in a layout of its own, compiled with the schema it
+// belongs to. A generated module writes it in place in that schema's code, so
+// there its own codec is built only if something calls it (the record codec
+// of a stream).
+const compileNested = (nested) => {
+  const { owner, slot } = nested;
+  const own = { ...inherited(owner.settings), [PLANNED]: { plan: nested.plan, slot } };
+  const make = () => new Schema(nested.name, null, own);
+  if (owner.settings.compiled === undefined) return make();
+  const data = { value: null, writable: true, configurable: true, enumerable: true };
+  for (const key of ['codec', 'schema']) {
+    Object.defineProperty(slot, key, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        Object.defineProperty(slot, 'codec', data);
+        Object.defineProperty(slot, 'schema', data);
+        make();
+        return slot[key];
+      },
+    });
+  }
+  return null;
+};
+
+// Reads every unit of the assembly, the ones a reference reaches on the way,
+// decides which payloads carry a string table, and compiles every unit with
+// `compile`. A snapshot that breaks the reader in a way it does not check is
+// still an invalid snapshot.
+const assemble = (assembly, compile) => {
+  let unit = null;
+  try {
+    for (let i = 0; i < assembly.queue.length; i++) {
+      unit = assembly.queue[i];
+      unit.plan = readUnit(assembly, unit);
+    }
+  } catch (error) {
+    let failed = error;
+    if (!(error instanceof SchemaDefinitionError)) {
+      const text = 'The snapshot cannot be read';
+      failed = new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', text, unit.name, '', error);
+    }
+    // An entity a reference reached says which one did.
+    if (unit.via !== undefined) failed.message += ` (reached from ${unit.via})`;
+    throw failed;
+  }
+  analyse(assembly);
+  for (const entry of ordered(assembly)) compile(entry);
+  for (const nested of assembly.nested) {
+    // A collection that fell back to closures is the fallback of its schema.
+    const schema = compileNested(nested);
+    const owner = nested.owner.slot.schema;
+    if (schema !== null && schema[FALLBACK] !== undefined && owner[FALLBACK] === undefined) {
+      Object.defineProperty(owner, FALLBACK, { value: schema[FALLBACK] });
+    }
+  }
 };
 
 const brandOf = (value) =>
   value !== null && typeof value === 'object' ? value[FOREIGN] : undefined;
 
+// The snapshot a metaschema object writes (`toSnapshot()`, `toJSON()`): an
+// object with the brand but not the method, or one that writes no snapshot,
+// is no source protoarray reads.
+const written = (source, method, name) => {
+  if (typeof source[method] !== 'function') {
+    const text = `A metaschema ${source[FOREIGN]} with ${method}() expected`;
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text, name);
+  }
+  const snapshot = source[method]();
+  if (!isSnapshot(snapshot)) {
+    const text = 'A snapshot of format 1 with entities is expected';
+    const root = isObject(snapshot) && typeof snapshot.root === 'string' ? snapshot.root : '';
+    throw new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', text, name === '' ? root : name);
+  }
+  return snapshot;
+};
+
+// A metaschema Schema is the root entity of its own snapshot.
+const rooted = (snapshot, entity, name) => {
+  if (typeof snapshot.root !== 'string') {
+    throw new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', 'The snapshot has no root', name);
+  }
+  if (entity !== undefined && entity !== snapshot.root) {
+    const text = `A metaschema Schema builds its own entity "${snapshot.root}", not "${entity}"`;
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, name);
+  }
+  return snapshot.root;
+};
+
 // What a schema is built from: a snapshot and the entity of it to read, and
 // the metaschema Schema it came from, if any. A definition is metaschema's to
 // read, so it needs metaschema injected: `{ metaschema }`.
-const sourceOf = (source, settings, name, assembly) => {
-  if (assembly !== undefined) {
-    return { snapshot: assembly.snapshot, entity: settings.entity, origin: null };
-  }
+const sourceOf = (source, settings, name) => {
   let origin = null;
   let snapshot;
   let entity = settings.entity;
   if (brandOf(source) === 'Schema') {
     origin = source;
-    snapshot = source.toSnapshot();
-    entity = snapshot.root;
+    snapshot = written(source, 'toSnapshot', name);
+    entity = rooted(snapshot, entity, name);
   } else if (brandOf(source) === 'Model') {
-    snapshot = source.toJSON();
+    snapshot = written(source, 'toJSON', name);
   } else if (isSchema(source) && source.snapshot !== null) {
-    // A schema built again with other options, from what it was read from.
-    origin = source.source;
+    // A schema built again with other options, from what it was read from:
+    // the metaschema Schema goes with its own entity only.
     snapshot = source.snapshot;
     if (entity === undefined) entity = source[ENTITY];
+    if (entity === source[ENTITY]) origin = source.source;
   } else if (isSnapshot(source)) {
     snapshot = source;
   } else if (settings.metaschema !== undefined) {
     origin = new settings.metaschema.Schema(name, source);
-    snapshot = origin.toSnapshot();
-    entity = snapshot.root;
+    snapshot = written(origin, 'toSnapshot', name);
+    entity = rooted(snapshot, entity, name);
   } else {
     const text =
       'A metaschema Schema or Model, a snapshot, or a definition with { metaschema } expected';
@@ -373,18 +730,6 @@ const sourceOf = (source, settings, name, assembly) => {
   return { snapshot, entity, origin };
 };
 
-// The slot of an entity of the assembly: the schema built for it, the one
-// being built (a recursion), or a new one.
-const slotFor = (assembly, entity) => {
-  const built = assembly.built.get(entity);
-  if (built !== undefined) return slotOf(built);
-  const building = assembly.building.get(entity);
-  if (building !== undefined) return building;
-  const own = Object.hasOwn(assembly.entities, entity) ? assembly.entities[entity] : {};
-  const options = { ...assembly.shared, ...own, entity, [ASSEMBLY]: assembly };
-  return slotOf(new Schema(entity, assembly.snapshot, options));
-};
-
 class Schema {
   #settings;
   #entity = null;
@@ -392,8 +737,15 @@ class Schema {
   #items = null;
   #canonical = null;
   #id = null;
-  #signature = null;
+  // The writer a resolved schema reads: its version is the writer's.
+  #writer = null;
+  // The other entities it reaches, by name: schemas, not their text.
+  #entities = null;
   #list = null;
+  #shape = null;
+  #selves = null;
+  #recursive = false;
+  #builder = false;
 
   constructor(name, source, options) {
     if (typeof name !== 'string') {
@@ -401,48 +753,45 @@ class Schema {
       source = name;
       name = '';
     }
+    const unit = options == null ? undefined : options[UNIT];
+    if (unit !== undefined) {
+      const input = { snapshot: unit.snapshot, entity: unit.entity, origin: unit.origin };
+      const place = { input, slot: unit.slot, recursive: unit.recursive };
+      this.#init(unit.name, unit.plan, unit.settings, place);
+      return;
+    }
     const settings = readOptions(options, name);
-    // What a reference to the schema's own name calls, filled once built.
-    const selfSlot = { codec: null, schema: this };
-    const internal = options == null ? undefined : options[INTERNAL];
-    let assembly = options == null ? undefined : options[ASSEMBLY];
     const planned = options == null ? undefined : options[PLANNED];
-    let plan;
-    let input = null;
-    if (internal === undefined && planned === undefined) {
-      input = sourceOf(source, settings, name, assembly);
+    if (planned !== undefined) {
+      this.#init(name, planned.plan, settings, planned);
+      return;
     }
-    if (planned !== undefined) plan = planned;
-    else if (internal === undefined) {
-      if (name === '') name = input.entity;
-      if (assembly === undefined) assembly = assemblyOf(input.snapshot, settings);
-      assembly.building.set(input.entity, selfSlot);
-      plan = readSnapshot({
-        name,
-        entity: input.entity,
-        snapshot: input.snapshot,
-        selfSlot,
-        slotOf: (entity) => slotFor(assembly, entity),
-        // A collection in a layout of its own is a codec of its own.
-        nested: (node) => {
-          const own = { [PLANNED]: node };
-          for (const key of ['codegen', 'validate', 'stringify', 'fingerprint']) {
-            own[key] = settings[key];
-          }
-          return slotOf(new Schema(name, null, own));
-        },
-        references: settings.references,
-        types: settings.types,
-        ...placesOf(settings),
-      });
-    } else {
-      // A resolved plan prints as the writer's canonical form: its wire. A
-      // recursion back to the root calls this schema's codec through `slot`.
+    const internal = options == null ? undefined : options[INTERNAL];
+    if (internal !== undefined) {
+      // A resolved plan prints as the writer's canonical form: its wire, its
+      // id. A recursion back to the root calls this schema's codec through
+      // `slot`.
       const { slot, ...rest } = internal.plan;
-      plan = { ...rest, text: internal.text };
-      this.#signature = internal.signature;
-      if (slot !== undefined) slot.schema = this;
+      this.#writer = internal.writer;
+      this.#id = internal.id;
+      const place = { internal, slot, recursive: slot !== undefined };
+      this.#init(name, { ...rest, text: internal.text }, settings, place);
+      return;
     }
+    const input = sourceOf(source, settings, name);
+    if (name === '') name = input.entity;
+    const assembly = assemblyOf(input.snapshot, settings, name);
+    const root = unitOf(assembly, input.entity, settings, name, input.origin);
+    assemble(assembly, (entry) => {
+      const place = { input, slot: root.slot, recursive: root.recursive };
+      if (entry === root) this.#init(name, root.plan, settings, place);
+      else entry.slot.schema = new Schema(entry.name, null, { [UNIT]: entry });
+    });
+  }
+
+  // Compiles a plan: the codec, the slot it fills, and what the schema shows.
+  #init(name, plan, settings, place) {
+    const { input = null, slot, internal, selves, recursive = false } = place;
     const { compiled } = settings;
     if (compiled !== undefined) {
       // A generated module goes with the snapshot it was generated from.
@@ -455,47 +804,54 @@ class Schema {
         throw new SchemaDefinitionError('ERR_COMPILED_MISMATCH', text, name);
       }
     }
-    const useCodegen = settings.codegen === undefined ? codegen.available : settings.codegen;
-    if (useCodegen && !codegen.available) {
+    // A choice made, or a generated module's codec, has nothing to probe.
+    const useCodegen =
+      settings.codegen === undefined
+        ? compiled === undefined && codegen.available()
+        : settings.codegen;
+    if (useCodegen && !codegen.available()) {
       throw new SchemaDefinitionError(
         'ERR_CODEGEN_UNAVAILABLE',
         'Code generation is not available in this runtime: pass { codegen: false }',
         name,
       );
     }
+    if (slot !== undefined) slot.schema = this;
     // The codecs a resolved plan calls for its inner recursions, compiled
     // first: a collection layout reads its record's codec as it is built.
     if (internal !== undefined) {
       for (const entry of internal.compiled) {
-        if (entry.slot === internal.plan.slot) continue;
+        if (entry.slot === slot) continue;
         const target = useCodegen ? codegen : closures;
-        entry.slot.codec = build(entry.plan, target, settings).codec;
+        entry.slot.codec = layouts.guarded(build(entry.plan, target, settings).codec);
       }
     }
-    const { codec, backend, fallback } = build(plan, useCodegen ? codegen : closures, settings);
-    selfSlot.codec = codec;
-    if (internal !== undefined && internal.plan.slot !== undefined) {
-      internal.plan.slot.codec = codec;
-    }
+    const built = build(plan, useCodegen ? codegen : closures, settings);
+    const { backend, fallback } = built;
+    const codec = recursive ? layouts.guarded(built.codec) : built.codec;
+    if (slot !== undefined) slot.codec = codec;
+    // An alias is compiled after what it stands for (see ordered).
+    const shape = plan.kind === 'ref' && plan.slot.schema != null ? plan.slot.schema[SHAPE] : plan;
     Object.defineProperty(this, BRAND, { value: true });
     if (fallback !== undefined) Object.defineProperty(this, FALLBACK, { value: fallback });
     Object.defineProperty(this, PLAN, { value: plan });
     Object.defineProperty(this, CODEC, { value: codec });
-    if (input !== null) {
-      assembly.building.delete(input.entity);
-      assembly.built.set(input.entity, this);
-    }
     this.name = name;
     this.snapshot = input === null ? null : input.snapshot;
     this.source = input === null ? null : input.origin;
-    this.keys = Object.freeze(plan.kind === 'struct' ? plan.keys.slice() : []);
+    this.keys = Object.freeze(shape.kind === 'struct' ? shape.keys.slice() : []);
     this.backend =
       compiled !== undefined ? 'standalone' : backend === codegen ? 'codegen' : 'closures';
     if (compiled !== undefined && typeof compiled.id === 'string') this.#id = compiled.id;
-    this.layout = plan.kind === 'array' ? plan.layout : plan.sparse === true ? 'sparse' : 'dense';
+    this.layout =
+      shape.kind === 'array' ? shape.layout : shape.sparse === true ? 'sparse' : 'dense';
     this.#settings = settings;
     this.#interned = internedIn(plan, new Set());
     this.#entity = input === null ? null : input.entity;
+    this.#shape = shape;
+    this.#selves = selves === undefined ? [this] : [this, ...selves];
+    this.#recursive = recursive;
+    this.#builder = codec.stringify !== undefined;
   }
 
   static from(source, options) {
@@ -512,42 +868,79 @@ class Schema {
         throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text);
       }
     }
-    let snapshot = source;
-    if (brandOf(source) === 'Model') snapshot = source.toJSON();
+    const snapshot = brandOf(source) === 'Model' ? written(source, 'toJSON', '') : source;
     if (!isSnapshot(snapshot)) {
-      const model = brandOf(source) === 'Model';
-      const text = model
-        ? 'A snapshot of format 1 with entities is expected'
-        : 'A metaschema Model or a snapshot expected';
-      throw new SchemaDefinitionError(model ? 'ERR_INVALID_SNAPSHOT' : 'ERR_SCHEMA_EXPECTED', text);
+      const text = 'A metaschema Model or a snapshot expected';
+      throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text);
     }
-    const assembly = assemblyOf(snapshot, settings);
+    const assembly = assemblyOf(snapshot, settings, '');
+    const names = Object.keys(snapshot.entities);
+    for (const entity of names) unitOf(assembly, entity);
+    assemble(assembly, (entry) => {
+      entry.slot.schema = new Schema(entry.name, null, { [UNIT]: entry });
+    });
     const out = Object.create(null);
-    for (const entity of Object.keys(snapshot.entities)) {
-      slotFor(assembly, entity);
-      out[entity] = assembly.built.get(entity);
-    }
+    for (const entity of names) out[entity] = assembly.units.get(entity).slot.schema;
     return out;
   }
 
-  // Fingerprint of the canonical form: two sides agree on the wire format when
+  // Fingerprint of the signature: two sides agree on the wire format when
   // their ids match, whatever names they use.
   get id() {
-    if (this.#id === null) this.#id = this.#settings.fingerprint(this[SIGNATURE]);
+    if (this.#id === null) {
+      const entities = this.#reached();
+      const id = identify(this.toString(), entities, this.#settings.fingerprint);
+      if (typeof id !== 'string' || id === '') {
+        const text = 'Option "fingerprint" returns a non-empty string';
+        throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, this.name);
+      }
+      this.#id = id;
+    }
     return this.#id;
   }
 
   // The canonical form with the entities this schema references, by name.
+  // Computed when asked: it can be long, and the id is all a schema keeps.
   get [SIGNATURE]() {
-    if (this.#signature === null) this.#signature = signature(this[PLAN], this);
-    return this.#signature;
+    if (this.#writer !== null) return this.#writer[SIGNATURE];
+    return signature(this.toString(), this.#reached());
+  }
+
+  // The same canonical form, and the same one for every entity reached by the
+  // same name: equal signatures, compared piece by piece from the canonical
+  // forms each schema keeps.
+  [SAME](other) {
+    if (this.toString() !== other.toString()) return false;
+    const mine = this.#reached();
+    const theirs = other.#reached();
+    if (mine.length !== theirs.length) return false;
+    for (let i = 0; i < mine.length; i++) {
+      if (mine[i][0] !== theirs[i][0] || String(mine[i][1]) !== String(theirs[i][1])) return false;
+    }
+    return true;
+  }
+
+  #reached() {
+    if (this.#entities === null) this.#entities = referenced(this[PLAN], this.#selves);
+    return this.#entities;
+  }
+
+  get [INTERNED]() {
+    return this.#interned;
+  }
+
+  get [SHAPE]() {
+    return this.#shape;
+  }
+
+  get [RECURSIVE]() {
+    return this.#recursive;
   }
 
   // The same records as rows: `[[...], [...]]`, each called through this
-  // schema's codec.
+  // schema's codec. The schema is its list's own record, not another entity.
   get list() {
     if (this.#list === null) {
-      const { codegen: useCodegen, validate, fingerprint: hash, stringify } = this.#settings;
       const plan = this[PLAN];
       let item;
       let itemRequired = true;
@@ -556,8 +949,8 @@ class Schema {
         item = plain;
         itemRequired = required;
       } else item = { ...plan, slot: slotOf(this) };
-      const options = { codegen: useCodegen, validate, fingerprint: hash, stringify };
-      options[PLANNED] = { kind: 'array', item, itemRequired, layout: 'rows' };
+      const list = { kind: 'array', item, itemRequired, layout: 'rows' };
+      const options = { ...inherited(this.#settings), [PLANNED]: { plan: list, selves: [this] } };
       this.#list = new Schema(this.name, null, options);
     }
     return this.#list;
@@ -568,11 +961,16 @@ class Schema {
     return this.#entity;
   }
 
-  // The codec of one item of this collection, for the stream helpers.
+  // The codec of one item of this collection, for the stream helpers; an
+  // alias has the items of what it stands for.
   get [ITEMS]() {
     if (this.#items === null) {
-      const backend = this.backend === 'codegen' ? codegen : closures;
-      this.#items = itemCodec(this[PLAN], backend, this.#settings, this.name);
+      const plan = this[PLAN];
+      if (this.#shape !== plan) this.#items = plan.slot.schema[ITEMS];
+      else {
+        const backend = this.backend === 'codegen' ? codegen : closures;
+        this.#items = itemCodec(plan, backend, this.#settings, this.name);
+      }
     }
     return this.#items;
   }
@@ -582,21 +980,23 @@ class Schema {
     return this.#settings;
   }
 
-  #encodeWith(codec, value, method = 'encode') {
-    const { kind } = this[PLAN];
+  // What encode refuses before its codec runs: a value of the wrong shape.
+  #shaped(value) {
+    const { kind } = this.#shape;
     if (kind !== 'scalar' && (value === null || typeof value !== 'object')) {
       const code = kind === 'array' || kind === 'tuple' ? 'array' : 'object';
       throw boundary(new EncodeError(code), this.name, false);
     }
-    try {
-      return this.#interned ? layouts.isolated(() => codec[method](value)) : codec[method](value);
-    } catch (error) {
-      throw boundary(error, this.name, false);
-    }
   }
 
   encode(value) {
-    return this.#encodeWith(this[CODEC], value);
+    this.#shaped(value);
+    const codec = this[CODEC];
+    try {
+      return this.#interned ? layouts.isolated(() => codec.encode(value)) : codec.encode(value);
+    } catch (error) {
+      throw boundary(error, this.name, false);
+    }
   }
 
   decode(array, options) {
@@ -620,12 +1020,16 @@ class Schema {
     return each(arrays, (array) => this.decode(array, options), this.name, true);
   }
 
-  // The codec writes the text itself where it can (see codegen.js), the
-  // text JSON.stringify of the wire would be.
+  // The codec writes the text itself where it can (see codegen.js): never
+  // for an interned payload, whose table comes first.
   stringify(value) {
-    const codec = this[CODEC];
-    if (codec.stringify !== undefined) return this.#encodeWith(codec, value, 'stringify');
-    return JSON.stringify(this.encode(value));
+    if (!this.#builder) return JSON.stringify(this.encode(value));
+    this.#shaped(value);
+    try {
+      return this[CODEC].stringify(value);
+    } catch (error) {
+      throw boundary(error, this.name, false);
+    }
   }
 
   parse(text, options) {
@@ -650,7 +1054,11 @@ module.exports = {
   SETTINGS,
   ENTITY,
   SIGNATURE,
+  SAME,
   INTERNAL,
+  inherited,
+  SHAPE,
+  RECURSIVE,
   each,
   iterable,
   codecOptions,

@@ -177,15 +177,16 @@ for (const [backend, options] of BACKENDS) {
       { a: 1, b: null },
       { a: 2, b: null },
     ]);
+    // A column is named by its field, for every record.
     assert.throws(() => C.decode([[1, 2], [null]]), {
       code: 'structure',
-      path: '[1]',
-      message: 'Field "[1]" has a wrong length',
+      path: '[].b',
+      message: 'Field "[].b" has a wrong length',
     });
     assert.throws(() => C.decode([[1], 'x']), {
       code: 'structure',
-      path: '[1]',
-      message: 'Field "[1]" is not an array',
+      path: '[].b',
+      message: 'Field "[].b" is not an array',
     });
     assert.throws(() => C.decode([[1], [5]]), { code: 'type', path: '[0].b' });
     assert.throws(() => C.decode('x'), { code: 'structure', path: '' });
@@ -196,10 +197,10 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(C.decode([null]), []);
     assert.throws(() => C.decode([null, 'x']), {
       code: 'structure',
-      path: '[1]',
-      message: 'Field "[1]" is not an array',
+      path: '[].b',
+      message: 'Field "[].b" is not an array',
     });
-    assert.throws(() => C.decode([[1], undefined]), { code: 'structure', path: '[1]' });
+    assert.throws(() => C.decode([[1], undefined]), { code: 'structure', path: '[].b' });
     assert.throws(() => C.encode(5), { code: 'array', path: '', message: 'Value is not an array' });
     assert.throws(() => C.encode({}), {
       code: 'array',

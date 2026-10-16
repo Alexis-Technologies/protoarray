@@ -27,12 +27,12 @@ Package manager is **pnpm** (pinned in `packageManager`).
 pnpm test                          # node --test tests/unit/*.test.js
 node --test tests/unit/codec.test.js   # a single file
 node --test --test-name-pattern="Layouts" tests/unit/*.test.js   # filter by name
-pnpm run test:coverage             # c8 over src/, gated at 100 lines/statements/branches/functions per file
+pnpm run test:coverage             # c8 over src/ and bin/, gated at 100 lines/statements/branches/functions per file
 pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts and the subpath d.ts files
 pnpm run check:dts                 # tsc --noEmit --strict over every d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench bin
 pnpm run format                    # oxfmt src tests scripts bench bin (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 19 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 22 KB min+gzip
 node bin/protoarray.js compile <module> [--out f] [--format cjs|esm] [--runtime import|inline] [--only A,B]   # the CLI
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--save]   # against JSON, protobufjs, avsc, msgpackr, …
@@ -141,9 +141,17 @@ docs/               VitePress site (protoarray.vercel.app), not published
    `position`, `keys`, `values`). A reference to an entity that travels as the record (`embed`,
    `references`, the store of the target's kind, as metaschema's check decides) becomes a `ref`
    node with a **`slot`** to that entity's compiled codec: the entities of one snapshot are built
-   together in an *assembly* (`assemblyOf`, `slotFor`: built, being built, or built now with the
-   shared options and its own `entities` options), which is how a recursion, a mutual one
-   included, works (the slot is filled after the build). A collection inside a record with a
+   together in an *assembly*, in three steps (`assemble`): every entity a reference reaches is
+   read first, from a list (`unitOf`, `readUnit`: a slot is a placeholder until its entity is
+   compiled, so a chain of references is no recursion); `analyse` then decides over the whole
+   graph whether each payload carries a string table (`slot.interned`, read by `internedIn`) and,
+   with Tarjan's components (`cyclic`), which entities a recursion goes through; `ordered`
+   compiles each, an alias (a root `ref`) after what it stands for, a cycle of aliases refused.
+   The codec of a recursive entity is `layouts.guarded`: it counts nesting levels and refuses past
+   512 (`LIMIT`), so both backends fail at the same depth before the stack runs out; schemas
+   without a recursion are not wrapped. An entity's own options come from `entities` over the
+   shared ones (`SHARED`); `INHERITED` is what a nested layout, a `list` and a resolved schema
+   take. An error in an entity a reference reached names it (`via`). A collection inside a record with a
    layout of its own (`layout: { path }`) is compiled as a root of its own (the module-private
    `PLANNED` option) and called through a slot too, as is the item codec of `schema.list`. Both
    backends call a slot wherever one is present; a root never keeps one, except a root `ref`,
@@ -151,19 +159,24 @@ docs/               VitePress site (protoarray.vercel.app), not published
    (`placesOf`): the reader marks each place it meets and reports a path that names none. The
    snapshot is untrusted input: every form is checked, nesting is limited (64), `__proto__` and
    integer-like keys are refused. The plan also has a canonical string (`schema.toString()`, with
-   a `?` prefix for an optional root scalar; a reference prints as `@Name`) and a *signature*
+   a `?` prefix for an optional root scalar; a reference prints as `@Name`; a name or a value with
+   the form's punctuation prints as a JSON string, `print` in `plan.js`) and a *signature*
    (`signature` in `plan.js`, `schema[Symbol.for('alexify.protoarray.signature')]`): the
    canonical string followed by `;Name=<canonical>` for every other entity reached by reference,
    by name. `schema.id` is the fingerprint of the signature (FNV-1a 32-bit, or the `fingerprint`
-   option's function of it), so a changed referenced entity changes the id; `resolve` and the
-   registry compare signatures. Without references to other entities the signature is the
+   option's function of it, the default one hashed a piece at a time, `identify`), so a changed
+   referenced entity changes the id; `resolve` and the registry compare signatures without
+   writing them out (`schema[SAME](other)`, over the reached entities each schema keeps, not
+   their text). Without references to other entities the signature is the
    canonical string, and both are what 1.x computed from its own DSL:
    `tests/fixtures/golden-1x.json` holds them to it.
 2. **A backend builds `{ encode, decode }` from the plan.** `codegen.js` emits one encode and one
    decode function per struct through `new Function` (array and object literals, so every decoded
    object has the hidden class an object literal would). `closures.js` composes closures over the
    same plan and objects start as a spread of a literal-shaped template, so their hidden class is
-   still stable. The probe `new Function('return 1')` runs once at load; `{ codegen }` forces a
+   still stable. The probe `new Function('return 1')` runs once, when the first schema that may
+   use generated code is built (`codegen.available()`), never for `{ codegen: false }` or a
+   `compiled` codec, so such a program triggers no CSP report; `{ codegen }` forces a
    backend, `{ codegen: true }` throws `ERR_CODEGEN_UNAVAILABLE` where it cannot be honoured, and
    in automatic mode a `codegen.build` that throws for one schema falls back to closures. Both
    backends must be indistinguishable: `tests/unit/parity.test.js` checks random schemas, values,
@@ -211,21 +224,30 @@ writes each helper as its recipe and each slot as a lazy reference to another sc
 The `import` runtime embeds each snapshot once and builds its entities together,
 `Schema.fromModel(snapshot, { entities: { E: { …options, compiled } } })` (checked against the
 canonical form, `backend: 'standalone'`), so references reach the module's own compiled schemas
-and nothing is compiled at runtime; a collection inside a record with a layout of its own is
-written in place (`R.nested`). The `inline` runtime embeds the kernels and the `inline` kernel of
+and nothing is compiled while it loads: the embedded snapshot is cut to the entities the module
+reaches (`trimmed`, as `JSON.parse` of its text), an entity built again with other options gets
+its members' codecs (`R.compiled`), a rows collection carries its record's codec (`compiled.items`)
+and a nested layout's own codec is built only if called (`compileNested`); a collection inside a
+record with a layout of its own is written in place (`R.nested`). An import module checks the
+runtime it was written against (`R.check(ABI)`). The `inline` runtime embeds the kernels and the `inline` kernel of
 `standalone.js`, which does Schema's work around a codec. Neither needs metaschema.
 
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
-on `EncodeError`/`DecodeError` and turns a stack overflow (a recursive payload nested deeper than
-the call stack, a cyclic value; told by the engine's message, so another `RangeError` passes
-through) into `DecodeError` `structure`/`depth` or `EncodeError` `depth`. Nothing else may escape
+on `EncodeError`/`DecodeError`, writes their path and message once from the trail `nest` added
+to (`settle`: an error deep in a payload is one error, its path cut to 64 levels), and turns a
+stack overflow (told by the engine's message, so another `RangeError` passes through) into
+`DecodeError` `structure`/`depth` or `EncodeError` `depth`. A path segment of a record's key with
+a path's punctuation is quoted (`step`), a dictionary's key from the payload always unless it is a
+plain name (`member`, cut to 64 characters), the same in both backends. Nothing else may escape
 `decode`: `types.js` conversions are total (a value with no wire form of its type passes through
 without decode validation), and every check starts with `typeof` so in-process values (a BigInt
 mask, a Symbol index) fail like wire values; a sparse mask is a non-negative 31-bit integer and a
 union tag is checked in every mode. A converted type checks and converts in one call
 (`checkedUnpack` on the wire, `checkedPack` on a value where the two share their work); an
 identity type is checked inline. Encode checks shape (`object`/`array`, an array is not a
-record), a union's discriminator (`union`) and the values of a list of differences (`type`), with
+record; a Map, a Set, a Date by its brand), a union's discriminator (`union`), the values of a
+list of differences and a `decimals` number past the safe integers (`type`, the `always` nodes),
+with
 paths built on error branches like decode's; nothing else: the values are trusted. An enum or
 union lookup never turns the value into a property key.
 
@@ -289,7 +311,7 @@ time.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
-- Bundle budget: 19 KB min+gzip for either entry (`pnpm size --max-gzip 19` in CI). Size does not
+- Bundle budget: 22 KB min+gzip for either entry (`pnpm size --max-gzip 22` in CI). Size does not
   limit features: when a change needs more, raise the gate to the next whole KB above the measured
   size, in the same commit. Measure after any change to `src/`.
 
@@ -342,8 +364,9 @@ change. **This file wins** if they ever disagree.
   `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/` (modules of metaschema schemas);
   generated files go to the gitignored `tests/.generated/`. `stream.test.js` splits payloads at
   every byte and character for the scanner.
-- `tests/unit/backend.test.js` stubs `globalThis.Function` before the first `require`, which is
-  the only way to reach the probe's fallback branch; each test file is its own process.
+- `tests/unit/backend.test.js` stubs `globalThis.Function` before the first schema is built,
+  which is the only way to reach the probe's fallback branch, and counts that nothing probes
+  before a schema may use generated code; each test file is its own process.
   `schema.test.js` stubs `codegen.build` through the module object for the per-schema fallback,
   and `errors.test.js` stubs `codec.decode` through the codec symbol to reach the boundary's
   foreign-error and `InternalError` (SpiderMonkey stack overflow) branches.

@@ -8,7 +8,7 @@
 // path, as the errors do: `address.city`, `orders[].sku` (an item), `scores{}`
 // (a dictionary's value), `pair[1]` (a tuple's element), `''` the root.
 
-const { SchemaDefinitionError } = require('./errors.js');
+const { SchemaDefinitionError, join, step } = require('./errors.js');
 const { SCALARS, enumeration, flags, decimal, interned, deltas } = require('./types.js');
 
 const FORMAT = 1;
@@ -20,6 +20,18 @@ const LAYOUTS = /^(rows|flat|columns)$/;
 const INTEGERS = /^(integer|number|date)$/;
 // A default is the decoded value itself, so only primitive-valued types have one.
 const DEFAULTABLE = /^(string|number|integer|boolean|json|enum)$/;
+
+// Whether a default is a value of its slot's type: one that is not stays
+// metaschema's, never decoded where the field is missing as a value the
+// schema has no wire for.
+const fits = (node, value) => {
+  if (node.type === 'enum') return node.values.includes(value);
+  if (node.type === 'json') return true;
+  if (node.type === 'integer') return Number.isInteger(value);
+  if (node.type === 'string') return typeof value === 'string';
+  if (node.type === 'boolean') return typeof value === 'boolean';
+  return typeof value === 'number';
+};
 // The types of metaschema that open a structure rather than name a scalar.
 const FORMS = /^(enum|flags|array|set|map|object|tuple|schema|union)$/;
 
@@ -51,8 +63,16 @@ const listOf = (values, numbers) => {
   return values.slice();
 };
 
+// Where the trailing run of optional fields starts: the only part a wire may
+// leave off.
+const tailOf = (fields) => {
+  let tail = fields.length;
+  while (tail > 0 && !fields[tail - 1].required) tail--;
+  return tail;
+};
+
 // The place a key holds under its parent, as the errors name it.
-const at = (path, key) => (path === '' ? key : `${path}.${key}`);
+const at = (path, key) => join(path, step(key));
 
 // `context`: `name` (of the schema, for errors), `entity` (the entity read),
 // `snapshot`, `selfSlot`, `slotOf(name)` (the slot of another entity, built on
@@ -104,7 +124,7 @@ const readSnapshot = (context) => {
         current = entry.js;
         continue;
       }
-      const wire = context.types[current];
+      const wire = Object.hasOwn(context.types, current) ? context.types[current] : undefined;
       if (wire !== undefined) return wire;
       const text = `Type "${current}" checks values of its own: give it a wire type in "types"`;
       throw error('ERR_UNKNOWN_TYPE', text, path);
@@ -130,14 +150,16 @@ const readSnapshot = (context) => {
     let node;
     if (!embed) node = scalar('string', many ? `${path}[]` : path);
     else {
-      const slot = name === context.entity ? context.selfSlot : context.slotOf(name);
+      const slot = name === context.entity ? context.selfSlot : context.slotOf(name, path);
       node = { kind: 'ref', name, slot };
     }
     if (!many) return node;
     return { kind: 'array', item: node, itemRequired: true, layout: 'rows' };
   };
 
-  // The differences of a list or a column, on request.
+  // The differences of a list or a column, on request. A lone number outside
+  // a collection laid out in columns has no neighbours to differ from: the
+  // option marks its form (and the id) as 1.x marked it, not its wire.
   const differences = (node, path) => {
     if (!marked('delta', path)) return node;
     const integral = (item) =>
@@ -145,7 +167,7 @@ const readSnapshot = (context) => {
     if (node.kind === 'array' && node.container === undefined && integral(node.item)) {
       return deltas(node.item, node.itemRequired);
     }
-    if (!integral(node) || node.intern === true) {
+    if (!integral(node)) {
       const text = 'takes an integer, a number, a date or decimals, or a list of them';
       throw misplaced('delta', text, path);
     }
@@ -163,6 +185,9 @@ const readSnapshot = (context) => {
     }
     if (marked('layout', path)) {
       const layout = context.layout.get(path);
+      if (layout === 'rows' && out.kind !== 'array') {
+        throw misplaced('layout', '"rows" takes an array', path);
+      }
       if (layout !== 'rows') {
         if (out.kind !== 'array' || out.item.kind !== 'struct' || out.item.sparse) {
           throw misplaced('layout', `"${layout}" takes an array of records`, path);
@@ -207,7 +232,7 @@ const readSnapshot = (context) => {
       node.kind === 'scalar' &&
       isPrimitive(value) &&
       DEFAULTABLE.test(node.type) &&
-      (node.type !== 'integer' || Number.isInteger(value))
+      fits(node, value)
     ) {
       def = value === 0 ? 0 : value;
       required = false;
@@ -220,12 +245,14 @@ const readSnapshot = (context) => {
   // The keys a field was known by in older versions, read by Schema.resolve
   // only: they never reach the wire or the fingerprint.
   const aliasesOf = (keys, path) => {
+    // Array.from reads a hole as undefined, which every() would skip.
+    const list = Array.isArray(keys) ? Array.from(keys) : null;
     const valid =
-      Array.isArray(keys) &&
-      keys.every((key) => typeof key === 'string' && key !== '' && key !== '__proto__') &&
-      new Set(keys).size === keys.length;
+      list !== null &&
+      list.every((key) => typeof key === 'string' && key !== '' && key !== '__proto__') &&
+      new Set(list).size === list.length;
     if (!valid) throw broken('aliases is a list of unique keys', path);
-    return keys.slice();
+    return list;
   };
 
   const typeOf = (source, path, depth) => {
@@ -242,6 +269,12 @@ const readSnapshot = (context) => {
     if (base === 'flags') {
       const names = listOf(source.flags, false);
       if (names === null) throw error('ERR_INVALID_FLAGS', 'Expected unique names', path);
+      // The names are the keys of the decoded object, in their order.
+      const integer = names.find((name) => /^\d+$/.test(name));
+      if (integer !== undefined) {
+        const text = `Integer-like flag name "${integer}": JavaScript orders it first`;
+        throw error('ERR_INTEGER_KEY', text, path);
+      }
       return flags(names);
     }
     if (base === 'array' || base === 'set') {
@@ -286,7 +319,8 @@ const readSnapshot = (context) => {
     if (!Array.isArray(elements) || elements.length === 0) {
       throw broken('A tuple needs a list of elements', path);
     }
-    const items = elements.map((element, i) => {
+    // A hole in the list is an element without a type, not one left out.
+    const items = Array.from(elements, (element, i) => {
       const parsed = field(element, `${path}[${i}]`, depth + 1);
       return { node: parsed.node, required: parsed.required, def: parsed.def };
     });
@@ -319,10 +353,8 @@ const readSnapshot = (context) => {
       fields.push(entry);
     }
     if (fields.length === 0) throw error('ERR_INVALID_DEFINITION', 'A struct needs fields', path);
-    // Only the trailing run of optional fields can be left off the wire.
-    let tail = fields.length;
-    while (tail > 0 && !fields[tail - 1].required) tail--;
-    return { kind: 'struct', fields, keys: fields.map((item) => item.key), sparse: false, tail };
+    const keys = fields.map((item) => item.key);
+    return { kind: 'struct', fields, keys, sparse: false, tail: tailOf(fields) };
   };
 
   // A discriminated union: every branch is a struct whose discriminator field
@@ -332,15 +364,19 @@ const readSnapshot = (context) => {
   const union = (source, path, depth) => {
     const key = source.discriminator;
     if (typeof key !== 'string' || key === '') {
-      throw error('ERR_UNKNOWN_TYPE', 'A union needs a discriminator', path);
+      throw error('ERR_INVALID_UNION', 'A union needs a discriminator', path);
     }
     if (!Array.isArray(source.union) || source.union.length === 0) {
       throw error('ERR_INVALID_UNION', 'A union needs at least one branch', path);
     }
     const values = [];
-    const branches = source.union.map((branch, i) => {
+    const branches = Array.from(source.union, (branch, i) => {
       const place = `${path}[${i}]`;
       const node = field(branch, place, depth + 1).node;
+      // The tag leads a branch's wire: a mask cannot.
+      if (node.kind === 'struct' && node.sparse) {
+        throw misplaced('sparse', 'takes no branch of a union', place);
+      }
       const index = node.kind === 'struct' && !node.sparse ? node.keys.indexOf(key) : -1;
       const tag = index === -1 ? null : node.fields[index];
       // The tag always travels, so the discriminator is neither optional nor defaulted.
@@ -352,14 +388,13 @@ const readSnapshot = (context) => {
         );
       }
       const first = values.length;
-      values.push(...tag.node.values);
+      // One by one: a long enum is more arguments than a call takes.
+      for (const value of tag.node.values) values.push(value);
       const fields = node.fields
         .filter((item) => item !== tag)
         .map((item, j) => ({ ...item, index: j }));
-      let tail = fields.length;
-      while (tail > 0 && !fields[tail - 1].required) tail--;
       const keys = fields.map((item) => item.key);
-      const shape = { kind: 'struct', fields, keys, sparse: false, tail };
+      const shape = { kind: 'struct', fields, keys, sparse: false, tail: tailOf(fields) };
       shape.tag = { key, position: index, keys: node.keys, values };
       return { node: shape, first, count: tag.node.values.length, source: node };
     });
@@ -370,12 +405,11 @@ const readSnapshot = (context) => {
     return { kind: 'union', key, tag: enumeration(unique), values, branches };
   };
 
-  if (!isSnapshot(snapshot)) throw broken('A snapshot of format 1 with entities is expected', '');
+  // The caller has told a snapshot by isSnapshot.
   const entities = snapshot.entities;
   const entity = Object.hasOwn(entities, context.entity) ? entities[context.entity] : undefined;
-  if (!isObject(entity)) {
-    throw broken(`The snapshot has no entity "${context.entity}"`, '');
-  }
+  if (entity === undefined) throw broken(`The snapshot has no entity "${context.entity}"`, '');
+  if (!isObject(entity)) throw broken(`The entity "${context.entity}" is not an object`, '');
   let node;
   if (entity.fields !== undefined) node = shaped(struct(entity.fields, '', 0), '');
   else {
@@ -425,4 +459,4 @@ const isLayouts = (value) =>
       (path) => typeof value[path] === 'string' && LAYOUTS.test(value[path]),
     ));
 
-module.exports = { FORMAT, isSnapshot, isObject, readSnapshot, placesOf, isPaths, isLayouts };
+module.exports = { isSnapshot, isObject, readSnapshot, placesOf, isPaths, isLayouts };

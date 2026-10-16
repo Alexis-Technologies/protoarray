@@ -24,46 +24,90 @@ const syntax = (message, path, name) =>
   boundary(new DecodeError('json', path, '', new SyntaxError(message)), name, true);
 
 // The chunks of a source as an async iterable. A ReadableStream is read
-// through its reader: not every platform makes it async-iterable.
+// through its reader: not every platform makes it async-iterable. A consumer
+// that stops early (a break, an error) cancels it, as the stream's own
+// iterator does.
 const readStream = async function* (stream) {
   const reader = stream.getReader();
+  let finished = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
-      if (done) return;
+      if (done) {
+        finished = true;
+        return;
+      }
       yield value;
     }
   } finally {
+    if (!finished) await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
 };
 
 const chunksOf = (source, name) => {
-  if (typeof source === 'string') return [source];
+  // The whole text, as a string or as bytes (a Uint8Array iterates numbers).
+  if (typeof source === 'string' || ArrayBuffer.isView(source)) return [source];
   if (source != null && typeof source[Symbol.asyncIterator] === 'function') return source;
   if (source != null && typeof source.getReader === 'function') return readStream(source);
   if (source != null && typeof source[Symbol.iterator] === 'function') return source;
   throw boundary(new DecodeError('structure', '', 'iterable'), name, true);
 };
 
+// The longest line or item a parser holds, in characters: a payload that never
+// ends one is an error, not a string that grows until memory runs out. The
+// largest limit is the shortest string an engine refuses to build.
+const MAX_LENGTH = 16 * 1024 * 1024;
+const LONGEST = 2 ** 29 - 24;
+
+const limitOf = (options, name) => {
+  const given = options == null ? undefined : options.maxLength;
+  if (given === undefined) return MAX_LENGTH;
+  if (
+    typeof given !== 'number' ||
+    !(given > 0) ||
+    (!Number.isInteger(given) && given !== Infinity)
+  ) {
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Invalid option "maxLength"', name);
+  }
+  return Math.min(given, LONGEST);
+};
+
 // Text out of chunks of text or UTF-8 bytes, a multi-byte character split
-// between two chunks included. Invalid UTF-8 is an error, not a U+FFFD.
+// between two chunks included. Invalid UTF-8 is an error, not a U+FFFD. A
+// byte order mark is no text: the decoder drops it from bytes, and from a
+// string here.
 const texts = () => {
   const decoder = new TextDecoder('utf-8', { fatal: true });
+  let first = true;
   return {
-    push: (chunk) => (typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true })),
+    push: (chunk) => {
+      const text = typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true });
+      if (!first || text.length === 0) return text;
+      first = false;
+      return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    },
     end: () => decoder.decode(),
   };
 };
 
+// What a line or an item longer than the limit is: an error at its index.
+const tooLong = (index, name) =>
+  boundary(new DecodeError('structure', `[${index}]`, 'size'), name, true);
+
 // Complete lines out of text chunks; `\r\n` ends a line too, and a blank line
-// is no value.
-const lines = () => {
+// is no value. A line is measured before it is joined, so it never grows
+// past the limit: the lines before it are still found, and `error` says
+// where the long one is.
+const lines = (max, name) => {
   let rest = '';
+  let count = 0;
   const complete = (text, out) => {
     const end = text.length > 0 && text.charCodeAt(text.length - 1) === 13 ? -1 : text.length;
     const line = text.slice(0, end);
-    if (line.trim() !== '') out.push(line);
+    if (line.trim() === '') return;
+    out.push(line);
+    count += 1;
   };
   return {
     push: (text) => {
@@ -71,12 +115,15 @@ const lines = () => {
       let start = 0;
       let at = text.indexOf('\n');
       while (at !== -1) {
+        if (rest.length + at - start > max) break;
         complete(rest + text.slice(start, at), out);
         rest = '';
         start = at + 1;
         at = text.indexOf('\n', start);
       }
-      rest += text.slice(start);
+      const end = at === -1 ? text.length : at;
+      if (rest.length + end - start > max) out.error = tooLong(count, name);
+      else rest += text.slice(start);
       return out;
     },
     end: () => {
@@ -99,12 +146,13 @@ const stringifyLines = (schema, values) => {
 // its decode throws; either names the index of the value.
 const parseLines = (schema, source, options) => {
   expect(schema);
-  return valuesOf(schema, chunksOf(source, schema.name), options);
+  const max = limitOf(options, schema.name);
+  return valuesOf(schema, chunksOf(source, schema.name), options, max);
 };
 
-const valuesOf = async function* (schema, chunks, options) {
+const valuesOf = async function* (schema, chunks, options, max) {
   const text = texts();
-  const split = lines();
+  const split = lines(max, schema.name);
   let index = 0;
   const parse = (line) => {
     const at = index++;
@@ -115,9 +163,12 @@ const valuesOf = async function* (schema, chunks, options) {
     }
   };
   for await (const chunk of chunks) {
-    for (const line of split.push(decoded(text, chunk, schema.name))) yield parse(line);
+    const found = split.push(decoded(text, chunk, schema.name));
+    for (const line of found) yield parse(line);
+    if (found.error !== undefined) throw found.error;
   }
-  split.push(decoded(text, null, schema.name));
+  // What the decoder still holds is a character cut off: an error.
+  decoded(text, null, schema.name);
   for (const line of split.end()) yield parse(line);
 };
 
@@ -150,7 +201,7 @@ const stringifyStream = (schema) => {
 const parseStream = (schema, options) => {
   expect(schema);
   const text = texts();
-  const split = lines();
+  const split = lines(limitOf(options, schema.name), schema.name);
   let index = 0;
   const enqueue = (found, controller) => {
     for (const line of found) {
@@ -161,13 +212,14 @@ const parseStream = (schema, options) => {
         throw boundary(nest(error, `[${at}]`), schema.name, true);
       }
     }
+    if (found.error !== undefined) throw found.error;
   };
   return new TransformStream({
     transform(chunk, controller) {
       enqueue(split.push(decoded(text, chunk, schema.name)), controller);
     },
     flush(controller) {
-      split.push(decoded(text, null, schema.name));
+      decoded(text, null, schema.name);
       enqueue(split.end(), controller);
     },
   });
@@ -176,7 +228,7 @@ const parseStream = (schema, options) => {
 // The text of a collection's JSON array, a piece per item: `[`, the items
 // with their commas, `]`. A flat collection writes each record's slots.
 const piece = (items, value, index) => {
-  const text = JSON.stringify(items.encode(value, index));
+  const text = items.text(value, index);
   const slots = items.size === 0 ? text : text.slice(1, -1);
   return index === 0 ? slots : `,${slots}`;
 };
@@ -215,8 +267,12 @@ const SPACE = (code) => code === 32 || code === 10 || code === 13 || code === 9;
 // The top-level elements of one JSON array, out of text chunks. The scanner
 // only finds where each element ends (a comma or the closing bracket outside
 // strings and nested values) and hands its text to JSON.parse, which does the
-// rest of the work and reports what is malformed inside an element.
-const scanner = (name) => {
+// rest of the work and reports what is malformed inside an element. An error
+// names the item an element belongs to, a record of `size` slots in a flat
+// collection; one longer than `max` is measured before it is joined, and the
+// elements before it are still found (`error` says where it is).
+const scanner = (name, size, max) => {
+  const item = (n) => (size === 0 ? n : Math.floor(n / size));
   let state = BEFORE;
   let depth = 0;
   let string = false;
@@ -244,6 +300,8 @@ const scanner = (name) => {
   };
   return {
     push: (text, out) => {
+      // An empty chunk has no first character to escape: the next one has.
+      if (text.length === 0) return;
       let start = 0;
       let i = 0;
       if (escape) {
@@ -278,7 +336,11 @@ const scanner = (name) => {
         } else if ((code === 44 || code === 93) && depth === 0) {
           // An element ends: empty only where `[]` closes an empty array.
           if (!started && (code === 44 || commas > 0)) {
-            throw syntax('An empty element', `[${out.count + out.length}]`, name);
+            throw syntax('An empty element', `[${item(out.count + out.length)}]`, name);
+          }
+          if (buffer.length + i - start > max) {
+            out.error = tooLong(item(out.count + out.length), name);
+            return;
           }
           if (started) out.push(buffer + text.slice(start, i));
           buffer = '';
@@ -290,7 +352,10 @@ const scanner = (name) => {
           started = true;
         }
       }
-      if (state === INSIDE) buffer += text.slice(start);
+      if (state !== INSIDE) return;
+      if (buffer.length + text.length - start > max) {
+        out.error = tooLong(item(out.count + out.length), name);
+      } else buffer += text.slice(start);
     },
     end: () => {
       if (state !== AFTER) throw syntax('The array does not end', '', name);
@@ -302,13 +367,14 @@ const scanner = (name) => {
 // text arrives. A flat collection gathers each record's slots first.
 const parseItems = (schema, source, options) => {
   const items = expect(schema)[ITEMS];
-  return itemsOf(schema, items, chunksOf(source, schema.name), options);
+  const max = limitOf(options, schema.name);
+  return itemsOf(schema, items, chunksOf(source, schema.name), options, max);
 };
 
-const itemsOf = async function* (schema, items, chunks, options) {
+const itemsOf = async function* (schema, items, chunks, options, max) {
   const strict = options != null && options.strict === true;
   const text = texts();
-  const scan = scanner(schema.name);
+  const scan = scanner(schema.name, items.size, max);
   let index = 0;
   let row = [];
   const elements = [];
@@ -337,6 +403,7 @@ const itemsOf = async function* (schema, items, chunks, options) {
       const item = take(elements[k]);
       if (item !== NONE) yield item;
     }
+    if (elements.error !== undefined) throw elements.error;
     elements.length = 0;
   }
   // What the decoder still holds is a character cut off: an error.

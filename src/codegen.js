@@ -6,14 +6,16 @@
 // test enforces it.
 //
 // The generated source is one `function eN(o){…}` and one `function
-// dN(a,strict){…}` per struct, then `encode` and `decode` over the root. `H`
+// dN(a,strict){…}` per struct, then `encode` and `decode` over the root;
+// with the builder on, one `sN(o)` per struct that writes its JSON text and a
+// `stringify` over the root (see the builder below). `H`
 // holds the helpers (type nodes and codec slots), `F` throws a DecodeError,
 // `E` an EncodeError and `N` re-throws one with a key or index prepended. A
 // `path` below is a source expression that is only evaluated on an error
 // branch.
 
-const { expectedOf, fail, nest, refuse } = require('./errors.js');
-const { WORD, isMap, listOf, put, quoted, text } = require('./types.js');
+const { expectedOf, fail, nest, refuse, step } = require('./errors.js');
+const { WORD, isMap, listOf, put, member, quoted, text } = require('./types.js');
 
 const str = JSON.stringify;
 
@@ -23,14 +25,22 @@ const str = JSON.stringify;
 // the native serializer's single pass is cheaper (see bench/bench.js).
 const THRESHOLD = 64;
 
-let available = true;
-try {
-  // oxlint-disable-next-line no-new-func
-  const probe = new Function('return 1');
-  available = probe() === 1;
-} catch {
-  available = false;
-}
+// Whether the runtime compiles source text: tried once, when the first schema
+// that may use generated code is built. A program that never asks (`{ codegen:
+// false }`, the schemas of a generated module) never tries, so a strict CSP
+// never reports it.
+let probed;
+const available = () => {
+  if (probed === undefined) {
+    try {
+      // oxlint-disable-next-line no-new-func
+      probed = new Function('return 1')() === 1;
+    } catch {
+      probed = false;
+    }
+  }
+  return probed;
+};
 
 // The source of a plan's codec and the helpers it reads through `H`. It is
 // deterministic, so the source can be generated again on demand instead of
@@ -67,7 +77,7 @@ const generate = (plan, options) => {
   // True when `v` is not of an identity scalar's type: typeof, or a call for
   // the one type typeof cannot tell.
   const invalid = (node, v) =>
-    node.type === 'integer' ? `!Number.isInteger(${v})` : `typeof ${v}!=='${node.type}'`;
+    node.type === 'integer' ? `!Number.isInteger(${v})` : `typeof ${v}!==${str(node.type)}`;
 
   // The wire check of an identity scalar (json has none).
   const check = (node, v, path) => {
@@ -130,7 +140,7 @@ const generate = (plan, options) => {
     if (node.kind === 'dict') {
       const { value } = node;
       const [ks, r, i, k, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('x')];
-      const at = `(${path}===""?${k}:${path}+"."+${k})`;
+      const at = `${slot(member)}(${path},${k})`;
       const isObject = `if(typeof ${src}!=='object'||Array.isArray(${src}))E('object',${path});`;
       // Identity values travel in the same object.
       if (identity(value)) return `if(${src}==null)${nil}else{${isObject}${dst}=${src};}`;
@@ -189,7 +199,7 @@ const generate = (plan, options) => {
           `F('structure',${path},'object');`,
       ];
       const [ks, r, i, k, e, x] = [uid('k'), uid('r'), uid('i'), uid('k'), uid('e'), uid('x')];
-      const at = `(${path}===""?${k}:${path}+"."+${k})`;
+      const at = `${slot(member)}(${path},${k})`;
       const nullCheck =
         node.valueRequired && validate.decode ? `F('type',${at},${str(expectedOf(value))});` : '';
       const loop =
@@ -316,7 +326,8 @@ const generate = (plan, options) => {
       const v = uid('v');
       const w = uid('w');
       const key = str(field.key);
-      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, key)}`);
+      const where = str(step(field.key));
+      enc.push(`const ${v}=o[${key}];let ${w};${encodeInto(field.node, v, w, where)}`);
       values.push(w);
     }
     if (node.sparse && size <= WORD) {
@@ -370,7 +381,8 @@ const generate = (plan, options) => {
       }
       const v = uid('v');
       dec.push(`const ${v}=${read(field.index)};`);
-      const value = slotValue(field.node, field.required, field.def, v, str(field.key), dec);
+      const where = str(step(field.key));
+      const value = slotValue(field.node, field.required, field.def, v, where, dec);
       if (node.order === undefined) parts.push(`${str(field.key)}:${value}`);
       else decoded.set(field.key, value);
     }
@@ -397,6 +409,7 @@ const generate = (plan, options) => {
     structs.set(node, fns);
     const tag = slot(node.tag);
     const key = str(node.key);
+    const where = str(step(node.key));
     const expected = str(node.tag.expected);
     // A branch the reader has no values of (Schema.resolve) has no case: its
     // tags fall through to the error.
@@ -413,13 +426,13 @@ const generate = (plan, options) => {
     functions.push(
       `function ${fns.e}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');const v=o[${key}];` +
         `const t=${tag}.checkedPack(v);switch(t){${cases((f) => `${f.e}(o,t)`)}}` +
-        `E('union',${key},${expected});}`,
+        `E('union',${where},${expected});}`,
     );
     functions.push(
       `function ${fns.d}(a,strict){if(!Array.isArray(a))F('structure',"",'array');const t=a[0];` +
-        `if(!${tag}.check(t))F('union',${key},${expected});` +
+        `if(!${tag}.check(t))F('union',${where},${expected});` +
         `switch(t){${cases((f) => `${f.d}(a,strict,t)`)}}` +
-        `${dropped ? `F('union',${key},${expected});` : ''}}`,
+        `${dropped ? `F('union',${where},${expected});` : ''}}`,
     );
     return fns;
   };
@@ -528,8 +541,9 @@ const generate = (plan, options) => {
       else {
         const v = uid('v');
         const key = str(field.key);
+        const where = str(step(field.key));
         const position = node.sparse ? p : field.index + lead;
-        out.push(`const ${v}=${o}[${key}];let ${x};${textInto(field.node, v, x, key, position)}`);
+        out.push(`const ${v}=${o}[${key}];let ${x};${textInto(field.node, v, x, where, position)}`);
         if (node.sparse) out.push(`if(${x}!==null)${p}++;`);
       }
       texts.push(x);
@@ -578,6 +592,7 @@ const generate = (plan, options) => {
   const unionBuilder = (node, name) => {
     const tag = slot(node.tag);
     const key = str(node.key);
+    const where = str(step(node.key));
     const out = [];
     for (const branch of node.branches) {
       if (branch.node === null) continue;
@@ -587,7 +602,7 @@ const generate = (plan, options) => {
     functions.push(
       `function ${name}(o){if(typeof o!=='object'||Array.isArray(o))E('object','');` +
         `const t=${tag}.checkedPack(o[${key}]);switch(t){${out.join('')}}` +
-        `E('union',${key},${str(node.tag.expected)});}`,
+        `E('union',${where},${str(node.tag.expected)});}`,
     );
   };
 

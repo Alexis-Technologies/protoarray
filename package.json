@@ -77,7 +77,7 @@
   },
   "scripts": {
     "test": "node --test tests/unit/*.test.js",
-    "test:coverage": "c8 --all --include 'src/**' --100 --per-file --reporter text --reporter lcov node --test tests/unit/*.test.js",
+    "test:coverage": "c8 --all --include 'src/**' --include 'bin/**' --100 --per-file --reporter text --reporter lcov node --test tests/unit/*.test.js",
     "test:types": "tsd",
     "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts registry.d.ts resolve.d.ts stream.d.ts standalone.d.ts",
     "lint": "oxlint src tests scripts bench bin",

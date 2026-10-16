@@ -139,3 +139,12 @@ declare const decodeError: DecodeError;
 expectType<DecodeErrorCode>(decodeError.code);
 expectType<unknown>(decodeError.cause);
 expectAssignable<Backend>('standalone');
+
+// An entity's own options name no other entity, snapshot or metaschema.
+expectError(Schema.from({ format: 1, entities: {} }, { entities: { A: { entity: 'B' } } }));
+expectError(Schema.from({ format: 1, entities: {} }, { entities: { A: { entities: {} } } }));
+expectType<Schema<unknown>>(
+  Schema.from({ format: 1, entities: {} }, { entities: { A: { sparse: true } } }),
+);
+// A compiled codec is one with encode and decode.
+expectError(Schema.from({ format: 1, entities: {} }, { compiled: { canonical: '', codec: {} } }));

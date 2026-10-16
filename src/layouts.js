@@ -9,7 +9,7 @@
 // A closed function of the errors and the type table, run once, so that
 // standalone.js can embed its source.
 const kernel = (errors, types) => {
-  const { fail, nest, refuse } = errors;
+  const { fail, nest, refuse, step, join } = errors;
   const { INTERN } = types;
 
   // A row of exactly `size` slots; a null record is a run of nulls, which
@@ -69,7 +69,9 @@ const kernel = (errors, types) => {
       const value = column[i];
       if (value === null) continue;
       const difference = Number.isSafeInteger(value) ? value - base : NaN;
-      if (!Number.isSafeInteger(difference)) refuse('type', `[${i}].${delta.key}`, delta.expected);
+      if (!Number.isSafeInteger(difference)) {
+        refuse('type', join(`[${i}]`, delta.key), delta.expected);
+      }
       column[i] = difference;
       base = value;
     }
@@ -81,13 +83,13 @@ const kernel = (errors, types) => {
     for (let i = 0; i < column.length; i++) {
       const value = column[i];
       if (typeof value !== 'number') {
-        if (validate && value != null) fail('type', `[${i}].${delta.key}`, delta.expected);
+        if (validate && value != null) fail('type', join(`[${i}]`, delta.key), delta.expected);
         out[i] = value;
         continue;
       }
       base += value;
       if (validate && (!Number.isSafeInteger(value) || !Number.isSafeInteger(base))) {
-        fail('type', `[${i}].${delta.key}`, delta.expected);
+        fail('type', join(`[${i}]`, delta.key), delta.expected);
       }
       out[i] = base;
     }
@@ -97,11 +99,13 @@ const kernel = (errors, types) => {
   const columns = (item, record, validate) => {
     const size = record.fields.length;
     const deltas = [];
+    // A column is named by its field, for every record: `[].price`. A field
+    // of a resolved record the reader does not have keeps the writer's key.
+    const named = (field) => step(field.key === null ? field.wire : field.key);
+    const places = record.fields.map((field) => join('[]', named(field)));
     for (const field of record.fields) {
       if (field.node.delta !== true) continue;
-      // A field of a resolved record the reader does not have keeps the writer's key.
-      const key = field.key === null ? field.wire : field.key;
-      deltas.push({ index: field.index, key, expected: field.node.expected });
+      deltas.push({ index: field.index, key: named(field), expected: field.node.expected });
     }
     return {
       encode: (list) => {
@@ -125,9 +129,9 @@ const kernel = (errors, types) => {
         for (let j = 0; j < size; j++) {
           const column = j < array.length ? array[j] : null;
           if (column !== null) {
-            if (!Array.isArray(column)) fail('structure', `[${j}]`, 'array');
+            if (!Array.isArray(column)) fail('structure', places[j], 'array');
             if (count === -1) count = column.length;
-            else if (column.length !== count) fail('structure', `[${j}]`, 'length');
+            else if (column.length !== count) fail('structure', places[j], 'length');
           }
           cols.push(column);
         }
@@ -176,6 +180,32 @@ const kernel = (errors, types) => {
     },
   });
 
+  // The codec of an entity a recursion goes through: each call is one level,
+  // so a payload nested deeper than LIMIT is an error at the same depth on
+  // either backend and any engine, before the stack runs out (the closures
+  // backend uses several frames a level). A schema without a recursion never
+  // pays for the count.
+  const LIMIT = 512;
+  const NESTING = { level: 0 };
+  const counted = (run, deeper) => (value, strict) => {
+    if (NESTING.level >= LIMIT) deeper();
+    NESTING.level += 1;
+    try {
+      return run(value, strict);
+    } finally {
+      NESTING.level -= 1;
+    }
+  };
+  const guarded = (codec) => {
+    const encoding = () => refuse('depth', '');
+    const out = {
+      encode: counted(codec.encode, encoding),
+      decode: counted(codec.decode, () => fail('structure', '', 'depth')),
+    };
+    if (codec.stringify !== undefined) out.stringify = counted(codec.stringify, encoding);
+    return out;
+  };
+
   // A call from outside into an interned schema starts without a table, even
   // one made midway through another (a getter of the value encoding another
   // payload): the outer table is put back after it.
@@ -191,7 +221,7 @@ const kernel = (errors, types) => {
     }
   };
 
-  return { flat, columns, padded, withTable, isolated };
+  return { flat, columns, padded, withTable, isolated, guarded, LIMIT };
 };
 
 const layouts = kernel(require('./errors.js'), require('./types.js'));
@@ -202,5 +232,7 @@ module.exports = {
   padded: layouts.padded,
   withTable: layouts.withTable,
   isolated: layouts.isolated,
+  guarded: layouts.guarded,
+  LIMIT: layouts.LIMIT,
   kernel,
 };

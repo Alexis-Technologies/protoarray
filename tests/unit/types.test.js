@@ -58,6 +58,14 @@ for (const [backend, options] of BACKENDS) {
     });
     const Loose = define({ list: { array: '?date' } }, options);
     assert.deepStrictEqual(Loose.decode([[1, null]]), { list: [new Date(1), null] });
+    // A valid date only: whole milliseconds within the range of Date.
+    for (const at of [1.5, 8.64e15 + 1, -1e20, 1e300, NaN]) {
+      assert.throws(() => D.decode([at, []]), { code: 'type', path: 'at' }, `${at}`);
+    }
+    assert.deepStrictEqual(D.decode([-8.64e15, []]).at, new Date(-8.64e15));
+    const Deltas = define({ at: { array: 'date' } }, { ...options, delta: ['at'] });
+    assert.throws(() => Deltas.decode([[8.64e15, 1]]), { code: 'type', path: 'at' });
+    assert.deepStrictEqual(Deltas.decode([[5, 1]]).at, [new Date(5), new Date(6)]);
   });
 
   test(`Types (${backend}): bigint`, () => {
@@ -159,11 +167,27 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Loose.encode({ price: 'x' }), ['x']);
     assert.deepStrictEqual(Loose.decode(['x']).price, 'x');
     assert.deepStrictEqual(Loose.decode([19.99]).price, 0.1999);
-    // The value is trusted on the way in and the wire checked on the way out:
-    // a value past the safe range comes back as an error.
+    // A value of another type is trusted on the way in; a number that scales
+    // past the safe integers has no wire its decoder reads, so encode refuses
+    // it whatever `validate` says, NaN and the infinities too.
     assert.deepStrictEqual(P.encode({ price: 'x' }), ['x']);
-    assert.deepStrictEqual(P.encode({ price: 1e14 }), [1e16]);
-    assert.throws(() => P.decode([1e16]), { code: 'type', path: 'price' });
+    const refused = {
+      name: 'EncodeError',
+      code: 'type',
+      path: 'price',
+      message: 'Field "price" is not of expected type: number(2)',
+    };
+    for (const schema of [P, Loose]) {
+      for (const price of [1e14, -1e14, NaN, Infinity]) {
+        assert.throws(() => schema.encode({ price }), refused);
+        assert.throws(() => schema.stringify({ price }), refused);
+      }
+    }
+    assert.deepStrictEqual(P.encode({ price: 9e13 }), [9e15]);
+    assert.throws(() => P.encode({ price: 1, list: [1e15] }), { code: 'type', path: 'list[0]' });
+    const Wide = define({ p: { type: 'number', decimals: 15 } }, options);
+    assert.throws(() => Wide.encode({ p: 10 }), { code: 'type', path: 'p' });
+    assert.deepStrictEqual(Wide.decode(Wide.encode({ p: 1 })), { p: 1 });
   });
 
   test(`Types (${backend}): bytes travel as base64`, () => {

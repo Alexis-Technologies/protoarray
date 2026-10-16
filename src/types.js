@@ -13,8 +13,14 @@ const kernel = (base64) => {
   const TAG = Object.prototype.toString;
 
   // getTime is several times cheaper than `+value`, which goes through
-  // Symbol.toPrimitive.
-  const time = (value) => (value instanceof Date ? value.getTime() : +value);
+  // Symbol.toPrimitive. A BigInt or a Symbol converts to no number: no date
+  // wire form. An object converts as its own valueOf says, a throw included:
+  // the caller's own error.
+  const time = (value) => {
+    if (value instanceof Date) return value.getTime();
+    const type = typeof value;
+    return type === 'bigint' || type === 'symbol' ? NaN : +value;
+  };
 
   // A Date or a timestamp becomes epoch milliseconds; an invalid date has no
   // JSON form and travels as null.
@@ -23,7 +29,18 @@ const kernel = (base64) => {
     return Number.isNaN(at) ? null : at;
   };
 
-  const isDate = (v) => v instanceof Date || TAG.call(v) === '[object Date]';
+  // A tag is only a claim: the brand is checked where instanceof fails, for a
+  // value of another realm.
+  const branded = (method, v) => {
+    try {
+      method.call(v);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const isDate = (v) =>
+    v instanceof Date || (TAG.call(v) === '[object Date]' && branded(Date.prototype.getTime, v));
 
   // The epoch milliseconds of a valid date or a finite timestamp, or undefined.
   const timestamp = (v) => {
@@ -60,8 +77,10 @@ const kernel = (base64) => {
   };
 
   // Whether a value is a Set or a Map, from this realm or another one.
-  const isSet = (v) => v instanceof Set || TAG.call(v) === '[object Set]';
-  const isMap = (v) => v instanceof Map || TAG.call(v) === '[object Map]';
+  const isSet = (v) =>
+    v instanceof Set || (TAG.call(v) === '[object Set]' && branded(Set.prototype.has, v));
+  const isMap = (v) =>
+    v instanceof Map || (TAG.call(v) === '[object Map]' && branded(Map.prototype.has, v));
 
   // The elements of a Set as an array, or undefined for anything else.
   const listOf = (v) => (isSet(v) ? Array.from(v) : undefined);
@@ -77,6 +96,17 @@ const kernel = (base64) => {
         configurable: true,
       });
     } else object[key] = value;
+  };
+
+  // The path of a dictionary's value under `path`, on an error: its key comes
+  // from the payload, so it is written as itself only when it is a plain name,
+  // and otherwise as a quoted JSON string cut to 64 characters, never with a
+  // line break or an escape sequence of its own. Both backends write it so.
+  const NAME = /^[A-Za-z_$][\w$]{0,63}$/;
+  const member = (path, key) => {
+    const cut = key.length > 64 ? `${key.slice(0, 64)}…` : key;
+    const segment = NAME.test(key) ? key : `[${JSON.stringify(cut)}]`;
+    return path === '' ? segment : segment[0] === '[' ? path + segment : `${path}.${segment}`;
   };
 
   // Every node knows the expression that makes it again, `T` being this table:
@@ -110,7 +140,9 @@ const kernel = (base64) => {
         checkedPack: timestamp,
         pack: ms,
         unpack: (v) => (typeof v === 'number' ? new Date(v) : v),
-        checkedUnpack: (v) => (typeof v === 'number' ? new Date(v) : undefined),
+        // A valid date only: whole milliseconds within ±8.64e15, the range of Date.
+        checkedUnpack: (v) =>
+          Number.isInteger(v) && Math.abs(v) <= 8.64e15 ? new Date(v) : undefined,
       }),
     bytes: () =>
       scalar('bytes', {
@@ -128,7 +160,9 @@ const kernel = (base64) => {
       }),
     bigint: () =>
       scalar('bigint', {
-        pack: (v) => String(v),
+        // A safe integer reads as the same BigInt; a value of another type
+        // travels as it is.
+        pack: (v) => (typeof v === 'bigint' || Number.isSafeInteger(v) ? String(v) : v),
         unpack: (v) => {
           try {
             return BigInt(v);
@@ -170,7 +204,8 @@ const kernel = (base64) => {
       checkedUnpack: (v) =>
         typeof v === 'number' && (v | 0) === v && v >= 0 && v < size ? values[v] : undefined,
     });
-    node.expected = values.join(', ');
+    // What an error says it expected: the first values of a long enum.
+    node.expected = size <= 16 ? values.join(', ') : `${values.slice(0, 16).join(', ')}, …`;
     node.code = 'enum';
     return made(node, `T.enumeration(${JSON.stringify(values)})`);
   };
@@ -180,14 +215,21 @@ const kernel = (base64) => {
   // dividing the integer by 10ⁿ gives back the double nearest to the decimal.
   const decimal = (n) => {
     const scale = 10 ** n;
-    // + 0 turns -0 into 0, which is what JSON would write anyway.
+    // + 0 turns -0 into 0, which is what JSON would write anyway. A number
+    // that scales past the safe integers (NaN and the infinities too) has no
+    // wire its decoder reads, so encode refuses it whatever `validate` says
+    // (`always`); a value of another type travels as it is, as encode trusts.
+    // A list of differences takes only the safe integers of it.
+    const checkedPack = (v) => {
+      if (typeof v !== 'number') return v;
+      const scaled = Math.round(v * scale) + 0;
+      return Number.isSafeInteger(scaled) ? scaled : undefined;
+    };
     const node = scalar('number', {
       decimals: n,
-      checkedPack: (v) => {
-        const scaled = typeof v === 'number' ? v * scale : NaN;
-        return Math.abs(scaled) <= Number.MAX_SAFE_INTEGER ? Math.round(scaled) + 0 : undefined;
-      },
-      pack: (v) => (typeof v === 'number' ? Math.round(v * scale) + 0 : v),
+      always: true,
+      checkedPack,
+      pack: checkedPack,
       unpack: (v) => (typeof v === 'number' ? v / scale : v),
       checkedUnpack: (v) => (Number.isSafeInteger(v) ? v / scale : undefined),
     });
@@ -239,7 +281,7 @@ const kernel = (base64) => {
   };
 
   // The string table of the message being encoded or decoded: set by the root
-  // codec of an interned schema for the length of one call (see schema.js),
+  // codec of an interned schema for the length of one call (see withTable in layouts.js),
   // null otherwise. Interned slots read it, so the codecs between the root and
   // them need no parameter for it.
   const INTERN = { table: null, map: null };
@@ -281,6 +323,7 @@ const kernel = (base64) => {
       return Number.isSafeInteger(wire) ? wire : undefined;
     };
     const fromWire = item.unpack === null ? (v) => v : item.unpack;
+    const checkedItem = item.checkedUnpack === undefined ? (v) => v : item.checkedUnpack;
     const checkedPack = (v) => {
       if (!Array.isArray(v)) return undefined;
       const out = new Array(v.length);
@@ -327,9 +370,14 @@ const kernel = (base64) => {
             if (required) return undefined;
             continue;
           }
+          // Checked before it is added: a BigInt or an object would throw.
+          if (!Number.isSafeInteger(d)) return undefined;
           base += d;
-          if (!Number.isSafeInteger(d) || !Number.isSafeInteger(base)) return undefined;
-          out[i] = fromWire(base);
+          if (!Number.isSafeInteger(base)) return undefined;
+          // The item's own check: a date within its range.
+          const value = checkedItem(base);
+          if (value === undefined) return undefined;
+          out[i] = value;
         }
         return out;
       },
@@ -353,21 +401,20 @@ const kernel = (base64) => {
   };
 
   // The JSON text of a value at `key` of an array, as JSON.stringify of the
-  // array writes it: toJSON called with the key, undefined, a function and a
-  // symbol written as null.
+  // array writes it, since JSON.stringify writes it: toJSON called once with
+  // the key (a BigInt's too), not again on what it gives; undefined, a
+  // function and a symbol written as null.
   const text = (value, key) => {
-    const v =
-      value !== null && typeof value === 'object' && typeof value.toJSON === 'function'
-        ? value.toJSON(`${key}`)
-        : value;
-    const out = JSON.stringify(v);
-    return out === undefined ? 'null' : out;
+    const name = `${key}`;
+    const out = JSON.stringify({ [name]: value });
+    return out.length === 2 ? 'null' : out.slice(JSON.stringify(name).length + 2, -1);
   };
 
   // The functions generated code calls, by the names standalone.js finds them.
   made(isMap, 'T.isMap');
   made(listOf, 'T.listOf');
   made(put, 'T.put');
+  made(member, 'T.member');
   made(quoted, 'T.quoted');
   made(text, 'T.text');
 
@@ -389,7 +436,8 @@ const kernel = (base64) => {
     // A writer's enum read as the reader's enum, by value, or as a string.
     enumeration: (writer, reader, fallback) => {
       const { values, check } = writer;
-      const known = reader.type === 'string' ? () => true : (v) => reader.values.includes(v);
+      const set = new Set(reader.values);
+      const known = reader.type === 'string' ? () => true : (v) => set.has(v);
       const mapped = values.map((value) => (known(value) ? value : fallback));
       const node = scalar(reader.type, {
         pack: writer.pack,
@@ -405,12 +453,13 @@ const kernel = (base64) => {
     },
     // A writer's string read as one of the reader's enum values.
     choice: (reader, fallback) => {
+      const set = new Set(reader.values);
       const node = scalar('enum', {
         pack: (v) => v,
         unpack: (v) => v,
         checkedUnpack: (v) => {
           if (typeof v !== 'string') return undefined;
-          return reader.values.includes(v) ? v : fallback;
+          return set.has(v) ? v : fallback;
         },
       });
       node.code = 'enum';
@@ -422,7 +471,8 @@ const kernel = (base64) => {
     flags: (writer, reader) => {
       const { names } = reader;
       const template = literal(names, 'false');
-      const shared = names.filter((name) => writer.names.includes(name));
+      const own = new Set(writer.names);
+      const shared = names.filter((name) => own.has(name));
       const project = (object) => {
         const out = { ...template };
         for (let i = 0; i < shared.length; i++) out[shared[i]] = object[shared[i]];
@@ -461,6 +511,7 @@ const kernel = (base64) => {
     isMap,
     listOf,
     put,
+    member,
     bridge,
     INTERN,
     interned,
@@ -482,6 +533,7 @@ module.exports = {
   isMap: types.isMap,
   listOf: types.listOf,
   put: types.put,
+  member: types.member,
   bridge: types.bridge,
   INTERN: types.INTERN,
   interned: types.interned,

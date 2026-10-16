@@ -360,9 +360,33 @@ for (const [backend, options] of BACKENDS) {
       { j: 1, n: 1, b: true, s: `a${String.fromCharCode(0xd800)}b`, d: null, list: [], recs: [] },
       { j: 1, n: 1, b: true, s: `${String.fromCodePoint(0x1f600)}"`, d: null, list: [], recs: [] },
       { j: 1, n: 1, b: true, s: 'tab\there', d: null, list: [], recs: [] },
+      // toJSON is called once, with the key, not again on what it gives.
+      {
+        j: {
+          toJSON: (key) => ({ key, toJSON: () => 'again' }),
+        },
+        n: 1,
+        b: true,
+        s: 'x',
+        d: null,
+        list: [{ toJSON: (key) => ({ key, toJSON: () => 'again' }) }],
+        recs: [],
+      },
     ];
     for (const value of values) {
       assert.strictEqual(S.stringify(value), JSON.stringify(S.encode(value)));
+    }
+    // A BigInt's toJSON is called too, as JSON.stringify calls it: the one
+    // way to give a BigInt a JSON form is on its prototype, for this test.
+    try {
+      // oxlint-disable-next-line no-extend-native
+      BigInt.prototype.toJSON = function keyed(key) {
+        return `key=${key}`;
+      };
+      const value = { j: 5n, n: 1, b: true, s: 'x', d: null, list: [7n], recs: [] };
+      assert.strictEqual(S.stringify(value), JSON.stringify(S.encode(value)));
+    } finally {
+      delete BigInt.prototype.toJSON;
     }
     const Sparse = define(
       { a: '?json', b: '?json', c: '?json' },

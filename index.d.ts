@@ -41,7 +41,11 @@ export interface Typed<Input = unknown, Output = unknown> {
   };
 }
 
-/** A metaschema Model, by what protoarray reads of it. */
+/**
+ * A metaschema Model, by what protoarray reads of it. The runtime tells one by metaschema's
+ * brand (`Symbol.for('alexify.metaschema.brand')`), not by its shape: an object of this shape
+ * without the brand is no Model.
+ */
 export interface ModelLike {
   readonly entities: ReadonlyMap<string, unknown>;
   toJSON(): object;
@@ -108,11 +112,20 @@ export type Backend = 'codegen' | 'closures' | 'standalone';
 
 export type Layout = 'rows' | 'flat' | 'columns';
 
+/** What a codec does, generated or composed. */
+export interface Codec {
+  encode(value: unknown): unknown;
+  decode(wire: unknown, strict?: boolean): unknown;
+  stringify?(value: unknown): string;
+}
+
 /** A schema's codec as a generated module passes it (see `@alexify/protoarray/standalone`). */
 export interface CompiledCodec {
   readonly canonical: string;
   readonly id?: string;
-  readonly codec: object;
+  readonly codec: Codec;
+  /** The codec of one record of a rows collection, for the stream helpers. */
+  readonly items?: Codec;
 }
 
 /**
@@ -166,13 +179,16 @@ export interface SchemaOptions {
   readonly types?: Readonly<Record<string, WireType>>;
   /** The entity of a snapshot or of a Model to build (by default, the snapshot's `root`). */
   readonly entity?: string;
-  /** The options of the entities a reference reaches, by name. */
-  readonly entities?: Readonly<Record<string, SchemaOptions>>;
+  /** The options of the entities a reference reaches, by name (each must be one of the snapshot). */
+  readonly entities?: Readonly<Record<string, EntityOptions>>;
   /** metaschema, injected to read a definition: `{ metaschema: require('@alexify/metaschema') }`. */
   readonly metaschema?: MetaschemaModule;
   /** The codec of a generated module. */
   readonly compiled?: CompiledCodec;
 }
+
+/** An entity's own options: its name is its key, its snapshot the one of the schema around it. */
+export type EntityOptions = Omit<SchemaOptions, 'entity' | 'entities' | 'metaschema'>;
 
 /** The options of `Schema.fromModel`: the ones of every entity, and each one's own. */
 export type ModelOptions = Omit<
@@ -315,7 +331,8 @@ export type SchemaErrorCode =
   | 'ERR_COMPILED_MISMATCH'
   | 'ERR_SCHEMA_EXPECTED'
   | 'ERR_INCOMPATIBLE'
-  | 'ERR_ID_COLLISION';
+  | 'ERR_ID_COLLISION'
+  | 'ERR_UNKNOWN_SCHEMA';
 
 /**
  * `object`/`array`/`set`/`map`/`iterable`: what the value is not; `depth`: a cyclic value or
@@ -344,15 +361,25 @@ export type DecodeErrorCode =
 
 /** A snapshot protoarray cannot read, or invalid options; thrown while a schema is built. */
 export class SchemaDefinitionError extends TypeError {
+  constructor(
+    code: SchemaErrorCode,
+    message: string,
+    schema?: string,
+    field?: string,
+    cause?: unknown,
+  );
   readonly code: SchemaErrorCode;
   /** The name of the schema being built, or `''`. */
   readonly schema: string;
   /** The field the problem is at, as `address.city`, or `''`. */
   readonly field: string;
+  /** What broke the reader where no check of its own did, or the method of a source. */
+  readonly cause?: unknown;
 }
 
 /** A value that cannot be encoded: the wrong shape, or a value with no wire form. */
 export class EncodeError extends TypeError {
+  constructor(code: EncodeErrorCode, path?: string, detail?: string);
   readonly code: EncodeErrorCode;
   /** Where the problem is, as `orders[1]`, or `''` for the value itself. */
   readonly path: string;
@@ -362,11 +389,17 @@ export class EncodeError extends TypeError {
 
 /** A wire array that does not match the schema, or text that is not JSON. */
 export class DecodeError extends TypeError {
+  constructor(code: DecodeErrorCode, path: string, detail?: string, cause?: unknown);
   readonly code: DecodeErrorCode;
   /** Where the problem is, as `orders[1].sku`, or `''` for the value itself. */
   readonly path: string;
   /** The name of the schema whose `decode` or `parse` threw, or `''`. */
   readonly schema: string;
-  /** The `SyntaxError` behind an `'json'` error. */
+  /**
+   * The `SyntaxError` behind a `json` error, the `SchemaDefinitionError` behind a `schema`
+   * one. It may quote the payload; the message never does.
+   */
   readonly cause?: unknown;
+  /** The id an envelope names, on a `schema` error: the payload's, kept out of the message. */
+  readonly id?: string;
 }

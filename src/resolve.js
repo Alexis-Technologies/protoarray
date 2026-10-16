@@ -16,10 +16,10 @@
 // The `@alexify/protoarray/resolve` subpath: kept out of the core, which does
 // not need it; `register()` installs `Schema.resolve`.
 
-const { SchemaDefinitionError } = require('./errors.js');
+const { SchemaDefinitionError, overflowed, join, step } = require('./errors.js');
 const { PLAN, canonical, isSchema } = require('./plan.js');
 const { bridge } = require('./types.js');
-const { Schema, SETTINGS, SIGNATURE, INTERNAL } = require('./schema.js');
+const { Schema, SETTINGS, SAME, INTERNAL, inherited } = require('./schema.js');
 
 // What a slot falls back to when the writer's value has no reader value (an
 // enum value the reader dropped): its default, null for an optional slot,
@@ -32,14 +32,22 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     return new SchemaDefinitionError('ERR_INCOMPATIBLE', message, context.name, path);
   };
 
+  // The reader paths of the `aliases` option a field of the reader was met at.
+  const named = new Set();
+
   // Every pair of schemas met at a schema boundary (an embedded schema, a
   // reference, the roots) resolves once: a pair met again while it is being
   // resolved is a recursion, and calls a codec compiled for it.
   const pairs = new Map();
   const compiled = [];
 
-  // A schema reached through a slot (an entity, a nested layout) stands for its own plan.
-  const target = (node) => (node.slot !== undefined ? node.slot.schema[PLAN] : node);
+  // A schema reached through a slot (an entity, a nested layout) stands for
+  // its own plan, an alias for the plan of what it stands for.
+  const target = (node) => {
+    let out = node;
+    while (out.slot !== undefined) out = out.slot.schema[PLAN];
+    return out;
+  };
 
   const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
   const isNull = (node) => node.kind === 'scalar' && node.type === 'null';
@@ -148,8 +156,10 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     }));
     const extras = [];
     for (const field of r.fields) {
-      const at = path === '' ? field.key : `${path}.${field.key}`;
-      const names = [field.key, ...(field.aliases || []), ...(context.aliases[at] || [])];
+      const at = join(path, step(field.key));
+      const given = context.aliases[at];
+      if (given !== undefined) named.add(at);
+      const names = [field.key, ...(field.aliases || []), ...(given || [])];
       let match;
       for (const name of names) {
         const candidate = byKey.get(name);
@@ -175,31 +185,48 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     return { kind: 'struct', fields, keys, order: keys, extras, sparse: w.sparse, tail: w.tail };
   };
 
-  // Branches pair up by their discriminator values: every value of a writer
-  // branch in one reader branch. A writer branch the reader has no values of
-  // is dropped (its tag is an error on decode); one split between two reader
-  // branches cannot be read.
+  // Branches pair up by their discriminator values: the values of a writer
+  // branch the reader has are in one reader branch, and the ones it dropped
+  // are errors on decode, as is a writer branch the reader has no values of.
+  // A branch split between two reader branches cannot be read.
   const union = (w, r, path) => {
     if (w.key !== r.key) {
       throw error(`Cannot read a union on "${w.key}" as one on "${r.key}"`, path);
     }
-    const branches = w.branches.map((branch) => {
+    const tags = new Map();
+    const owners = [];
+    r.values.forEach((value, i) => tags.set(value, i));
+    r.branches.forEach((other, b) => {
+      for (let i = 0; i < other.count; i++) owners.push(b);
+    });
+    const branches = [];
+    for (const branch of w.branches) {
       const values = w.values.slice(branch.first, branch.first + branch.count);
-      const at = values.map((value) => r.values.indexOf(value));
-      const index = r.branches.findIndex(
-        (other) => at[0] >= other.first && at[0] < other.first + other.count,
-      );
-      const inside = (i) =>
-        i >= r.branches[index].first && i < r.branches[index].first + r.branches[index].count;
-      if (index === -1 && at.every((i) => i === -1)) return { ...branch, node: null };
-      if (index === -1 || !at.every(inside)) {
+      const at = values.map((value) => (tags.has(value) ? owners[tags.get(value)] : -1));
+      const index = at.find((b) => b !== -1);
+      if (index === undefined) {
+        branches.push({ ...branch, node: null });
+        continue;
+      }
+      if (!at.every((b) => b === -1 || b === index)) {
         throw error(`The values ${values.join(', ')} are split between branches`, path);
       }
       const reader = r.branches[index].node;
       const node = struct(branch.node, reader, `${path}[${index}]`);
       node.tag = { ...reader.tag, values: w.values };
-      return { ...branch, node };
-    });
+      if (!at.includes(-1)) branches.push({ ...branch, node });
+      else {
+        // One entry a value: the ones the reader dropped have no branch.
+        at.forEach((b, k) => {
+          branches.push({
+            ...branch,
+            first: branch.first + k,
+            count: 1,
+            node: b === -1 ? null : node,
+          });
+        });
+      }
+    }
     return { kind: 'union', key: w.key, tag: w.tag, values: w.values, branches };
   };
 
@@ -223,12 +250,20 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     return { kind: 'tuple', items, extras };
   };
 
-  // A root scalar keeps the reader's optionality.
+  // A root scalar keeps the reader's optionality, which is no part of the
+  // type the two compare.
   let plan;
   if (writerPlan.kind === 'scalar' && readerPlan.kind === 'scalar') {
-    const node = slot(writerPlan, readerPlan, '', readerPlan.required, null);
+    const typed = (node) => ({ ...node, required: undefined });
+    const node = slot(typed(writerPlan), typed(readerPlan), '', readerPlan.required, null);
     plan = { ...node, required: readerPlan.required };
   } else plan = isJson(readerPlan) ? target(writerPlan) : resolve(writerPlan, readerPlan, '');
+  // A path no field of the reader is at would lose a value without a word.
+  for (const path of Object.keys(context.aliases)) {
+    if (named.has(path)) continue;
+    const text = `Option "aliases" names no field of the reader at "${path}"`;
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', text, context.name, path);
+  }
   return { plan, compiled };
 };
 
@@ -266,19 +301,30 @@ const resolve = (writer, reader, options) => {
   if (!isSchema(writer) || !isSchema(reader)) {
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
   }
+  // A resolved schema reads one version as another: it is no version itself.
+  if (writer[PLAN].text !== undefined || reader[PLAN].text !== undefined) {
+    const text = 'A resolved schema is no version to resolve: give its writer or its reader';
+    throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text);
+  }
   const aliases = readAliases(options, reader.name);
   // The same version, the entities it references included: nothing to bridge.
-  if (writer[SIGNATURE] === reader[SIGNATURE]) return reader;
+  if (writer[SAME](reader)) return reader;
   const text = writer.toString();
   const context = { name: reader.name, aliases };
-  const { plan, compiled } = resolvePlan(writer[PLAN], reader[PLAN], context);
-  const { codegen, validate } = reader[SETTINGS];
-  return new Schema(reader.name, null, {
-    codegen,
-    validate,
-    fingerprint: writer[SETTINGS].fingerprint,
-    [INTERNAL]: { plan, compiled, text, signature: writer[SIGNATURE] },
-  });
+  try {
+    const { plan, compiled } = resolvePlan(writer[PLAN], reader[PLAN], context);
+    return new Schema(reader.name, null, {
+      ...inherited(reader[SETTINGS]),
+      fingerprint: writer[SETTINGS].fingerprint,
+      [INTERNAL]: { plan, compiled, text, writer, id: writer.id },
+    });
+  } catch (error) {
+    // Two versions are walked together, a chain of references included: one
+    // too long for the stack cannot be resolved, which is no RangeError.
+    if (!overflowed(error)) throw error;
+    const message = 'The schemas are nested too deeply to resolve';
+    throw new SchemaDefinitionError('ERR_INCOMPATIBLE', message, reader.name, '', error);
+  }
 };
 
 let registered = false;

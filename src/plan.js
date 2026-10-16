@@ -85,9 +85,24 @@ const isSchema = (value) => value !== null && typeof value === 'object' && value
 // tells them by it, never by requiring metaschema.
 const FOREIGN = Symbol.for('alexify.metaschema.brand');
 
-// A compiled schema in a slot: the codec it runs, and the schema itself,
-// whose plan Schema.resolve reads.
-const slotOf = (schema) => ({ codec: schema[CODEC], schema });
+// Whether a compiled schema's payload carries a string table, its own or one
+// of a schema it calls: read by the plans that call it through a slot.
+const INTERNED = Symbol('interned');
+
+// A compiled schema in a slot: the codec it runs, the schema itself, whose
+// plan Schema.resolve reads, and whether it holds interned strings.
+const slotOf = (schema) => ({ codec: schema[CODEC], schema, interned: schema[INTERNED] });
+
+// A name or a value prints as itself unless it could be read as part of the
+// form around it (its punctuation, a leading quote, nothing at all), and a
+// string among enum values unless it reads as a number: then it prints as a
+// JSON string. Two schemas that print the same are the same schema.
+const UNSAFE = /[:,{}[\]()|?=@;*~<>]|^"|^$/;
+const print = (text) => (UNSAFE.test(text) ? JSON.stringify(text) : text);
+const enumValue = (item) =>
+  typeof item === 'string' && String(Number(item)) === item
+    ? JSON.stringify(item)
+    : print(`${item}`);
 
 // The canonical form names every position and type, so two definitions that
 // put the same values in the same slots print the same and share a fingerprint.
@@ -97,7 +112,7 @@ const canonical = (node) => {
   if (node.kind === 'struct') {
     const fields = node.fields.map((field) => {
       const def = field.def === null ? '' : `=${JSON.stringify(field.def)}`;
-      return `${field.key}:${field.required ? '' : '?'}${canonical(field.node)}${def}`;
+      return `${print(field.key)}:${field.required ? '' : '?'}${canonical(field.node)}${def}`;
     });
     return `${node.sparse ? 'sparse' : ''}{${fields.join(',')}}`;
   }
@@ -117,15 +132,16 @@ const canonical = (node) => {
     });
     return `(${items.join(',')})`;
   }
-  if (node.kind === 'ref') return `@${node.name}`;
+  if (node.kind === 'ref') return `@${print(node.name)}`;
   if (node.kind === 'union') {
-    return `union(${node.key})[${node.branches.map((branch) => canonical(branch.source)).join('|')}]`;
+    const branches = node.branches.map((branch) => canonical(branch.source)).join('|');
+    return `union(${print(node.key)})[${branches}]`;
   }
   if (node.type === 'deltas') {
     return `~[${node.itemRequired ? '' : '?'}${canonical(node.item)}]`;
   }
   const values = node.values || node.names;
-  let type = values === undefined ? node.type : `${node.type}(${values.join('|')})`;
+  let type = values === undefined ? node.type : `${node.type}(${values.map(enumValue).join('|')})`;
   if (node.decimals !== undefined) type = `${type}(${node.decimals})`;
   // An interned string and a number written as differences have their own wire.
   if (node.intern === true) type = `${type}*`;
@@ -134,44 +150,81 @@ const canonical = (node) => {
   return node.required === false ? `?${type}` : type;
 };
 
-// What the id of a schema is computed from: its canonical form, then the
-// canonical form of every other entity it reaches by reference, by name. A
-// reference prints as the entity's name, so without them two versions whose
-// referenced entity changed would share an id. A schema that references no
-// other entity (its own name included) signs with its canonical form alone.
-const signature = (plan, self) => {
+// The nodes a node that is no scalar holds, in their order: what every walk
+// over a plan visits. What a slot calls is its schema's plan, which each walk
+// treats in its own way. A union's branch a resolved reader dropped is null.
+const children = (node) => {
+  if (node.kind === 'struct') return node.fields.map((field) => field.node);
+  if (node.kind === 'union') return node.branches.map((branch) => branch.node);
+  if (node.kind === 'tuple') return node.items.map((item) => item.node);
+  if (node.kind === 'array') return [node.item];
+  // A map or a dictionary.
+  return [node.value];
+};
+
+// The other entities a plan reaches by reference, by name, sorted: what its
+// id is computed from with its canonical form. A reference prints as the
+// entity's name, so without them two versions whose referenced entity changed
+// would share an id. The schemas in `selves` (the schema itself, the record of
+// its list) are not other entities. A chain of references is walked as a list
+// of pending plans, not as a recursion.
+const referenced = (plan, selves) => {
   const entities = new Map();
+  const pending = [plan];
   const walk = (node) => {
     if (node === null || node.kind === 'scalar') return;
     if (node.kind === 'ref') {
       const { schema } = node.slot;
-      if (schema === undefined || schema === self || entities.has(node.name)) return;
-      entities.set(node.name, schema[PLAN]);
-      walk(schema[PLAN]);
+      if (schema == null || selves.includes(schema) || entities.has(node.name)) return;
+      entities.set(node.name, schema);
+      pending.push(schema[PLAN]);
       return;
     }
-    if (node.kind === 'struct') for (const field of node.fields) walk(field.node);
-    else if (node.kind === 'union') for (const branch of node.branches) walk(branch.node);
-    else if (node.kind === 'tuple') for (const item of node.items) walk(item.node);
-    else if (node.kind === 'array') walk(node.item);
-    else walk(node.value);
+    for (const child of children(node)) walk(child);
   };
-  walk(plan);
+  while (pending.length > 0) walk(pending.pop());
   const names = Array.from(entities.keys()).sort();
-  return [canonical(plan), ...names.map((name) => `${name}=${canonical(entities.get(name))}`)].join(
-    ';',
-  );
+  return names.map((name) => [name, entities.get(name)]);
 };
 
-// FNV-1a, 32-bit: enough to tell schema versions apart in a handshake, and
-// cheap enough to compute on every page load.
-const fingerprint = (text) => {
-  let hash = 0x811c9dc5;
+// The canonical form, then `;Name=<canonical form>` for every other entity
+// reached. A schema that references no other entity (its own name included)
+// signs with its canonical form alone.
+const signature = (text, entities) => {
+  let out = text;
+  for (const [name, schema] of entities) out += `;${print(name)}=${schema}`;
+  return out;
+};
+
+// FNV-1a, 32-bit, over UTF-16 code units: enough to tell schema versions
+// apart in a handshake, and cheap enough to compute on every page load. It
+// hashes a text a piece at a time, so the default id of a signature is
+// computed without joining it.
+const OFFSET = 0x811c9dc5;
+
+const hashed = (hash, text) => {
+  let out = hash;
   for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
+    out ^= text.charCodeAt(i);
+    out = Math.imul(out, 0x01000193);
   }
-  return (hash >>> 0).toString(16).padStart(8, '0');
+  return out;
+};
+
+const hex = (hash) => (hash >>> 0).toString(16).padStart(8, '0');
+
+const fingerprint = (text) => hex(hashed(OFFSET, text));
+
+// The id of a schema: its fingerprint function of the signature, which the
+// default one hashes piece by piece.
+const identify = (text, entities, hash) => {
+  if (hash !== fingerprint) return hash(signature(text, entities));
+  let out = hashed(OFFSET, text);
+  for (const [name, schema] of entities) {
+    out = hashed(hashed(hashed(out, ';'), print(name)), '=');
+    out = hashed(out, String(schema));
+  }
+  return hex(out);
 };
 
 module.exports = {
@@ -180,9 +233,13 @@ module.exports = {
   CODEC,
   FALLBACK,
   FOREIGN,
+  INTERNED,
+  children,
   isSchema,
   slotOf,
   canonical,
+  referenced,
   signature,
   fingerprint,
+  identify,
 };

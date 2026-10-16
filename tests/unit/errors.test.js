@@ -160,15 +160,30 @@ for (const [backend, options] of BACKENDS) {
     const Node = named('Node', { v: 'number', kids: { array: 'Node' } }, options);
     const depth = 100000;
     const text = `${'[1,['.repeat(depth)}[1,[]]${']]'.repeat(depth)}`;
+    // A recursion counts its levels: the same depth is too deep on either
+    // backend, at the place it is reached.
     const expected = {
+      name: 'DecodeError',
       code: 'structure',
-      path: '',
       schema: 'Node',
-      message: 'Value is nested too deeply',
+      message: /^Field "kids\[0\]\.kids\[0\][^"]*\[…\][^"]*" is nested too deeply$/,
     };
     assert.throws(() => Node.parse(text), expected);
     assert.throws(() => Node.decode(JSON.parse(text)), expected);
-    assert.throws(() => Node.list.parse(`[${text}]`), expected);
+    assert.throws(() => Node.list.parse(`[${text}]`), {
+      ...expected,
+      message: /nested too deeply/,
+    });
+    // Up to the limit is fine.
+    const LIMIT = 512;
+    const fine = `${'[1,['.repeat(LIMIT - 1)}[1,[]]${']]'.repeat(LIMIT - 1)}`;
+    assert.strictEqual(JSON.stringify(Node.encode(Node.parse(fine))), fine);
+    const over = `[1,[${fine}]]`;
+    assert.throws(() => Node.parse(over), { code: 'structure' });
+    let deep = { v: 1, kids: [] };
+    for (let i = 1; i < LIMIT; i++) deep = { v: 1, kids: [deep] };
+    assert.strictEqual(JSON.stringify(Node.encode(deep)), fine);
+    assert.throws(() => Node.encode({ v: 1, kids: [deep] }), { code: 'depth' });
     const { Outer } = model(
       {
         Node: { Struct: {}, v: 'number', kids: { array: 'Node' } },
@@ -176,7 +191,11 @@ for (const [backend, options] of BACKENDS) {
       },
       options,
     );
-    assert.throws(() => Outer.parse(`[${text}]`), { ...expected, schema: 'Outer' });
+    assert.throws(() => Outer.parse(`[${text}]`), {
+      ...expected,
+      schema: 'Outer',
+      message: /^Field "root\.kids\[0\][^"]*" is nested too deeply$/,
+    });
   });
 
   test(`Errors (${backend}): encode errors carry a code, a path and the schema name`, () => {
@@ -246,20 +265,30 @@ for (const [backend, options] of BACKENDS) {
     };
     const loose = { ...options, validate: false };
     const schema = define(definition, loose);
-    assert.throws(() => schema.encode({ inner: { at: 1n } }), foreign);
-    assert.throws(() => schema.encode({ list: [{ at: 1n }] }), foreign);
-    assert.throws(() => schema.encode({ pair: [1n, 1] }), foreign);
+    // A value whose own conversion throws: the caller's error, as it is.
+    const at = {
+      [Symbol.toPrimitive]() {
+        throw new TypeError('no number here');
+      },
+    };
+    assert.throws(() => schema.encode({ inner: { at } }), foreign);
+    assert.throws(() => schema.encode({ list: [{ at }] }), foreign);
+    assert.throws(() => schema.encode({ pair: [at, 1] }), foreign);
     const Flat = define({ array: { at: 'date' } }, { ...loose, layout: 'flat' });
-    assert.throws(() => Flat.encode([{ at: 1n }]), foreign);
+    assert.throws(() => Flat.encode([{ at }]), foreign);
     const Cols = define({ array: { at: 'date' } }, { ...loose, layout: 'columns' });
-    assert.throws(() => Cols.encode([{ at: 1n }]), foreign);
+    assert.throws(() => Cols.encode([{ at }]), foreign);
     // By default the values are trusted too: the conversion throws on its own.
     const schemaByDefault = define(definition, options);
-    assert.throws(() => schemaByDefault.encode({ inner: { at: 1n } }), foreign);
-    assert.throws(() => schemaByDefault.encode({ list: [{ at: 1n }] }), foreign);
-    assert.throws(() => schemaByDefault.encode({ pair: [1n, 1] }), foreign);
+    assert.throws(() => schemaByDefault.encode({ inner: { at } }), foreign);
+    assert.throws(() => schemaByDefault.encode({ list: [{ at }] }), foreign);
+    assert.throws(() => schemaByDefault.encode({ pair: [at, 1] }), foreign);
     const FlatByDefault = define({ array: { at: 'date' } }, { ...options, layout: 'flat' });
-    assert.throws(() => FlatByDefault.encode([{ at: 1n }]), foreign);
+    assert.throws(() => FlatByDefault.encode([{ at }]), foreign);
+    // A value that converts to no number at all has no date wire form.
+    for (const value of [1n, Symbol('at')]) {
+      assert.deepStrictEqual(schemaByDefault.encode({ inner: { at: value } }), [[null]]);
+    }
   });
 
   // Checking the values given to encode is metaschema's (`schema.source.check`):
@@ -517,6 +546,17 @@ test('Errors: the decode boundary', () => {
   } finally {
     codec.decode = decode;
   }
+  // Encode the same: a recursion counts its levels, any other stack that runs
+  // out (a chain of entities deeper than the stack) is a depth error too.
+  const { encode } = codec;
+  try {
+    codec.encode = () => {
+      throw new RangeError('Maximum call stack size exceeded');
+    };
+    assert.throws(() => schema.encode({ id: 1 }), { name: 'EncodeError', code: 'depth' });
+  } finally {
+    codec.encode = encode;
+  }
 });
 
 // A cyclic value, or one nested deeper than the call stack, is a value the
@@ -527,9 +567,8 @@ for (const [backend, options] of BACKENDS) {
     const expected = {
       name: 'EncodeError',
       code: 'depth',
-      path: '',
       schema: 'Node',
-      message: 'Value is nested too deeply',
+      message: /^Field "kids\[0\][^"]*" is nested too deeply$/,
     };
     let value = { v: 1, kids: [] };
     for (let i = 0; i < 100000; i++) value = { v: 1, kids: [value] };
@@ -600,3 +639,116 @@ for (const [backend, options] of BACKENDS) {
     }
   });
 }
+
+test('Errors: a code of the caller reads as itself, and nothing is read from a prototype', () => {
+  assert.strictEqual(new DecodeError('custom', 'x').message, 'Field "x" custom');
+  assert.strictEqual(new DecodeError('toString', '').message, 'Value toString');
+  assert.strictEqual(new DecodeError('structure', '', 'toString').message, 'Value toString');
+  assert.strictEqual(new EncodeError('constructor').message, 'Value constructor');
+  assert.strictEqual(new DecodeError('schema', '', 'v1').id, 'v1');
+  assert.strictEqual(new DecodeError('type', '', 'number').id, undefined);
+});
+
+test('Errors: whatever a getter throws passes through encode as it is', () => {
+  const schema = define({ s: 'string' });
+  for (const thrown of [null, undefined, 'text', 5]) {
+    const value = {
+      get s() {
+        throw thrown;
+      },
+    };
+    assert.throws(
+      () => schema.encode(value),
+      (error) => error === thrown,
+    );
+  }
+});
+
+test("Errors: a dictionary's key is the payload's, and a path carries it quoted", () => {
+  const forged = 'x"\n2026-10-16 INFO admin logged in\u001b[2J';
+  const cases = [
+    ['plain', 'd.plain'],
+    ['', 'd[""]'],
+    ['[0]', 'd["[0]"]'],
+    ['a.b', 'd["a.b"]'],
+    [forged, `d[${JSON.stringify(forged)}]`],
+    ['k'.repeat(64), `d.${'k'.repeat(64)}`],
+    ['k'.repeat(100000), `d[${JSON.stringify(`${'k'.repeat(64)}…`)}]`],
+  ];
+  for (const [backend, options] of BACKENDS) {
+    const scalars = define({ d: { type: 'object', key: 'string', value: 'number' } }, options);
+    const records = define(
+      { d: { type: 'object', key: 'string', value: { n: 'number' } } },
+      options,
+    );
+    const lists = define(
+      { d: { type: 'object', key: 'string', value: { array: 'date' } } },
+      options,
+    );
+    for (const [key, path] of cases) {
+      const label = `${backend} ${key.slice(0, 20)}`;
+      assert.throws(() => scalars.decode([{ [key]: 'x' }]), { code: 'type', path }, label);
+      assert.throws(() => records.decode([{ [key]: ['x'] }]), { path: `${path}.n` }, label);
+      assert.throws(() => lists.decode([{ [key]: 5 }]), { path }, label);
+      assert.throws(() => records.encode({ d: { [key]: 5 } }), { code: 'object', path }, label);
+      assert.throws(
+        () => scalars.decode([{ [key]: 'x' }]),
+        (error) => !error.message.includes('\n') && error.message.length < 200,
+        label,
+      );
+    }
+    // At the root too.
+    const root = define({ type: 'object', key: 'string', value: 'number' }, options);
+    assert.throws(() => root.decode({ 'a b': 'x' }), { path: '["a b"]' }, backend);
+  }
+});
+
+test('Errors: a path deeper than 64 levels keeps both its ends', () => {
+  for (const [backend, options] of BACKENDS) {
+    const Node = named('Node', { name: '?string', next: '?Node' }, options);
+    let wire = [5];
+    for (let i = 0; i < 300; i++) wire = ['x', wire];
+    assert.throws(
+      () => Node.decode(wire),
+      (error) => {
+        assert.strictEqual(error.code, 'type', backend);
+        assert.strictEqual(error.path, `${'next.'.repeat(31)}next[…].${'next.'.repeat(32)}name`);
+        assert.ok(error.message.includes(error.path));
+        return true;
+      },
+    );
+  }
+});
+
+// A Map, a Set or a Date is told by its brand, not by the tag it claims: a
+// fake one is not one, on either backend, and a date of another type of value
+// converts as encode trusts it.
+test('Errors: values that claim a kind they do not have', () => {
+  const fake = (tag) => ({ [Symbol.toStringTag]: tag });
+  for (const [backend, options] of BACKENDS) {
+    const schema = define(
+      {
+        'm?': { type: 'map', key: 'string', value: 'number' },
+        's?': { set: 'number' },
+        'd?': 'date',
+      },
+      options,
+    );
+    assert.throws(() => schema.encode({ m: fake('Map') }), { code: 'map', path: 'm' }, backend);
+    assert.throws(() => schema.encode({ s: fake('Set') }), { code: 'set', path: 's' }, backend);
+    assert.deepStrictEqual(
+      schema.encode({ d: Object.assign(fake('Date'), { valueOf: () => 5 }) }),
+      [null, null, 5],
+    );
+    // Of another realm, the real ones are still what they are.
+    const realm = vm.runInNewContext(
+      '({ m: new Map([["a", 1]]), s: new Set([2]), d: new Date(7) })',
+    );
+    assert.deepStrictEqual(schema.encode(realm), [['a', 1], [2], 7], backend);
+    const big = define({ n: 'bigint' }, options);
+    assert.deepStrictEqual(big.encode({ n: 5 }), ['5']);
+    assert.deepStrictEqual(big.encode({ n: 1.5 }), [1.5]);
+    const odd = Object.create(null);
+    assert.strictEqual(big.encode({ n: odd })[0], odd);
+  }
+});

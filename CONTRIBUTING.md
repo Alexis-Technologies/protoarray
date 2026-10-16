@@ -37,7 +37,7 @@ Node's built-in `node:test`, no external framework.
 - `tests/types/*.test-d.ts`: `tsd` assertions against `index.d.ts`.
 
 `pnpm run test:coverage` enforces 100% lines, statements, branches and functions in every file
-under `src/`.
+under `src/` and `bin/` (the CLI is covered through the processes `cli.test.js` starts).
 
 New behavior needs a test that fails without the change. For a bug fix, the test should describe
 the bug, not the implementation.
@@ -50,12 +50,13 @@ pnpm run format
 pnpm run test:coverage
 pnpm run test:types
 pnpm run check:dts
-pnpm size --max-gzip 11
+pnpm size --max-gzip 22
 ```
 
 `prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`; CI adds the bundle-size
-gate (11 KB min+gzip for either entry) and the docs build. Treat that as the merge gate. Coverage
-of `src/` is 100% with no `c8 ignore` comments: an unreachable branch is removed, not ignored.
+gate (22 KB min+gzip for either entry) and the docs build. Treat that as the merge gate. Coverage
+of `src/` and `bin/` is 100% with no `c8 ignore` comments: an unreachable branch is removed, not
+ignored.
 Measure with `pnpm size` after any change to `src/`; when a change needs more than the gate, raise
 it to the next whole KB above the measured size in the same commit.
 

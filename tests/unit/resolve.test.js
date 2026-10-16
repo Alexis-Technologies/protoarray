@@ -520,6 +520,15 @@ test('Resolve: aliases in the option, by reader path', () => {
     aliases: { x: 'a', y: 'a' },
   });
   assert.deepStrictEqual(Option.decode(['v']), { x: 'v', y: null });
+  // A path no field of the reader is at would lose the value without a word.
+  for (const path of ['adress.city', 'orders.sku', 'address.city.x']) {
+    const aliases = { 'address.city': 'town', 'orders[].sku': 'code', [path]: 'x' };
+    assert.throws(() => resolve(W, reader, { aliases }), {
+      code: 'ERR_INVALID_OPTIONS',
+      field: path,
+      message: `Option "aliases" names no field of the reader at "${path}"`,
+    });
+  }
   for (const options of [
     1,
     { other: 1 },
@@ -601,11 +610,21 @@ test('Resolve: what cannot be read is an error when resolving', () => {
     from({ union: [{ k: { enum: ['a'] } }, { k: { enum: ['b'] } }], discriminator: 'k' }),
     { message: 'The values a, b are split between branches' },
   );
-  incompatible(
-    from({ union: [{ k: { enum: ['a', 'b'] } }], discriminator: 'k' }),
-    from({ union: [{ k: { enum: ['b'] } }], discriminator: 'k' }),
-    { field: '' },
-  );
+  // A value of a branch the reader dropped is an error on decode, whichever
+  // place it has in the branch; the others read as the reader's branch.
+  for (const values of [
+    ['a', 'b'],
+    ['b', 'a'],
+  ]) {
+    const writer = from({ union: [{ k: { enum: values }, n: 'number' }], discriminator: 'k' });
+    const reader = from({ union: [{ k: { enum: ['b'] }, n: 'number' }], discriminator: 'k' });
+    const resolved = resolve(writer, reader);
+    const at = values.indexOf('b');
+    assert.deepStrictEqual(resolved.decode([at, 1]), { k: 'b', n: 1 });
+    assert.throws(() => resolved.decode([1 - at, 1]), { code: 'union', path: 'k' });
+    assert.deepStrictEqual(resolved.encode({ k: 'b', n: 2 }), [at, 2]);
+    assert.deepStrictEqual(writer.decode(resolved.encode({ k: 'b', n: 2 })), { k: 'b', n: 2 });
+  }
   // A null slot on the reader's side drops the writer's value; on the writer's
   // side it fills an optional reader slot.
   assert.deepStrictEqual(resolve(from({ a: 'null' }), from({ a: '?string' })).decode([null]), {
@@ -636,4 +655,94 @@ test('Resolve: a referenced entity that changed is read through', () => {
   // The same version, references and all: the reader itself.
   const same = Schema.from(writer);
   assert.strictEqual(resolve(writer, same), same);
+});
+
+test('Resolve: through an alias, to the entity it stands for', () => {
+  const versions = [{}, { 'y?': 'number' }].map(
+    (more) =>
+      model({
+        Point: { Struct: {}, x: 'number', ...more },
+        Spot: 'Point',
+        Holder: { Struct: {}, p: 'Spot' },
+      }).Holder,
+  );
+  const resolved = resolve(versions[0], versions[1]);
+  assert.deepStrictEqual(resolved.decode([[1]]), { p: { x: 1, y: null } });
+  assert.deepStrictEqual(resolved.encode({ p: { x: 1, y: 2 } }), [[1]]);
+});
+
+test("Resolve: a resolved schema has the writer's id, whatever its fingerprint", () => {
+  const fingerprint = (text) => `v${text.length}`;
+  const writer = define({ a: 'number' }, { fingerprint });
+  const resolved = resolve(writer, define({ a: 'number', 'b?': 'string' }));
+  assert.strictEqual(resolved.id, writer.id);
+  assert.strictEqual(resolved.id, 'v10');
+  const SIGNATURE = Symbol.for('alexify.protoarray.signature');
+  assert.strictEqual(resolved[SIGNATURE], writer[SIGNATURE]);
+});
+
+test('Resolve: a chain too long for the stack is an error, not a RangeError', () => {
+  const chain = (extra) => {
+    const entities = {};
+    for (let i = 0; i < 10000; i++) {
+      entities[`E${i}`] = {
+        fields: { n: { type: `E${i + 1}`, one: `E${i + 1}`, required: false } },
+      };
+    }
+    entities.E10000 = { fields: { v: { type: 'number' }, ...extra } };
+    return Schema.from({ format: 1, root: 'E0', entities }, { codegen: false });
+  };
+  const writer = chain({});
+  const reader = chain({ w: { type: 'string', required: false } });
+  incompatible(writer, reader, { message: 'The schemas are nested too deeply to resolve' });
+});
+
+test('Resolve: a root scalar that changes its optionality only', () => {
+  const pairs = [
+    ['string', '?string'],
+    ['?string', 'string'],
+  ];
+  for (const [w, r] of pairs) {
+    const writer = define(w);
+    const reader = define(r);
+    const resolved = resolve(writer, reader);
+    assert.strictEqual(resolved.decode('x'), 'x');
+    assert.strictEqual(resolved.id, writer.id);
+  }
+  assert.strictEqual(resolve(define('string'), define('?string')).decode(null), null);
+  assert.throws(() => resolve(define('?string'), define('string')).decode(null), {
+    code: 'required',
+  });
+});
+
+test('Resolve: a resolved schema is no version of its own', () => {
+  const { SchemaRegistry } = require('../../registry.js');
+  const writer = define({ a: 'number' });
+  const reader = define({ a: 'number', 'b?': 'string' }, { stringify: 'native' });
+  const resolved = resolve(writer, reader);
+  for (const [w, r] of [
+    [resolved, reader],
+    [writer, resolved],
+  ]) {
+    assert.throws(() => resolve(w, r), {
+      code: 'ERR_SCHEMA_EXPECTED',
+      message: 'A resolved schema is no version to resolve: give its writer or its reader',
+    });
+  }
+  assert.throws(() => new SchemaRegistry([resolved]), {
+    code: 'ERR_SCHEMA_EXPECTED',
+    message: 'A resolved schema is no version of its own: give its writer or its reader',
+  });
+  // It keeps the reader's options: here, no text builder.
+  const SETTINGS = Symbol.for('alexify.protoarray.settings');
+  assert.strictEqual(resolved[SETTINGS].stringify, 'native');
+});
+
+test('Resolve: long enums and many branches resolve in linear time', () => {
+  const values = Array.from({ length: 40000 }, (_, i) => `v${i}`);
+  const enums = (list) => define({ e: { enum: list } });
+  const started = Date.now();
+  const resolved = resolve(enums(values), enums(values.slice().reverse()));
+  assert.ok(Date.now() - started < 2000);
+  assert.deepStrictEqual(resolved.decode([3]), { e: 'v3' });
 });

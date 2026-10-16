@@ -387,3 +387,180 @@ test('Stream: parseItems at every split point of strings full of escapes', async
     }
   }
 });
+
+// An empty chunk, of text or of bytes, in the middle of a string: the escape
+// the chunk before ended on is still the next character's.
+test('Stream: an empty chunk changes nothing, an escape pending included', async () => {
+  const List = define({ array: { s: 'string' } });
+  const text = List.stringify([{ s: 'a"b\\c' }, { s: '' }]);
+  const expected = List.parse(text);
+  for (let cut = 0; cut <= text.length; cut++) {
+    for (const empty of ['', new Uint8Array(0)]) {
+      const parts = [text.slice(0, cut), empty, empty, text.slice(cut)];
+      assert.deepStrictEqual(await collect(stream.parseItems(List, parts)), expected, `${cut}`);
+    }
+  }
+  const Line = define({ s: 'string' });
+  const lines = ['["a\\', '', '"b"]\n', new Uint8Array(0), '["c"]'];
+  assert.deepStrictEqual(await collect(stream.parseLines(Line, lines)), [{ s: 'a"b' }, { s: 'c' }]);
+});
+
+test('Stream: a line or an item longer than maxLength is an error at its index', async () => {
+  const Line = define({ s: 'string' });
+  const List = define({ array: { s: 'string' } });
+  const Flat = define({ array: { a: 'string', b: 'string' } }, { layout: 'flat' });
+  const size = { code: 'structure', message: 'Field "[1]" is longer than maxLength allows' };
+  const options = { maxLength: 10 };
+  // Whole in one chunk, or growing chunk by chunk past the limit.
+  for (const parts of [['["a"]\n["0123456789"]\n'], ['["a"]\n["0', '1234', '56789"]']]) {
+    const found = [];
+    await assert.rejects(async () => {
+      for await (const value of stream.parseLines(Line, parts, options)) found.push(value);
+    }, size);
+    assert.deepStrictEqual(found, [{ s: 'a' }]);
+  }
+  const piped = streamOf(['["a"]\n', '["0123456789"]\n']).pipeThrough(
+    stream.parseStream(Line, options),
+  );
+  await rejects(piped, size);
+  for (const parts of [['[["a"],["0123456789"]]'], ['[["a"],["0', '1234', '5678', '9"]]']]) {
+    const found = [];
+    await assert.rejects(async () => {
+      for await (const value of stream.parseItems(List, parts, options)) found.push(value);
+    }, size);
+    assert.deepStrictEqual(found, [{ s: 'a' }]);
+  }
+  // A flat collection names the record of the slot.
+  await rejects(stream.parseItems(Flat, ['["a","b","c","0123456789"]'], options), size);
+  // Up to the limit is fine, and the default holds 16 MiB.
+  assert.deepStrictEqual(await collect(stream.parseLines(Line, '["012345"]', { maxLength: 10 })), [
+    { s: '012345' },
+  ]);
+  const long = 'x'.repeat(16 * 1024 * 1024);
+  await rejects(stream.parseLines(Line, ['["', long, '"]']), {
+    code: 'structure',
+    message: 'Field "[0]" is longer than maxLength allows',
+  });
+  assert.strictEqual(
+    (await collect(stream.parseLines(Line, ['["', long.slice(10), '"]'])))[0].s.length,
+    long.length - 10,
+  );
+  assert.strictEqual(
+    (await collect(stream.parseItems(List, ['[["', long, '"]]'], { maxLength: Infinity })))[0].s
+      .length,
+    long.length,
+  );
+  for (const maxLength of [0, -1, 1.5, '10', null, NaN]) {
+    assert.throws(() => stream.parseLines(Line, '', { maxLength }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Invalid option "maxLength"',
+    });
+    assert.throws(() => stream.parseItems(List, '', { maxLength }), {
+      code: 'ERR_INVALID_OPTIONS',
+    });
+    assert.throws(() => stream.parseStream(Line, { maxLength }), { code: 'ERR_INVALID_OPTIONS' });
+  }
+});
+
+test('Stream: the sources a parser reads, and what it leaves of them', async () => {
+  const Line = define({ n: 'number' });
+  const List = define({ array: { n: 'number' } });
+  // The whole text as bytes, a byte order mark dropped from text and bytes.
+  const bom = '﻿[1]\n[2]\n';
+  for (const source of [Buffer.from('[1]\n[2]\n'), Buffer.from(bom), bom, ['', bom]]) {
+    assert.deepStrictEqual(await collect(stream.parseLines(Line, source)), [{ n: 1 }, { n: 2 }]);
+  }
+  for (const source of [new TextEncoder().encode('[[1],[2]]'), '﻿[[1],[2]]']) {
+    assert.deepStrictEqual(await collect(stream.parseItems(List, source)), [{ n: 1 }, { n: 2 }]);
+  }
+  // A reader-only stream is cancelled by a consumer that stops early, after a
+  // break or an error, as a stream's own iterator would be.
+  const readerOnly = (chunks) => {
+    const calls = { cancel: 0 };
+    const readable = new ReadableStream({
+      pull(controller) {
+        if (chunks.length === 0) controller.close();
+        else controller.enqueue(chunks.shift());
+      },
+      cancel() {
+        calls.cancel += 1;
+      },
+    });
+    return { source: { getReader: () => readable.getReader() }, calls };
+  };
+  const stopped = readerOnly(['[1]\n', '[2]\n', '[3]\n']);
+  for await (const value of stream.parseLines(Line, stopped.source)) {
+    assert.deepStrictEqual(value, { n: 1 });
+    break;
+  }
+  assert.strictEqual(stopped.calls.cancel, 1);
+  const failed = readerOnly(['[1]\n', '["x"]\n', '[3]\n']);
+  await rejects(stream.parseLines(Line, failed.source), { code: 'type', path: '[1].n' });
+  assert.strictEqual(failed.calls.cancel, 1);
+  const read = readerOnly(['[1]\n']);
+  assert.deepStrictEqual(await collect(stream.parseLines(Line, read.source)), [{ n: 1 }]);
+  assert.strictEqual(read.calls.cancel, 0);
+  // A stream that errors is not cancelled again.
+  const broken = new ReadableStream({
+    pull() {
+      throw new Error('the source failed');
+    },
+  });
+  await rejects(stream.parseLines(Line, { getReader: () => broken.getReader() }), {
+    message: 'the source failed',
+  });
+});
+
+test('Stream: an empty slot of a flat collection names its record', async () => {
+  const Flat = define({ array: { a: 'number', b: 'number' } }, { layout: 'flat' });
+  await rejects(stream.parseItems(Flat, '[1,2,3,4,5,,6]'), (error) => {
+    assert.strictEqual(error.code, 'json');
+    assert.strictEqual(error.path, '[2]');
+    return true;
+  });
+});
+
+test("Stream: an item's text comes from its record's own writer where it has one", () => {
+  const { toSource } = require('../../standalone.js');
+  const CODEC = Symbol.for('alexify.protoarray.codec');
+  const Rows = define({ array: { id: 'integer', at: 'date' } });
+  const items = define({ id: 'integer', at: 'date' })[CODEC];
+  const written = [];
+  const compiled = {
+    canonical: Rows.toString(),
+    codec: Rows[CODEC],
+    items: {
+      encode: items.encode,
+      decode: items.decode,
+      stringify: (value) => {
+        written.push(value.id);
+        return items.stringify(value);
+      },
+    },
+  };
+  const copy = define({ array: { id: 'integer', at: 'date' } }, { compiled });
+  const values = [
+    { id: 1, at: new Date(1) },
+    { id: 2, at: new Date(2) },
+  ];
+  const text = Array.from(stream.stringifyItems(copy, [...values, null])).join('');
+  assert.strictEqual(text, JSON.stringify(Rows.encode([...values, null])));
+  assert.deepStrictEqual(written, [1, 2]);
+  // An error in it names the item.
+  compiled.items.stringify = () => {
+    throw new EncodeError('object', 'at');
+  };
+  const failing = define({ array: { id: 'integer', at: 'date' } }, { compiled });
+  assert.throws(() => Array.from(stream.stringifyItems(failing, values)), { path: '[0].at' });
+  // A flat or columns collection writes its records' wire: no writer of
+  // their text is generated for it.
+  for (const layout of ['flat', 'columns']) {
+    const laid = define({ array: { id: 'integer' } }, { layout, stringify: 'builder' });
+    assert.doesNotMatch(toSource(laid), /function stringify\(/, layout);
+    assert.strictEqual(laid.stringify([{ id: 1 }]), JSON.stringify(laid.encode([{ id: 1 }])));
+  }
+  assert.match(
+    toSource(define({ array: { id: 'integer' } }, { stringify: 'builder' })),
+    /stringify/,
+  );
+});

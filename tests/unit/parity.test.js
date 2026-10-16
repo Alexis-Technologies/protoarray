@@ -243,3 +243,105 @@ test('Parity: codegen and closures agree on resolved schemas', () => {
     }
   }
 });
+
+// What the random definitions do not draw, built by hand: keys that hold a
+// path's punctuation, dictionaries whose keys the payload gives, a recursion
+// between entities with interned strings, aliases, a recursion near its
+// depth limit and values that claim a kind they do not have. The generator is
+// left as it is: golden-1x holds the forms of its seeds.
+test('Parity: codegen and closures agree on the constructs the generator does not draw', () => {
+  const { prng } = require('../support/generate.js');
+  const { model } = require('../support/schema.js');
+  const random = prng(2026);
+  const fake = (tag) => ({ [Symbol.toStringTag]: tag, valueOf: () => 1 });
+  const nested = (depth) => {
+    let node = { name: 'leaf', next: null };
+    for (let i = 1; i < depth; i++) node = { name: `n${i % 3}`, next: node };
+    return node;
+  };
+  const cases = [
+    {
+      build: (options) =>
+        define(
+          {
+            'a.b': { 'c[]': 'number', '"q': '?string' },
+            '{x}': '?string',
+            d: { type: 'object', key: 'string', value: { n: 'number' } },
+            m: { type: 'map', key: 'string', value: 'date', required: false },
+            s: { set: 'integer', required: false },
+            at: { type: 'date', required: false },
+          },
+          options,
+        ),
+      values: [
+        { 'a.b': { 'c[]': 1, '"q': 'x' }, '{x}': 'e', d: { 'x.y': { n: 1 }, '': { n: 2 } } },
+        { 'a.b': { 'c[]': 2 }, d: { 'line\nbreak': { n: 3 } }, m: new Map([['k', new Date(5)]]) },
+        { 'a.b': { 'c[]': 3 }, d: {}, m: fake('Map'), s: fake('Set'), at: fake('Date') },
+        { 'a.b': { 'c[]': 4 }, d: {}, at: 1n, s: new Set([1, 2]) },
+      ],
+    },
+    {
+      build: (options) =>
+        model(
+          {
+            A: { Struct: {}, s: 'string', b: '?B' },
+            B: { Struct: {}, n: 'number', a: '?A' },
+          },
+          { ...options, entities: { A: { intern: ['s'] } } },
+        ).B,
+      values: [
+        { n: 1, a: { s: 'x', b: { n: 2, a: { s: 'x', b: null } } } },
+        { n: 3, a: null },
+      ],
+    },
+    {
+      build: (options) =>
+        model(
+          {
+            Point: { Struct: {}, x: 'number', 'y?': 'number' },
+            Spot: 'Point',
+            Holder: { Struct: {}, p: 'Spot', ps: { array: 'Spot' } },
+          },
+          options,
+        ).Holder,
+      values: [{ p: { x: 1 }, ps: [{ x: 2, y: 3 }] }],
+    },
+    {
+      build: (options) =>
+        model({ Node: { Struct: {}, name: 'string', next: '?Node' } }, options).Node,
+      values: [nested(3), nested(511), nested(512), nested(513)],
+    },
+  ];
+  for (const { build, values } of cases) {
+    const codegen = build({ codegen: true });
+    const closures = build({ codegen: false });
+    assert.strictEqual(codegen.toString(), closures.toString());
+    assert.strictEqual(codegen.id, closures.id);
+    for (const value of values) {
+      const wire = outcome(() => codegen.encode(value));
+      assert.deepStrictEqual(
+        outcome(() => closures.encode(value)),
+        wire,
+        codegen.toString(),
+      );
+      assert.deepStrictEqual(
+        outcome(() => closures.stringify(value)),
+        outcome(() => codegen.stringify(value)),
+      );
+      if (wire.value === undefined) continue;
+      const text = JSON.stringify(codegen.encode(value));
+      assert.deepStrictEqual(
+        outcome(() => closures.parse(text)),
+        outcome(() => codegen.parse(text)),
+      );
+      for (let round = 0; round < 30; round++) {
+        const broken = corruptWire(JSON.parse(text), random);
+        assert.deepStrictEqual(
+          outcome(() => closures.decode(broken)),
+          outcome(() => codegen.decode(broken)),
+          JSON.stringify(broken).slice(0, 200),
+        );
+      }
+    }
+  }
+});

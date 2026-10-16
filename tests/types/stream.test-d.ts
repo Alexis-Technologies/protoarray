@@ -32,4 +32,12 @@ expectType<Generator<string, void, undefined>>(stringifyItems(User.list, [{ id: 
 expectType<AsyncGenerator<User, void, undefined>>(parseItems(User.list, '[[1]]'));
 expectError(parseLines(User, 1));
 expectType<void>(register());
-expectType<AsyncGenerator<unknown, void, undefined>>(User.parseLines('[1]'));
+expectType<AsyncGenerator<User, void, undefined>>(User.parseLines('[1]'));
+expectType<AsyncGenerator<User, void, undefined>>(User.parseLines('[1]', { maxLength: 1024 }));
+expectType<AsyncGenerator<User, void, undefined>>(parseLines(User, new Uint8Array(1)));
+expectType<AsyncGenerator<User, void, undefined>>(User.list.parseItems('[[1]]'));
+expectType<Generator<string, void, undefined>>(User.list.stringifyItems([{ id: 1 }]));
+expectType<AsyncGenerator<string, void, undefined>>(User.stringifyLines(asyncUsers));
+expectType<TransformStream<string | Uint8Array, User>>(User.parseStream({ maxLength: 10 }));
+expectError(parseItems(User.list, '[]', { maxLength: '10' }));
+expectError(User.list.stringifyItems([{ id: 'x' }]));

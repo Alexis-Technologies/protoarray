@@ -1,10 +1,9 @@
-// The wire format as data: a definition, a value, the array it travels as and
-// the object it comes back as. Docs examples are drawn from this list, so they
-// cannot drift from the code.
-const { Schema } = require('../../index.js');
+// The wire format as data: a metaschema definition, the options of the wire,
+// a value, the array it travels as and the object it comes back as. Docs
+// examples are drawn from this list, so they cannot drift from the code.
+const { Schema } = require('@alexify/metaschema');
 
 const Address = Schema.from({ city: 'string', zip: '?string' });
-const Items = Schema.from({ array: { a: 'number', b: '?number' } }, { layout: 'flat' });
 
 const AT = 1700000000000;
 
@@ -92,8 +91,9 @@ const VECTORS = [
     decoded: { id: 1, home: { city: 'Kyiv', zip: '01001' }, work: { city: 'Lviv', zip: null } },
   },
   {
-    name: 'a schema with a layout keeps it when used by value',
-    definition: { items: Items },
+    name: 'a collection in a layout of its own inside a record',
+    definition: { items: { array: { a: 'number', b: '?number' } } },
+    options: { layout: { items: 'flat' } },
     value: { items: [{ a: 1 }, { a: 2, b: 3 }] },
     wire: [[1, null, 2, 3]],
     decoded: {
@@ -223,9 +223,15 @@ const VECTORS = [
   },
   {
     name: 'a kind key is metadata',
-    definition: { Entity: {}, a: 'number' },
+    definition: { Struct: {}, a: 'number' },
     value: { a: 1 },
     wire: [1],
+  },
+  {
+    name: 'a stored kind adds the id field of its entity',
+    definition: { Entity: {}, a: 'number' },
+    value: { a: 1, id: 'u-1' },
+    wire: [1, 'u-1'],
   },
   {
     name: 'union: the tag leads and the discriminator does not travel',
@@ -322,6 +328,92 @@ const VECTORS = [
     decoded: { perms: { ...allFalse, n2: true } },
   },
   {
+    name: 'integer, any and unknown travel as they are',
+    definition: { n: 'integer', a: 'any', u: 'unknown' },
+    value: { n: 3, a: { x: [1] } },
+    wire: [3, { x: [1] }],
+    decoded: { n: 3, a: { x: [1] }, u: null },
+  },
+  {
+    name: 'a null slot is always null',
+    definition: { gap: 'null', id: 'number' },
+    value: { id: 1 },
+    wire: [null, 1],
+    decoded: { gap: null, id: 1 },
+  },
+  {
+    name: 'a set travels as the array of its elements',
+    definition: { tags: { set: 'string' } },
+    value: { tags: new Set(['admin', 'editor']) },
+    wire: [['admin', 'editor']],
+  },
+  {
+    name: 'a map travels as flat key-value pairs',
+    definition: { seen: { map: { string: 'date' } } },
+    value: {
+      seen: new Map([
+        ['Kyiv', new Date(AT)],
+        ['Lviv', new Date(AT + 1)],
+      ]),
+    },
+    wire: [['Kyiv', AT, 'Lviv', AT + 1]],
+  },
+  {
+    name: 'a map with number keys',
+    definition: { scores: { type: 'map', key: 'number', value: '?string' } },
+    value: {
+      scores: new Map([
+        [1, 'a'],
+        [2, null],
+      ]),
+    },
+    wire: [[1, 'a', 2, null]],
+  },
+  {
+    name: 'an object dictionary keeps its keys',
+    definition: { prices: { object: { string: { type: 'number', decimals: 2 } } } },
+    value: { prices: { tea: 1.5, coffee: 2.25 } },
+    wire: [{ tea: 150, coffee: 225 }],
+  },
+  {
+    name: 'a tuple of any elements, named ones too',
+    definition: { hit: [{ at: 'date' }, { x: 'number', y: 'number' }, { 'label?': 'string' }] },
+    value: { hit: [new Date(AT), { x: 1, y: 2 }] },
+    wire: [[AT, [1, 2], null]],
+    decoded: { hit: [new Date(AT), { x: 1, y: 2 }, null] },
+  },
+  {
+    name: 'long forms of collections',
+    definition: {
+      list: { type: 'array', value: 'number' },
+      set: { type: 'set', value: 'number' },
+      pair: { type: 'tuple', value: ['number', 'string'] },
+      nested: { schema: { a: 'string' } },
+    },
+    value: { list: [1], set: new Set([2]), pair: [3, 'x'], nested: { a: 'y' } },
+    wire: [[1], [2], [3, 'x'], ['y']],
+  },
+  {
+    name: 'a list of integers travels as differences',
+    definition: { ids: { array: 'integer' }, at: { array: 'date' } },
+    options: { delta: ['ids', 'at'] },
+    value: { ids: [100, 101, 103, 102], at: [new Date(AT), new Date(AT + 500)] },
+    wire: [
+      [100, 1, 2, -1],
+      [AT, 500],
+    ],
+  },
+  {
+    name: 'interned strings travel as indices into the message table',
+    definition: { role: 'string', tags: { array: '?string' } },
+    options: { intern: true },
+    value: { role: 'admin', tags: ['admin', null, 'editor'] },
+    wire: [
+      ['admin', 'editor'],
+      [0, [0, null, 1]],
+    ],
+  },
+  {
     name: 'root array of records',
     definition: { array: { id: 'number', name: '?string' } },
     value: [{ id: 1 }, { id: 2, name: 'x' }],
@@ -362,6 +454,21 @@ const VECTORS = [
     ],
   },
   {
+    name: 'columns layout with delta columns',
+    definition: { array: { id: 'integer', at: 'date', n: 'number' } },
+    options: { layout: 'columns', delta: ['[].id', '[].at'] },
+    value: [
+      { id: 100, at: new Date(AT), n: 1 },
+      { id: 101, at: new Date(AT + 60000), n: 2 },
+      { id: 103, at: new Date(AT + 120000), n: 3 },
+    ],
+    wire: [
+      [100, 1, 2],
+      [AT, 60000, 60000],
+      [1, 2, 3],
+    ],
+  },
+  {
     name: 'columns layout',
     definition: { array: { a: 'number', b: '?string' } },
     options: { layout: 'columns' },
@@ -377,4 +484,4 @@ const VECTORS = [
   },
 ];
 
-module.exports = { VECTORS, Address, Items, AT };
+module.exports = { VECTORS, Address, AT };

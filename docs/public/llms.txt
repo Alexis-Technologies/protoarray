@@ -1,36 +1,69 @@
 # @alexify/protoarray
 
-> Zero-dependency, schema-based serialization for Node.js and browsers. Objects travel as
-> positional JSON arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared by
-> the client and the server maps every position back to its key. A lightweight alternative to
-> Protocol Buffers, maintained by Alexis Technologies.
+> Fast, zero-dependency, schema-based serialization for Node.js and browsers. Objects travel as
+> positional JSON arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared
+> by the client and the server maps every position back to its key. Schemas are @alexify/metaschema's.
+> A lightweight alternative to Protocol Buffers, maintained by Alexis Technologies.
 
 Key facts:
-- Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray`
-- Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-  with `Infer<D>` and `Input<D>` inferred from the definition literal
-- Zero runtime dependencies, no build step, under 11 KB min+gzip
+- Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray
+  @alexify/metaschema` (metaschema 3.4+ where schemas are defined)
+- Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`;
+  a schema is typed by the metaschema Schema it is built from (`Schema<Output, Input>`,
+  `Decoded<T>`)
+- Zero runtime dependencies, no build step, about 21 KB min+gzip for the core; subpaths
+  `/resolve`, `/registry`, `/stream` and `/standalone` add 1.8–2.5 KB each. protoarray never
+  requires metaschema: it recognises metaschema objects by their brand, reads snapshots as plain
+  JSON, and reads a raw definition only with metaschema injected (`{ metaschema }`)
 - The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
   to parse and stringify (×1.5 encode, ×1.7 decode on a typical record in V8)
-- Definition DSL is a subset of `@alexify/metaschema`: `'string'`, `'?number'`, `'key?'`, nested
-  structs, `{ array: T }`, `{ enum: [...] }`, `{ flags: [...] }`, `{ union: [...], discriminator }`,
-  `'date'`, `'bigint'`, `'bytes'`, `'json'`, tuples, `{ type, required, default, decimals }`,
-  schemas by value or by name
+- Building a schema: `Schema.from(new (require('@alexify/metaschema').Schema)('User', definition))`
+  (typed); `Schema.from(definition, { metaschema: require('@alexify/metaschema') })` (or
+  `@alexify/metaschema/definition`, which builds without validating); `Schema.from(snapshot)` from
+  metaschema's snapshot format 1 (`schema.toSnapshot()`, `model.toJSON()`), no metaschema needed;
+  `Schema.fromModel(modelOrSnapshot)` → every entity by name; `new Schema(name, source, options)`
+- Definitions are written in metaschema's language (https://metaschema.vercel.app/guide/schema-syntax):
+  `'string'`, `'?number'`, `'key?'`, `'integer'`, `'any'`, `'unknown'`, `'null'`, nested structs,
+  `{ array: T }`, `{ set: T }`, `{ map: { K: V } }`, `{ object: { string: V } }`, `{ enum: [...] }`,
+  `{ flags: [...] }`, `{ union: [...], discriminator }`, `'date'`, `'bigint'`, `'bytes'`, `'json'`,
+  tuples, `{ type, required, nullable, default, decimals, aliases }`, kinds (`{ Entity: {}, … }`),
+  references by name
+- References travel as metaschema's check reads them: a stored kind (Entity, Registry, …) as its
+  id, a memory kind (Struct) as its record; `embed` on the field or the option
+  `references: 'kind' | 'embed' | 'id'` overrides; a stored kind adds a trailing optional
+  `<entity>Id` field; references between schemas need a metaschema Model (a schema reaches its own
+  name for recursion)
 - Wire rules: one field per position in declaration order; missing/undefined/null travel as null;
   trailing nulls are trimmed; enum → index, date → epoch ms, bigint → decimal string, bytes →
   base64, decimals → scaled integer, flags → bitmask (an array of 31-bit words past 31 names),
-  union → `[tag, ...branch fields]`; `{ sparse: true }` → `[mask, ...present]` per 31 fields;
-  collections as rows, `flat` or `columns`
+  union → `[tag, ...branch fields]`; sparse → `[mask, ...present]` per 31 fields; collections as
+  rows, `flat` or `columns`; set → array, map → `[k0, v0, …]`; delta → first value and
+  differences; intern → `[table, body]` with strings as table indexes. The wire and canonical
+  form are unchanged from 1.x
+- Options: `codegen`, `validate` (boolean: the wire on decode), `sparse: true | paths`,
+  `layout: layout | { path: layout }`, `intern: true | paths`, `delta: paths`, `stringify`,
+  `fingerprint`, `maxDepth` (levels of a recursion; default: the call stack), `references`,
+  `types` (wire types of custom types), `entity`, `entities`,
+  `metaschema`, `compiled`; paths as errors spell them: `address.city`, `orders[].sku`, `scores{}`,
+  `pair[1]`, `''`
 - Schema evolution: append fields at the end, never reorder; older and newer versions interoperate;
-  `schema.id` fingerprints the canonical form (FNV-1a 32-bit, or the `fingerprint` option)
+  `schema.id` fingerprints the schema's signature (its canonical form plus the entities it
+  references; FNV-1a 32-bit, or the `fingerprint` option); `resolve(writer, reader)` (`/resolve`)
+  reads and writes another version by name (aliases, renames, widening); `SchemaRegistry`
+  (`/registry`) keeps schemas by id and wraps payloads `[id, payload]`
 - Two backends: generated code (`new Function`) by default, composed closures where code
-  generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge)
-- Validation: `validate: true` (default) or `'decode'` checks the wire on decode and trusts the
-  values given to encode, `'both'` checks the values too, `'encode'` only them, `false` neither;
+  generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge); standalone
+  modules (`/standalone`, `protoarray compile`) carry generated code and snapshots to such
+  runtimes, without metaschema
+- Streaming: `encodeEach`/`decodeEach` in the core; NDJSON, `TransformStream`s and the items of a
+  large JSON array read as they arrive in `/stream`, a line or an item held at most `maxLength`
+  characters (16 MiB by default)
+- Validation: `validate: true` (default) checks the wire on decode; encode trusts its values, which
+  metaschema's `check` and `parse` validate (`schema.source` is the metaschema Schema);
   `EncodeError` and `DecodeError` with `code`, `path` (`orders[1].sku`) and `schema`;
-  `schema.check(value)` returns the `EncodeError` a validated encode would throw, or `null`,
-  whatever the mode; `SchemaDefinitionError` for a broken definition
-- Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `check`, `SchemaDefinitionError`,
-  `EncodeError`, `DecodeError`
+  `SchemaDefinitionError` for a snapshot or options protoarray cannot read
+- Exports: `Schema`, `encode`, `decode`, `stringify`, `parse`, `encodeEach`, `decodeEach`,
+  `SchemaDefinitionError`, `EncodeError`, `DecodeError`
+- Upgrading from 1.x: https://protoarray.vercel.app/guide/migrating-from-1
 - wrpc: a union of wrpc's packet types makes a packet codec (https://protoarray.vercel.app/guide/wrpc)
 - Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

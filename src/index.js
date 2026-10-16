@@ -1,5 +1,5 @@
 const { Schema } = require('./schema.js');
-const { encode, decode, stringify, parse, check } = require('./codec.js');
+const { encode, decode, stringify, parse, encodeEach, decodeEach } = require('./codec.js');
 const { SchemaDefinitionError, EncodeError, DecodeError } = require('./errors.js');
 
 module.exports = {
@@ -8,7 +8,8 @@ module.exports = {
   decode,
   stringify,
   parse,
-  check,
+  encodeEach,
+  decodeEach,
   SchemaDefinitionError,
   EncodeError,
   DecodeError,

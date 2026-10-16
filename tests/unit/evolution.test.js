@@ -1,11 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { Schema } = require('../../index.js');
 const { BACKENDS } = require('../support/backends.js');
+const { define } = require('../support/schema.js');
 
 for (const [backend, options] of BACKENDS) {
-  const V1 = Schema.from({ id: 'number', name: 'string' }, options);
-  const V2 = Schema.from(
+  const V1 = define({ id: 'number', name: 'string' }, options);
+  const V2 = define(
     { id: 'number', name: 'string', email: '?string', score: { type: 'number', default: 0 } },
     options,
   );
@@ -29,7 +29,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): a new required field without a default is breaking`, () => {
-    const V3 = Schema.from({ id: 'number', name: 'string', org: 'string' }, options);
+    const V3 = define({ id: 'number', name: 'string', org: 'string' }, options);
     assert.throws(() => V3.decode(V1.encode({ id: 1, name: 'x' })), {
       code: 'required',
       path: 'org',
@@ -37,11 +37,8 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): nested records and arrays of records grow the same way`, () => {
-    const A1 = Schema.from(
-      { items: { array: { sku: 'string' } }, home: { city: 'string' } },
-      options,
-    );
-    const A2 = Schema.from(
+    const A1 = define({ items: { array: { sku: 'string' } }, home: { city: 'string' } }, options);
+    const A2 = define(
       {
         items: { array: { sku: 'string', qty: '?number' } },
         home: { city: 'string', zip: '?string' },
@@ -62,11 +59,8 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): sparse records grow the same way`, () => {
-    const S1 = Schema.from({ a: '?number', b: '?number' }, { ...options, sparse: true });
-    const S2 = Schema.from(
-      { a: '?number', b: '?number', c: '?number' },
-      { ...options, sparse: true },
-    );
+    const S1 = define({ a: '?number', b: '?number' }, { ...options, sparse: true });
+    const S2 = define({ a: '?number', b: '?number', c: '?number' }, { ...options, sparse: true });
     const newer = S2.encode({ a: 1, c: 3 });
     assert.deepStrictEqual(newer, [5, 1, 3]);
     assert.deepStrictEqual(S1.decode(newer), { a: 1, b: null });
@@ -79,8 +73,8 @@ for (const [backend, options] of BACKENDS) {
     for (let i = 0; i < 31; i++) narrow[`f${i}`] = '?number';
     const wide = { ...narrow };
     for (let i = 31; i < 40; i++) wide[`f${i}`] = '?number';
-    const N = Schema.from(narrow, { ...options, sparse: true });
-    const W = Schema.from(wide, { ...options, sparse: true });
+    const N = define(narrow, { ...options, sparse: true });
+    const W = define(wide, { ...options, sparse: true });
     // An older decoder reads the first segment and ignores the next one.
     const wire = W.encode({ f0: 1, f35: 2 });
     assert.deepStrictEqual(wire, [1, 1, 16, 2]);
@@ -93,8 +87,8 @@ for (const [backend, options] of BACKENDS) {
 
   test(`Evolution (${backend}): flags grow past 31 names`, () => {
     const names = Array.from({ length: 40 }, (_, i) => `n${i}`);
-    const Narrow = Schema.from({ p: { flags: names.slice(0, 31) } }, options);
-    const Wide = Schema.from({ p: { flags: names } }, options);
+    const Narrow = define({ p: { flags: names.slice(0, 31) } }, options);
+    const Wide = define({ p: { flags: names } }, options);
     // While no name past 31 is set the wire is the one integer of 1.0, which
     // any decoder reads; a set name past 31 makes it an array of words, which
     // only a 1.1 decoder reads (a 1.0 one rejects it, or reads every flag as
@@ -108,11 +102,8 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): columns grow the same way`, () => {
-    const C1 = Schema.from({ array: { a: 'number' } }, { ...options, layout: 'columns' });
-    const C2 = Schema.from(
-      { array: { a: 'number', b: '?string' } },
-      { ...options, layout: 'columns' },
-    );
+    const C1 = define({ array: { a: 'number' } }, { ...options, layout: 'columns' });
+    const C2 = define({ array: { a: 'number', b: '?string' } }, { ...options, layout: 'columns' });
     const newer = C2.encode([{ a: 1, b: 'x' }, { a: 2 }]);
     assert.deepStrictEqual(C1.decode(newer), [{ a: 1 }, { a: 2 }]);
     assert.throws(() => C1.decode(newer, { strict: true }), { code: 'extra' });
@@ -120,23 +111,23 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): reordering positions is breaking`, () => {
-    const X = Schema.from({ a: 'string', b: 'string' }, options);
-    const Y = Schema.from({ b: 'string', a: 'string' }, options);
+    const X = define({ a: 'string', b: 'string' }, options);
+    const Y = define({ b: 'string', a: 'string' }, options);
     assert.deepStrictEqual(Y.decode(X.encode({ a: 'A', b: 'B' })), { b: 'A', a: 'B' });
     assert.notStrictEqual(X.id, Y.id);
   });
 
   test(`Evolution (${backend}): appended enum values need the decoders first`, () => {
-    const E1 = Schema.from({ r: { enum: ['a', 'b'] } }, options);
-    const E2 = Schema.from({ r: { enum: ['a', 'b', 'c'] } }, options);
+    const E1 = define({ r: { enum: ['a', 'b'] } }, options);
+    const E2 = define({ r: { enum: ['a', 'b', 'c'] } }, options);
     assert.deepStrictEqual(E2.decode(E1.encode({ r: 'b' })), { r: 'b' });
     assert.throws(() => E1.decode(E2.encode({ r: 'c' })), { code: 'enum', path: 'r' });
   });
 
   test(`Evolution (${backend}): a union grows at the end, its branches like structs`, () => {
     const call = { Struct: {}, type: { enum: ['call'] }, id: 'string' };
-    const U1 = Schema.from({ union: [call], discriminator: 'type' }, options);
-    const U2 = Schema.from(
+    const U1 = define({ union: [call], discriminator: 'type' }, options);
+    const U2 = define(
       {
         union: [
           { ...call, timeout: '?number' },
@@ -163,7 +154,7 @@ for (const [backend, options] of BACKENDS) {
       path: 'type',
     });
     // A branch inserted before the others moves every later tag: breaking.
-    const Moved = Schema.from(
+    const Moved = define(
       {
         union: [{ Struct: {}, type: { enum: ['event'] }, name: 'string' }, call],
         discriminator: 'type',
@@ -178,10 +169,10 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Evolution (${backend}): renaming keeps the wire and changes the id`, () => {
-    const Old = Schema.from({ name: 'string' }, options);
-    const New = Schema.from({ fullName: 'string' }, options);
+    const Old = define({ name: 'string' }, options);
+    const New = define({ fullName: 'string' }, options);
     assert.deepStrictEqual(New.decode(Old.encode({ name: 'Alex' })), { fullName: 'Alex' });
     assert.notStrictEqual(Old.id, New.id);
-    assert.strictEqual(Old.id, Schema.from({ name: 'string' }, { codegen: !options.codegen }).id);
+    assert.strictEqual(Old.id, define({ name: 'string' }, { codegen: !options.codegen }).id);
   });
 }

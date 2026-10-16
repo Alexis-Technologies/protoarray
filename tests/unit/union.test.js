@@ -2,10 +2,11 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { Schema, SchemaDefinitionError, EncodeError, DecodeError } = require('../../index.js');
 const { BACKENDS } = require('../support/backends.js');
+const { define, named } = require('../support/schema.js');
 
 // wrpc's packets: the discriminator `type` lives inside every branch. A
-// struct that starts with `type` reads as the long form, in metaschema as
-// here, so each branch names its kind first.
+// struct that starts with `type` reads as the long form in metaschema, so
+// each branch names its kind first.
 const Call = {
   Struct: {},
   type: { enum: ['call'] },
@@ -16,9 +17,11 @@ const Call = {
 const Event = { Struct: {}, type: { enum: ['event'] }, name: 'string', data: '?json' };
 const Ping = { Struct: {}, type: { enum: ['ping', 'pong'] } };
 
+// A definition metaschema reads and protoarray refuses: the errors of the
+// definition itself are metaschema's.
 const invalid = (definition, code, message, options) => {
   assert.throws(
-    () => new Schema('T', definition, options),
+    () => named('T', definition, options),
     (error) => {
       assert.ok(error instanceof SchemaDefinitionError);
       assert.strictEqual(error.code, code);
@@ -29,11 +32,7 @@ const invalid = (definition, code, message, options) => {
 };
 
 for (const [backend, options] of BACKENDS) {
-  const Packet = new Schema(
-    'Packet',
-    { union: [Call, Event, Ping], discriminator: 'type' },
-    options,
-  );
+  const Packet = named('Packet', { union: [Call, Event, Ping], discriminator: 'type' }, options);
 
   test(`Union (${backend}): the tag leads, the discriminator does not travel twice`, () => {
     assert.strictEqual(Packet.backend, backend);
@@ -59,7 +58,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Union (${backend}): decoded objects keep the branch's key order`, () => {
-    const Shape = Schema.from(
+    const Shape = define(
       {
         union: [
           { r: 'number', kind: { enum: ['circle'] } },
@@ -83,8 +82,8 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Union (${backend}): a union as a field, an array item and a list`, () => {
-    const Envelope = Schema.from(
-      { v: 'number', packet: Packet, batch: { array: Packet, required: false } },
+    const Envelope = define(
+      { v: 'number', packet: Packet.source, batch: { array: Packet.source, required: false } },
       options,
     );
     const value = {
@@ -117,7 +116,7 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Packet.list.encode(value.batch), wire[2]);
     assert.deepStrictEqual(Packet.list.decode(wire[2]), Envelope.decode(wire).batch);
     assert.strictEqual(Packet.list.toString(), `[${Packet.toString()}]`);
-    const Inline = Schema.from(
+    const Inline = define(
       { p: { union: [Ping, Event], discriminator: 'type', required: false } },
       options,
     );
@@ -127,7 +126,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Union (${backend}): a branch may refer to the union by name`, () => {
-    const Node = new Schema(
+    const Node = named(
       'Node',
       {
         union: [
@@ -136,7 +135,7 @@ for (const [backend, options] of BACKENDS) {
         ],
         discriminator: 'type',
       },
-      { ...options, validate: 'both' },
+      options,
     );
     const tree = {
       type: 'pair',
@@ -150,18 +149,19 @@ for (const [backend, options] of BACKENDS) {
       code: 'union',
       path: 'right.right.type',
     });
-    assert.throws(() => Node.encode({ ...tree, left: { type: 'leaf', v: 'x' } }), {
-      code: 'type',
-      path: 'left.v',
+    assert.throws(() => Node.decode([1, [0, 'x'], [0, 3]]), { code: 'type', path: 'left.v' });
+    assert.throws(() => Node.encode({ ...tree, left: { type: 'nope' } }), {
+      code: 'union',
+      path: 'left.type',
     });
   });
 
-  test(`Union (${backend}): branches given as schemas or by name are built anew`, () => {
-    const CallSchema = new Schema('Call', Call, { ...options, validate: false });
-    const EventSchema = new Schema('Event', Event, options);
-    const Mixed = Schema.from(
-      { union: [CallSchema, 'Event'], discriminator: 'type' },
-      { ...options, schemas: { Event: EventSchema } },
+  test(`Union (${backend}): branches given as schemas are built anew`, () => {
+    const CallSchema = named('Call', Call, { ...options, validate: false });
+    const EventSchema = named('Event', Event, options);
+    const Mixed = define(
+      { union: [CallSchema.source, EventSchema.source], discriminator: 'type' },
+      options,
     );
     assert.deepStrictEqual(Mixed.encode({ type: 'event', name: 'n' }), [1, 'n']);
     assert.deepStrictEqual(Mixed.decode([0, 'i', 'm']), {
@@ -174,12 +174,12 @@ for (const [backend, options] of BACKENDS) {
     assert.throws(() => Mixed.decode([0, 1, 'm']), { code: 'type', path: 'id' });
     assert.strictEqual(
       Mixed.toString(),
-      Schema.from({ union: [Call, Event], discriminator: 'type' }).toString(),
+      define({ union: [Call, Event], discriminator: 'type' }).toString(),
     );
   });
 
   test(`Union (${backend}): the discriminator and the tag are always checked`, () => {
-    const loose = new Schema('Packet', Packet.definition, { ...options, validate: false });
+    const loose = Schema.from(Packet, { ...options, validate: false });
     for (const schema of [Packet, loose]) {
       for (const value of [{}, { type: 'nope' }, { type: null }, { type: 'Call' }]) {
         assert.throws(
@@ -214,15 +214,14 @@ for (const [backend, options] of BACKENDS) {
     // Without validation the fields themselves are trusted, as in any struct.
     assert.deepStrictEqual(loose.decode([0, 1]), { type: 'call', id: 1, method: null, args: null });
     assert.deepStrictEqual(loose.encode({ type: 'call' }), [0, null, null]);
+    // The other fields of a value are trusted on the way in, whatever validate says.
     assert.deepStrictEqual(Packet.encode({ type: 'call' }), [0, null, null]);
-    const strict = new Schema('Packet', Packet.definition, { ...options, validate: 'both' });
-    assert.throws(() => strict.encode({ type: 'call' }), { code: 'required', path: 'id' });
     assert.throws(() => Packet.decode([0, 1, 'm']), { code: 'type', path: 'id' });
   });
 
   test(`Union (${backend}): trailing optionals are trimmed down to the tag`, () => {
     assert.deepStrictEqual(Packet.encode({ type: 'event', name: 'n', data: null }), [1, 'n']);
-    const Optional = Schema.from(
+    const Optional = define(
       {
         union: [{ Struct: {}, type: { enum: ['a'] }, x: '?number', y: '?number' }],
         discriminator: 'type',
@@ -250,10 +249,7 @@ for (const [backend, options] of BACKENDS) {
   });
 
   test(`Union (${backend}): errors inside a branch carry their path`, () => {
-    // A schema by value keeps its own mode: the packets check their values too.
-    const both = { ...options, validate: 'both' };
-    const Strict = new Schema('Packet', Packet.definition, both);
-    const Envelope = Schema.from({ batch: { array: Strict } }, both);
+    const Envelope = define({ batch: { array: Packet.source } }, options);
     assert.throws(
       () =>
         Envelope.decode([
@@ -276,17 +272,12 @@ for (const [backend, options] of BACKENDS) {
       path: 'batch[1]',
       message: 'Field "batch[1]" is not of expected type: object',
     });
-    assert.throws(
-      () => Envelope.encode({ batch: [{ type: 'call', id: '1', method: 'm' }, null] }),
-      {
-        code: 'type',
-        path: 'batch[1]',
-      },
+    // On the way in only the tag is looked up: the rest of the value is trusted.
+    assert.deepStrictEqual(
+      Envelope.encode({ batch: [{ type: 'call', id: '1', method: 'm' }, null] }),
+      [[[0, '1', 'm'], null]],
     );
-    assert.throws(() => Envelope.encode({ batch: [{ type: 'event' }] }), {
-      code: 'required',
-      path: 'batch[0].name',
-    });
+    assert.deepStrictEqual(Envelope.encode({ batch: [{ type: 'event' }] }), [[[1, null]]]);
     assert.throws(() => Envelope.encode({ batch: [{ type: 'x' }] }), {
       code: 'union',
       path: 'batch[0].type',
@@ -295,40 +286,10 @@ for (const [backend, options] of BACKENDS) {
 }
 
 test('Union: definition errors', () => {
-  invalid({ union: [Call, Event] }, 'ERR_UNKNOWN_TYPE', 'A union needs a discriminator');
-  invalid({ union: [Call], discriminator: '' }, 'ERR_UNKNOWN_TYPE');
-  invalid(
-    { union: [], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-    'A union needs at least one branch',
-  );
-  const branch = 'A branch must be a struct with the required enum "type" without a default';
-  invalid({ union: ['string'], discriminator: 'type' }, 'ERR_INVALID_UNION', `${branch} at "[0]"`);
-  invalid({ union: [{ id: 'string' }], discriminator: 'type' }, 'ERR_INVALID_UNION');
-  invalid(
-    { union: [{ id: 'string', type: 'string' }], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-  );
-  invalid(
-    { union: [{ id: 'string', type: { enum: ['a'], default: 'a' } }], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-  );
-  // The tag always travels: an optional discriminator would never be missing.
-  invalid(
-    { union: [{ Struct: {}, 'type?': { enum: ['a'] }, id: 'string' }], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-  );
-  invalid(
-    { union: [{ id: 'string', type: { enum: ['a'], required: false } }], discriminator: 'type' },
-    'ERR_INVALID_UNION',
-  );
-  invalid({ union: [Call, 'T'], discriminator: 'type' }, 'ERR_INVALID_UNION', `${branch} at "[1]"`);
-  invalid({ union: [Call, 'Missing'], discriminator: 'type' }, 'ERR_UNKNOWN_REFERENCE');
-  const Sparse = Schema.from(Call, { sparse: true });
-  invalid({ union: [Sparse], discriminator: 'type' }, 'ERR_INVALID_UNION');
-  const List = Schema.from({ array: Call });
-  invalid({ union: [List], discriminator: 'type' }, 'ERR_INVALID_UNION');
-  invalid({ union: [Call, Call], discriminator: 'type' }, 'ERR_INVALID_UNION');
+  // metaschema reads a union without a discriminator; protoarray has no wire for it.
+  invalid({ union: [Call, Event] }, 'ERR_INVALID_UNION', 'A union needs a discriminator');
+  invalid({ union: ['string', 'number'] }, 'ERR_INVALID_UNION', 'A union needs a discriminator');
+  // The tag is the index of a value among all of them: 1 and '1' would share it.
   invalid(
     {
       union: [
@@ -338,7 +299,24 @@ test('Union: definition errors', () => {
       discriminator: 'type',
     },
     'ERR_INVALID_UNION',
-    'Expected unique strings or numbers',
+    'The values of the discriminator must be unique',
+  );
+  // A sparse branch would put its mask where the tag goes.
+  invalid(
+    { union: [Event, Call], discriminator: 'type' },
+    'ERR_INVALID_OPTIONS',
+    'Option "sparse" takes no branch of a union at "[1]"',
+    {
+      sparse: ['[1]'],
+    },
+  );
+  invalid(
+    {
+      union: [Call, { Struct: {}, type: { enum: ['x'] }, next: 'Missing' }],
+      discriminator: 'type',
+    },
+    'ERR_UNKNOWN_REFERENCE',
+    'Unknown reference "Missing" at "[1].next"',
   );
   invalid({ union: [Call], discriminator: 'type' }, 'ERR_INVALID_OPTIONS', undefined, {
     sparse: true,
@@ -346,17 +324,14 @@ test('Union: definition errors', () => {
   invalid({ array: { union: [Call], discriminator: 'type' } }, 'ERR_INVALID_OPTIONS', undefined, {
     layout: 'flat',
   });
-  // A struct that merely starts with a key named `union` is one metaschema would
-  // read as a union too, so it is refused rather than read differently.
-  invalid({ union: 'string', id: 'number' }, 'ERR_UNKNOWN_TYPE');
-  invalid({ union: ['string', 'number'] }, 'ERR_UNKNOWN_TYPE', 'A union needs a discriminator');
-  assert.deepStrictEqual(Schema.from({ id: 'number', union: 'string' }).keys, ['id', 'union']);
+  // A key named `union` after the first one is a field like any other.
+  assert.deepStrictEqual(define({ id: 'number', union: 'string' }).keys, ['id', 'union']);
 });
 
 test('Union: the id follows the branches and their order', () => {
-  const a = Schema.from({ union: [Call, Event], discriminator: 'type' });
-  const b = Schema.from({ union: [Event, Call], discriminator: 'type' });
-  const c = Schema.from({ union: [Call, Event], discriminator: 'type' }, { codegen: false });
+  const a = define({ union: [Call, Event], discriminator: 'type' });
+  const b = define({ union: [Event, Call], discriminator: 'type' });
+  const c = define({ union: [Call, Event], discriminator: 'type' }, { codegen: false });
   assert.notStrictEqual(a.id, b.id);
   assert.strictEqual(a.id, c.id);
   assert.match(a.toString(), /^union\(type\)\[\{type:enum\(call\),id:string/);
@@ -366,7 +341,7 @@ test('Union: the id follows the branches and their order', () => {
 // hostile discriminator keys: the tag is an index, whatever the values are.
 for (const [backend, options] of BACKENDS) {
   test(`Union (${backend}): numeric discriminator values are matched exactly`, () => {
-    const Code = Schema.from(
+    const Code = define(
       {
         union: [
           { Struct: {}, code: { enum: [1] }, a: 'string' },
@@ -381,21 +356,15 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(Code.decode([2]), { code: 3 });
     for (const value of ['1', '3', 1.5, true, [1], { valueOf: () => 1 }]) {
       assert.throws(() => Code.encode({ code: value }), { code: 'union', path: 'code' });
-      assert.strictEqual(Code.check({ code: value }).code, 'union');
     }
     assert.throws(() => Code.decode([3]), { code: 'union', path: 'code' });
   });
 
   test(`Union (${backend}): unions inside layouts and sparse records`, () => {
-    const both = { ...options, validate: 'both' };
-    const Packet = new Schema(
-      'Packet',
-      { union: [Call, Event, Ping], discriminator: 'type' },
-      both,
-    );
+    const Packet = named('Packet', { union: [Call, Event, Ping], discriminator: 'type' }, options);
     const value = [{ p: { type: 'call', id: '1', method: 'm' } }, { p: { type: 'ping' } }];
     for (const layout of ['rows', 'flat', 'columns']) {
-      const Grid = Schema.from({ array: { p: Packet, n: '?number' } }, { ...both, layout });
+      const Grid = define({ array: { p: Packet.source, n: '?number' } }, { ...options, layout });
       const wire = Grid.encode(value);
       assert.deepStrictEqual(Grid.decode(wire), [
         { p: { type: 'call', id: '1', method: 'm', args: null }, n: null },
@@ -407,14 +376,14 @@ for (const [backend, options] of BACKENDS) {
         path: '[0].p.type',
       });
     }
-    const Flat = Schema.from({ array: { p: Packet } }, { ...both, layout: 'flat' });
+    const Flat = define({ array: { p: Packet.source } }, { ...options, layout: 'flat' });
     assert.throws(() => Flat.decode([[2, 'extra']], { strict: true }), {
       code: 'extra',
       path: '[0].p',
     });
-    const Sparse = Schema.from(
+    const Sparse = define(
       { a: '?number', p: { union: [Call, Ping], discriminator: 'type', required: false } },
-      { ...both, sparse: true },
+      { ...options, sparse: true },
     );
     assert.deepStrictEqual(Sparse.encode({ p: { type: 'pong' } }), [2, [2]]);
     assert.deepStrictEqual(Sparse.decode([2, [2]]), { a: null, p: { type: 'pong' } });
@@ -429,7 +398,7 @@ for (const [backend, options] of BACKENDS) {
     const LS = String.fromCharCode(0x2028);
     const key = `t"\\${LS}`;
     const values = ['a"b', `c\\${LS}`, 'd*/e'];
-    const Hostile = Schema.from(
+    const Hostile = define(
       {
         union: [
           { [key]: { enum: values.slice(0, 2) }, v: 'string' },

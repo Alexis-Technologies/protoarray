@@ -1,0 +1,663 @@
+{
+  "vectors": {
+    "flat record": "{name:string,age:number}",
+    "trailing optionals are trimmed": "{name:string,email:?string,age:?number}",
+    "a missing optional before a required field stays as null": "{nick:?string,id:number}",
+    "undefined and null travel the same way": "{a:?string,b:?string,c:number}",
+    "optional key spelling": "{name:string,email:?string}",
+    "long form": "{name:string,email:?string}",
+    "default fills a missing slot": "{balance:?number=0,name:string}",
+    "nested struct": "{id:number,address:{city:string,zip:?string}}",
+    "nested struct with every field missing is an empty array, not null": "{id:number,meta:{a:?string,b:?string}}",
+    "missing optional nested struct": "{id:number,meta:?json}",
+    "schema used by value": "{id:number,home:{city:string,zip:?string},work:{city:string,zip:?string}}",
+    "array of scalars travels as it is": "{tags:[string]}",
+    "empty array": "{tags:[string]}",
+    "array of optional scalars keeps null slots": "{list:[?number]}",
+    "array of records is an array of arrays": "{orders:[{sku:string,qty:?number}]}",
+    "array of arrays": "{grid:[[number]]}",
+    "enum travels as its index": "{role:enum(admin|editor|viewer)}",
+    "array of enums": "{roles:[enum(admin|editor)]}",
+    "date travels as epoch milliseconds": "{at:date}",
+    "bigint travels as a decimal string": "{n:bigint}",
+    "decimals travel as scaled integers": "{price:number(2),total:number(2)}",
+    "bytes travel as base64": "{id:number,avatar:bytes}",
+    "flags travel as a bitmask": "{perms:flags(read|write|admin)}",
+    "tuple": "{point:(number,number)}",
+    "tuple with an optional element": "{pair:(number,?string)}",
+    "json passes any value through": "{payload:?json,next:number}",
+    "json null is a value and json is never required": "{payload:?json,next:?number}",
+    "keys with quotes, newlines and unicode": "{ім’я:string,with\"quote:number,new\nline:boolean}",
+    "calculated fields have no position": "{a:number}",
+    "a kind key is metadata": "{a:number}",
+    "union: the tag leads and the discriminator does not travel": "union(type)[{type:enum(call),id:string,method:string,args:?json}|{type:enum(event),name:string,data:?json}]",
+    "union: trailing optionals of a branch are trimmed": "union(type)[{type:enum(call),id:string,method:string,args:?json}|{type:enum(event),name:string,data:?json}]",
+    "union: a branch with several values": "union(kind)[{r:number,kind:enum(circle)}|{side:number,kind:enum(square|diamond)}]",
+    "array of unions": "[union(type)[{type:enum(ping)}|{type:enum(event),name:string}]]",
+    "sparse record": "sparse{a:number,b:?string,c:?string,d:?number}",
+    "a sparse record past 31 fields takes a segment per 31": "sparse{f0:?number,f1:?number,f2:?number,f3:?number,f4:?number,f5:?number,f6:?number,f7:?number,f8:?number,f9:?number,f10:?number,f11:?number,f12:?number,f13:?number,f14:?number,f15:?number,f16:?number,f17:?number,f18:?number,f19:?number,f20:?number,f21:?number,f22:?number,f23:?number,f24:?number,f25:?number,f26:?number,f27:?number,f28:?number,f29:?number,f30:?number,f31:?number,f32:?number,f33:?number,f34:?number,f35:?number,f36:?number,f37:?number,f38:?number,f39:?number}",
+    "trailing empty segments are trimmed": "sparse{f0:?number,f1:?number,f2:?number,f3:?number,f4:?number,f5:?number,f6:?number,f7:?number,f8:?number,f9:?number,f10:?number,f11:?number,f12:?number,f13:?number,f14:?number,f15:?number,f16:?number,f17:?number,f18:?number,f19:?number,f20:?number,f21:?number,f22:?number,f23:?number,f24:?number,f25:?number,f26:?number,f27:?number,f28:?number,f29:?number,f30:?number,f31:?number,f32:?number,f33:?number,f34:?number,f35:?number,f36:?number,f37:?number,f38:?number,f39:?number}",
+    "flags past 31 names take an array of words": "{perms:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39)}",
+    "wide flags stay one integer while the first word holds them all": "{perms:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39)}",
+    "integer, any and unknown travel as they are": "{n:integer,a:?json,u:?json}",
+    "a null slot is always null": "{gap:?null,id:number}",
+    "a set travels as the array of its elements": "{tags:set[string]}",
+    "a map travels as flat key-value pairs": "{seen:map<string,date>}",
+    "a map with number keys": "{scores:map<number,?string>}",
+    "an object dictionary keeps its keys": "{prices:object<number(2)>}",
+    "a tuple of any elements, named ones too": "{hit:(date,{x:number,y:number},?string)}",
+    "long forms of collections": "{list:[number],set:set[number],pair:(number,string),nested:{a:string}}",
+    "a list of integers travels as differences": "{ids:~[integer],at:~[date]}",
+    "interned strings travel as indices into the message table": "{role:string*,tags:[?string*]}",
+    "root array of records": "[{id:number,name:?string}]",
+    "root array with null records": "[?json]",
+    "root tuple": "(number,?string)",
+    "root scalar": "string",
+    "flat layout": "flat[{a:number,b:?string}]",
+    "columns layout with delta columns": "columns[{id:integer~,at:date~,n:number}]",
+    "columns layout": "columns[{a:number,b:?string}]",
+    "a collection in a layout of its own inside a record": "{items:flat[{a:number,b:?number}]}"
+  },
+  "seeds": {
+    "1": {
+      "canonical": "{f0:?enum(a|b|c),f1:number,f2:?(number,?string)}",
+      "id": "c9c1d0fb",
+      "text": "[null,389647]"
+    },
+    "2": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[1]"
+    },
+    "3": {
+      "canonical": "{f0:?enum(a|b|c),f1:?number(2),f2:?(number,?string)}",
+      "id": "5bb9f50f",
+      "text": "[2,51748,[1,\"s\"]]"
+    },
+    "4": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[0]"
+    },
+    "5": {
+      "canonical": "{f0:?json,f1:?object<bigint>,f2:?map<string,enum(a|b|c)>,f3:?string,f4:number(15),f5:?object<string*>,f6:[enum(a|b|c)],f7:?number=7,f8:?[?json],f9:[enum(a|b|c)],f10:?[enum(a|b|c)],f11:?[?number],f12:[number(6)],f13:[?number],f14:?enum(a|b|c),f15:?flags(x|y|z),f16:?{f0:enum(a|b|c),f1:string*,f2:?number=7,f3:?boolean},f17:?enum(a|b|c),f18:?{f0:flags(x|y|z)},f19:?(number,?string),f20:?json,f21:[enum(a|b|c)],f22:?enum(a|b|c),f23:?bigint,f24:?[enum(a|b|c)],f25:?string,f26:?set[enum(a|b|c)],f27:?union(k)[{k:enum(v0),f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}|{f0:integer~,f1:enum(a|b|c),f2:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f3:?enum(a|b|c),k:enum(v1|v2)}|{f0:?enum(a|b|c),f1:(number,?string),f2:date~,f3:enum(a|b|c),k:enum(v3)}],f28:string,f29:?string*,f30:{f0:enum(a|b|c)},f31:?number=7,f32:?set[flags(x|y|z)],f33:?flags(x|y|z),f34:?union(k)[{f0:?number=7,f1:?string*,f2:?enum(a|b|c),f3:bytes,k:enum(0|1)}|{f0:enum(a|b|c),k:enum(2|3)}|{f0:?number=7,f1:?json,f2:flags(x|y|z),k:enum(4),f3:number}],f35:?[(number,?string)],f36:?[enum(a|b|c)],f37:?number=7,f38:?integer~,f39:?number(6),f40:{f0:?enum(a|b|c)},f41:?string*}",
+      "id": "85cc21d8",
+      "text": "[[\" \",\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"],[\"json\",null,null,null,165360883420966,{},[1,2],8.53333017254869,null,[0,2],null,[48.9610489220177,13.46162916787976,158221],[],[],null,null,null,1,[1],[1,\"s\"],\"json\",[0,1],null,\"771697088969730000\",[2],\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",null,null,\"a\",0,[2],76.53186515743465,[5,1],null,[4,806506,[1,{\"a\":2}],1,69.76831400290519],[[2,null],[2,null]],null,37.647304748020744,null,null,[2],1]]"
+    },
+    "6": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[2]"
+    },
+    "7": {
+      "canonical": "{f0:?enum(a|b|c),f1:number,f2:[enum(a|b|c)]}",
+      "id": "c59ca652",
+      "text": "[null,90.42610791066015,[0,0,1]]"
+    },
+    "8": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[1]"
+    },
+    "9": {
+      "canonical": "{f0:enum(a|b|c),f1:map<string,flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)>,f2:{f0:{f0:?number=7,f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:flags(x|y|z),f3:enum(a|b|c),f4:?number(0)},f1:union(k)[{f0:?integer,f1:?enum(a|b|c),k:enum(0|1),f2:?enum(a|b|c)}|{k:enum(2),f0:bytes,f1:enum(a|b|c),f2:enum(a|b|c)}|{k:enum(3|4),f0:?number=7}],f2:enum(a|b|c),f3:set[(number,?string)]},f3:?json}",
+      "id": "3a1a6743",
+      "text": "[0,[\"k0\",[2,16]],[[874800,[2,0,128],5,0],[0,null,0,1],1,[[1,\"s\"]]]]"
+    },
+    "10": {
+      "canonical": "{f0:?[?number],f1:?number(15),f2:?date,f3:?{f0:?integer~},f4:?bytes,f5:object<integer~>,f6:?number(2),f7:?[integer~],f8:?enum(a|b|c),f9:[?json],f10:string,f11:?[enum(a|b|c)],f12:?boolean,f13:map<string,enum(a|b|c)>,f14:?flags(x|y|z),f15:[enum(a|b|c)],f16:?date,f17:?union(k)[{f0:(number,?string),f1:enum(a|b|c),f2:enum(a|b|c),f3:enum(a|b|c),k:enum(v0|v1),f4:?number=7}|{f0:integer~,f1:enum(a|b|c),f2:string*,k:enum(v2|v3),f3:?enum(a|b|c),f4:enum(a|b|c)}|{f0:enum(a|b|c),f1:enum(a|b|c),f2:?null,f3:?bigint,f4:enum(a|b|c),k:enum(v4)}],f18:?flags(x|y|z),f19:?json,f20:object<enum(a|b|c)>,f21:?json,f22:?flags(x|y|z),f23:?(number,?string),f24:?integer,f25:?number(6),f26:?object<enum(a|b|c)>,f27:?map<number,number>,f28:?json,f29:?[?number],f30:?union(k)[{f0:?number=7,k:enum(v0|v1),f1:?enum(a|b|c)}|{f0:date,k:enum(v2),f1:enum(a|b|c)}|{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:enum(a|b|c),k:enum(v3|v4),f2:enum(a|b|c),f3:enum(a|b|c)}],f31:flags(x|y|z),f32:?{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:?enum(a|b|c),f2:flags(x|y|z),f3:?date},f33:?bytes,f34:?{f0:?number=7,f1:number(0)},f35:?boolean,f36:?{f0:?number=7},f37:?(date,{f0:?enum(a|b|c),f1:?bigint,f2:~[integer],f3:date~,f4:?number(15)},?integer),f38:?number=7,f39:?union(k)[{f0:enum(a|b|c),f1:?bytes,k:enum(v0|v1),f2:?integer~}],f40:?[?number],f41:enum(a|b|c),f42:?[enum(a|b|c)],f43:?union(k)[{k:enum(v0),f0:enum(a|b|c),f1:?boolean}|{f0:enum(a|b|c),f1:?number=7,f2:?enum(a|b|c),k:enum(v1)}],f44:?[enum(a|b|c)],f45:?flags(x|y|z),f46:?bytes,f47:flags(x|y|z),f48:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f49:?enum(a|b|c),f50:?flags(x|y|z),f51:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:date~,f3:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)},f52:?string,f53:?{f0:?null},f54:?number=7,f55:flags(x|y|z),f56:?enum(a|b|c),f57:integer~,f58:?{f0:?enum(a|b|c),f1:?enum(a|b|c),f2:?null},f59:[?json],f60:number(15),f61:?[?number],f62:?number=7,f63:?null}",
+      "id": "a1b975b4",
+      "text": "[[],[[],null,1332474678443,null,null,{\"k0\":62881,\"__proto__\":234099,\"k2\":-794623},null,[],null,[],\"new\\nline\",[],null,[\"k0\",2],null,[0],753055782408,[4,1,2,null,\"210265921061051000\",0],5,null,{\"k0\":1},\"json\",0,[2,null],null,946623682,{\"k0\":1},[0,60.38483859057764,3,635386,6,76.2148374115186],null,[90.09828120008963],null,4,null,null,[68.27597132338023,874],true,[975935],[410140310605,[1,\"65064266820002000\",[971780],1936039854742,-620796935456244],753689],72.71491986360165,[1,1,\"Og==\",-996684],[314231,262313,319504],0,[0,2],[1,1,13.581150776511594],null,1,\"ZA==\",1,null,0,null,[1,1,308703019427,[0,16]],null,[],371298,5,0,267487,[null,1],[1,[1,{\"a\":2}],null],804664280174609,null,73.43890460833856]]"
+    },
+    "11": {
+      "canonical": "{f0:enum(a|b|c),f1:?enum(a|b|c),f2:date,f3:[{f0:?flags(x|y|z),f1:enum(a|b|c)}]}",
+      "id": "d43dc8eb",
+      "text": "[2,null,1595071737465,[]]"
+    },
+    "12": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[2]"
+    },
+    "13": {
+      "canonical": "{f0:enum(a|b|c),f1:{f0:?object<bigint>},f2:?union(k)[{k:enum(0),f0:flags(x|y|z)}],f3:map<string,(date,{f0:integer~,f1:?null,f2:?json,f3:flags(x|y|z),f4:enum(a|b|c)},?integer)>}",
+      "id": "24edb5ef",
+      "text": "[0,[{}],null,[]]"
+    },
+    "14": {
+      "canonical": "{f0:enum(a|b|c)}",
+      "id": "56dc1151",
+      "text": "[2]"
+    },
+    "15": {
+      "canonical": "{f0:?number=7,f1:enum(a|b|c),f2:?boolean,f3:?[integer~],f4:bytes,f5:?[?number],f6:union(k)[{f0:?integer~,f1:enum(a|b|c),f2:date~,k:enum(v0)}|{f0:enum(a|b|c),f1:?integer~,k:enum(v1|v2),f2:?date~,f3:number(0)}|{f0:?integer~,k:enum(v3|v4),f1:enum(a|b|c),f2:number(15),f3:integer~,f4:?string}],f7:(date,{f0:?integer~,f1:enum(a|b|c),f2:enum(a|b|c),f3:?date~},?integer),f8:?{f0:~[?date],f1:enum(a|b|c),f2:enum(a|b|c),f3:?number=7,f4:?number(2)},f9:enum(a|b|c),f10:?[enum(a|b|c)],f11:?json,f12:?{f0:date},f13:?flags(x|y|z),f14:?enum(a|b|c),f15:?number(15),f16:[enum(a|b|c)],f17:flags(x|y|z),f18:{f0:enum(a|b|c),f1:(number,?string)},f19:?bytes,f20:?[enum(a|b|c)],f21:?enum(a|b|c),f22:(date,{f0:boolean,f1:date~,f2:date~},?integer),f23:?{f0:?flags(x|y|z),f1:?number=7,f2:?number=7},f24:[integer~],f25:?integer,f26:?date,f27:?[date~],f28:object<date~>,f29:?(number,?string),f30:set[?number],f31:bytes,f32:?json,f33:object<number(6)>,f34:?object<~[?date]>,f35:enum(a|b|c),f36:?date~,f37:?[enum(a|b|c)],f38:?null,f39:bytes,f40:?boolean,f41:?integer,f42:?{f0:(number,?string),f1:integer~,f2:date~,f3:enum(a|b|c)},f43:?{f0:?string,f1:enum(a|b|c)},f44:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f45:?flags(x|y|z),f46:?flags(x|y|z),f47:union(k)[{k:enum(v0|v1),f0:enum(a|b|c),f1:number(6)}|{k:enum(v2|v3),f0:enum(a|b|c)}|{f0:?null,f1:enum(a|b|c),k:enum(v4|v5)}],f48:?~[integer],f49:?union(k)[{k:enum(0|1),f0:enum(a|b|c),f1:boolean,f2:?number=7,f3:?date~,f4:flags(x|y|z)}|{k:enum(2|3),f0:enum(a|b|c),f1:?(number,?string)}|{f0:?boolean,f1:?bytes,f2:boolean,k:enum(4),f3:?number=7}]}",
+      "id": "7dd1aa8a",
+      "text": "[null,0,null,null,\"oawh\",null,[1,0,-929137,null,148],[326200549642,[280329,2,0],null],null,0,[0,2],null,null,4,null,null,[0,1,0],1,[0,[1,\"s\"]],\"RDc=\",null,1,[1465076216247,[true,605884736685,1334436542975],-944021],null,[-396762,-730612],141289,null,[1765020038823,1664858394146,1851233022218],{\"k0\":212250105204,\"__proto__\":736607049003},[2,null],[],\"PayLExo=\",null,{\"k0\":964712071,\"__proto__\":177302802},{},1,null,null,null,\"\",false,376588,null,[\"\",1],[2,0,128],null,1,[3,2],[-756000]]"
+    },
+    "16": {
+      "canonical": "{f0:enum(a|b|c),f1:?number=7}",
+      "id": "9d9b8550",
+      "text": "[2,58.580793840149795]"
+    },
+    "17": {
+      "canonical": "{f0:enum(a|b|c),f1:?flags(x|y|z),f2:?[(number,?string)],f3:?flags(x|y|z)}",
+      "id": "42381a38",
+      "text": "[2,5]"
+    },
+    "18": {
+      "canonical": "{f0:?enum(a|b|c),f1:?[enum(a|b|c)]}",
+      "id": "f47b8ce4",
+      "text": "[null,[2,0]]"
+    },
+    "19": {
+      "canonical": "{f0:enum(a|b|c),f1:?{f0:flags(x|y|z),f1:?bigint,f2:{f0:?boolean,f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?bigint,f3:enum(a|b|c),f4:flags(x|y|z)},f3:{f0:?enum(a|b|c),f1:?number=7,f2:?enum(a|b|c),f3:enum(a|b|c),f4:enum(a|b|c)},f4:(date,{f0:?string*,f1:enum(a|b|c),f2:?enum(a|b|c),f3:string,f4:string},?integer)},f2:set[bytes],f3:?union(k)[{f0:[date~],f1:(date,{f0:?number=7,f1:enum(a|b|c),f2:?json},?integer),k:enum(v0|v1)}]}",
+      "id": "388a45bf",
+      "text": "[[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"],[2,[5,\"534526312507002000\",[true,[2,16,128],null,1,1],[2,87.30334289712056,2,1,2],[1410787189104,[0,0,2,\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\" \"],-191439]],[\"dbsS\"],[0,[1166946126691],[298138125938,[44.544909635812466,1,\"json\"],-404606]]]]"
+    },
+    "20": {
+      "canonical": "{f0:?null,f1:{f0:?number=7,f1:?enum(a|b|c),f2:flags(x|y|z),f3:date~,f4:?number=7},f2:?{f0:enum(a|b|c),f1:?number=7,f2:?flags(x|y|z),f3:?number=7},f3:?(number,?string),f4:?bigint,f5:?object<(number,?string)>,f6:?map<number,integer~>,f7:?[?null],f8:?flags(x|y|z),f9:?~[integer],f10:?enum(a|b|c),f11:?json,f12:?number(6),f13:?set[?number],f14:?enum(a|b|c),f15:map<number,integer>,f16:?json,f17:?~[integer],f18:(date,{f0:bytes,f1:?enum(a|b|c),f2:enum(a|b|c),f3:?enum(a|b|c),f4:?integer~},?integer),f19:number(0),f20:?map<string,enum(a|b|c)>,f21:?[date~],f22:{f0:enum(a|b|c),f1:enum(a|b|c),f2:integer~,f3:date~},f23:?enum(a|b|c),f24:?number(0),f25:?number=7,f26:?[enum(a|b|c)],f27:?{f0:enum(a|b|c)},f28:?json,f29:?null,f30:map<string,enum(a|b|c)>}",
+      "id": "085f69da",
+      "text": "[null,[484998,2,5,809469689060,7.823986656881862],[0,37.56874643152987,null,96757],[2,null],null,{},null,null,1,null,0,null,63320409,[75.19852704144945,26.901697985316485],null,[],null,[-209959],[8493404839,[\"vHF/Is0=\",null,2,null,733008],914321],777,null,null,[0,0,-716045,1019775337083],null,246,70.79240822735821,[1,1],null,\"json\",null,[\"k0\",0,\"k1\",2]]"
+    },
+    "21": {
+      "canonical": "{f0:flags(x|y|z),f1:[integer],f2:[map<string,date~>],f3:enum(a|b|c)}",
+      "id": "a765fc25",
+      "text": "[0,[544240,-618521],[],0]"
+    },
+    "22": {
+      "canonical": "{f0:?flags(x|y|z),f1:number}",
+      "id": "792c365d",
+      "text": "[null,987947]"
+    },
+    "23": {
+      "canonical": "{f0:flags(x|y|z),f1:?number=7,f2:?boolean,f3:~[?date],f4:(number,?string)}",
+      "id": "2957b5d2",
+      "text": "[0,430536,null,[],[2,null]]"
+    },
+    "24": {
+      "canonical": "{f0:?flags(x|y|z),f1:?[?number]}",
+      "id": "50636465",
+      "text": "[5,[98.40246713645871]]"
+    },
+    "25": {
+      "canonical": "{f0:?[enum(a|b|c)],f1:string*,f2:?number,f3:{f0:flags(x|y|z)},f4:?number=7,f5:?~[?date],f6:?[enum(a|b|c)],f7:?{f0:?null,f1:enum(a|b|c),f2:?enum(a|b|c)},f8:?number(0),f9:?[enum(a|b|c)],f10:?string,f11:?enum(a|b|c),f12:?[enum(a|b|c)],f13:{f0:flags(x|y|z),f1:?integer,f2:?enum(a|b|c),f3:enum(a|b|c)},f14:?bigint,f15:?number(0),f16:{f0:?json,f1:enum(a|b|c),f2:?~[integer]},f17:number,f18:?{f0:enum(a|b|c)},f19:?flags(x|y|z),f20:?[enum(a|b|c)],f21:?[enum(a|b|c)],f22:?object<enum(a|b|c)>,f23:?number=7,f24:?map<number,enum(a|b|c)>,f25:number(15),f26:?(date,{f0:date~,f1:date~},?integer),f27:?enum(a|b|c),f28:?null,f29:?date,f30:?set[integer~],f31:?~[integer],f32:?date,f33:?date,f34:[(number,?string)],f35:?object<enum(a|b|c)>,f36:?json,f37:?(number,?string),f38:flags(x|y|z),f39:?json,f40:flags(x|y|z),f41:?[enum(a|b|c)],f42:[number],f43:?enum(a|b|c),f44:?string*,f45:?[flags(x|y|z)],f46:?map<string,enum(a|b|c)>,f47:number(6),f48:?number=7,f49:?boolean,f50:boolean,f51:?[enum(a|b|c)],f52:?{f0:?integer~},f53:number(6),f54:?enum(a|b|c),f55:?number=7,f56:?{f0:?enum(a|b|c),f1:?number=7,f2:number(15),f3:enum(a|b|c)},f57:?[enum(a|b|c)]}",
+      "id": "f46414d8",
+      "text": "[[\"a\",\"Олена\"],[null,0,null,[1],null,[],[],null,12,null,\" \",null,[0],[4,null,0,0],null,null,[null,0,[-118769,744141]],1.417740388502246,null,5,[1,0,0],[2,1],{\"k0\":1,\"__proto__\":2},null,null,-683843117525728,null,0,null,null,[-166711,-675381,694533],null,null,null,[[1,\"s\"],[2,null],[1,\"s\"]],null,[1,{\"a\":2}],[1,\"s\"],1,null,0,null,[500805],1,1,[5,5,1],[\"k0\",1,\"k1\",1,\"k2\",0],657355198,217083,false,true,null,null,317488247,0,null,[0,33.68276568766812,-963069671747772,0],[1,2]]]"
+    },
+    "26": {
+      "canonical": "{f0:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:union(k)[{f0:(number,?string),f1:{f0:?enum(a|b|c),f1:enum(a|b|c),f2:date~},f2:[?number],f3:enum(a|b|c),k:enum(v0|v1),f4:[enum(a|b|c)]}]}",
+      "id": "1f8d28cd",
+      "text": "[null,[1,[2,null],[0,0,620484400829],[899881,171271],1,[0]]]"
+    },
+    "27": {
+      "canonical": "{f0:flags(x|y|z),f1:[[flags(x|y|z)]],f2:union(k)[{f0:bytes,k:enum(v0),f1:?bytes,f2:boolean,f3:{f0:enum(a|b|c),f1:integer~,f2:?enum(a|b|c),f3:?date~},f4:?number=7}],f3:?number=7,f4:set[[~[integer]]]}",
+      "id": "6016a7f0",
+      "text": "[5,[[5],[1],[1,5]],[0,\"rZxH\",\"e7uTCw==\",true,[0,309499,2],57.59739464036999],61143,[[],[[-194391,-432486],[-957200],[]]]]"
+    },
+    "28": {
+      "canonical": "{f0:?flags(x|y|z),f1:?date}",
+      "id": "6919b807",
+      "text": "[4,197769128809]"
+    },
+    "29": {
+      "canonical": "{f0:flags(x|y|z),f1:union(k)[{f0:[enum(a|b|c)],f1:union(k)[{f0:enum(a|b|c),k:enum(v0),f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}|{f0:?null,k:enum(v1),f1:?json,f2:?number,f3:?null}],k:enum(v0|v1),f2:?{f0:enum(a|b|c),f1:flags(x|y|z),f2:number(6),f3:enum(a|b|c),f4:?bigint}}|{f0:bytes,f1:?{f0:?bytes,f1:enum(a|b|c),f2:number,f3:?integer~},f2:[enum(a|b|c)],f3:{f0:enum(a|b|c)},k:enum(v2),f4:?{f0:enum(a|b|c),f1:?flags(x|y|z),f2:?enum(a|b|c)}}],f2:union(k)[{f0:enum(a|b|c),f1:?json,k:enum(v0|v1),f2:boolean}|{f0:[?number],f1:{f0:enum(a|b|c),f1:number(2),f2:integer~,f3:enum(a|b|c)},k:enum(v2),f2:?~[integer],f3:{f0:?enum(a|b|c),f1:enum(a|b|c),f2:enum(a|b|c),f3:date~,f4:enum(a|b|c)},f4:object<enum(a|b|c)>}],f3:enum(a|b|c),f4:?(number,?string)}",
+      "id": "e2e8bc01",
+      "text": "[1,[1,[],[0,2,[2,16,128]],[2,1,739144426,0,\"953142958671386000\"]],[0,0,{\"nested\":[true]},false],0,[1,\"s\"]]"
+    },
+    "30": {
+      "canonical": "{f0:?(number,?string),f1:?[?json],f2:?set[integer~],f3:?number,f4:?union(k)[{f0:enum(a|b|c),f1:integer~,k:enum(v0)}|{f0:?string*,f1:enum(a|b|c),k:enum(v1|v2),f2:enum(a|b|c)}|{f0:?enum(a|b|c),f1:enum(a|b|c),k:enum(v3),f2:(number,?string),f3:(number,?string)}],f5:?enum(a|b|c),f6:?date~,f7:{f0:flags(x|y|z),f1:date~,f2:?number(6)},f8:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f9:?number,f10:?[enum(a|b|c)],f11:?{f0:?number(2),f1:number(15)},f12:?enum(a|b|c),f13:?enum(a|b|c),f14:?enum(a|b|c),f15:bytes,f16:[enum(a|b|c)],f17:{f0:string,f1:~[integer],f2:?enum(a|b|c),f3:?number},f18:?flags(x|y|z),f19:?object<enum(a|b|c)>,f20:{f0:?enum(a|b|c),f1:boolean,f2:?enum(a|b|c)},f21:?{f0:enum(a|b|c),f1:enum(a|b|c)},f22:?set[enum(a|b|c)],f23:?string*,f24:bigint,f25:?json,f26:?object<enum(a|b|c)>,f27:?[enum(a|b|c)],f28:?{f0:?json,f1:?number=7,f2:enum(a|b|c),f3:?bytes},f29:?{f0:(number,?string),f1:enum(a|b|c)},f30:?enum(a|b|c),f31:?number,f32:?enum(a|b|c),f33:number(6),f34:?json,f35:?number=7,f36:?number=7,f37:?boolean,f38:enum(a|b|c),f39:?number=7,f40:?object<enum(a|b|c)>,f41:union(k)[{k:enum(0|1),f0:?number=7}|{f0:?number=7,f1:?number=7,f2:flags(x|y|z),f3:enum(a|b|c),k:enum(2),f4:?json}|{k:enum(3),f0:?integer~,f1:?number=7,f2:?string,f3:?number=7}]}",
+      "id": "a7b0e141",
+      "text": "[[\"new\\nline\"],[null,[\"json\",\"json\",{\"nested\":[true]}],[],854936,[3,null,2,[2,null],[2,null]],0,832509948328,[4,1826233988546],[2,0,128],64.74684763920813,null,[56327,482577438225307],null,0,1,\"NTIIsQ==\",[],[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",[-43964,619108],0,173366],null,null,[null,false,2],[0,2],null,0,\"629037482491246000\",null,null,[1],null,[[2,null],2],null,903673,null,531233829,1,null,301845,true,2,65.08215575715627,null,[3,849995,22.544473606415313]]]"
+    },
+    "31": {
+      "canonical": "{f0:flags(x|y|z),f1:?string,f2:?[enum(a|b|c)],f3:flags(x|y|z),f4:?number}",
+      "id": "038e8f94",
+      "text": "[4,\"a\",null,5,18.373377769428014]"
+    },
+    "32": {
+      "canonical": "{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:?(number,?string),f2:?number=7}",
+      "id": "f27eb850",
+      "text": "[[2,16,128],[2,null],65.3433002835807]"
+    },
+    "33": {
+      "canonical": "{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:{f0:?(number,?string),f1:~[integer],f2:number(15)},f2:set[object<flags(x|y|z)>],f3:?{f0:{f0:?number=7,f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:enum(a|b|c),f3:?enum(a|b|c)}},f4:enum(a|b|c)}",
+      "id": "14b633cd",
+      "text": "[2,[[2,null],[],-534068291324222],[{}],null,1]"
+    },
+    "34": {
+      "canonical": "{f0:flags(x|y|z),f1:~[?date],f2:number(15)}",
+      "id": "2711a5be",
+      "text": "[4,[1373226691676,-972521267352],435412244608352]"
+    },
+    "35": {
+      "canonical": "{f0:?date~,f1:?date,f2:?[?number],f3:(date,{f0:enum(a|b|c),f1:enum(a|b|c),f2:?number=7},?integer),f4:bytes,f5:{f0:?number(0),f1:?boolean,f2:enum(a|b|c),f3:~[?date],f4:?boolean},f6:?number=7,f7:?set[number(6)],f8:(number,?string),f9:(number,?string),f10:integer,f11:?number,f12:?(number,?string),f13:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:?enum(a|b|c),f3:?number=7},f14:{f0:number(0),f1:?number=7,f2:enum(a|b|c),f3:enum(a|b|c)},f15:?(date,{f0:number(2),f1:number(2),f2:enum(a|b|c)},?integer),f16:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f17:?number(0),f18:?date,f19:flags(x|y|z),f20:?~[?date],f21:?{f0:enum(a|b|c)},f22:?[enum(a|b|c)],f23:?enum(a|b|c),f24:?json,f25:?{f0:(number,?string),f1:flags(x|y|z),f2:?integer,f3:?null},f26:?json,f27:?flags(x|y|z),f28:?enum(a|b|c),f29:enum(a|b|c),f30:?union(k)[{f0:enum(a|b|c),f1:?enum(a|b|c),f2:?number=7,f3:?integer~,k:enum(v0)}],f31:?[enum(a|b|c)],f32:bytes,f33:?[date~],f34:number(2),f35:?enum(a|b|c),f36:[bigint],f37:?enum(a|b|c),f38:(date,{f0:?enum(a|b|c),f1:?number=7},?integer),f39:?object<number>,f40:?{f0:enum(a|b|c),f1:?enum(a|b|c),f2:integer~,f3:enum(a|b|c),f4:enum(a|b|c)},f41:?(number,?string),f42:?flags(x|y|z),f43:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f44:(number,?string),f45:?~[?date],f46:?{f0:enum(a|b|c)},f47:{f0:flags(x|y|z)},f48:?{f0:enum(a|b|c),f1:?number(2),f2:?enum(a|b|c),f3:enum(a|b|c),f4:?null},f49:?flags(x|y|z),f50:?enum(a|b|c),f51:?json,f52:?[enum(a|b|c)],f53:?[?number],f54:number(15),f55:?union(k)[{f0:flags(x|y|z),f1:enum(a|b|c),k:enum(v0)}],f56:?{f0:number(0),f1:?number=7,f2:enum(a|b|c)},f57:?(number,?string),f58:integer~,f59:[flags(x|y|z)],f60:?{f0:date~},f61:?(date,{f0:enum(a|b|c),f1:enum(a|b|c)},?integer),f62:?integer,f63:?{f0:(number,?string),f1:enum(a|b|c),f2:?number=7},f64:?enum(a|b|c),f65:?set[?number]}",
+      "id": "77fea06b",
+      "text": "[null,370671773501,null,[351916112169,[0,2,312513],null],\"rvM=\",[-745,true,0,[1073141978622,-165722633790,-742735981355]],null,null,[2,null],[2,null],254138,440742,[2,null],null,[833,883247,2,2],[1538300836243,[70006,10313,0],null],[0,0,128],null,1036195472365,5,[1464093809697,-1104753892452,273958251940],null,null,2,null,null,null,1,0,0,null,null,\"B+6l0w==\",null,85637,0,[],null,[1239924517106,[null,88.12509681476517],-458327],{\"k0\":505190,\"__proto__\":194243,\"k2\":776205},[2,2,287066,1,1],[2,null],null,[0,16,128],[2,null],[],[2],[0],[0,null,2,1],4,2,\"json\",[2],null,-732630578676532,[0,5,1],null,[2,null],-234068,[],null,[363027328794,[2,2],-892554],null,[[2,null],0,42.20467626219833],0]"
+    },
+    "36": {
+      "canonical": "{f0:flags(x|y|z),f1:{f0:?bigint},f2:?json}",
+      "id": "ac52564c",
+      "text": "[0,[]]"
+    },
+    "37": {
+      "canonical": "{f0:flags(x|y|z)}",
+      "id": "75c8a6c6",
+      "text": "[1]"
+    },
+    "38": {
+      "canonical": "{f0:flags(x|y|z),f1:?flags(x|y|z),f2:{f0:[enum(a|b|c)],f1:union(k)[{f0:enum(a|b|c),f1:integer~,k:enum(v0|v1),f2:integer~,f3:?integer~,f4:enum(a|b|c)}]}}",
+      "id": "86d076a8",
+      "text": "[0,0,[[1,0,0],[0,2,293583,-241017,null,0]]]"
+    },
+    "39": {
+      "canonical": "{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}",
+      "id": "44a0e48c",
+      "text": "[[0,16]]"
+    },
+    "40": {
+      "canonical": "{f0:?{f0:bigint,f1:integer~,f2:enum(a|b|c),f3:?number(0)},f1:?number=7,f2:?union(k)[{f0:flags(x|y|z),f1:date~,k:enum(v0|v1),f2:?enum(a|b|c),f3:date~}],f3:?json,f4:?[?number],f5:?bytes,f6:{f0:enum(a|b|c)},f7:?{f0:flags(x|y|z),f1:enum(a|b|c),f2:?number=7,f3:?date~,f4:~[integer]},f8:?json,f9:?date,f10:?flags(x|y|z),f11:?number=7,f12:?(date,{f0:flags(x|y|z),f1:integer~,f2:?null,f3:integer~},?integer),f13:?null,f14:?union(k)[{f0:bytes,k:enum(0),f1:enum(a|b|c)}|{f0:?enum(a|b|c),f1:bigint,f2:?enum(a|b|c),k:enum(1|2),f3:flags(x|y|z),f4:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}],f15:?bigint,f16:?integer~,f17:?object<?number>,f18:?union(k)[{f0:integer~,k:enum(v0|v1),f1:?json,f2:?enum(a|b|c),f3:?integer~}|{k:enum(v2),f0:date~}|{f0:?string*,f1:flags(x|y|z),k:enum(v3|v4),f2:enum(a|b|c),f3:enum(a|b|c)}],f19:?{f0:string,f1:enum(a|b|c),f2:flags(x|y|z)},f20:set[(number,?string)],f21:?[?bytes],f22:{f0:?number=7},f23:map<string,?string*>,f24:?union(k)[{f0:enum(a|b|c),f1:?enum(a|b|c),k:enum(0)}],f25:?json,f26:?{f0:flags(x|y|z)},f27:?enum(a|b|c),f28:?bytes,f29:?flags(x|y|z),f30:?number(0),f31:?flags(x|y|z),f32:date~,f33:{f0:bigint,f1:integer~,f2:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f3:?number=7,f4:?json},f34:?[date~],f35:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f36:?map<string,date~>,f37:?[date~],f38:[?json],f39:?object<?number>,f40:?(number,?string),f41:?date~,f42:?flags(x|y|z),f43:?[?number],f44:?enum(a|b|c),f45:number(2),f46:?object<?null>,f47:?{f0:(number,?string),f1:?enum(a|b|c),f2:?flags(x|y|z),f3:?boolean,f4:integer~},f48:enum(a|b|c),f49:?set[date~]}",
+      "id": "f0d0214f",
+      "text": "[[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\" \"],[[\"455280701841824000\",-994389,1,63],null,[1,4,155527168957,null,539135189046],{\"nested\":[true]},null,\"\",[2],null,null,1695394485115,0,null,[962037437112,[0,-642692,null,-771607],502088],null,null,\"649458474782043000\",664936,{\"k0\":37.737234326888455},[0,-960089,\"json\",1,84661],null,[[1,\"s\"],[1,\"s\"]],null,[927661],[\"k0\",0,\"k1\",1],[0,0,2],{\"nested\":[true]},[4],null,\"wDZHLtY=\",5,188,5,1471800343818,[\"122034962345862000\",-382088,null,856230,[1,{\"a\":2}]],null,null,null,null,[\"json\",null,1],{\"k0\":10.45260523001319,\"__proto__\":314350,\"k2\":306576},null,1653406947689,null,null,null,18580,{\"k0\":null,\"__proto__\":null},[[1,\"s\"],null,null,true,835364],0,[1673085625131,662894348922]]]"
+    },
+    "41": {
+      "canonical": "{f0:(number,?string)}",
+      "id": "8e7e630d",
+      "text": "[[2,null]]"
+    },
+    "42": {
+      "canonical": "{f0:(number,?string),f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?string*}",
+      "id": "d6a28e4b",
+      "text": "[[\"a\"],[[2,null],2,0]]"
+    },
+    "43": {
+      "canonical": "{f0:?(number,?string)}",
+      "id": "d3690e2e",
+      "text": "[[1,\"s\"]]"
+    },
+    "44": {
+      "canonical": "{f0:(number,?string),f1:{f0:{f0:number(6),f1:flags(x|y|z),f2:enum(a|b|c),f3:?~[integer],f4:?boolean},f1:?[integer~]},f2:{f0:enum(a|b|c),f1:?string*},f3:union(k)[{k:enum(v0),f0:map<string,string>,f1:[enum(a|b|c)]}|{f0:string*,f1:{f0:enum(a|b|c)},f2:integer~,k:enum(v1),f3:~[integer]}|{k:enum(v2),f0:(number,?string)}]}",
+      "id": "5eb3e854",
+      "text": "[[\" \"],[[2,null],[[391670880,0,0,[]]],[1,0],[2,[2,null]]]]"
+    },
+    "45": {
+      "canonical": "{f0:?enum(a|b|c),f1:string,f2:enum(a|b|c),f3:?[date],f4:?json,f5:?union(k)[{k:enum(0|1),f0:~[?date],f1:integer~,f2:enum(a|b|c)}|{f0:?number=7,f1:~[integer],f2:enum(a|b|c),k:enum(2),f3:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}|{f0:enum(a|b|c),f1:date~,f2:?enum(a|b|c),k:enum(3|4),f3:?enum(a|b|c),f4:?enum(a|b|c)}],f6:?bytes,f7:?string*,f8:?enum(a|b|c),f9:number(6),f10:?{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)},f11:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f12:(date,{f0:number(0),f1:?bytes},?integer),f13:?bytes,f14:?{f0:boolean,f1:bytes},f15:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f16:?string*,f17:bytes,f18:object<?number>,f19:string*,f20:?~[?date],f21:union(k)[{f0:~[?date],f1:?bytes,f2:enum(a|b|c),f3:?enum(a|b|c),f4:?null,k:enum(v0)}],f22:?number,f23:?bigint,f24:?{f0:?boolean,f1:enum(a|b|c),f2:?enum(a|b|c),f3:(number,?string),f4:?~[?date]},f25:?(number,?string),f26:set[enum(a|b|c)],f27:?~[?date],f28:?[enum(a|b|c)],f29:?[?json],f30:?{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:?integer~}}",
+      "id": "2935d709",
+      "text": "[[\"Олена\",\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"],[0,\"with \\\"quotes\\\"\",2,null,1,[1,[1357172804585,-95309539743,-50746682123],880600,2],\"OAou\",null,null,431824229,null,null,[985784071956,[587],-603025],null,[false,\"\"],[2,16],0,\"C14=\",{\"k0\":62.90266125598115,\"__proto__\":1577},1,[1459388932892],[0,[362245363352,341121007847],\"bA==\",0],19.982390627256777,\"507708118067918000\",null,[1,\"s\"],[],[1418745965426,-517718619908],[0,0,1],[[1,{\"a\":2}]]]]"
+    },
+    "46": {
+      "canonical": "{f0:(number,?string),f1:?~[?date],f2:?enum(a|b|c),f3:?[{f0:?number=7,f1:?enum(a|b|c),f2:integer~,f3:date~}]}",
+      "id": "f8e272c0",
+      "text": "[[1,\"s\"],null,1,[[35.348088310727896,null,600779,11709614662],[830006,2,-52144,1985859097906]]]"
+    },
+    "47": {
+      "canonical": "{f0:?(number,?string)}",
+      "id": "d3690e2e",
+      "text": "[]"
+    },
+    "48": {
+      "canonical": "{f0:(number,?string),f1:(number,?string),f2:map<string,enum(a|b|c)>,f3:flags(x|y|z)}",
+      "id": "45537fa9",
+      "text": "[[1,\"s\"],[2,null],[\"k0\",1,\"k1\",0,\"k2\",1],5]"
+    },
+    "49": {
+      "canonical": "{f0:?(number,?string)}",
+      "id": "d3690e2e",
+      "text": "[[1,\"s\"]]"
+    },
+    "50": {
+      "canonical": "{f0:?set[enum(a|b|c)],f1:?{f0:date~,f1:?flags(x|y|z),f2:enum(a|b|c),f3:enum(a|b|c),f4:number(2)},f2:?~[?date],f3:?(date,{f0:enum(a|b|c)},?integer),f4:string*,f5:?flags(x|y|z),f6:[enum(a|b|c)],f7:?map<string,enum(a|b|c)>,f8:?flags(x|y|z),f9:?object<integer~>,f10:?union(k)[{k:enum(0|1),f0:?string*,f1:number(6)}|{f0:date~,f1:string,k:enum(2)}|{f0:integer~,f1:string*,f2:?number=7,f3:date~,k:enum(3|4)}],f11:[enum(a|b|c)],f12:?{f0:bytes,f1:enum(a|b|c),f2:enum(a|b|c)},f13:(date,{f0:?enum(a|b|c),f1:?enum(a|b|c),f2:enum(a|b|c)},?integer),f14:?[bytes],f15:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f16:?flags(x|y|z),f17:?{f0:enum(a|b|c),f1:flags(x|y|z)},f18:?{f0:?flags(x|y|z),f1:?number=7,f2:number(6),f3:date~},f19:?[integer~],f20:{f0:?json,f1:enum(a|b|c)},f21:?{f0:enum(a|b|c)},f22:?{f0:?number=7,f1:string,f2:integer~,f3:?number=7,f4:?number=7},f23:[?number],f24:?bigint,f25:?(date,{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:?enum(a|b|c),f2:?enum(a|b|c),f3:integer~,f4:enum(a|b|c)},?integer),f26:(date,{f0:?enum(a|b|c)},?integer),f27:?[(number,?string)],f28:[?number],f29:?(date,{f0:enum(a|b|c),f1:?enum(a|b|c)},?integer),f30:?[?number],f31:?date,f32:?flags(x|y|z),f33:?integer~,f34:?{f0:~[?date],f1:enum(a|b|c),f2:number,f3:?number,f4:(number,?string)},f35:?(number,?string),f36:?string,f37:?object<number(15)>,f38:?enum(a|b|c),f39:{f0:?number,f1:?string*,f2:?(number,?string),f3:number(6),f4:enum(a|b|c)},f40:enum(a|b|c),f41:?flags(x|y|z),f42:?string,f43:flags(x|y|z),f44:~[?date],f45:?date,f46:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f47:?(number,?string),f48:?integer~,f49:?date,f50:?json,f51:?object<enum(a|b|c)>,f52:{f0:?date~,f1:?number(0)},f53:?{f0:integer~},f54:?(number,?string),f55:?enum(a|b|c),f56:?{f0:?enum(a|b|c)},f57:(number,?string)}",
+      "id": "f6228797",
+      "text": "[[\"\",\" \",\"a\"],[[1],[1556676157543,null,0,1,9505],[641462051608],null,0,null,[2,2,1],[\"k0\",1,\"k1\",1],5,{\"k0\":241757},[1,1,524052504],[1,0,0],null,[120821833666,[0,0,2],-670801],null,0,null,[2,0],[null,146690,-974474566,822496981743],[],[null,2],[0],[488605,\"new\\nline\",140661,54.11363805370109],[],null,[1558209908920,[[2,16],2,null,859689,0],null],[945414136604,[],null],[[2,null],[2,null],[1,\"s\"]],[531071],[1302577286633,[1,2],null],[398250,84.616839040358,689009],null,null,816519,null,[1,\"s\"],\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",null,null,[199546,2,null,-521245876,1],0,4,null,5,[603193235864],1587695020990,[0,16,128],[2,null],-137878,null,null,null,[null,-246],[-66624],[1,\"s\"],null,[1],[2,null]]]"
+    },
+    "51": {
+      "canonical": "{f0:?union(k)[{f0:(date,{f0:?number=7,f1:?null,f2:?null},?integer),f1:[integer~],k:enum(v0|v1)}|{f0:?date,k:enum(v2),f1:?{f0:?string,f1:?json,f2:integer~}}],f1:(number,?string)}",
+      "id": "ac595d00",
+      "text": "[null,[2,null]]"
+    },
+    "52": {
+      "canonical": "{f0:union(k)[{f0:?json,k:enum(v0|v1),f1:?number(15),f2:?number=7}|{f0:?number,k:enum(v2|v3),f1:{f0:date~,f1:?number(2),f2:number(15),f3:?boolean,f4:?enum(a|b|c)}}],f1:{f0:boolean},f2:set[[enum(a|b|c)]],f3:?string*}",
+      "id": "0f1823ab",
+      "text": "[[\"new\\nline\"],[[3,null,[886697836633,-90038,98457642876756,null,2]],[false],[[1],[0,0,0],[]],0]]"
+    },
+    "53": {
+      "canonical": "{f0:?union(k)[{f0:boolean,k:enum(v0),f1:object<enum(a|b|c)>,f2:enum(a|b|c),f3:?number(6)}],f1:?{f0:flags(x|y|z),f1:flags(x|y|z),f2:union(k)[{f0:?number,f1:?~[?date],f2:enum(a|b|c),k:enum(v0|v1)}|{f0:?~[?date],f1:bytes,k:enum(v2),f2:?date~}]}}",
+      "id": "6da225ed",
+      "text": "[[0,false,{\"k0\":0,\"__proto__\":1,\"k2\":2},2,-82945539]]"
+    },
+    "54": {
+      "canonical": "{f0:union(k)[{k:enum(v0|v1),f0:?{f0:enum(a|b|c)},f1:{f0:?date,f1:enum(a|b|c),f2:(number,?string),f3:?string*,f4:enum(a|b|c)},f2:[(number,?string)],f3:number(15),f4:?integer}],f1:(number,?string),f2:flags(x|y|z),f3:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}",
+      "id": "8f9684c7",
+      "text": "[[\"with \\\"quotes\\\"\"],[[0,[2],[197384747768,0,[1,\"s\"],0,2],[[1,\"s\"],[1,\"s\"]],357901044822251],[2,null],0,2]]"
+    },
+    "55": {
+      "canonical": "{f0:?json,f1:?boolean,f2:?null,f3:?string*,f4:?{f0:?json,f1:?date~,f2:flags(x|y|z),f3:?number=7,f4:date},f5:?{f0:enum(a|b|c)},f6:?flags(x|y|z),f7:?set[~[?date]],f8:?json,f9:?[(number,?string)],f10:?(number,?string),f11:?number=7,f12:?date,f13:boolean,f14:?json,f15:?{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:?(number,?string),f2:integer~,f3:integer~,f4:?date},f16:?(number,?string),f17:(number,?string),f18:?number=7,f19:?(date,{f0:number(15)},?integer),f20:?[?number],f21:?flags(x|y|z),f22:{f0:enum(a|b|c)},f23:?{f0:?number,f1:flags(x|y|z)},f24:(date,{f0:?json,f1:enum(a|b|c),f2:?flags(x|y|z),f3:?number=7,f4:?number=7},?integer),f25:?[enum(a|b|c)],f26:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:flags(x|y|z),f3:?null},f27:?null,f28:?null,f29:?json,f30:?[integer],f31:?number(15),f32:?{f0:?number=7}}",
+      "id": "e0dd73f4",
+      "text": "[[],[[1,{\"a\":2}],null,null,null,[1,1854062133400,5,64.12691942608306,1372346950402],null,0,null,null,[[1,\"s\"]],[2,null],681904,1830390630210,false,[1,{\"a\":2}],[[0,16,128],[1,\"s\"],603290,41828],null,[2,null],42.151978817839165,null,[168814,597205],0,[2],null,[135108561317,[\"json\",1,4,688803],992067],[],[1,2,4],null,null,null,[926293,955264,462496],131725107846653,[43.409969258778716]]]"
+    },
+    "56": {
+      "canonical": "{f0:union(k)[{f0:enum(a|b|c),k:enum(0),f1:{f0:?enum(a|b|c),f1:?number=7,f2:enum(a|b|c)}}|{k:enum(1),f0:enum(a|b|c),f1:?union(k)[{f0:enum(a|b|c),f1:enum(a|b|c),k:enum(v0|v1)}],f2:?date,f3:?~[?date]}|{k:enum(2),f0:?json}],f1:?integer,f2:object<flags(x|y|z)>,f3:union(k)[{f0:(number,?string),f1:?bigint,k:enum(v0)}]}",
+      "id": "ce473b56",
+      "text": "[[2,1],null,{\"k0\":5,\"__proto__\":0,\"k2\":4},[0,[2,null]]]"
+    },
+    "57": {
+      "canonical": "{f0:union(k)[{f0:?(number,?string),f1:?null,f2:{f0:enum(a|b|c),f1:enum(a|b|c)},f3:set[enum(a|b|c)],k:enum(0|1)}|{f0:[enum(a|b|c)],f1:?[integer~],k:enum(2|3),f2:(number,?string),f3:?enum(a|b|c),f4:?[bigint]}|{f0:?{f0:enum(a|b|c),f1:enum(a|b|c)},f1:union(k)[{f0:?number,k:enum(v0)}|{f0:date,k:enum(v1|v2)}|{f0:number,f1:?number=7,k:enum(v3)}],k:enum(4)}],f1:{f0:object<enum(a|b|c)>,f1:?number=7}}",
+      "id": "98f65e5d",
+      "text": "[[3,[2,2],null,[2,null],null,[]],[{},898464]]"
+    },
+    "58": {
+      "canonical": "{f0:union(k)[{k:enum(v0|v1),f0:number(6),f1:union(k)[{k:enum(v0),f0:?string}],f2:[flags(x|y|z)],f3:(date,{f0:?integer~,f1:string,f2:?enum(a|b|c),f3:enum(a|b|c),f4:?enum(a|b|c)},?integer),f4:flags(x|y|z)}|{f0:?string,k:enum(v2),f1:?{f0:?string*,f1:flags(x|y|z),f2:?json,f3:enum(a|b|c)},f2:[?integer],f3:?~[integer]}],f1:{f0:[bigint]},f2:?json,f3:{f0:number,f1:?{f0:?bigint,f1:number(6)},f2:set[integer~],f3:flags(x|y|z),f4:union(k)[{f0:enum(a|b|c),f1:enum(a|b|c),k:enum(v0|v1),f2:boolean}]},f4:?json}",
+      "id": "81d7a297",
+      "text": "[[],[[2,\"with \\\"quotes\\\"\",[null,5,[1,{\"a\":2}],1],[]],[[]],1,[444279,null,[-878185,192061,-7348],4,[1,1,2,false]],[1,{\"a\":2}]]]"
+    },
+    "59": {
+      "canonical": "{f0:union(k)[{f0:(date,{f0:?enum(a|b|c),f1:flags(x|y|z),f2:integer},?integer),k:enum(v0)}|{f0:?{f0:?bigint,f1:enum(a|b|c),f2:integer~,f3:enum(a|b|c)},f1:?boolean,f2:set[flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)],k:enum(v1)}],f1:[?number]}",
+      "id": "5ec80a75",
+      "text": "[[0,[1277942634782,[2,5,-585871],-283610]],[79.05098846138036]]"
+    },
+    "60": {
+      "canonical": "{f0:?[?number],f1:[enum(a|b|c)],f2:enum(a|b|c),f3:set[flags(x|y|z)],f4:?union(k)[{f0:enum(a|b|c),k:enum(v0|v1)}|{f0:boolean,k:enum(v2|v3)}],f5:{f0:?enum(a|b|c),f1:?json,f2:date~},f6:?enum(a|b|c),f7:?json,f8:?[enum(a|b|c)],f9:?{f0:enum(a|b|c),f1:?enum(a|b|c),f2:integer~,f3:enum(a|b|c),f4:enum(a|b|c)},f10:string,f11:?[enum(a|b|c)],f12:?{f0:?bigint,f1:?string*,f2:?integer~,f3:?enum(a|b|c),f4:enum(a|b|c)},f13:?string,f14:?number=7,f15:{f0:enum(a|b|c),f1:date~,f2:date~,f3:enum(a|b|c),f4:flags(x|y|z)},f16:?(number,?string),f17:number(15),f18:?~[?date],f19:?[number(0)],f20:?(number,?string),f21:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f22:?date~,f23:?flags(x|y|z),f24:union(k)[{f0:enum(a|b|c),k:enum(v0|v1)}|{f0:?string*,k:enum(v2|v3),f1:integer~,f2:?(number,?string)}],f25:?map<number,?null>,f26:?string*,f27:flags(x|y|z),f28:?[enum(a|b|c)],f29:object<bytes>,f30:?[flags(x|y|z)],f31:?json,f32:?date~,f33:?object<flags(x|y|z)>,f34:?[enum(a|b|c)],f35:?{f0:?number(2),f1:enum(a|b|c),f2:(number,?string),f3:date~,f4:?enum(a|b|c)},f36:?[?number],f37:?[enum(a|b|c)],f38:?null,f39:?{f0:?string*,f1:flags(x|y|z),f2:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)},f40:?flags(x|y|z),f41:?union(k)[{f0:?string*,f1:?number=7,k:enum(v0|v1),f2:?number=7}|{f0:?bytes,f1:?number=7,k:enum(v2)}],f42:?string,f43:?set[date~],f44:?enum(a|b|c),f45:{f0:enum(a|b|c),f1:enum(a|b|c),f2:?bigint},f46:[flags(x|y|z)],f47:?~[integer],f48:?enum(a|b|c),f49:?bytes,f50:?[enum(a|b|c)],f51:?enum(a|b|c),f52:{f0:bytes,f1:(number,?string),f2:?number=7,f3:enum(a|b|c),f4:enum(a|b|c)},f53:?date,f54:?~[integer],f55:?number=7,f56:?date,f57:?~[integer],f58:?json,f59:{f0:?enum(a|b|c)},f60:?enum(a|b|c),f61:union(k)[{f0:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),k:enum(v0)}|{f0:?enum(a|b|c),k:enum(v1|v2),f1:?enum(a|b|c),f2:number(2),f3:?enum(a|b|c),f4:enum(a|b|c)}],f62:?{f0:enum(a|b|c),f1:?number=7,f2:bytes},f63:?{f0:enum(a|b|c),f1:?flags(x|y|z)},f64:?date,f65:?flags(x|y|z)}",
+      "id": "d4bbefbc",
+      "text": "[[\"with \\\"quotes\\\"\"],[null,[0,0,0],2,[5,1,1],null,[1,\"json\",173897550522],1,null,[2],null,\"a\",[0,0],null,\" \",139044,[2,1650930334651,1872367827162,0,5],null,384184539031323,null,[-783],[1,\"s\"],[0,0,128],1894799067589,null,[0,0],[],null,0,[1],{\"k0\":\"\",\"__proto__\":\"toGf\",\"k2\":\"sd6h\"},[4,0,4],null,null,null,[1,0,0],null,[182041],[],null,[0,1,[0,16]],4,[2,\"VuAmiT8=\",556396],null,[1258496798229,1983406265258,1722092268859],1,[1,0,\"467979803433632000\"],[],null,1,\"yxk=\",null,1,[\"m+c=\",[2,null],750078,0,1],null,[],519983,null,null,null,[],0,[2,2,null,28202,2,0],null,null,653191998905]]"
+    },
+    "61": {
+      "canonical": "{f0:union(k)[{f0:boolean,f1:?union(k)[{f0:boolean,f1:?boolean,k:enum(v0),f2:?null}|{f0:enum(a|b|c),k:enum(v1|v2)}],k:enum(v0),f2:?json}],f1:date}",
+      "id": "60442d4b",
+      "text": "[[0,true,[0,false]],1706974920680]"
+    },
+    "62": {
+      "canonical": "{f0:union(k)[{f0:?{f0:~[?date]},f1:object<enum(a|b|c)>,f2:?[enum(a|b|c)],f3:number,k:enum(0)}|{f0:?set[(number,?string)],k:enum(1|2),f1:?~[integer],f2:?enum(a|b|c),f3:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:?flags(x|y|z),f3:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}}|{f0:?union(k)[{f0:?enum(a|b|c),f1:?number=7,k:enum(0),f2:enum(a|b|c),f3:?enum(a|b|c)}|{f0:(number,?string),f1:enum(a|b|c),f2:integer~,k:enum(1),f3:(number,?string),f4:?date}|{f0:enum(a|b|c),f1:?json,k:enum(2|3)}],k:enum(3|4),f1:?{f0:?json,f1:enum(a|b|c),f2:?integer,f3:number(15)}}],f1:?json,f2:?flags(x|y|z),f3:?integer,f4:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}",
+      "id": "98b5148e",
+      "text": "[[4,null,[\"json\",0,657880,312421704322296]],\"json\",1,null,[0,16]]"
+    },
+    "63": {
+      "canonical": "{f0:union(k)[{f0:[string],f1:object<enum(a|b|c)>,k:enum(0|1),f2:string,f3:{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)},f4:{f0:date~,f1:?enum(a|b|c)}}|{k:enum(2|3),f0:integer~}|{f0:[enum(a|b|c)],k:enum(4|5),f1:map<string,enum(a|b|c)>}],f1:?[(number,?string)]}",
+      "id": "ff7dd008",
+      "text": "[[2,784437],[[1,\"s\"]]]"
+    },
+    "64": {
+      "canonical": "{f0:union(k)[{f0:enum(a|b|c),k:enum(v0)}|{f0:~[integer],f1:date~,k:enum(v1|v2),f2:boolean,f3:{f0:enum(a|b|c),f1:?enum(a|b|c),f2:number(2)},f4:union(k)[{f0:enum(a|b|c),f1:flags(x|y|z),f2:enum(a|b|c),f3:enum(a|b|c),k:enum(0)}]}|{f0:date,k:enum(v3),f1:?json}],f1:{f0:?bigint,f1:[flags(x|y|z)]},f2:[?json],f3:[object<?number>],f4:union(k)[{f0:integer,f1:[?number],k:enum(0|1),f2:flags(x|y|z)}|{f0:integer,f1:?union(k)[{k:enum(0|1),f0:enum(a|b|c)}],f2:?boolean,k:enum(2|3),f3:map<string,enum(a|b|c)>,f4:?json}]}",
+      "id": "5f3ba1d0",
+      "text": "[[0,1],[\"424885540467168000\",[]],[\"json\"],[{\"k0\":494834},{\"k0\":42730,\"__proto__\":750616,\"k2\":46.508633367022796},{}],[0,-191702,[],4]]"
+    },
+    "65": {
+      "canonical": "{f0:?union(k)[{k:enum(0),f0:date~}|{f0:enum(a|b|c),k:enum(1|2),f1:~[integer],f2:?(number,?string),f3:number(6),f4:?number=7}|{k:enum(3|4),f0:?number=7}],f1:?number(6),f2:?enum(a|b|c),f3:?enum(a|b|c),f4:?[number(2)],f5:number,f6:?number=7,f7:?enum(a|b|c),f8:?flags(x|y|z),f9:enum(a|b|c),f10:[enum(a|b|c)],f11:?[?integer],f12:?[?json],f13:?{f0:enum(a|b|c),f1:?date~,f2:?json,f3:enum(a|b|c)},f14:?set[enum(a|b|c)],f15:?json,f16:?enum(a|b|c),f17:?object<?number>,f18:flags(x|y|z),f19:?object<boolean>,f20:?boolean,f21:?number(15),f22:(number,?string),f23:?enum(a|b|c),f24:number(2),f25:?flags(x|y|z),f26:?date,f27:?null,f28:?{f0:flags(x|y|z),f1:?(number,?string),f2:?enum(a|b|c),f3:~[integer],f4:enum(a|b|c)},f29:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f30:enum(a|b|c),f31:number,f32:?string,f33:?boolean,f34:?set[?number],f35:?string*,f36:?null,f37:?[enum(a|b|c)],f38:~[integer],f39:map<number,enum(a|b|c)>,f40:?[enum(a|b|c)],f41:{f0:?integer,f1:?json,f2:?number=7,f3:enum(a|b|c)},f42:?number(15),f43:?[(number,?string)],f44:?enum(a|b|c),f45:?union(k)[{f0:?enum(a|b|c),f1:string*,k:enum(0),f2:?enum(a|b|c)}],f46:?(number,?string),f47:?object<(number,?string)>,f48:?boolean,f49:?map<number,?json>,f50:(date,{f0:enum(a|b|c)},?integer)}",
+      "id": "98b76f3b",
+      "text": "[[],[[2,0,[57284,-884991,1134786],[2,null],61652641,956092],331882399,1,1,null,13.630761165931244,14.341602201732623,2,4,0,[2],[-503333,-385621,-143466],[[1,{\"a\":2}],1,null],null,[2,1],null,1,{},5,{\"k0\":true,\"__proto__\":true,\"k2\":false},true,-497727693290322,[2,null],null,-47047,0,1965281726776,null,[0,[2,null],1,[719965,-852464],0],[0,0,128],2,74.92270193757615,\"Олена\",false,[],null,null,[0,2,2],[577675,214228,-756078],[],[1],[-193343,1,91.10848735603899,2],-707398976994398,[[2,null]],null,null,[2,null],null,true,null,[723398126998,[1],null]]]"
+    },
+    "66": {
+      "canonical": "{f0:?union(k)[{f0:number(6),f1:?{f0:enum(a|b|c)},k:enum(v0|v1),f2:?enum(a|b|c)}|{f0:date~,f1:?[enum(a|b|c)],k:enum(v2),f2:flags(x|y|z)}],f1:union(k)[{k:enum(v0),f0:?number(2),f1:integer}|{f0:(number,?string),k:enum(v1|v2),f1:union(k)[{f0:?number=7,f1:integer~,f2:?integer,f3:?enum(a|b|c),k:enum(0|1)}|{f0:enum(a|b|c),k:enum(2|3)}],f2:set[integer~]}],f2:number(15),f3:?enum(a|b|c),f4:string*}",
+      "id": "3c533886",
+      "text": "[[\"new\\nline\"],[[2,322980989852,[2,2,1],0],[2,[1,\"s\"],[0,856629,430511,-483895,0],[]],262937361496937,1,0]]"
+    },
+    "67": {
+      "canonical": "{f0:?number=7,f1:?flags(x|y|z),f2:flags(x|y|z)}",
+      "id": "be3738a1",
+      "text": "[925194,5,1]"
+    },
+    "68": {
+      "canonical": "{f0:?number=7,f1:?[{f0:?boolean,f1:?enum(a|b|c),f2:?date~,f3:enum(a|b|c),f4:?string}],f2:flags(x|y|z),f3:(number,?string),f4:map<number,[integer~]>}",
+      "id": "e43dfbef",
+      "text": "[285841,[[null,0,null,1,\"Олена\"],[false,null,null,1,\"Олена\"]],4,[1,\"s\"],[0,[-54453,797478],3,[-600819,-227732,-661589],6,[109506,-311220,923988]]]"
+    },
+    "69": {
+      "canonical": "{f0:?number=7,f1:{f0:?set[number],f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?[integer~],f3:[enum(a|b|c)]},f2:[{f0:?number=7,f1:?number=7}]}",
+      "id": "2ffe673f",
+      "text": "[207111,[[62.21607963657756,823187,39.808603580951974],[2,0,128],[-708643,-596487,-300321],[1,2,1]],[[172814,17.957476395162512],[86.85462567343126,90.46786175596894],[22.898679190733787,80.7189228854696]]]"
+    },
+    "70": {
+      "canonical": "{f0:?null,f1:?[enum(a|b|c)],f2:?{f0:enum(a|b|c),f1:?date},f3:?flags(x|y|z),f4:?[number(6)],f5:?set[enum(a|b|c)],f6:?{f0:?string*},f7:?enum(a|b|c),f8:?(number,?string),f9:?enum(a|b|c),f10:?flags(x|y|z),f11:?date,f12:?object<date~>,f13:?json,f14:?(number,?string),f15:?~[?date],f16:?{f0:integer},f17:?(number,?string),f18:?json,f19:?enum(a|b|c),f20:?union(k)[{f0:enum(a|b|c),k:enum(v0)}],f21:?{f0:?(number,?string),f1:date~,f2:date~},f22:date~,f23:?[?integer],f24:?[?number],f25:?number=7,f26:?[enum(a|b|c)],f27:?enum(a|b|c),f28:{f0:?enum(a|b|c),f1:?enum(a|b|c)},f29:[integer~],f30:?map<string,enum(a|b|c)>,f31:flags(x|y|z),f32:?flags(x|y|z),f33:?(number,?string),f34:[enum(a|b|c)]}",
+      "id": "aa35805e",
+      "text": "[[\"Олена\"],[null,[2],[0],5,null,[2,1],[0],1,[2,null],1,5,null,{\"k0\":1071798008434,\"__proto__\":1317230095768,\"k2\":1176947365131},{\"nested\":[true]},null,[],[252145],[2,null],[1,{\"a\":2}],null,[0,1],[[1,\"s\"],1097253924746,1030183143462],1423130382515,[],null,0.3353070934933178,[],2,[null,1],[866393,992023],[\"k0\",0],0,0,null,[2,2]]]"
+    },
+    "71": {
+      "canonical": "{f0:?number=7,f1:string*,f2:boolean}",
+      "id": "24d12a45",
+      "text": "[[\"new\\nline\"],[87.39970158198834,0,true]]"
+    },
+    "72": {
+      "canonical": "{f0:?number=7,f1:set[map<number,?number>],f2:(date,{f0:map<string,enum(a|b|c)>,f1:?integer,f2:?number},?integer),f3:flags(x|y|z),f4:?number=7}",
+      "id": "6acdf8e4",
+      "text": "[null,[[0,464134,3,160267,6,445273]],[773439871507,[[\"k0\",2],null,85.16243607046195],924981],5,877015]"
+    },
+    "73": {
+      "canonical": "{f0:?number=7,f1:(number,?string),f2:{f0:number(0)}}",
+      "id": "6e317090",
+      "text": "[801649,[1,\"s\"],[456]]"
+    },
+    "74": {
+      "canonical": "{f0:?number=7}",
+      "id": "8c0c400d",
+      "text": "[]"
+    },
+    "75": {
+      "canonical": "{f0:?{f0:flags(x|y|z)},f1:enum(a|b|c),f2:?{f0:enum(a|b|c)},f3:enum(a|b|c),f4:?[number(2)],f5:bigint,f6:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:enum(a|b|c),f3:(number,?string)},f7:?[?number],f8:?[enum(a|b|c)],f9:?object<enum(a|b|c)>,f10:{f0:enum(a|b|c),f1:integer~,f2:?enum(a|b|c),f3:enum(a|b|c)},f11:?union(k)[{f0:enum(a|b|c),f1:?enum(a|b|c),f2:enum(a|b|c),k:enum(v0)}|{f0:date~,k:enum(v1|v2)}],f12:?map<string,enum(a|b|c)>,f13:?date,f14:[integer~],f15:?{f0:flags(x|y|z)},f16:?number,f17:?json,f18:bigint,f19:?string*,f20:?flags(x|y|z),f21:?(number,?string),f22:?{f0:boolean,f1:enum(a|b|c),f2:?enum(a|b|c),f3:?null},f23:object<enum(a|b|c)>,f24:?[enum(a|b|c)],f25:?enum(a|b|c),f26:?~[integer],f27:?json,f28:?{f0:(number,?string),f1:number(0),f2:enum(a|b|c),f3:?enum(a|b|c)},f29:?object<?json>,f30:?enum(a|b|c),f31:set[number(0)],f32:?(date,{f0:number,f1:date,f2:enum(a|b|c)},?integer),f33:?(date,{f0:?date,f1:?number=7},?integer),f34:?number,f35:?number=7,f36:?[enum(a|b|c)],f37:?[enum(a|b|c)],f38:{f0:integer},f39:(number,?string),f40:?flags(x|y|z),f41:?[number(0)],f42:?~[?date],f43:?string*,f44:?union(k)[{k:enum(0|1),f0:enum(a|b|c)}|{f0:?number(2),k:enum(2)}],f45:?integer,f46:enum(a|b|c),f47:?enum(a|b|c),f48:flags(x|y|z),f49:integer,f50:?{f0:?number=7,f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?enum(a|b|c),f3:enum(a|b|c),f4:enum(a|b|c)},f51:?map<string,?number>,f52:flags(x|y|z),f53:?number,f54:?integer,f55:?[?number],f56:union(k)[{f0:?number=7,k:enum(0)}],f57:?bytes,f58:?string*}",
+      "id": "f713534a",
+      "text": "[[\"a\",\"new\\nline\"],[[4],0,[1],1,[18304],\"408065889686376000\",null,[480279],null,{},[2,-328602,1,1],[1,1275950962340],null,1060879936004,[537014,90134,-228185],[5],null,null,\"479614788424044000\",0,null,null,null,{},[1],null,[-475663],{\"nested\":[true]},[[1,\"s\"],-25,2],{\"k0\":[1,{\"a\":2}],\"__proto__\":[1,{\"a\":2}],\"k2\":null},null,[],[1489475312405,[99.74963148112857,1426002153859,2],null],[105383460459,[664115618292,212511],null],null,784806,null,[],[-433985],[1,\"s\"],null,[827,-670,344],null,null,[1,2],-468896,2,2,5,229403,null,[\"k0\",96.98959137172885],5,null,-319853,[],[0,48.329876572047304],null,1]]"
+    },
+    "76": {
+      "canonical": "{f0:?number=7}",
+      "id": "8c0c400d",
+      "text": "[]"
+    },
+    "77": {
+      "canonical": "{f0:number(15),f1:?json,f2:{f0:?[date~]}}",
+      "id": "54d60ede",
+      "text": "[883848750444058,[1,{\"a\":2}],[]]"
+    },
+    "78": {
+      "canonical": "{f0:?number(6)}",
+      "id": "3024ab8e",
+      "text": "[-619069722]"
+    },
+    "79": {
+      "canonical": "{f0:number(6),f1:[[boolean]],f2:flags(x|y|z)}",
+      "id": "4bf696ef",
+      "text": "[848496146,[[true,false]],1]"
+    },
+    "80": {
+      "canonical": "{f0:?flags(x|y|z),f1:(number,?string),f2:?enum(a|b|c),f3:[bigint],f4:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f5:?map<number,flags(x|y|z)>,f6:?number=7,f7:?flags(x|y|z),f8:?{f0:?integer~},f9:[?number],f10:?{f0:?date~,f1:enum(a|b|c),f2:?string},f11:?enum(a|b|c),f12:?integer,f13:?union(k)[{f0:?number=7,f1:?bytes,f2:?enum(a|b|c),k:enum(0),f3:?integer~,f4:?json}|{k:enum(1),f0:flags(x|y|z)}|{f0:enum(a|b|c),f1:number(6),f2:?number=7,f3:?bigint,k:enum(2|3)}],f14:?json,f15:object<?number>,f16:?json,f17:?null,f18:[enum(a|b|c)],f19:?date,f20:?[?number],f21:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f22:enum(a|b|c),f23:?json,f24:?(number,?string),f25:?[flags(x|y|z)],f26:{f0:?bigint,f1:enum(a|b|c),f2:?date~},f27:?object<enum(a|b|c)>,f28:?bigint,f29:?{f0:?json,f1:?enum(a|b|c),f2:?enum(a|b|c),f3:date~},f30:?number(2),f31:?boolean,f32:{f0:enum(a|b|c)}}",
+      "id": "dc4c455b",
+      "text": "[0,[1,\"s\"],null,[\"358428495171679000\",\"480179256517523000\"],0,[0,1],null,5,[132061],[170483,76.73916522261648,12.585452111710538],[894766738123,2,\"with \\\"quotes\\\"\"],0,null,[1,5],[1,{\"a\":2}],{\"k0\":23.352386301081808,\"__proto__\":31.847806801948607},null,null,[0,0,0],20453724088,null,[0,0,128],1,null,[2,null],[5,4,5],[\"390243805195318000\",0,1686924224573],null,\"736613799229550000\",[[1,{\"a\":2}],1,null,1884393934106],21144,true,[0]]"
+    },
+    "81": {
+      "canonical": "{f0:number(2),f1:?number=7,f2:{f0:bigint,f1:[enum(a|b|c)],f2:enum(a|b|c)},f3:{f0:enum(a|b|c),f1:?(date,{f0:?null,f1:?json,f2:number(2),f3:?number(2),f4:enum(a|b|c)},?integer),f2:(number,?string),f3:?[date~]}}",
+      "id": "e7dbdfc7",
+      "text": "[-26339,834440,[\"390318289580903000\",[2,1,0],2],[1,null,[1,\"s\"],[963420263940]]]"
+    },
+    "82": {
+      "canonical": "{f0:number(0)}",
+      "id": "130f1bfd",
+      "text": "[57]"
+    },
+    "83": {
+      "canonical": "{f0:number(0),f1:number,f2:enum(a|b|c),f3:?set[number]}",
+      "id": "695186aa",
+      "text": "[-686,56.17754010305626,0]"
+    },
+    "84": {
+      "canonical": "{f0:number(15)}",
+      "id": "4fdda801",
+      "text": "[550170212308955]"
+    },
+    "85": {
+      "canonical": "{f0:?(date,{f0:?number=7,f1:string,f2:enum(a|b|c)},?integer),f1:?union(k)[{k:enum(0|1),f0:?flags(x|y|z),f1:?number=7}],f2:?date~,f3:?[?boolean],f4:?integer,f5:map<string,enum(a|b|c)>,f6:number(6),f7:?[enum(a|b|c)],f8:[number(2)],f9:?[flags(x|y|z)],f10:?(number,?string),f11:?{f0:?integer~,f1:?boolean,f2:enum(a|b|c)},f12:?[number(0)],f13:?{f0:flags(x|y|z)},f14:?flags(x|y|z),f15:?set[?boolean],f16:~[integer],f17:flags(x|y|z),f18:?number=7,f19:?json,f20:integer~,f21:?union(k)[{k:enum(v0|v1),f0:enum(a|b|c),f1:enum(a|b|c)}],f22:?bytes,f23:[enum(a|b|c)],f24:?integer,f25:?{f0:integer~,f1:integer~,f2:?number=7,f3:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f4:?~[?date]},f26:?flags(x|y|z),f27:[date~],f28:string,f29:?{f0:?bigint,f1:(number,?string),f2:?enum(a|b|c)},f30:?union(k)[{k:enum(v0),f0:?number=7,f1:enum(a|b|c),f2:?date~}|{f0:boolean,f1:?json,k:enum(v1|v2),f2:flags(x|y|z),f3:enum(a|b|c),f4:date~}|{k:enum(v3|v4),f0:date~,f1:bigint,f2:enum(a|b|c)}],f31:?date~,f32:?[(number,?string)],f33:?flags(x|y|z),f34:?[?string],f35:?[?number],f36:[integer~],f37:union(k)[{k:enum(v0|v1),f0:?null,f1:bigint,f2:boolean,f3:?integer,f4:enum(a|b|c)}|{k:enum(v2),f0:enum(a|b|c),f1:?enum(a|b|c),f2:integer,f3:enum(a|b|c)}|{f0:enum(a|b|c),k:enum(v3),f1:?bigint}],f38:?number=7,f39:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f40:?~[?date],f41:?flags(x|y|z),f42:?json,f43:?~[?date],f44:?number,f45:?null,f46:?date~,f47:?flags(x|y|z),f48:?(number,?string),f49:~[integer],f50:?null,f51:[?number],f52:?enum(a|b|c),f53:object<enum(a|b|c)>,f54:?enum(a|b|c),f55:?{f0:boolean,f1:enum(a|b|c),f2:?number},f56:?number=7,f57:union(k)[{f0:enum(a|b|c),k:enum(0|1),f1:integer~,f2:string,f3:?enum(a|b|c)}|{f0:?string*,f1:?json,k:enum(2),f2:enum(a|b|c),f3:string*}|{k:enum(3),f0:enum(a|b|c),f1:?number=7}],f58:[string*],f59:?number,f60:?json,f61:?{f0:?integer~,f1:integer~,f2:enum(a|b|c),f3:?date~},f62:?[enum(a|b|c)],f63:{f0:flags(x|y|z),f1:flags(x|y|z),f2:enum(a|b|c),f3:?json},f64:?[enum(a|b|c)],f65:?flags(x|y|z),f66:?null}",
+      "id": "fac35124",
+      "text": "[[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"a\"],[[1374991304881,[914444,\"with \\\"quotes\\\"\",2],null],null,null,[true],-322369,[\"k0\",1],474947365,[2,0,0],[],[5,4],[2,null],[null,false,1],null,null,0,[],[],1,194575,{\"nested\":[true]},-270652,null,\"uKI=\",[1],-794660,[738957,-558600,966486,[0,0,128],[1523228895628]],1,[294035629506,1582224181658],\"Олена\",[null,[1,\"s\"]],[2,true,null,1,0,1519336023144],1695696807324,[[1,\"s\"],[2,null],[1,\"s\"]],0,null,null,[],[2,1,2,661443,0],null,null,null,1,{\"nested\":[true]},null,null,null,1103114397778,null,null,[],null,[881934,52.94236086911632,21.74126860766731],2,{},null,[false,0,785396],43084,[1,0,-349327,\"Олена\",0],[0,1],null,null,[983094,590028,2],[2,1,1],[4,4,0],[],1]]"
+    },
+    "86": {
+      "canonical": "{f0:number(6)}",
+      "id": "34a34d87",
+      "text": "[420860493]"
+    },
+    "87": {
+      "canonical": "{f0:number(2),f1:?union(k)[{f0:?boolean,k:enum(v0),f1:?set[integer~],f2:union(k)[{f0:?number=7,f1:number,f2:flags(x|y|z),k:enum(v0|v1),f3:integer}|{f0:enum(a|b|c),f1:enum(a|b|c),k:enum(v2|v3)}|{k:enum(v4|v5),f0:date~,f1:enum(a|b|c)}],f3:(date,?null,?integer)}|{f0:enum(a|b|c),f1:{f0:enum(a|b|c),f1:date~},f2:set[number(15)],k:enum(v1)}|{k:enum(v2|v3),f0:?json}],f2:map<number,{f0:?number=7,f1:?number=7,f2:?number=7,f3:string*,f4:integer~}>,f3:map<string,date>}",
+      "id": "485a6fd9",
+      "text": "[[],[91629,null,[],[\"k0\",314433382970]]]"
+    },
+    "88": {
+      "canonical": "{f0:set[enum(a|b|c)],f1:?[[?number]]}",
+      "id": "62f78551",
+      "text": "[[1],[[555305]]]"
+    },
+    "89": {
+      "canonical": "{f0:set[[?json]],f1:?(number,?string),f2:union(k)[{f0:?[enum(a|b|c)],f1:{f0:date~},f2:map<string,enum(a|b|c)>,f3:map<string,?number>,k:enum(v0|v1),f4:flags(x|y|z)}],f3:map<number,(date,{f0:date~,f1:enum(a|b|c),f2:number,f3:?number=7,f4:?boolean},?integer)>}",
+      "id": "7317aee3",
+      "text": "[[],[2,null],[0,[],[772325843932],[],[\"k0\",108096,\"k1\",65.50172467972232],0],[]]"
+    },
+    "90": {
+      "canonical": "{f0:?{f0:number(15),f1:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?number=7,f3:enum(a|b|c)},f1:?null,f2:?flags(x|y|z),f3:?number=7,f4:?[enum(a|b|c)],f5:?(date,{f0:integer~,f1:flags(x|y|z)},?integer),f6:?number(15),f7:set[?number],f8:?{f0:enum(a|b|c),f1:enum(a|b|c),f2:integer~},f9:?{f0:enum(a|b|c),f1:?integer~,f2:?json},f10:?string*,f11:{f0:?json},f12:?string*,f13:[bigint],f14:set[?number],f15:?[enum(a|b|c)],f16:number(2),f17:bigint,f18:[date~],f19:?(date,{f0:?date,f1:?(number,?string),f2:integer~,f3:enum(a|b|c)},?integer),f20:?{f0:number(15),f1:?enum(a|b|c)},f21:?{f0:date,f1:date~,f2:flags(x|y|z),f3:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)},f22:map<string,enum(a|b|c)>,f23:number,f24:?(date,{f0:?enum(a|b|c),f1:enum(a|b|c),f2:?integer~,f3:?string*,f4:integer~},?integer),f25:{f0:enum(a|b|c)},f26:?json,f27:?integer,f28:?(number,?string),f29:?date~,f30:?number=7,f31:?number,f32:?union(k)[{f0:enum(a|b|c),f1:?enum(a|b|c),f2:string*,f3:?enum(a|b|c),k:enum(v0|v1)}|{k:enum(v2),f0:?integer,f1:flags(x|y|z),f2:integer~}],f33:?enum(a|b|c),f34:?[?number],f35:?union(k)[{f0:?string*,f1:number(15),k:enum(0),f2:?number=7}|{f0:flags(x|y|z),f1:?json,k:enum(1|2),f2:enum(a|b|c),f3:?flags(x|y|z),f4:integer~}|{k:enum(3),f0:enum(a|b|c),f1:enum(a|b|c),f2:flags(x|y|z),f3:?number=7}],f36:enum(a|b|c),f37:?enum(a|b|c),f38:?{f0:date~,f1:?enum(a|b|c),f2:?enum(a|b|c),f3:integer~},f39:?enum(a|b|c),f40:?~[integer],f41:?json,f42:number(15),f43:?~[?date],f44:?number(6),f45:?[?json],f46:?flags(x|y|z),f47:?union(k)[{k:enum(v0|v1),f0:enum(a|b|c)}|{f0:integer~,f1:enum(a|b|c),k:enum(v2|v3)}],f48:?integer,f49:?enum(a|b|c),f50:?bytes,f51:?[enum(a|b|c)],f52:?(number,?string),f53:?number(15),f54:?union(k)[{f0:enum(a|b|c),k:enum(v0|v1),f1:flags(x|y|z)}],f55:?flags(x|y|z),f56:?union(k)[{f0:enum(a|b|c),k:enum(0|1)}|{k:enum(2),f0:date~,f1:enum(a|b|c)}],f57:enum(a|b|c),f58:{f0:?enum(a|b|c),f1:bigint,f2:enum(a|b|c),f3:?enum(a|b|c),f4:flags(x|y|z)},f59:?string,f60:?(number,?string)}",
+      "id": "06e9fe87",
+      "text": "[[\"a\",\"\"],[null,null,0,256628,[1],[1737757013057,[121374,1],416269],-49413476162316,[9.035956305002774,590869],null,[1,998474],null,[],null,[\"191763915676513000\",\"291392411241024000\",\"932049956141063000\"],[],[1,1,1],72169,\"618079694741442000\",[1168293188870],[622701586514,[1239635146800,null,155498,1],null],[16096263200089],[1719567130189,81055338532,0,[0,0,128]],[],711854,[1656286099765,[null,0,343887,0,-103329],-629225],[0],null,null,null,609797033765,296398,253867,[2,795206,1,-855833],null,[475149,99.29062710110593],[0,1,341213005753798,6.227763838240767],1,0,null,1,null,null,-761767458525378,null,-986469198,[1,{\"nested\":[true]},\"json\"],null,[1,0],null,1,\"oXBf8lo=\",[2,1],[1,\"s\"],-284748222345834,[1,0,1],4,[2,577011884458,1],1,[1,\"375897103164297000\",2,1,4],null,[2,null]]]"
+    },
+    "91": {
+      "canonical": "{f0:?set[?bytes],f1:flags(x|y|z),f2:?number,f3:?number=7}",
+      "id": "53137331",
+      "text": "[[\"Bn2YUw==\",\"K2na\",\"vw==\"],0,null,14.518491558040722]"
+    },
+    "92": {
+      "canonical": "{f0:set[(date,{f0:enum(a|b|c),f1:?number,f2:~[?date]},?integer)],f1:flags(x|y|z)}",
+      "id": "8ce6fdc3",
+      "text": "[[[658749307812,[2,490047,[1557602060752,-673926900455,-321121200137]],null],[982717642086,[1,null,[1941006725626,-561995665804,-550380422990]],851688]],0]"
+    },
+    "93": {
+      "canonical": "{f0:?set[number(2)],f1:[number(15)],f2:enum(a|b|c),f3:?json}",
+      "id": "d04e7425",
+      "text": "[null,[632256366606921],2]"
+    },
+    "94": {
+      "canonical": "{f0:set[(number,?string)],f1:?{f0:?{f0:?null,f1:number,f2:enum(a|b|c),f3:?enum(a|b|c),f4:bigint},f1:boolean,f2:?bytes}}",
+      "id": "19ee5c94",
+      "text": "[[[2,null]],[[null,45.630193848922005,0,0,\"709297263859443000\"],false,\"RCffu44=\"]]"
+    },
+    "95": {
+      "canonical": "{f0:?enum(a|b|c),f1:(date,{f0:enum(a|b|c),f1:~[integer],f2:?null,f3:enum(a|b|c)},?integer),f2:?flags(x|y|z),f3:[?number],f4:[?number],f5:?{f0:?enum(a|b|c),f1:?null},f6:?flags(x|y|z),f7:[enum(a|b|c)],f8:?number=7,f9:?~[integer],f10:(number,?string),f11:?json,f12:?number=7,f13:number,f14:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f15:?date~,f16:?{f0:?null},f17:?flags(x|y|z),f18:?(number,?string),f19:?string,f20:?bytes,f21:?enum(a|b|c),f22:?integer,f23:flags(x|y|z),f24:?{f0:string,f1:?number=7,f2:?date~},f25:object<flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)>,f26:?(number,?string),f27:?json,f28:?[?number],f29:?{f0:number(2),f1:?bigint,f2:?enum(a|b|c)},f30:?flags(x|y|z),f31:enum(a|b|c),f32:?json,f33:?(number,?string),f34:?(number,?string),f35:?[date~]}",
+      "id": "ee3e58ae",
+      "text": "[1,[1163071161677,[2,[-633622,1027541,-383940],null,1],null],0,[359194,38.045414834304445,24.570717115220948],[],[],null,[],35.14624458511651,[-81650,-29301],[1,\"s\"],\"json\",772714,157,2,1276257735340,[],null,[2,null],\"Олена\",null,null,-727361,5,null,{},null,null,null,null,0,0,1,[1,\"s\"],null,[]]"
+    },
+    "96": {
+      "canonical": "{f0:map<string,date>,f1:enum(a|b|c)}",
+      "id": "4eb371c9",
+      "text": "[[\"k0\",1013951234060,\"k1\",1951101099118],0]"
+    },
+    "97": {
+      "canonical": "{f0:?map<string,map<string,enum(a|b|c)>>,f1:?(number,?string),f2:[union(k)[{f0:?json,k:enum(0|1)}]],f3:{f0:flags(x|y|z),f1:bigint,f2:?{f0:enum(a|b|c)},f3:?enum(a|b|c)},f4:[union(k)[{k:enum(v0),f0:(number,?string)}|{k:enum(v1|v2),f0:?number(0),f1:?enum(a|b|c)}|{f0:enum(a|b|c),f1:boolean,f2:?integer~,f3:date~,f4:?enum(a|b|c),k:enum(v3|v4)}]]}",
+      "id": "6bced708",
+      "text": "[null,null,[[0,\"json\"],[1,\"json\"],[0,\"json\"]],[5,\"399550650920509000\"],[]]"
+    },
+    "98": {
+      "canonical": "{f0:map<number,union(k)[{f0:number,k:enum(v0|v1),f1:?json,f2:enum(a|b|c),f3:?bytes}|{f0:?number=7,k:enum(v2|v3),f1:enum(a|b|c),f2:enum(a|b|c),f3:enum(a|b|c),f4:enum(a|b|c)}|{f0:enum(a|b|c),k:enum(v4),f1:integer~,f2:?number=7,f3:?enum(a|b|c),f4:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}]>,f1:[[flags(x|y|z)]]}",
+      "id": "f1c759a7",
+      "text": "[[0,[3,344836,2,1,2,1]],[]]"
+    },
+    "99": {
+      "canonical": "{f0:?map<number,enum(a|b|c)>,f1:union(k)[{f0:union(k)[{f0:flags(x|y|z),f1:?number=7,f2:?json,f3:enum(a|b|c),k:enum(0|1),f4:bytes}],f1:?{f0:?enum(a|b|c)},f2:?number=7,k:enum(v0),f3:{f0:?json,f1:flags(x|y|z),f2:?null,f3:number(6)}}|{f0:union(k)[{k:enum(v0),f0:?number=7}],k:enum(v1)}],f2:?enum(a|b|c),f3:[set[enum(a|b|c)]],f4:?bigint}",
+      "id": "e810754e",
+      "text": "[null,[1,[0,71.61269610357131]],2,[[]]]"
+    },
+    "100": {
+      "canonical": "{f0:?number(0),f1:?(date,{f0:enum(a|b|c),f1:enum(a|b|c),f2:enum(a|b|c),f3:enum(a|b|c),f4:flags(x|y|z)},?integer),f2:?enum(a|b|c),f3:?bigint,f4:?null,f5:?number=7,f6:?number=7,f7:?union(k)[{f0:integer~,f1:enum(a|b|c),f2:enum(a|b|c),k:enum(v0),f3:date~,f4:enum(a|b|c)}],f8:?(number,?string),f9:?date,f10:?{f0:integer~,f1:?number,f2:date~,f3:date~},f11:{f0:integer~,f1:enum(a|b|c)},f12:number(6),f13:?union(k)[{k:enum(0|1),f0:?date}|{f0:?number(6),f1:enum(a|b|c),k:enum(2|3),f2:?null,f3:enum(a|b|c)}],f14:?set[date],f15:[?boolean],f16:date~,f17:?bigint,f18:?number=7,f19:?set[(number,?string)],f20:?json,f21:?string*,f22:?{f0:?bigint},f23:{f0:enum(a|b|c),f1:?flags(x|y|z),f2:number(2),f3:?number=7},f24:?[?number],f25:map<number,flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)>,f26:?{f0:date~,f1:?enum(a|b|c),f2:?enum(a|b|c),f3:enum(a|b|c),f4:?null},f27:?[enum(a|b|c)],f28:?enum(a|b|c),f29:?{f0:?enum(a|b|c),f1:?number=7,f2:?number=7},f30:?enum(a|b|c),f31:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f32:?bigint,f33:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f34:?[(number,?string)],f35:?[flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)],f36:[enum(a|b|c)],f37:?(number,?string),f38:?{f0:?null,f1:(number,?string),f2:?null,f3:integer~,f4:~[?date]},f39:?string,f40:?number,f41:?map<number,(number,?string)>,f42:?{f0:~[?date],f1:enum(a|b|c),f2:?(number,?string)},f43:?enum(a|b|c),f44:?integer~,f45:?number=7,f46:?number=7,f47:[boolean],f48:?bytes,f49:date,f50:?~[?date],f51:?number(2),f52:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f53:?object<date~>,f54:?number,f55:?[enum(a|b|c)],f56:?bytes,f57:(date,{f0:?integer,f1:flags(x|y|z),f2:?date,f3:enum(a|b|c),f4:?integer},?integer),f58:?{f0:flags(x|y|z),f1:(number,?string),f2:integer~,f3:enum(a|b|c)},f59:?{f0:integer~,f1:enum(a|b|c),f2:?number(15)},f60:?bigint,f61:?flags(x|y|z)}",
+      "id": "79810173",
+      "text": "[[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"],[null,[1162424559314,[2,1,0,2,5],null],0,null,null,75.16584753765065,null,[0,649821,0,1,885094855392,2],null,1933955029553,[-246599,275944,271067941687,1943720709506],[963612,0],-929814627,[1],null,[false,false],109885563193,null,null,[[2,null],[1,\"s\"],[2,null]],1,0,[\"489506877721057000\"],[2,null,23267,74.77358015010765],[609872],[0,[2,0,128],3,2,6,[2,0,128]],[1309869101880,null,1,0],null,null,null,0,[2,0,128],\"382782924167245000\",null,null,[],[],[2,null],null,\"a\",18.780293836621702,[0,[2,null],3,[2,null],6,[2,null]],null,0,null,993118,433159,[],\"C3KdfaQ=\",1512796012457,[1200444132648,-668748922026,-189508493147],71844,[0,16,128],{\"k0\":1342643929339,\"__proto__\":1942710283185},81.65508256370903,[1,2],null,[1736269723501,[null,0,null,1,705332],null],null,[-900038,1],\"191953484989681000\",5]]"
+    },
+    "101": {
+      "canonical": "{f0:?map<string,{f0:number(15),f1:enum(a|b|c),f2:integer~,f3:enum(a|b|c)}>,f1:[{f0:enum(a|b|c),f1:enum(a|b|c),f2:?date~,f3:enum(a|b|c),f4:?number=7}],f2:flags(x|y|z),f3:?{f0:?null,f1:(date,{f0:enum(a|b|c),f1:?number=7},?integer),f2:union(k)[{f0:enum(a|b|c),k:enum(0|1),f1:?number=7,f2:?enum(a|b|c),f3:?enum(a|b|c)}],f3:object<?number>},f4:?[[integer~]]}",
+      "id": "9aa2a418",
+      "text": "[[\"k0\",[167864814478841,0,-508593,2],\"k1\",[214903314697976,1,-955550,2],\"k2\",[386104928509381,2,-558655,2]],[[2,1,1793491130598,2,91.23561987245252]],4,null,[[]]]"
+    },
+    "102": {
+      "canonical": "{f0:map<string,?json>,f1:?{f0:enum(a|b|c),f1:(number,?string),f2:?json,f3:{f0:?date~,f1:enum(a|b|c),f2:?enum(a|b|c),f3:?integer~}},f2:[(number,?string)]}",
+      "id": "1a076e73",
+      "text": "[[\"k0\",null,\"k1\",[1,{\"a\":2}]],null,[[1,\"s\"],[1,\"s\"],[1,\"s\"]]]"
+    },
+    "103": {
+      "canonical": "{f0:?object<[date~]>,f1:boolean,f2:?null,f3:number(0),f4:set[flags(x|y|z)]}",
+      "id": "f28d89a8",
+      "text": "[null,false,null,351,[]]"
+    },
+    "104": {
+      "canonical": "{f0:object<{f0:?number=7,f1:enum(a|b|c),f2:enum(a|b|c)}>,f1:{f0:enum(a|b|c),f1:date~,f2:[enum(a|b|c)],f3:number},f2:?(date,{f0:[?json],f1:[flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)],f2:?(number,?string),f3:~[?date],f4:?string},?integer)}",
+      "id": "3778624e",
+      "text": "[{\"k0\":[73.35187451604376,1,0],\"__proto__\":[19223,1,2],\"k2\":[720579,0,2]},[0,1457645441152,[0,2],21.245541014357254],[620735523579,[[null,\"json\"],[2,[2,16,128]],null,[696549078773],\"a\"],null]]"
+    },
+    "105": {
+      "canonical": "{f0:?json,f1:{f0:?string,f1:enum(a|b|c),f2:?date~},f2:?json,f3:?union(k)[{f0:(number,?string),k:enum(0),f1:?bytes,f2:?enum(a|b|c)}|{f0:enum(a|b|c),k:enum(1)}],f4:(number,?string),f5:enum(a|b|c),f6:?(date,{f0:flags(x|y|z),f1:enum(a|b|c),f2:?number,f3:?date~,f4:enum(a|b|c)},?integer),f7:flags(x|y|z),f8:?object<integer~>,f9:?number(15),f10:[integer~],f11:enum(a|b|c),f12:?json,f13:?[enum(a|b|c)],f14:integer~,f15:?number=7,f16:?flags(x|y|z),f17:?{f0:enum(a|b|c),f1:?integer~},f18:boolean,f19:?[?json],f20:string,f21:?bigint,f22:set[enum(a|b|c)],f23:?enum(a|b|c),f24:?flags(x|y|z),f25:?integer,f26:flags(x|y|z),f27:enum(a|b|c),f28:object<?number>,f29:set[date~],f30:?flags(x|y|z),f31:[?null],f32:?{f0:integer~,f1:bigint},f33:?object<enum(a|b|c)>,f34:?{f0:?json},f35:?[enum(a|b|c)],f36:{f0:?number,f1:?number(15),f2:enum(a|b|c)},f37:?string,f38:?date~,f39:?{f0:enum(a|b|c),f1:?bytes},f40:?map<number,?number>,f41:string,f42:?date,f43:?number}",
+      "id": "57c1afb6",
+      "text": "[1,[null,2,133766070070],[1,{\"a\":2}],null,[2,null],0,[797313879615,[1,2,null,330478427154,0],-34055],4,{\"k0\":-483544,\"__proto__\":918137,\"k2\":775993},null,[936632,320918],1,null,[1,1,0],139967,837725,null,null,true,[],\"new\\nline\",null,[1],1,null,null,0,1,{\"k0\":539291},[1226991049585,65537903488,1591120315525],0,[null,null],[922068,\"787046132975745000\"],{\"k0\":1},null,null,[null,null,0],null,null,null,[0,13.080017228182413,3,493577,6,834907],\" \",null,497498]"
+    },
+    "106": {
+      "canonical": "{f0:object<~[integer]>,f1:{f0:[number(6)],f1:?(date,{f0:flags(x|y|z),f1:enum(a|b|c),f2:?json,f3:integer~},?integer),f2:?number(0),f3:?{f0:?number=7,f1:?enum(a|b|c),f2:enum(a|b|c)}},f2:number}",
+      "id": "84b49da3",
+      "text": "[{\"k0\":[168286,815450],\"__proto__\":[-922021,1621121],\"k2\":[-387191,171676]},[[-61118268],[1917629087305,[4,1,{\"nested\":[true]},-862753],null],null,[437667,null,1]],225154]"
+    },
+    "107": {
+      "canonical": "{f0:object<set[enum(a|b|c)]>,f1:[enum(a|b|c)],f2:{f0:?enum(a|b|c),f1:{f0:?enum(a|b|c),f1:enum(a|b|c),f2:integer~}},f3:[[flags(x|y|z)]],f4:object<{f0:?number}>}",
+      "id": "f1db61ee",
+      "text": "[{},[0,0,1],[null,[0,1,675442]],[[1],[0,5]],{\"k0\":[]}]"
+    },
+    "108": {
+      "canonical": "{f0:object<union(k)[{f0:enum(a|b|c),f1:?integer~,k:enum(0),f2:enum(a|b|c),f3:?number,f4:?bytes}|{f0:?number=7,k:enum(1|2),f1:enum(a|b|c),f2:enum(a|b|c),f3:?bytes,f4:?string}|{f0:enum(a|b|c),f1:?enum(a|b|c),f2:?number=7,k:enum(3),f3:number(6),f4:?number=7}]>,f1:?json,f2:object<{f0:flags(x|y|z),f1:?enum(a|b|c),f2:enum(a|b|c),f3:?date~}>}",
+      "id": "cdf648e0",
+      "text": "[{},{\"nested\":[true]},{\"k0\":[0,0,0],\"__proto__\":[0,0,0,124959734326],\"k2\":[0,0,1]}]"
+    },
+    "109": {
+      "canonical": "{f0:object<enum(a|b|c)>}",
+      "id": "74667764",
+      "text": "[{\"k0\":2,\"__proto__\":1,\"k2\":1}]"
+    },
+    "110": {
+      "canonical": "{f0:[number(6)],f1:[enum(a|b|c)],f2:flags(x|y|z),f3:?{f0:?number=7},f4:~[integer],f5:?(number,?string),f6:?union(k)[{f0:?number=7,f1:flags(x|y|z),f2:?integer~,f3:~[integer],k:enum(0|1),f4:date~}|{k:enum(2|3),f0:flags(x|y|z),f1:enum(a|b|c),f2:?json,f3:?json,f4:enum(a|b|c)}],f7:number(6),f8:?boolean,f9:?[flags(x|y|z)],f10:?date,f11:enum(a|b|c),f12:?map<string,enum(a|b|c)>,f13:?number(15),f14:?null,f15:?json,f16:?union(k)[{k:enum(v0|v1),f0:date~}],f17:?number=7,f18:number(2),f19:[enum(a|b|c)],f20:?bytes,f21:?map<string,number(15)>,f22:?enum(a|b|c),f23:?[enum(a|b|c)],f24:?(number,?string),f25:?[enum(a|b|c)],f26:?date,f27:?enum(a|b|c),f28:?set[enum(a|b|c)],f29:?[enum(a|b|c)],f30:?number=7,f31:?[integer~],f32:?[?string*],f33:~[?date],f34:[enum(a|b|c)],f35:?union(k)[{f0:?number=7,f1:enum(a|b|c),k:enum(0|1)}|{f0:integer~,k:enum(2|3),f1:?null,f2:?number=7}],f36:?[enum(a|b|c)],f37:?date,f38:[flags(x|y|z)],f39:?flags(x|y|z),f40:[~[integer]],f41:?json,f42:?[?json],f43:bigint,f44:?flags(x|y|z),f45:union(k)[{f0:bytes,f1:enum(a|b|c),k:enum(v0)}],f46:?enum(a|b|c),f47:?[flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)],f48:?number=7,f49:[enum(a|b|c)],f50:?[(number,?string)],f51:{f0:string,f1:date~},f52:flags(x|y|z),f53:~[integer],f54:object<number(0)>,f55:set[enum(a|b|c)],f56:?{f0:?json,f1:enum(a|b|c),f2:enum(a|b|c)},f57:?date,f58:?[?number],f59:?flags(x|y|z),f60:?[enum(a|b|c)],f61:?flags(x|y|z),f62:?{f0:flags(x|y|z),f1:?enum(a|b|c),f2:enum(a|b|c),f3:date~},f63:?union(k)[{f0:?date~,f1:number(0),f2:boolean,k:enum(v0|v1)}|{f0:~[?date],f1:?json,f2:enum(a|b|c),k:enum(v2|v3),f3:enum(a|b|c)}],f64:?enum(a|b|c),f65:enum(a|b|c),f66:?bytes}",
+      "id": "5f9ab250",
+      "text": "[[],[[772060989,636199489],[2],1,null,[428616],null,[2,4,0,{\"nested\":[true]},null,0],-659827893,true,[1],1742601496978,1,null,-286743275023411,null,[1,{\"a\":2}],[0,321731513515],847401,62272,[2,2],null,[],null,[],[1,\"s\"],null,346020700571,1,null,[1,1],null,[336392],null,[1942703981857,-439417681862,-630811224985],[0,1,1],[0,963278,2],null,null,[],null,[],[1,{\"a\":2}],[\"json\",null],\"409204108831102000\",null,[0,\"Vxn1\",1],2,null,68.3349176628212,[1,2],[[2,null]],[\"\",1868238738676],1,[463848,291181],{},[1],[null,0,0],null,[18.076767361758634,35.083120937963535,12.375411536719376],4,[],5,[5,null,1,1257037145670],[2,[1973005751135,-136376257118],{\"nested\":[true]},1,0],1,2]]"
+    },
+    "111": {
+      "canonical": "{f0:(date,{f0:[enum(a|b|c)]},?integer)}",
+      "id": "35fd2abb",
+      "text": "[[1723727799823,[[]],-694551]]"
+    },
+    "112": {
+      "canonical": "{f0:(date,{f0:?boolean,f1:(number,?string),f2:{f0:?integer~,f1:?number=7,f2:?number=7,f3:enum(a|b|c),f4:integer~},f3:?integer~,f4:~[?date]},?integer),f1:(number,?string),f2:?set[flags(x|y|z)]}",
+      "id": "270141b8",
+      "text": "[[1428183759296,[null,[2,null],[null,null,52.77865624650319,1,-788778],-295215,[395289061775]],-812527],[1,\"s\"]]"
+    },
+    "113": {
+      "canonical": "{f0:(date,{f0:?union(k)[{k:enum(0),f0:?number=7,f1:enum(a|b|c)}|{f0:date~,f1:enum(a|b|c),f2:enum(a|b|c),k:enum(1),f3:~[?date],f4:integer~}],f1:enum(a|b|c),f2:[flags(x|y|z)],f3:[enum(a|b|c)],f4:[?json]},?integer)}",
+      "id": "44122fbc",
+      "text": "[[718378971665,[null,0,[1,0],[1],[[1,{\"a\":2}],1]],844475]]"
+    },
+    "114": {
+      "canonical": "{f0:?(date,{f0:[date~],f1:[enum(a|b|c)],f2:?{f0:?string*,f1:?string},f3:?date~},?integer),f1:flags(x|y|z),f2:?number=7}",
+      "id": "483c687d",
+      "text": "[[],[null,1,385436]]"
+    },
+    "115": {
+      "canonical": "{f0:union(k)[{f0:enum(a|b|c),k:enum(v0|v1),f1:integer~}|{k:enum(v2|v3),f0:enum(a|b|c),f1:?enum(a|b|c),f2:bytes}|{f0:flags(x|y|z),f1:?null,f2:?(number,?string),k:enum(v4|v5),f3:?number=7,f4:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)}],f1:flags(x|y|z),f2:(number,?string),f3:{f0:integer,f1:?enum(a|b|c)},f4:?{f0:enum(a|b|c),f1:?enum(a|b|c),f2:?enum(a|b|c)},f5:?[enum(a|b|c)],f6:?{f0:?enum(a|b|c),f1:?date~},f7:?object<date~>,f8:?string*,f9:?flags(x|y|z),f10:?[flags(x|y|z)],f11:?{f0:?number=7,f1:?bigint},f12:?number(0),f13:?number=7,f14:{f0:?number=7,f1:enum(a|b|c)},f15:?string*,f16:?{f0:enum(a|b|c),f1:enum(a|b|c)},f17:?(date,{f0:enum(a|b|c)},?integer),f18:[?number],f19:?string*,f20:?union(k)[{f0:enum(a|b|c),f1:enum(a|b|c),k:enum(0|1),f2:?boolean}],f21:?enum(a|b|c),f22:?union(k)[{k:enum(v0),f0:enum(a|b|c)}],f23:?(number,?string),f24:{f0:enum(a|b|c),f1:?date~,f2:integer~},f25:[flags(x|y|z)],f26:[bigint],f27:?map<number,enum(a|b|c)>,f28:?json,f29:[enum(a|b|c)],f30:{f0:?enum(a|b|c),f1:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:enum(a|b|c),f3:?number=7},f31:?number(0),f32:?map<number,number(6)>,f33:string,f34:boolean,f35:?number,f36:?object<~[?date]>,f37:(number,?string),f38:?null,f39:?enum(a|b|c),f40:?date~,f41:union(k)[{k:enum(0|1),f0:date~,f1:?bytes,f2:?enum(a|b|c),f3:?integer~,f4:?enum(a|b|c)}|{f0:?number(15),f1:(number,?string),f2:?null,k:enum(2)}],f42:?union(k)[{f0:string*,k:enum(0),f1:?number,f2:enum(a|b|c)}|{f0:?enum(a|b|c),k:enum(1|2),f1:?number=7}],f43:?(number,?string),f44:?object<enum(a|b|c)>,f45:?number=7,f46:flags(x|y|z),f47:?number(15),f48:?union(k)[{f0:?enum(a|b|c),k:enum(0),f1:?bytes,f2:date~,f3:?string*}],f49:?string*,f50:set[date~],f51:flags(x|y|z),f52:?number=7,f53:?enum(a|b|c),f54:[flags(x|y|z)],f55:[number],f56:?enum(a|b|c),f57:{f0:?flags(x|y|z),f1:number(15),f2:?number=7},f58:?{f0:?date~,f1:integer,f2:enum(a|b|c)},f59:enum(a|b|c),f60:?[number(15)]}",
+      "id": "fff81704",
+      "text": "[[\"a\",\"Олена\",\"new\\nline\"],[[5,5,null,[2,null],143180,[2,0,128]],0,[2,null],[79532,2],[0,2],null,[0,1726559834427],{\"k0\":1145674620357,\"__proto__\":785037291601,\"k2\":772687139349},0,5,[],[93.2538886057464,\"291892754981244000\"],-817,null,[23.18318454696945,1],1,[2,0],[161388323717,[2],null],[],1,[0,1,0,false],2,null,null,[2,1169024993278,268208],[0,5],[\"657110190325002000\"],null,null,[1],[2,[0,16,128],2,64263],224,[0,649583832,3,165461668],\"Олена\",false,null,{\"k0\":[1324433368316,-1081460289230],\"__proto__\":[809382195961]},[2,null],null,null,881846610867,[1,1170394528270,null,null,-375623,1],[0,2,41.48653691703758,0],[1,\"s\"],null,78.36315332835687,1,null,null,0,[258633068883],1,80.85158261510152,2,[4,1],[13.315197878198326],2,[1,227709382878481,981058],[1847292731444,-822050,2],2]]"
+    },
+    "116": {
+      "canonical": "{f0:?(date,{f0:union(k)[{f0:enum(a|b|c),f1:?flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f2:?enum(a|b|c),f3:?number=7,f4:?number=7,k:enum(v0|v1)}],f1:{f0:enum(a|b|c),f1:?enum(a|b|c),f2:?enum(a|b|c)}},?integer),f1:date~,f2:union(k)[{k:enum(v0),f0:object<bytes>,f1:?{f0:flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69),f1:enum(a|b|c),f2:enum(a|b|c)},f2:?flags(x|y|z),f3:set[?json]}|{k:enum(v1|v2),f0:?[?null]}|{f0:map<string,enum(a|b|c)>,f1:{f0:?null,f1:?boolean,f2:enum(a|b|c)},f2:?[enum(a|b|c)],k:enum(v3)}],f3:?date~}",
+      "id": "13bf4cef",
+      "text": "[null,1155611754001,[2],613568772847]"
+    },
+    "117": {
+      "canonical": "{f0:(date,{f0:[enum(a|b|c)],f1:?json},?integer)}",
+      "id": "c39038c9",
+      "text": "[[1641711035576,[[1],\"json\"],null]]"
+    },
+    "118": {
+      "canonical": "{f0:?(date,?bigint,?integer),f1:?map<string,flags(x|y|z)>,f2:(date,{f0:number(0),f1:?bytes,f2:enum(a|b|c),f3:[flags(n0|n1|n2|n3|n4|n5|n6|n7|n8|n9|n10|n11|n12|n13|n14|n15|n16|n17|n18|n19|n20|n21|n22|n23|n24|n25|n26|n27|n28|n29|n30|n31|n32|n33|n34|n35|n36|n37|n38|n39|n40|n41|n42|n43|n44|n45|n46|n47|n48|n49|n50|n51|n52|n53|n54|n55|n56|n57|n58|n59|n60|n61|n62|n63|n64|n65|n66|n67|n68|n69)]},?integer),f3:{f0:map<number,?number>}}",
+      "id": "331937e7",
+      "text": "[[926395342185,\"261245508334248000\",null],null,[34696307049,[878,\"KM8=\",1,[]],-541569],[[0,69.29805719726629,3,261392,6,469687]]]"
+    },
+    "119": {
+      "canonical": "{f0:date~}",
+      "id": "315242cf",
+      "text": "[338084057130]"
+    },
+    "120": {
+      "canonical": "{f0:?string,f1:(number,?string),f2:?flags(x|y|z),f3:?object<integer~>,f4:?enum(a|b|c),f5:?string*,f6:?(number,?string),f7:?union(k)[{f0:date~,f1:?enum(a|b|c),f2:date~,k:enum(v0),f3:enum(a|b|c),f4:?enum(a|b|c)}],f8:?json,f9:?union(k)[{k:enum(0|1),f0:?enum(a|b|c),f1:?enum(a|b|c)}|{k:enum(2),f0:?enum(a|b|c)}|{f0:(number,?string),f1:enum(a|b|c),f2:enum(a|b|c),k:enum(3)}],f10:?enum(a|b|c),f11:?enum(a|b|c),f12:?number=7,f13:?{f0:?enum(a|b|c),f1:?flags(x|y|z)},f14:flags(x|y|z),f15:?union(k)[{f0:?number=7,f1:?enum(a|b|c),f2:enum(a|b|c),f3:number(6),f4:number,k:enum(v0)}|{f0:?number(2),f1:date~,k:enum(v1|v2)}|{f0:number,f1:?boolean,f2:enum(a|b|c),k:enum(v3)}],f16:[flags(x|y|z)],f17:?[enum(a|b|c)],f18:?(number,?string),f19:?{f0:enum(a|b|c),f1:?enum(a|b|c)},f20:?map<string,?number>,f21:[?number],f22:?integer,f23:[~[integer]],f24:?json,f25:?object<(number,?string)>,f26:?number(6),f27:?{f0:enum(a|b|c),f1:number(6),f2:?enum(a|b|c),f3:boolean},f28:?integer~,f29:?integer~,f30:?number=7,f31:{f0:string,f1:enum(a|b|c),f2:string,f3:enum(a|b|c),f4:?number(2)},f32:{f0:enum(a|b|c),f1:enum(a|b|c),f2:?date,f3:?json},f33:?[?number],f34:?[enum(a|b|c)],f35:?null}",
+      "id": "ea69636d",
+      "text": "[[\" \"],[\"new\\nline\",[1,\"s\"],4,null,null,0,[2,null],[0,1171590297097,2,674615343415,2,2],null,null,null,null,42.63205916743355,[2,1],4,null,[1],[2,0],null,[1,1],null,[272176,915445,7.778352688894771],-880701,[[],[81226,-298924,83209]],\"json\",null,null,[2,355511142,null,true],68008,468774,89.31151232184446,[\"with \\\"quotes\\\"\",1,\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",0,98793],[1,1,null,[1,{\"a\":2}]],[237106,8.385841924876832]]]"
+    }
+  }
+}

@@ -14,14 +14,40 @@ understanding each other.
 3. **Retire a field by keeping its slot** and making it optional; senders put `null` there.
 4. **Safe type changes:** required → optional; appending values to an `enum` or names to `flags`.
    Anything else is breaking, adding or changing `decimals` included: the wire holds a different
-   number. A 1.0 peer ignores `decimals` altogether, so a field with it needs 1.1 on both sides;
-   the ids of the two definitions differ, which is how a handshake notices.
+   number. A 1.0 peer ignores `decimals` altogether, so a field with it needs 1.1 or newer on both
+   sides; the ids of the two definitions differ, which is how a handshake notices.
 5. **Deploy decoders before encoders** when you append enum values or union branches: an old
    decoder rejects an index or a tag it does not know.
+6. **`delta` and `intern` change the wire** of the places they name: turning one on is a
+   breaking change for older peers, which [`resolve`](/guide/resolve) bridges (it reads the
+   writer's wire whichever way the reader writes).
+7. **References keep their form.** Whether a reference travels as the record or as its id
+   follows the kind of the entity, the field's `embed` and the `references` option: changing any
+   of them changes the wire of that field, as a type change does.
+8. **A stored kind's id field is the last field.** metaschema appends `<entity>Id` after the
+   fields of the definition, so a field appended to an `Entity` takes the id's position and the
+   id moves one further: an older peer reads the id as the new field. Where payloads carry the
+   id, declare it in the definition, `userId: '?string'`, which keeps it in its place, and append
+   after it.
 
 ```js
-const V1 = Schema.from({ id: 'number', name: 'string' });
-const V2 = Schema.from({ id: 'number', name: 'string', email: '?string', score: { type: 'number', default: 0 } });
+const { Schema: Definition } = require('@alexify/metaschema');
+const canonical = (definition) => Schema.from(new Definition('User', definition)).toString();
+
+canonical({ Entity: {}, name: 'string' });                                     // '{name:string,userId:?string}'
+canonical({ Entity: {}, name: 'string', email: '?string' });                   // '{name:string,email:?string,userId:?string}' — the id moved
+canonical({ Entity: {}, name: 'string', userId: '?string', email: '?string' }); // '{name:string,userId:?string,email:?string}'
+```
+
+The examples on this page build schemas from a definition with metaschema injected
+(`const metaschema = require('@alexify/metaschema')`):
+
+```js
+const V1 = Schema.from({ id: 'number', name: 'string' }, { metaschema });
+const V2 = Schema.from(
+  { id: 'number', name: 'string', email: '?string', score: { type: 'number', default: 0 } },
+  { metaschema },
+);
 
 V2.decode(V1.encode({ id: 1, name: 'Alex' }));
 // { id: 1, name: 'Alex', email: null, score: 0 }
@@ -32,7 +58,14 @@ V1.decode(V2.encode({ id: 1, name: 'Alex', email: 'a@b.c', score: 5 }));
 
 What breaks: a new **required** field without a default (`DecodeError: Field "org" is required`
 on old payloads), a reordered definition (values land in the wrong keys, silently), a changed
-type.
+type. When a change has to break these rules (a rename, a reorder, a dropped field, a type that
+widens), [`resolve`](/guide/resolve) reads the old payloads by name instead of by position, and
+writes them for older peers.
+
+The wire did not change between protoarray 1.x and 2.0: a 2.0 schema of the shape of a 1.x schema
+writes its payloads, and has its id unless it references another entity by name, so peers on the
+two majors talk to each other while they upgrade (see
+[Migrating from 1.x](/guide/migrating-from-1)).
 
 ## Nested records, sparse records and columns
 
@@ -58,11 +91,16 @@ pass `{ strict: true }` to `decode` or `parse`: extra elements, values or column
 
 ## Telling versions apart
 
-`schema.id` is a 32-bit FNV-1a fingerprint of the canonical form (`schema.toString()`): every
-position, its type and its key, with the layout. Two sides whose ids match agree on the wire.
+`schema.id` is a 32-bit FNV-1a fingerprint of the schema's signature: its canonical form
+(`schema.toString()`: every position, its type and its key, with the layout), followed by the
+canonical form of every other entity it references by name (see
+[Defining a Schema](/guide/schema#properties)). Two sides whose ids match agree on the wire, the
+entities their references reach included: a change to `Address` changes the id of a `User` that
+references it, so a registry or a handshake tells the two versions apart.
 Exchange it in a handshake (an HTTP header, the `hello` of an RPC session, a field in an
 envelope) and map ids to schemas on the receiving side when a breaking change has to coexist with
-the old version for a while.
+the old version for a while: [`SchemaRegistry`](/guide/resolve#the-registry) keeps that map and
+wraps payloads in `[id, payload]`.
 
 ```js
 V1.id; // '030d98ef'
@@ -78,19 +116,20 @@ If only wire compatibility matters, compare `toString()` after stripping keys on
 Thirty-two bits are plenty for a handshake between two sides, where the only question is "do we
 have the same schema?": two different schemas collide with probability 2⁻³². They are not enough
 for a registry that keys many schemas by id, where a collision becomes likely around 65,000
-entries. The `fingerprint` option replaces the hash with any synchronous function of the canonical
-form, and `schema.list` inherits it:
+entries. The `fingerprint` option replaces the hash with any synchronous function of the
+signature, which is the canonical form itself for a schema that references no other entity, and
+`schema.list` inherits it:
 
 ```js
 const { createHash } = require('node:crypto');
-const sha = (canonical) => createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+const sha = (signature) => createHash('sha256').update(signature).digest('hex').slice(0, 16);
 
-const User = Schema.from({ id: 'number', name: 'string' }, { fingerprint: sha });
+const User = Schema.from({ id: 'number', name: 'string' }, { metaschema, fingerprint: sha });
 User.id; // '17ad5aba43b19ad4' — 64 bits of SHA-256 of '{id:number,name:string}'
 ```
 
 The function must be deterministic and derive the id from its argument only: both sides compute
-it on their own from the same definition, which is what makes the handshake work. A random or
+it on their own from the same schema, which is what makes the handshake work. A random or
 time-based identifier (a cuid, a ulid) would differ between two copies of the same schema; if you
 need hand-written version ids, keep a map from id to schema in the application instead.
 
@@ -101,7 +140,7 @@ form (one segment), and the rest follow in extra segments that an older decoder 
 strict decoder notices them, as `extra`.
 
 A `flags` field grows past 31 names, but the wire changes shape once a name past 31 is set: from
-one integer to an array of words, which a 1.1 decoder reads and a 1.0 decoder does not (it rejects
+one integer to an array of words, which a 1.1 or newer decoder reads and a 1.0 decoder does not (it rejects
 the array as `type`, or without validation reads every flag as `false`). While no such name is
 set the wire stays the one integer of 1.0. So deploy decoders first, as for a new enum value, and
 only then set the new names.

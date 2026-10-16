@@ -1,6 +1,8 @@
 /**
  * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
- * when either entry exceeds that min+gzip budget (CI uses it as a gate).
+ * when either core entry exceeds that min+gzip budget (CI uses it as a gate).
+ * The subpath entries are reported with what they add to the core: a consumer
+ * who imports one pays that on top of the package itself.
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -23,6 +25,14 @@ const ROOT = path.join(__dirname, '..');
 const ENTRIES = [
   { label: 'Node entry (index.js)', entry: 'index.js', platform: 'node' },
   { label: 'Browser entry (browser.js)', entry: 'browser.js', platform: 'browser' },
+];
+
+// Subpaths, bundled for browsers, with and without the core they require.
+const SUBPATHS = [
+  { label: 'Registry (registry.js)', entry: 'registry.js' },
+  { label: 'Stream (stream.js)', entry: 'stream.js' },
+  { label: 'Resolve (resolve.js)', entry: 'resolve.js' },
+  { label: 'Standalone (standalone.js)', entry: 'standalone.js' },
 ];
 
 const bundle = async (entry, platform, minify) => {
@@ -63,6 +73,13 @@ const main = async () => {
   console.log('| ----- | ---:| ---:| --------:|');
   for (const row of rows) {
     console.log(`| ${row.label} | ${kb(row.raw)} | ${kb(row.min)} | ${kb(row.gzip)} |`);
+  }
+  const core = rows[1];
+  for (const { label, entry } of SUBPATHS) {
+    const min = await bundle(entry, 'browser', true);
+    const gzip = gzipSync(min, { level: 9 }).length;
+    const extra = `+${kb(min.length - core.min)} | +${kb(gzip - core.gzip)}`;
+    console.log(`| ${label}, over the core | | ${extra} |`);
   }
   if (maxGzip === null) return;
   const over = rows.filter((row) => row.gzip > maxGzip);

@@ -1,6 +1,21 @@
 // Seeded random definitions and matching values for the parity suite: wide
-// enough to reach every node kind, every optionality and nesting.
-const SCALARS = ['string', 'number', 'boolean', 'json', 'date', 'bigint', 'bytes'];
+// enough to reach every node kind, every optionality and nesting. A shape is
+// drawn in a compact form of its own, with `delta` and `intern` on the fields,
+// and handed out as the metaschema definition and the options by path that
+// make it (translate.js).
+const { translate } = require('./translate.js');
+const SCALARS = [
+  'string',
+  'number',
+  'boolean',
+  'json',
+  'date',
+  'bigint',
+  'bytes',
+  'integer',
+  'any',
+  'null',
+];
 // More names than two 31-bit words hold.
 const WIDE_FLAGS = Array.from({ length: 70 }, (_, i) => `n${i}`);
 const DECIMALS = [0, 2, 6, 15];
@@ -34,6 +49,18 @@ const fieldType = (random, depth) => {
   if (depth > 0 && roll < 0.56) return union(random, depth - 1);
   if (roll < 0.6) return { type: 'number', default: 7 };
   if (roll < 0.64) return { type: 'number', decimals: pick(random, DECIMALS) };
+  if (depth > 0 && roll < 0.67) return { set: fieldType(random, depth - 1) };
+  if (depth > 0 && roll < 0.7) {
+    const key = random() < 0.7 ? 'string' : 'number';
+    return { map: { [key]: fieldType(random, depth - 1) } };
+  }
+  if (depth > 0 && roll < 0.73) return { object: { string: fieldType(random, depth - 1) } };
+  if (depth > 0 && roll < 0.76) {
+    return [{ at: 'date' }, struct(random, depth - 1), { 'z?': 'integer' }];
+  }
+  if (roll < 0.78) return { type: pick(random, ['integer', 'date']), delta: true };
+  if (roll < 0.8) return { array: pick(random, ['integer', '?date']), delta: true };
+  if (roll < 0.82) return { type: 'string', intern: true, required: random() < 0.5 };
   const scalar = pick(random, SCALARS);
   return random() < 0.3 ? `?${scalar}` : scalar;
 };
@@ -68,6 +95,8 @@ const union = (random, depth) => {
 
 const scalarValue = (random, type) => {
   if (type === 'string') return pick(random, STRINGS);
+  if (type === 'integer') return Math.floor(random() * 2e6) - 1e6;
+  if (type === 'null') return null;
   if (type === 'number') return random() < 0.5 ? Math.floor(random() * 1e6) : random() * 100;
   if (type === 'boolean') return random() < 0.5;
   if (type === 'date') return new Date(Math.floor(random() * 2e12));
@@ -86,9 +115,50 @@ const decimalValue = (random, decimals) => {
   return random() < 0.3 ? -value : value;
 };
 
+// A tuple element: a named one (`{ x: 'number' }`, `{ 'z?': … }`) or a definition.
+const elementValue = (random, element) => {
+  const keys = Object.keys(element);
+  const named = keys.length === 1 && typeof element[keys[0]] === 'string';
+  if (!named) return valueFor(random, element);
+  return keys[0].endsWith('?') && random() < 0.5 ? null : valueFor(random, element[keys[0]]);
+};
+
+const size = (random) => Math.floor(random() * 4);
+
 const valueFor = (random, type) => {
   if (typeof type === 'string') return scalarValue(random, type.replace('?', ''));
-  if (Array.isArray(type)) return random() < 0.5 ? [1, 's'] : [2];
+  if (Array.isArray(type)) {
+    if (typeof type[0] === 'string') return random() < 0.5 ? [1, 's'] : [2];
+    return type.map((element) => elementValue(random, element));
+  }
+  if (type.set) {
+    return new Set(Array.from({ length: size(random) }, () => valueFor(random, type.set)));
+  }
+  if (type.map) {
+    const numeric = type.map.number !== undefined;
+    const item = numeric ? type.map.number : type.map.string;
+    const entries = Array.from({ length: size(random) }, (_, i) => [
+      numeric ? i * 3 : `k${i}`,
+      valueFor(random, item),
+    ]);
+    return new Map(entries);
+  }
+  if (type.object) {
+    const entries = Array.from({ length: size(random) }, (_, i) => [
+      i === 1 ? '__proto__' : `k${i}`,
+      valueFor(random, type.object.string),
+    ]);
+    const object = {};
+    for (const [key, value] of entries) {
+      Object.defineProperty(object, key, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+    return object;
+  }
   if (type.enum) return pick(random, type.enum);
   if (type.union) return record(random, pick(random, type.union));
   if (type.flags === WIDE_FLAGS) {
@@ -96,6 +166,11 @@ const valueFor = (random, type) => {
   }
   if (type.flags) return { x: random() < 0.5, z: random() < 0.5 };
   if (type.decimals !== undefined) return decimalValue(random, type.decimals);
+  if (type.delta && type.array) {
+    return Array.from({ length: size(random) }, () =>
+      scalarValue(random, type.array.replace('?', '')),
+    );
+  }
   if (type.type) return scalarValue(random, type.type);
   if (type.array) {
     const count = Math.floor(random() * 4);
@@ -129,8 +204,10 @@ const wide = (random) => {
 
 const generate = (seed) => {
   const random = prng(seed);
-  const definition = seed % 5 === 0 ? wide(random) : struct(random, 2);
-  return { definition, value: record(random, definition), random };
+  const shape = seed % 5 === 0 ? wide(random) : struct(random, 2);
+  const value = record(random, shape);
+  const { definition, options } = translate(shape);
+  return { definition, options, value, random };
 };
 
 module.exports = { generate, prng };

@@ -14,9 +14,10 @@ one from, and the code after it is a codec that runs wrpc's own codec tests.
 
 ```js
 const { Schema } = require('@alexify/protoarray');
+const { Schema: Definition } = require('@alexify/metaschema');
 
 // wrpc 2 packets; `id` is a string, or a number from a 1.0 client.
-const Packet = new Schema('Packet', {
+const Packet = Schema.from(new Definition('Packet', {
   union: [
     {
       Struct: {},
@@ -65,7 +66,7 @@ const Packet = new Schema('Packet', {
     { Struct: {}, type: { enum: ['ping', 'pong'] }, enc: 'json', 'v?': 'number' },
   ],
   discriminator: 'type',
-});
+}));
 const Batch = Packet.list;
 
 const codec = {
@@ -91,7 +92,10 @@ A few things to know:
 - **Branches and tags are positions.** Add packet types and fields at the end, as the
   [evolution rules](/guide/evolution#unions) say, and give both peers the same schema: a codec has
   no negotiation in wrpc. `Packet.id` can travel in your own handshake, or in a header, to check
-  that they agree.
+  that they agree. A browser client that should not carry metaschema builds `Packet` from its
+  snapshot instead (`Schema.from(snapshot)`, see [metaschema and protoarray](/guide/metaschema#from-a-snapshot)).
+- **The kind first.** Every packet has `type` as its first key, which metaschema reads as the long
+  form of a type, so each branch names its kind before it: `{ Struct: {}, type: … }`.
 - **Payloads can be typed too.** `args`, `result` and `data` are `json` here, so they travel as
   plain JSON inside the packet. A method with a schema of its own can encode its arguments with it
   and send the array as `args`.

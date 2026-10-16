@@ -14,8 +14,9 @@ Some runtimes forbid compiling source text:
 | Cloudflare Workers, Vercel Edge Runtime | blocked |
 | React Native (Hermes) | allowed by default |
 
-protoarray probes once, when the module loads, and falls back to a second backend built from
-closures. Nothing changes in the API; `schema.backend` says which one is in use:
+protoarray asks the runtime once, when the first schema that may use generated code is built, and
+falls back to a second backend built from closures. Nothing changes in the API; `schema.backend`
+says which one is in use:
 
 ```js
 const User = Schema.from(snapshot);
@@ -53,7 +54,7 @@ Closures cannot write object literals, so decoded objects start as a copy of a t
 schema's keys (which keeps their hidden class stable) and are filled one property at a time. On a
 typical record the closures backend stays within 10% of `JSON.stringify` and `JSON.parse` of the
 keyed object, a little ahead on one record and a little behind on a list; the codegen backend is
-×1.5 and ×1.7. The cost of closures grows with the number of fields, about 40 ns per field on
+×1.5 and ×1.8. The cost of closures grows with the number of fields, about 40 ns per field on
 decode against a few in generated code, so a sparse record of 70 fields decodes about 15 times
 slower than with codegen. The payload is identical either way; in a fresh process, loading the
 package takes about 4 ms and building a first schema about 2 ms with either backend, a few

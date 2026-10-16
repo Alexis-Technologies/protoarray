@@ -1,15 +1,16 @@
 import { createRequire } from 'node:module';
 import { defineConfig } from 'vitepress';
+import { withMermaid } from 'vitepress-plugin-mermaid';
 
 // The nav version label is read from package.json at config load, so a release
 // needs no hand-edit here.
 const { version } = createRequire(import.meta.url)('../../package.json') as { version: string };
 
-const ogTitle = 'protoarray — compact positional payloads for JavaScript';
+const ogTitle = 'protoarray — schema-based serialization that stays JSON';
 const ogDescription =
   'Fast, zero-dependency, schema-based serialization for Node.js and browsers: objects travel as ' +
-  'positional JSON arrays, and a shared schema maps every position back to its key. Smaller and ' +
-  'faster than JSON, a lightweight alternative to Protocol Buffers.';
+  'positional JSON arrays, and a shared schema maps every position back to its key. About half ' +
+  'the bytes of JSON, faster than JSON, schema evolution like Protocol Buffers and Avro.';
 const repo = 'https://github.com/Alexis-Technologies/protoarray';
 const base = '/';
 const hostname = 'https://protoarray.vercel.app/';
@@ -27,6 +28,10 @@ const keywords = [
   'payload size',
   'zero dependency serialization',
   'browser serialization',
+  'schema evolution',
+  'avro alternative',
+  'msgpack alternative',
+  'serialization benchmark',
 ].join(', ');
 
 // schema.org structured data: helps search and AI engines read the site as a
@@ -49,127 +54,140 @@ const jsonLd = {
 };
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
-  title: '@alexify/protoarray',
-  titleTemplate: ':title — protoarray',
-  description: ogDescription,
-  lang: 'en-US',
-  base,
-  cleanUrls: true,
-  lastUpdated: true,
-  sitemap: { hostname },
+// withMermaid renders the ```mermaid blocks of the guide (architecture and the
+// topic pages) in the browser; the diagrams follow the light and dark theme.
+export default withMermaid(
+  defineConfig({
+    title: '@alexify/protoarray',
+    titleTemplate: ':title — protoarray',
+    description: ogDescription,
+    lang: 'en-US',
+    base,
+    cleanUrls: true,
+    lastUpdated: true,
+    sitemap: { hostname },
 
-  head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
-    ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
-    ['meta', { name: 'theme-color', content: '#06B6D4' }],
-    ['meta', { name: 'author', content: 'Alexis Technologies' }],
-    ['meta', { name: 'keywords', content: keywords }],
-    ['meta', { name: 'robots', content: 'index, follow' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:site_name', content: '@alexify/protoarray' }],
-    ['meta', { property: 'og:title', content: ogTitle }],
-    ['meta', { property: 'og:description', content: ogDescription }],
-    ['meta', { property: 'og:image', content: ogImage }],
-    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: ogTitle }],
-    ['meta', { name: 'twitter:description', content: ogDescription }],
-    ['meta', { name: 'twitter:image', content: ogImage }],
-    ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
-  ],
-
-  // Per-page canonical + og:url for clean SEO indexing
-  transformPageData(pageData) {
-    const path = pageData.relativePath.replace(/index\.md$/, '').replace(/\.md$/, '');
-    const canonical = `${hostname}${path}`;
-    pageData.frontmatter.head ??= [];
-    pageData.frontmatter.head.push(
-      ['link', { rel: 'canonical', href: canonical }],
-      ['meta', { property: 'og:url', content: canonical }],
-    );
-  },
-
-  themeConfig: {
-    logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'protoarray' },
-
-    nav: [
-      { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
-      { text: 'API', link: '/api/exports', activeMatch: '/api/' },
-      {
-        text: `v${version}`,
-        items: [
-          { text: 'Changelog', link: `${repo}/blob/main/CHANGELOG.md` },
-          { text: 'npm', link: 'https://www.npmjs.com/package/@alexify/protoarray' },
-          { text: 'Releases', link: `${repo}/releases` },
-        ],
-      },
+    head: [
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
+      ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
+      ['meta', { name: 'theme-color', content: '#06B6D4' }],
+      ['meta', { name: 'author', content: 'Alexis Technologies' }],
+      ['meta', { name: 'keywords', content: keywords }],
+      ['meta', { name: 'robots', content: 'index, follow' }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:site_name', content: '@alexify/protoarray' }],
+      ['meta', { property: 'og:title', content: ogTitle }],
+      ['meta', { property: 'og:description', content: ogDescription }],
+      ['meta', { property: 'og:image', content: ogImage }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:title', content: ogTitle }],
+      ['meta', { name: 'twitter:description', content: ogDescription }],
+      ['meta', { name: 'twitter:image', content: ogImage }],
+      ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
     ],
 
-    sidebar: {
-      '/guide/': [
+    // Per-page canonical + og:url for clean SEO indexing
+    transformPageData(pageData) {
+      const path = pageData.relativePath.replace(/index\.md$/, '').replace(/\.md$/, '');
+      const canonical = `${hostname}${path}`;
+      pageData.frontmatter.head ??= [];
+      pageData.frontmatter.head.push(
+        ['link', { rel: 'canonical', href: canonical }],
+        ['meta', { property: 'og:url', content: canonical }],
+      );
+    },
+
+    themeConfig: {
+      logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'protoarray' },
+
+      nav: [
+        { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
+        { text: 'API', link: '/api/exports', activeMatch: '/api/' },
         {
-          text: 'Introduction',
+          text: `v${version}`,
           items: [
-            { text: 'Why protoarray?', link: '/guide/why' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'metaschema and protoarray', link: '/guide/metaschema' },
-            { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
+            { text: 'Changelog', link: `${repo}/blob/main/CHANGELOG.md` },
+            { text: 'npm', link: 'https://www.npmjs.com/package/@alexify/protoarray' },
+            { text: 'Releases', link: `${repo}/releases` },
           ],
-        },
-        {
-          text: 'Schemas',
-          items: [
-            { text: 'Defining a Schema', link: '/guide/schema' },
-            { text: 'Types', link: '/guide/types' },
-            { text: 'Optional Fields', link: '/guide/optional-fields' },
-            { text: 'Collections and Layouts', link: '/guide/collections' },
-          ],
-        },
-        {
-          text: 'Using protoarray',
-          items: [
-            { text: 'Schema Evolution', link: '/guide/evolution' },
-            { text: 'Migrations and the Registry', link: '/guide/resolve' },
-            { text: 'Errors and Validation', link: '/guide/errors' },
-            { text: 'Streaming', link: '/guide/streaming' },
-            { text: 'TypeScript', link: '/guide/typescript' },
-            { text: 'Runtimes and CSP', link: '/guide/runtimes' },
-            { text: 'Standalone Modules', link: '/guide/standalone' },
-            { text: 'Compression', link: '/guide/compression' },
-            { text: 'With wrpc', link: '/guide/wrpc' },
-            { text: 'Benchmarks', link: '/guide/benchmarks' },
-          ],
-        },
-        {
-          text: 'Reference',
-          items: [{ text: 'Wire Format', link: '/guide/wire-format' }],
         },
       ],
-      '/api/': [
-        {
-          text: 'API',
-          items: [{ text: 'Exports', link: '/api/exports' }],
-        },
-      ],
+
+      sidebar: {
+        '/guide/': [
+          {
+            text: 'Introduction',
+            items: [
+              { text: 'Why protoarray?', link: '/guide/why' },
+              { text: 'Compared with alternatives', link: '/guide/comparison' },
+              { text: 'Getting Started', link: '/guide/getting-started' },
+              { text: 'metaschema and protoarray', link: '/guide/metaschema' },
+              { text: 'Architecture', link: '/guide/architecture' },
+              { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
+            ],
+          },
+          {
+            text: 'Schemas',
+            items: [
+              { text: 'Defining a Schema', link: '/guide/schema' },
+              { text: 'Types', link: '/guide/types' },
+              { text: 'Optional Fields', link: '/guide/optional-fields' },
+              { text: 'Collections and Layouts', link: '/guide/collections' },
+            ],
+          },
+          {
+            text: 'Using protoarray',
+            items: [
+              { text: 'Schema Evolution', link: '/guide/evolution' },
+              { text: 'Migrations and the Registry', link: '/guide/resolve' },
+              { text: 'Errors and Validation', link: '/guide/errors' },
+              { text: 'Streaming', link: '/guide/streaming' },
+              { text: 'TypeScript', link: '/guide/typescript' },
+              { text: 'Runtimes and CSP', link: '/guide/runtimes' },
+              { text: 'Standalone Modules', link: '/guide/standalone' },
+              { text: 'Compression', link: '/guide/compression' },
+              { text: 'With wrpc', link: '/guide/wrpc' },
+              { text: 'Benchmarks', link: '/guide/benchmarks' },
+            ],
+          },
+          {
+            text: 'Reference',
+            items: [{ text: 'Wire Format', link: '/guide/wire-format' }],
+          },
+        ],
+        '/api/': [
+          {
+            text: 'API',
+            items: [{ text: 'Exports', link: '/api/exports' }],
+          },
+        ],
+      },
+
+      search: { provider: 'local' },
+
+      socialLinks: [{ icon: 'github', link: repo }],
+
+      editLink: {
+        pattern: `${repo}/edit/main/docs/:path`,
+        text: 'Edit this page on GitHub',
+      },
+
+      footer: {
+        message: 'Released under the MIT License.',
+        copyright: 'Copyright © 2026 Alexis Technologies',
+      },
+
+      docFooter: {
+        prev: 'Previous page',
+        next: 'Next page',
+      },
     },
 
-    search: { provider: 'local' },
-
-    socialLinks: [{ icon: 'github', link: repo }],
-
-    editLink: {
-      pattern: `${repo}/edit/main/docs/:path`,
-      text: 'Edit this page on GitHub',
+    // mermaid 11.17 imports fastdom, a CommonJS module the plugin does not
+    // pre-bundle (it is a devDependency for the same reason as dayjs and
+    // cytoscape: pnpm does not hoist it); served raw, it breaks every page.
+    vite: {
+      optimizeDeps: { include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'] },
     },
-
-    footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2026 Alexis Technologies',
-    },
-
-    docFooter: {
-      prev: 'Previous page',
-      next: 'Next page',
-    },
-  },
-});
+  }),
+);

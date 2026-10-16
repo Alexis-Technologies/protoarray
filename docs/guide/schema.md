@@ -78,7 +78,7 @@ const User = Schema.from(snapshot); // what Definition#toSnapshot() or Model#toJ
 ```
 
 A snapshot is JSON, so it can come from a server, a file or a build step, and protoarray reads it
-without metaschema: a client that receives the snapshots of its server's schemas carries 21 KB of
+without metaschema: a client that receives the snapshots of its server's schemas carries 22 KB of
 protoarray and nothing else (see [metaschema and protoarray](/guide/metaschema)). A snapshot of one
 schema names its entity in `root`; a model's snapshot holds several, and `{ entity: 'User' }`
 picks one. The snapshot is read as untrusted input: a broken one is a `SchemaDefinitionError`

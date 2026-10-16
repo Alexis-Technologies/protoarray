@@ -27,7 +27,10 @@ Three things to read from it:
   smaller after gzip, because there is nothing for the compressor to reuse. On a thousand records
   gzip already turns every repeated key into a two-byte back-reference, and rows are only 5–10%
   smaller; the [`columns` layout](/guide/collections#columns) gets that back to about 20%, because
-  each column is a run of values the compressor can model.
+  each column is a run of values the compressor can model. With the ids written as differences
+  and the repeated strings interned as well, the thousand records of the
+  [benchmarks](/guide/benchmarks) are 27% smaller than keyed JSON after gzip, and smaller than any
+  binary format there.
 - **Typed compaction keeps paying after compression.** An enum index or a timestamp is a shorter
   literal, and compressors cannot shorten literals the way they shorten repetitions: on the same
   thousand records, enum indexes, booleans and epoch timestamps instead of strings cut another 15%

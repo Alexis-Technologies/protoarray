@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="460" viewBox="0 0 760 460" role="img" aria-label="Schema.from of one record, release over release. Building the schema from its definition (2.x: metaschema reads it first), schemas/s, linear scale, higher is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">Schema.from of one record, release over release</text>
+<text class="subtitle" x="20" y="56">Building the schema from its definition (2.x: metaschema reads it first), schemas/s, linear scale, higher is</text>
+<text class="subtitle" x="20" y="73">better.</text>
+<line class="grid" x1="202" y1="88" x2="202" y2="384"/>
+<text class="tick" x="202" y="400" text-anchor="middle">0</text>
+<line class="grid" x1="320.5" y1="88" x2="320.5" y2="384"/>
+<text class="tick" x="320.5" y="400" text-anchor="middle">50k</text>
+<line class="grid" x1="439" y1="88" x2="439" y2="384"/>
+<text class="tick" x="439" y="400" text-anchor="middle">100k</text>
+<line class="grid" x1="557.5" y1="88" x2="557.5" y2="384"/>
+<text class="tick" x="557.5" y="400" text-anchor="middle">150k</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="384"/>
+<text class="tick" x="676" y="400" text-anchor="middle">200k</text>
+<line class="axis" x1="202" y1="88" x2="202" y2="384"/>
+<text class="group" x="20" y="106">GENERATED CODE</text>
+<g><title>1.0.0
+36,244 schemas/s
+27.6 µs per schema</title>
+<text class="label" x="20" y="140">1.0.0</text>
+<path class="bar" d="M202,129H283.89828A4,4 0 0 1 287.89828,133V139A4,4 0 0 1 283.89828,143H202Z"/>
+<text class="value" x="293.89828" y="142">36.2k</text>
+</g>
+<g><title>1.1.0
+31,597 schemas/s
+31.6 µs per schema</title>
+<text class="label" x="20" y="180">1.1.0</text>
+<path class="bar" d="M202,169H272.88489A4,4 0 0 1 276.88489,173V179A4,4 0 0 1 272.88489,183H202Z"/>
+<text class="value" x="282.88489" y="182">31.6k</text>
+</g>
+<g><title>2.0.0 · this release
+14,625 schemas/s
+68.4 µs per schema</title>
+<text class="label primary" x="20" y="213">2.0.0</text>
+<text class="sublabel" x="20" y="228">this release</text>
+<path class="bar primary" d="M202,209H232.66125A4,4 0 0 1 236.66125,213V219A4,4 0 0 1 232.66125,223H202Z"/>
+<text class="value" x="242.66125" y="222">14.6k</text>
+</g>
+<text class="group" x="20" y="254">CLOSURES, NO EVAL</text>
+<g><title>1.0.0
+171,866 schemas/s
+5.82 µs per schema</title>
+<text class="label" x="20" y="288">1.0.0</text>
+<path class="bar" d="M202,277H605.32242A4,4 0 0 1 609.32242,281V287A4,4 0 0 1 605.32242,291H202Z"/>
+<text class="value" x="615.32242" y="290">172k</text>
+</g>
+<g><title>1.1.0
+98,391 schemas/s
+10.2 µs per schema</title>
+<text class="label" x="20" y="328">1.1.0</text>
+<path class="bar" d="M202,317H431.18667A4,4 0 0 1 435.18667,321V327A4,4 0 0 1 431.18667,331H202Z"/>
+<text class="value" x="441.18667" y="330">98.4k</text>
+</g>
+<g><title>2.0.0 · this release
+23,997 schemas/s
+41.7 µs per schema</title>
+<text class="label primary" x="20" y="361">2.0.0</text>
+<text class="sublabel" x="20" y="376">this release</text>
+<path class="bar primary" d="M202,357H254.87288999999998A4,4 0 0 1 258.87289,361V367A4,4 0 0 1 254.87288999999998,371H202Z"/>
+<text class="value" x="264.87289" y="370">24k</text>
+</g>
+<text class="caption" x="20" y="425">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
+<text class="caption" x="20" y="441">process · 2026-10-16</text>
+</svg>

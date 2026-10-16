@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="804" viewBox="0 0 760 804" role="img" aria-label="100 wrpc packets: payload size. 100 wrpc packets: calls, callbacks and events. The payload as sent, before compression, linear scale, lower is better. The line marks JSON. Not run here: fast-json-stringify.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">100 wrpc packets: payload size</text>
+<text class="subtitle" x="20" y="56">100 wrpc packets: calls, callbacks and events. The payload as sent, before compression, linear scale, lower is</text>
+<text class="subtitle" x="20" y="73">better. The line marks JSON. Not run here: fast-json-stringify.</text>
+<line class="grid" x1="217" y1="88" x2="217" y2="728"/>
+<text class="tick" x="217" y="744" text-anchor="middle">0</text>
+<line class="grid" x1="446.5" y1="88" x2="446.5" y2="728"/>
+<text class="tick" x="446.5" y="744" text-anchor="middle">4.88 KB</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="728"/>
+<text class="tick" x="676" y="744" text-anchor="middle">9.77 KB</text>
+<line class="axis" x1="217" y1="88" x2="217" y2="728"/>
+<line class="ref" x1="622.4806" y1="88" x2="622.4806" y2="728"/>
+<g><title>avsc · Type.forSchema
+2,833 bytes
+32% of the JSON bytes
+avsc@5.7.9, writes bytes</title>
+<text class="label" x="20" y="105">avsc</text>
+<text class="sublabel" x="20" y="120">Type.forSchema</text>
+<path class="bar" d="M217,101H343.0347A4,4 0 0 1 347.0347,105V111A4,4 0 0 1 343.0347,115H217Z"/>
+<text class="value" x="353.0347" y="114">2.8 KB</text>
+</g>
+<g><title>protobufjs · reflection, Root.fromJSON
+3,691 bytes
+42% of the JSON bytes
+protobufjs@8.8.1, writes bytes</title>
+<text class="label" x="20" y="145">protobufjs</text>
+<text class="sublabel" x="20" y="160">reflection, Root.fromJSON</text>
+<path class="bar" d="M217,141H382.4169A4,4 0 0 1 386.4169,145V151A4,4 0 0 1 382.4169,155H217Z"/>
+<text class="value" x="392.4169" y="154">3.6 KB</text>
+</g>
+<g><title>protobuf-es · create · toBinary · fromBinary
+3,691 bytes
+42% of the JSON bytes
+@bufbuild/protobuf@2.16.0, writes bytes</title>
+<text class="label" x="20" y="185">protobuf-es</text>
+<text class="sublabel" x="20" y="200">create · toBinary · fromBinary</text>
+<path class="bar" d="M217,181H382.4169A4,4 0 0 1 386.4169,185V191A4,4 0 0 1 382.4169,195H217Z"/>
+<text class="value" x="392.4169" y="194">3.6 KB</text>
+</g>
+<g><title>msgpackr · records, shared structures
+3,697 bytes
+42% of the JSON bytes
+msgpackr@2.1.0, writes bytes</title>
+<text class="label" x="20" y="225">msgpackr</text>
+<text class="sublabel" x="20" y="240">records, shared structures</text>
+<path class="bar" d="M217,221H382.6923A4,4 0 0 1 386.6923,225V231A4,4 0 0 1 382.6923,235H217Z"/>
+<text class="value" x="392.6923" y="234">3.6 KB</text>
+</g>
+<g><title>protoarray · codegen
+4,332 bytes
+49% of the JSON bytes
+@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+<text class="label primary" x="20" y="265">protoarray</text>
+<text class="sublabel" x="20" y="280">codegen</text>
+<path class="bar primary" d="M217,261H411.8388A4,4 0 0 1 415.8388,265V271A4,4 0 0 1 411.8388,275H217Z"/>
+<text class="value" x="421.8388" y="274">4.2 KB</text>
+</g>
+<g><title>protoarray · closures, no eval
+4,332 bytes
+49% of the JSON bytes
+@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+<text class="label secondary" x="20" y="305">protoarray</text>
+<text class="sublabel" x="20" y="320">closures, no eval</text>
+<path class="bar secondary" d="M217,301H411.8388A4,4 0 0 1 415.8388,305V311A4,4 0 0 1 411.8388,315H217Z"/>
+<text class="value" x="421.8388" y="314">4.2 KB</text>
+</g>
+<g><title>protoarray · standalone module, no eval
+4,332 bytes
+49% of the JSON bytes
+@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+<text class="label secondary" x="20" y="345">protoarray</text>
+<text class="sublabel" x="20" y="360">standalone module, no eval</text>
+<path class="bar secondary" d="M217,341H411.8388A4,4 0 0 1 415.8388,345V351A4,4 0 0 1 411.8388,355H217Z"/>
+<text class="value" x="421.8388" y="354">4.2 KB</text>
+</g>
+<g><title>protoarray · codegen + metaschema check
+4,332 bytes
+49% of the JSON bytes
+@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+<text class="label secondary" x="20" y="385">protoarray</text>
+<text class="sublabel" x="20" y="400">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,381H411.8388A4,4 0 0 1 415.8388,385V391A4,4 0 0 1 411.8388,395H217Z"/>
+<text class="value" x="421.8388" y="394">4.2 KB</text>
+</g>
+<g><title>cbor-x · records
+4,401 bytes
+50% of the JSON bytes
+cbor-x@1.6.6, writes bytes</title>
+<text class="label" x="20" y="425">cbor-x</text>
+<text class="sublabel" x="20" y="440">records</text>
+<path class="bar" d="M217,421H415.0059A4,4 0 0 1 419.0059,425V431A4,4 0 0 1 415.0059,435H217Z"/>
+<text class="value" x="425.0059" y="434">4.3 KB</text>
+</g>
+<g><title>@msgpack/msgpack · Encoder · Decoder
+6,400 bytes
+72% of the JSON bytes
+@msgpack/msgpack@3.1.3, writes bytes</title>
+<text class="label" x="20" y="465">@msgpack/msgpack</text>
+<text class="sublabel" x="20" y="480">Encoder · Decoder</text>
+<path class="bar" d="M217,461H506.76A4,4 0 0 1 510.76,465V471A4,4 0 0 1 506.76,475H217Z"/>
+<text class="value" x="516.76" y="474">6.3 KB</text>
+</g>
+<g><title>msgpackr · pack · unpack
+6,800 bytes
+77% of the JSON bytes
+msgpackr@2.1.0, writes bytes</title>
+<text class="label" x="20" y="505">msgpackr</text>
+<text class="sublabel" x="20" y="520">pack · unpack</text>
+<path class="bar" d="M217,501H525.12A4,4 0 0 1 529.12,505V511A4,4 0 0 1 525.12,515H217Z"/>
+<text class="value" x="535.12" y="514">6.6 KB</text>
+</g>
+<g><title>v8.serialize · structured clone, Node only
+7,772 bytes
+88% of the JSON bytes
+node:v8, Node 24.14.1, writes bytes</title>
+<text class="label" x="20" y="545">v8.serialize</text>
+<text class="sublabel" x="20" y="560">structured clone, Node only</text>
+<path class="bar" d="M217,541H569.7348A4,4 0 0 1 573.7348,545V551A4,4 0 0 1 569.7348,555H217Z"/>
+<text class="value" x="579.7348" y="554">7.6 KB</text>
+</g>
+<g><title>devalue · stringify · parse
+8,202 bytes
+93% of the JSON bytes
+devalue@6.0.3, writes JSON text</title>
+<text class="label" x="20" y="585">devalue</text>
+<text class="sublabel" x="20" y="600">stringify · parse</text>
+<path class="bar" d="M217,581H589.4718A4,4 0 0 1 593.4718,585V591A4,4 0 0 1 589.4718,595H217Z"/>
+<text class="value" x="599.4718" y="594">8.0 KB</text>
+</g>
+<g><title>JSON · stringify · parse
+8,834 bytes
+JSON (built in), Node 24.14.1, writes JSON text</title>
+<text class="label" x="20" y="625">JSON</text>
+<text class="sublabel" x="20" y="640">stringify · parse</text>
+<path class="bar" d="M217,621H618.4806A4,4 0 0 1 622.4806,625V631A4,4 0 0 1 618.4806,635H217Z"/>
+<text class="value" x="628.4806" y="634">8.6 KB</text>
+</g>
+<g><title>superjson · stringify · parse
+8,843 bytes
+100% of the JSON bytes
+superjson@2.2.6, writes JSON text</title>
+<text class="label" x="20" y="665">superjson</text>
+<text class="sublabel" x="20" y="680">stringify · parse</text>
+<path class="bar" d="M217,661H618.8937A4,4 0 0 1 622.8937,665V671A4,4 0 0 1 618.8937,675H217Z"/>
+<text class="value" x="628.8937" y="674">8.6 KB</text>
+</g>
+<g><title>BSON · serialize · deserialize
+9,742 bytes
+110% of the JSON bytes
+bson@7.3.3, writes bytes</title>
+<text class="label" x="20" y="705">BSON</text>
+<text class="sublabel" x="20" y="720">serialize · deserialize</text>
+<path class="bar" d="M217,701H660.1578A4,4 0 0 1 664.1578,705V711A4,4 0 0 1 660.1578,715H217Z"/>
+<text class="value" x="670.1578" y="714">9.5 KB</text>
+</g>
+<text class="caption" x="20" y="769">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
+<text class="caption" x="20" y="785">2026-10-16</text>
+</svg>

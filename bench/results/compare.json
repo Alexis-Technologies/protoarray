@@ -1,22 +1,208 @@
 {
-  "date": "2026-10-16T18:30:58.337Z",
-  "node": "v24.14.1",
-  "v8": "13.6.233.17-node.44",
-  "cpu": "Apple M3 Max",
+  "generatedAt": "2026-10-16T20:34:06.440Z",
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 16,
+    "memoryGb": 64,
+    "os": "darwin 25.6.0 (arm64)",
+    "node": "v24.14.1",
+    "v8": "13.6.233.17-node.44"
+  },
+  "method": {
+    "warmup": 500,
+    "rounds": 5,
+    "roundMs": 400,
+    "coldStartRuns": 10,
+    "gzipLevel": 6,
+    "brotliQuality": 5
+  },
+  "libraries": [
+    {
+      "id": "json",
+      "name": "JSON",
+      "variant": "stringify · parse",
+      "package": "JSON (built in)",
+      "version": "24.14.1",
+      "family": "text"
+    },
+    {
+      "id": "protoarray",
+      "name": "protoarray",
+      "variant": "codegen",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-snapshot",
+      "name": "protoarray",
+      "variant": "codegen, from a snapshot",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-closures",
+      "name": "protoarray",
+      "variant": "closures, no eval",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-standalone",
+      "name": "protoarray",
+      "variant": "standalone module, no eval",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-checked",
+      "name": "protoarray",
+      "variant": "codegen + metaschema check",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-columns",
+      "name": "protoarray",
+      "variant": "columns layout",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-compact",
+      "name": "protoarray",
+      "variant": "columns, delta + intern",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "72941bf"
+    },
+    {
+      "id": "protobufjs",
+      "name": "protobufjs",
+      "variant": "reflection, Root.fromJSON",
+      "package": "protobufjs",
+      "version": "8.8.1",
+      "family": "binary"
+    },
+    {
+      "id": "protobuf-es",
+      "name": "protobuf-es",
+      "variant": "create · toBinary · fromBinary",
+      "package": "@bufbuild/protobuf",
+      "version": "2.16.0",
+      "family": "binary"
+    },
+    {
+      "id": "avsc",
+      "name": "avsc",
+      "variant": "Type.forSchema",
+      "package": "avsc",
+      "version": "5.7.9",
+      "family": "binary"
+    },
+    {
+      "id": "msgpackr",
+      "name": "msgpackr",
+      "variant": "pack · unpack",
+      "package": "msgpackr",
+      "version": "2.1.0",
+      "family": "binary"
+    },
+    {
+      "id": "msgpackr-records",
+      "name": "msgpackr",
+      "variant": "records, shared structures",
+      "package": "msgpackr",
+      "version": "2.1.0",
+      "family": "binary"
+    },
+    {
+      "id": "msgpack",
+      "name": "@msgpack/msgpack",
+      "variant": "Encoder · Decoder",
+      "package": "@msgpack/msgpack",
+      "version": "3.1.3",
+      "family": "binary"
+    },
+    {
+      "id": "cbor-x",
+      "name": "cbor-x",
+      "variant": "records",
+      "package": "cbor-x",
+      "version": "1.6.6",
+      "family": "binary"
+    },
+    {
+      "id": "bson",
+      "name": "BSON",
+      "variant": "serialize · deserialize",
+      "package": "bson",
+      "version": "7.3.3",
+      "family": "binary"
+    },
+    {
+      "id": "v8",
+      "name": "v8.serialize",
+      "variant": "structured clone, Node only",
+      "package": "node:v8",
+      "version": "24.14.1",
+      "family": "binary"
+    },
+    {
+      "id": "superjson",
+      "name": "superjson",
+      "variant": "stringify · parse",
+      "package": "superjson",
+      "version": "2.2.6",
+      "family": "text"
+    },
+    {
+      "id": "devalue",
+      "name": "devalue",
+      "variant": "stringify · parse",
+      "package": "devalue",
+      "version": "6.0.3",
+      "family": "text"
+    },
+    {
+      "id": "fast-json-stringify",
+      "name": "fast-json-stringify",
+      "variant": "compiled stringify, JSON.parse",
+      "package": "fast-json-stringify",
+      "version": "7.1.0",
+      "family": "text"
+    }
+  ],
   "scenarios": [
     {
-      "name": "single",
+      "id": "single",
+      "title": "One record",
       "description": "one record: 10 fields, nested address, tags, 2 orders",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 1417812,
-          "decode": 982136,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1393246,
+            "min": 1376054,
+            "max": 1399510,
+            "spread": 2
+          },
+          "decode": {
+            "median": 970015,
+            "min": 967964,
+            "max": 975521,
+            "spread": 1
           },
           "bytes": {
             "raw": 266,
@@ -24,15 +210,18 @@
             "brotli": 178
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2082841,
-          "decode": 1726288,
-          "spread": {
-            "encode": 4,
-            "decode": 3
+        "protoarray": {
+          "encode": {
+            "median": 2066250,
+            "min": 2040820,
+            "max": 2150642,
+            "spread": 5
+          },
+          "decode": {
+            "median": 1723648,
+            "min": 1705544,
+            "max": 1726956,
+            "spread": 1
           },
           "bytes": {
             "raw": 135,
@@ -40,15 +229,18 @@
             "brotli": 110
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1499018,
-          "decode": 1070681,
-          "spread": {
-            "encode": 5,
-            "decode": 3
+        "protoarray-closures": {
+          "encode": {
+            "median": 1500853,
+            "min": 1500230,
+            "max": 1507164,
+            "spread": 0
+          },
+          "decode": {
+            "median": 1065375,
+            "min": 1060196,
+            "max": 1077570,
+            "spread": 2
           },
           "bytes": {
             "raw": 135,
@@ -56,15 +248,18 @@
             "brotli": 110
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1152290,
-          "decode": 1745096,
-          "spread": {
-            "encode": 6,
-            "decode": 3
+        "protoarray-standalone": {
+          "encode": {
+            "median": 2038604,
+            "min": 2033456,
+            "max": 2060743,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1606745,
+            "min": 1593044,
+            "max": 1619384,
+            "spread": 2
           },
           "bytes": {
             "raw": 135,
@@ -72,15 +267,18 @@
             "brotli": 110
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2095032,
-          "decode": 1740319,
-          "spread": {
-            "encode": 3,
-            "decode": 3
+        "protoarray-checked": {
+          "encode": {
+            "median": 1148641,
+            "min": 1118028,
+            "max": 1156302,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1723478,
+            "min": 1716032,
+            "max": 1734404,
+            "spread": 1
           },
           "bytes": {
             "raw": 135,
@@ -88,15 +286,18 @@
             "brotli": 110
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 1383211,
-          "decode": 1495901,
-          "spread": {
-            "encode": 4,
-            "decode": 2
+        "protobufjs": {
+          "encode": {
+            "median": 1398695,
+            "min": 1394156,
+            "max": 1407265,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1472331,
+            "min": 1462672,
+            "max": 1477554,
+            "spread": 1
           },
           "bytes": {
             "raw": 115,
@@ -104,15 +305,37 @@
             "brotli": 117
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 1656205,
-          "decode": 1851547,
-          "spread": {
-            "encode": 5,
-            "decode": 1
+        "protobuf-es": {
+          "encode": {
+            "median": 487218,
+            "min": 477972,
+            "max": 500545,
+            "spread": 5
+          },
+          "decode": {
+            "median": 560158,
+            "min": 558553,
+            "max": 561644,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 115,
+            "gzip": 127,
+            "brotli": 117
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1626234,
+            "min": 1611124,
+            "max": 1644734,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1738513,
+            "min": 1729421,
+            "max": 1741685,
+            "spread": 1
           },
           "bytes": {
             "raw": 97,
@@ -120,15 +343,18 @@
             "brotli": 101
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 1250888,
-          "decode": 734635,
-          "spread": {
-            "encode": 1,
-            "decode": 0
+        "msgpackr": {
+          "encode": {
+            "median": 1187227,
+            "min": 1177312,
+            "max": 1192431,
+            "spread": 1
+          },
+          "decode": {
+            "median": 703240,
+            "min": 683764,
+            "max": 709563,
+            "spread": 4
           },
           "bytes": {
             "raw": 206,
@@ -136,15 +362,18 @@
             "brotli": 173
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 1465051,
-          "decode": 2728598,
-          "spread": {
-            "encode": 2,
-            "decode": 2
+        "msgpackr-records": {
+          "encode": {
+            "median": 1413209,
+            "min": 1407875,
+            "max": 1424180,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2605367,
+            "min": 2572078,
+            "max": 2612688,
+            "spread": 2
           },
           "bytes": {
             "raw": 108,
@@ -152,15 +381,18 @@
             "brotli": 112
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 769124,
-          "decode": 702602,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "msgpack": {
+          "encode": {
+            "median": 743786,
+            "min": 736252,
+            "max": 748994,
+            "spread": 2
+          },
+          "decode": {
+            "median": 682968,
+            "min": 674082,
+            "max": 687012,
+            "spread": 2
           },
           "bytes": {
             "raw": 198,
@@ -168,15 +400,18 @@
             "brotli": 166
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 792208,
-          "decode": 691743,
-          "spread": {
-            "encode": 2,
-            "decode": 2
+        "cbor-x": {
+          "encode": {
+            "median": 778290,
+            "min": 772144,
+            "max": 782531,
+            "spread": 1
+          },
+          "decode": {
+            "median": 664618,
+            "min": 659760,
+            "max": 670493,
+            "spread": 2
           },
           "bytes": {
             "raw": 215,
@@ -184,15 +419,94 @@
             "brotli": 187
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 1791926,
-          "decode": 966469,
-          "spread": {
-            "encode": 3,
-            "decode": 1
+        "bson": {
+          "encode": {
+            "median": 620067,
+            "min": 614653,
+            "max": 623726,
+            "spread": 1
+          },
+          "decode": {
+            "median": 487593,
+            "min": 480852,
+            "max": 489864,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 298,
+            "gzip": 235,
+            "brotli": 202
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 644403,
+            "min": 641149,
+            "max": 666676,
+            "spread": 4
+          },
+          "decode": {
+            "median": 485043,
+            "min": 471869,
+            "max": 490931,
+            "spread": 4
+          },
+          "bytes": {
+            "raw": 245,
+            "gzip": 227,
+            "brotli": 192
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 124081,
+            "min": 121333,
+            "max": 124160,
+            "spread": 2
+          },
+          "decode": {
+            "median": 869721,
+            "min": 867628,
+            "max": 870721,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 275,
+            "gzip": 218,
+            "brotli": 186
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 298033,
+            "min": 292985,
+            "max": 301162,
+            "spread": 3
+          },
+          "decode": {
+            "median": 482851,
+            "min": 478981,
+            "max": 487387,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 311,
+            "gzip": 242,
+            "brotli": 209
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 1772179,
+            "min": 1757642,
+            "max": 1779298,
+            "spread": 1
+          },
+          "decode": {
+            "median": 942027,
+            "min": 936665,
+            "max": 955200,
+            "spread": 2
           },
           "bytes": {
             "raw": 266,
@@ -200,21 +514,25 @@
             "brotli": 178
           }
         }
-      ]
+      }
     },
     {
-      "name": "records",
+      "id": "records",
+      "title": "1,000 records",
       "description": "1000 records of the same shape",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 1552,
-          "decode": 912,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1466,
+            "min": 1459,
+            "max": 1467,
+            "spread": 1
+          },
+          "decode": {
+            "median": 891,
+            "min": 885,
+            "max": 897,
+            "spread": 1
           },
           "bytes": {
             "raw": 271215,
@@ -222,15 +540,18 @@
             "brotli": 29133
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2003,
-          "decode": 1515,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protoarray": {
+          "encode": {
+            "median": 1958,
+            "min": 1955,
+            "max": 1974,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1476,
+            "min": 1457,
+            "max": 1483,
+            "spread": 2
           },
           "bytes": {
             "raw": 140738,
@@ -238,15 +559,18 @@
             "brotli": 26946
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1428,
-          "decode": 991,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "protoarray-closures": {
+          "encode": {
+            "median": 1390,
+            "min": 1359,
+            "max": 1402,
+            "spread": 3
+          },
+          "decode": {
+            "median": 978,
+            "min": 974,
+            "max": 984,
+            "spread": 1
           },
           "bytes": {
             "raw": 140738,
@@ -254,15 +578,18 @@
             "brotli": 26946
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1107,
-          "decode": 1543,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protoarray-standalone": {
+          "encode": {
+            "median": 1992,
+            "min": 1973,
+            "max": 1997,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1471,
+            "min": 1458,
+            "max": 1479,
+            "spread": 1
           },
           "bytes": {
             "raw": 140738,
@@ -270,15 +597,37 @@
             "brotli": 26946
           }
         },
-        {
-          "id": "protoarray-columns",
-          "name": "protoarray (columns)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2127,
-          "decode": 1501,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "protoarray-checked": {
+          "encode": {
+            "median": 1090,
+            "min": 1076,
+            "max": 1097,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1462,
+            "min": 1458,
+            "max": 1467,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 140738,
+            "gzip": 30666,
+            "brotli": 26946
+          }
+        },
+        "protoarray-columns": {
+          "encode": {
+            "median": 2059,
+            "min": 2010,
+            "max": 2069,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1535,
+            "min": 1524,
+            "max": 1540,
+            "spread": 1
           },
           "bytes": {
             "raw": 138758,
@@ -286,31 +635,18 @@
             "brotli": 21053
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2017,
-          "decode": 1497,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protoarray-compact": {
+          "encode": {
+            "median": 2245,
+            "min": 2215,
+            "max": 2263,
+            "spread": 2
           },
-          "bytes": {
-            "raw": 140738,
-            "gzip": 30666,
-            "brotli": 26946
-          }
-        },
-        {
-          "id": "protoarray-compact",
-          "name": "protoarray (columns, delta + intern)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2293,
-          "decode": 1732,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+          "decode": {
+            "median": 1670,
+            "min": 1659,
+            "max": 1683,
+            "spread": 1
           },
           "bytes": {
             "raw": 114965,
@@ -318,15 +654,18 @@
             "brotli": 19799
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 1328,
-          "decode": 1412,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "protobufjs": {
+          "encode": {
+            "median": 1301,
+            "min": 1283,
+            "max": 1305,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1403,
+            "min": 1400,
+            "max": 1407,
+            "spread": 0
           },
           "bytes": {
             "raw": 120459,
@@ -334,15 +673,37 @@
             "brotli": 28985
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 1364,
-          "decode": 1823,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protobuf-es": {
+          "encode": {
+            "median": 617,
+            "min": 614,
+            "max": 619,
+            "spread": 1
+          },
+          "decode": {
+            "median": 587,
+            "min": 579,
+            "max": 588,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 120459,
+            "gzip": 31414,
+            "brotli": 28985
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1399,
+            "min": 1394,
+            "max": 1405,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1793,
+            "min": 1768,
+            "max": 1803,
+            "spread": 2
           },
           "bytes": {
             "raw": 101839,
@@ -350,15 +711,18 @@
             "brotli": 27334
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 1201,
-          "decode": 773,
-          "spread": {
-            "encode": 0,
-            "decode": 2
+        "msgpackr": {
+          "encode": {
+            "median": 1219,
+            "min": 1211,
+            "max": 1220,
+            "spread": 1
+          },
+          "decode": {
+            "median": 726,
+            "min": 724,
+            "max": 731,
+            "spread": 1
           },
           "bytes": {
             "raw": 210061,
@@ -366,15 +730,18 @@
             "brotli": 30555
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 1502,
-          "decode": 3001,
-          "spread": {
-            "encode": 1,
-            "decode": 0
+        "msgpackr-records": {
+          "encode": {
+            "median": 1538,
+            "min": 1521,
+            "max": 1542,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2867,
+            "min": 2776,
+            "max": 2902,
+            "spread": 4
           },
           "bytes": {
             "raw": 112274,
@@ -382,15 +749,18 @@
             "brotli": 28370
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 771,
-          "decode": 725,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "msgpack": {
+          "encode": {
+            "median": 781,
+            "min": 774,
+            "max": 784,
+            "spread": 1
+          },
+          "decode": {
+            "median": 702,
+            "min": 691,
+            "max": 707,
+            "spread": 2
           },
           "bytes": {
             "raw": 202061,
@@ -398,15 +768,18 @@
             "brotli": 30367
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 1378,
-          "decode": 2421,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "cbor-x": {
+          "encode": {
+            "median": 1373,
+            "min": 1362,
+            "max": 1380,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2340,
+            "min": 2312,
+            "max": 2364,
+            "spread": 2
           },
           "bytes": {
             "raw": 125051,
@@ -414,15 +787,94 @@
             "brotli": 29016
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 1577,
-          "decode": 908,
-          "spread": {
-            "encode": 3,
-            "decode": 1
+        "bson": {
+          "encode": {
+            "median": 635,
+            "min": 634,
+            "max": 639,
+            "spread": 1
+          },
+          "decode": {
+            "median": 471,
+            "min": 468,
+            "max": 472,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 306979,
+            "gzip": 40388,
+            "brotli": 35974
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 1234,
+            "min": 1210,
+            "max": 1267,
+            "spread": 5
+          },
+          "decode": {
+            "median": 664,
+            "min": 662,
+            "max": 667,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 247280,
+            "gzip": 35072,
+            "brotli": 31298
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 105,
+            "min": 102,
+            "max": 106,
+            "spread": 4
+          },
+          "decode": {
+            "median": 904,
+            "min": 899,
+            "max": 910,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 271224,
+            "gzip": 33806,
+            "brotli": 29142
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 249,
+            "min": 231,
+            "max": 251,
+            "spread": 8
+          },
+          "decode": {
+            "median": 549,
+            "min": 542,
+            "max": 553,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 311515,
+            "gzip": 76723,
+            "brotli": 63418
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 1659,
+            "min": 1587,
+            "max": 1673,
+            "spread": 5
+          },
+          "decode": {
+            "median": 884,
+            "min": 881,
+            "max": 887,
+            "spread": 1
           },
           "bytes": {
             "raw": 271215,
@@ -430,21 +882,25 @@
             "brotli": 29133
           }
         }
-      ]
+      }
     },
     {
-      "name": "sparse",
+      "id": "sparse",
+      "title": "Sparse record",
       "description": "20 optional fields, 3 present",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 7020175,
-          "decode": 4831357,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+      "results": {
+        "json": {
+          "encode": {
+            "median": 6800381,
+            "min": 6769439,
+            "max": 6833699,
+            "spread": 1
+          },
+          "decode": {
+            "median": 4562955,
+            "min": 4520364,
+            "max": 4583306,
+            "spread": 1
           },
           "bytes": {
             "raw": 33,
@@ -452,15 +908,18 @@
             "brotli": 36
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 7492911,
-          "decode": 7343800,
-          "spread": {
-            "encode": 5,
-            "decode": 0
+        "protoarray": {
+          "encode": {
+            "median": 7466131,
+            "min": 7284012,
+            "max": 7518319,
+            "spread": 3
+          },
+          "decode": {
+            "median": 7541369,
+            "min": 7491594,
+            "max": 7555459,
+            "spread": 1
           },
           "bytes": {
             "raw": 23,
@@ -468,15 +927,18 @@
             "brotli": 27
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 3066588,
-          "decode": 2449150,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protoarray-closures": {
+          "encode": {
+            "median": 3029115,
+            "min": 2977120,
+            "max": 3038991,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2382353,
+            "min": 2379411,
+            "max": 2389168,
+            "spread": 0
           },
           "bytes": {
             "raw": 23,
@@ -484,15 +946,18 @@
             "brotli": 27
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2228011,
-          "decode": 7725200,
-          "spread": {
-            "encode": 5,
-            "decode": 1
+        "protoarray-standalone": {
+          "encode": {
+            "median": 6712097,
+            "min": 6622493,
+            "max": 7056635,
+            "spread": 6
+          },
+          "decode": {
+            "median": 7171599,
+            "min": 7121065,
+            "max": 7237878,
+            "spread": 2
           },
           "bytes": {
             "raw": 23,
@@ -500,15 +965,18 @@
             "brotli": 27
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 7019903,
-          "decode": 7389414,
-          "spread": {
-            "encode": 2,
-            "decode": 3
+        "protoarray-checked": {
+          "encode": {
+            "median": 2089158,
+            "min": 2031516,
+            "max": 2106969,
+            "spread": 4
+          },
+          "decode": {
+            "median": 7340173,
+            "min": 7258607,
+            "max": 7461600,
+            "spread": 3
           },
           "bytes": {
             "raw": 23,
@@ -516,15 +984,18 @@
             "brotli": 27
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 5664880,
-          "decode": 9586982,
-          "spread": {
-            "encode": 4,
-            "decode": 1
+        "protobufjs": {
+          "encode": {
+            "median": 5568923,
+            "min": 5385943,
+            "max": 5583639,
+            "spread": 4
+          },
+          "decode": {
+            "median": 9670688,
+            "min": 9648382,
+            "max": 9816117,
+            "spread": 2
           },
           "bytes": {
             "raw": 11,
@@ -532,15 +1003,37 @@
             "brotli": 15
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 1489195,
-          "decode": 3693651,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protobuf-es": {
+          "encode": {
+            "median": 966102,
+            "min": 955911,
+            "max": 975264,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2827757,
+            "min": 2804585,
+            "max": 2846410,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 11,
+            "gzip": 31,
+            "brotli": 15
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1457467,
+            "min": 1437408,
+            "max": 1471501,
+            "spread": 2
+          },
+          "decode": {
+            "median": 3623007,
+            "min": 3610955,
+            "max": 3642677,
+            "spread": 1
           },
           "bytes": {
             "raw": 28,
@@ -548,15 +1041,18 @@
             "brotli": 23
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 6343997,
-          "decode": 6929161,
-          "spread": {
-            "encode": 3,
-            "decode": 1
+        "msgpackr": {
+          "encode": {
+            "median": 6136300,
+            "min": 6066815,
+            "max": 6169632,
+            "spread": 2
+          },
+          "decode": {
+            "median": 6733737,
+            "min": 6677537,
+            "max": 6763678,
+            "spread": 1
           },
           "bytes": {
             "raw": 21,
@@ -564,15 +1060,18 @@
             "brotli": 25
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 6047645,
-          "decode": 12528028,
-          "spread": {
-            "encode": 1,
-            "decode": 0
+        "msgpackr-records": {
+          "encode": {
+            "median": 5958539,
+            "min": 5878714,
+            "max": 6017587,
+            "spread": 2
+          },
+          "decode": {
+            "median": 12178186,
+            "min": 12108529,
+            "max": 12360136,
+            "spread": 2
           },
           "bytes": {
             "raw": 9,
@@ -580,15 +1079,18 @@
             "brotli": 13
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 4925157,
-          "decode": 3558744,
-          "spread": {
-            "encode": 3,
-            "decode": 1
+        "msgpack": {
+          "encode": {
+            "median": 5224674,
+            "min": 5140211,
+            "max": 5242807,
+            "spread": 2
+          },
+          "decode": {
+            "median": 3403714,
+            "min": 3372615,
+            "max": 3449440,
+            "spread": 2
           },
           "bytes": {
             "raw": 19,
@@ -596,15 +1098,18 @@
             "brotli": 23
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 3108914,
-          "decode": 3626443,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "cbor-x": {
+          "encode": {
+            "median": 3036913,
+            "min": 3024339,
+            "max": 3063052,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3620365,
+            "min": 3589133,
+            "max": 3646884,
+            "spread": 2
           },
           "bytes": {
             "raw": 27,
@@ -612,15 +1117,94 @@
             "brotli": 31
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 14399016,
-          "decode": 4723333,
-          "spread": {
-            "encode": 3,
-            "decode": 2
+        "bson": {
+          "encode": {
+            "median": 3279163,
+            "min": 3231021,
+            "max": 3292406,
+            "spread": 2
+          },
+          "decode": {
+            "median": 4089815,
+            "min": 4053066,
+            "max": 4097801,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 33,
+            "gzip": 53,
+            "brotli": 33
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 1238524,
+            "min": 1196840,
+            "max": 1262096,
+            "spread": 5
+          },
+          "decode": {
+            "median": 1367302,
+            "min": 1311351,
+            "max": 1427017,
+            "spread": 8
+          },
+          "bytes": {
+            "raw": 28,
+            "gzip": 48,
+            "brotli": 32
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 797123,
+            "min": 784563,
+            "max": 807246,
+            "spread": 3
+          },
+          "decode": {
+            "median": 3232153,
+            "min": 3213913,
+            "max": 3249252,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 42,
+            "gzip": 62,
+            "brotli": 40
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 1733712,
+            "min": 1724842,
+            "max": 1769904,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2408284,
+            "min": 2400634,
+            "max": 2417405,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 41,
+            "gzip": 61,
+            "brotli": 43
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 14537667,
+            "min": 14418944,
+            "max": 14677225,
+            "spread": 2
+          },
+          "decode": {
+            "median": 4708885,
+            "min": 4677748,
+            "max": 4730682,
+            "spread": 1
           },
           "bytes": {
             "raw": 33,
@@ -628,21 +1212,25 @@
             "brotli": 36
           }
         }
-      ]
+      }
     },
     {
-      "name": "typed",
+      "id": "typed",
+      "title": "Typed record",
       "description": "enum, boolean and date heavy record",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 833405,
-          "decode": 2899122,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+      "results": {
+        "json": {
+          "encode": {
+            "median": 821191,
+            "min": 813369,
+            "max": 823187,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2898740,
+            "min": 2886109,
+            "max": 2974893,
+            "spread": 3
           },
           "bytes": {
             "raw": 123,
@@ -650,15 +1238,18 @@
             "brotli": 94
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 4785378,
-          "decode": 4928697,
-          "spread": {
-            "encode": 2,
-            "decode": 4
+        "protoarray": {
+          "encode": {
+            "median": 4717208,
+            "min": 4700002,
+            "max": 4802629,
+            "spread": 2
+          },
+          "decode": {
+            "median": 4844478,
+            "min": 4839329,
+            "max": 4887903,
+            "spread": 1
           },
           "bytes": {
             "raw": 36,
@@ -666,15 +1257,18 @@
             "brotli": 36
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 3507718,
-          "decode": 3088482,
-          "spread": {
-            "encode": 4,
-            "decode": 3
+        "protoarray-closures": {
+          "encode": {
+            "median": 3514161,
+            "min": 3504240,
+            "max": 3542441,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3118202,
+            "min": 3098851,
+            "max": 3127262,
+            "spread": 1
           },
           "bytes": {
             "raw": 36,
@@ -682,15 +1276,18 @@
             "brotli": 36
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 2799554,
-          "decode": 4825382,
-          "spread": {
-            "encode": 4,
-            "decode": 4
+        "protoarray-standalone": {
+          "encode": {
+            "median": 4666737,
+            "min": 4621845,
+            "max": 4747256,
+            "spread": 3
+          },
+          "decode": {
+            "median": 4696261,
+            "min": 4685112,
+            "max": 4724024,
+            "spread": 1
           },
           "bytes": {
             "raw": 36,
@@ -698,15 +1295,18 @@
             "brotli": 36
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 4565730,
-          "decode": 4746114,
-          "spread": {
-            "encode": 4,
-            "decode": 3
+        "protoarray-checked": {
+          "encode": {
+            "median": 2803310,
+            "min": 2692379,
+            "max": 2836982,
+            "spread": 5
+          },
+          "decode": {
+            "median": 4851985,
+            "min": 4769756,
+            "max": 4888344,
+            "spread": 2
           },
           "bytes": {
             "raw": 36,
@@ -714,15 +1314,18 @@
             "brotli": 36
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 3685426,
-          "decode": 12106492,
-          "spread": {
-            "encode": 3,
-            "decode": 3
+        "protobufjs": {
+          "encode": {
+            "median": 3837319,
+            "min": 3690098,
+            "max": 3860093,
+            "spread": 4
+          },
+          "decode": {
+            "median": 12143747,
+            "min": 11842524,
+            "max": 12181481,
+            "spread": 3
           },
           "bytes": {
             "raw": 13,
@@ -730,15 +1333,37 @@
             "brotli": 17
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 2076309,
-          "decode": 7931138,
-          "spread": {
-            "encode": 3,
-            "decode": 3
+        "protobuf-es": {
+          "encode": {
+            "median": 1272891,
+            "min": 1268869,
+            "max": 1285135,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2952236,
+            "min": 2897792,
+            "max": 2956570,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 13,
+            "gzip": 33,
+            "brotli": 17
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 2135877,
+            "min": 2080364,
+            "max": 2167769,
+            "spread": 4
+          },
+          "decode": {
+            "median": 7911258,
+            "min": 7806953,
+            "max": 7938817,
+            "spread": 2
           },
           "bytes": {
             "raw": 12,
@@ -746,15 +1371,18 @@
             "brotli": 16
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 2842568,
-          "decode": 2777902,
-          "spread": {
-            "encode": 2,
-            "decode": 3
+        "msgpackr": {
+          "encode": {
+            "median": 2770059,
+            "min": 2762108,
+            "max": 2800620,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2776545,
+            "min": 2768570,
+            "max": 2781437,
+            "spread": 0
           },
           "bytes": {
             "raw": 73,
@@ -762,15 +1390,18 @@
             "brotli": 72
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 3410286,
-          "decode": 5284709,
-          "spread": {
-            "encode": 1,
-            "decode": 0
+        "msgpackr-records": {
+          "encode": {
+            "median": 3373007,
+            "min": 3361773,
+            "max": 3400929,
+            "spread": 1
+          },
+          "decode": {
+            "median": 5181591,
+            "min": 5166980,
+            "max": 5281573,
+            "spread": 2
           },
           "bytes": {
             "raw": 24,
@@ -778,15 +1409,18 @@
             "brotli": 28
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 1185961,
-          "decode": 1574466,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "msgpack": {
+          "encode": {
+            "median": 1155596,
+            "min": 1137823,
+            "max": 1178464,
+            "spread": 4
+          },
+          "decode": {
+            "median": 1540533,
+            "min": 1530452,
+            "max": 1543353,
+            "spread": 1
           },
           "bytes": {
             "raw": 71,
@@ -794,15 +1428,18 @@
             "brotli": 71
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 1773843,
-          "decode": 1561556,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "cbor-x": {
+          "encode": {
+            "median": 1768803,
+            "min": 1737577,
+            "max": 1773445,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1529636,
+            "min": 1513918,
+            "max": 1538673,
+            "spread": 2
           },
           "bytes": {
             "raw": 79,
@@ -810,15 +1447,94 @@
             "brotli": 80
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 4813673,
-          "decode": 2672554,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "bson": {
+          "encode": {
+            "median": 1871497,
+            "min": 1847464,
+            "max": 1880564,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1338309,
+            "min": 1329085,
+            "max": 1352596,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 98,
+            "gzip": 104,
+            "brotli": 82
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 1012846,
+            "min": 991658,
+            "max": 1028227,
+            "spread": 4
+          },
+          "decode": {
+            "median": 1126288,
+            "min": 1082585,
+            "max": 1137191,
+            "spread": 5
+          },
+          "bytes": {
+            "raw": 89,
+            "gzip": 109,
+            "brotli": 90
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 291201,
+            "min": 285929,
+            "max": 292166,
+            "spread": 2
+          },
+          "decode": {
+            "median": 789994,
+            "min": 788736,
+            "max": 799005,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 179,
+            "gzip": 153,
+            "brotli": 126
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 604182,
+            "min": 601770,
+            "max": 608130,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1043080,
+            "min": 1037180,
+            "max": 1045601,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 142,
+            "gzip": 137,
+            "brotli": 112
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 5208951,
+            "min": 5142759,
+            "max": 5263499,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2808826,
+            "min": 2796772,
+            "max": 2817656,
+            "spread": 1
           },
           "bytes": {
             "raw": 110,
@@ -826,21 +1542,25 @@
             "brotli": 83
           }
         }
-      ]
+      }
     },
     {
-      "name": "strings",
+      "id": "strings",
+      "title": "Long strings",
       "description": "long Cyrillic strings",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 1548437,
-          "decode": 1346168,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1557669,
+            "min": 1548827,
+            "max": 1568928,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1335778,
+            "min": 1330949,
+            "max": 1343347,
+            "spread": 1
           },
           "bytes": {
             "raw": 816,
@@ -848,15 +1568,18 @@
             "brotli": 229
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1808707,
-          "decode": 1693495,
-          "spread": {
-            "encode": 1,
-            "decode": 3
+        "protoarray": {
+          "encode": {
+            "median": 1811907,
+            "min": 1805132,
+            "max": 1817117,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1695038,
+            "min": 1667854,
+            "max": 1703789,
+            "spread": 2
           },
           "bytes": {
             "raw": 785,
@@ -864,15 +1587,18 @@
             "brotli": 207
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1697999,
-          "decode": 1558401,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "protoarray-closures": {
+          "encode": {
+            "median": 1673013,
+            "min": 1668292,
+            "max": 1676170,
+            "spread": 0
+          },
+          "decode": {
+            "median": 1557716,
+            "min": 1545152,
+            "max": 1578421,
+            "spread": 2
           },
           "bytes": {
             "raw": 785,
@@ -880,15 +1606,18 @@
             "brotli": 207
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1545309,
-          "decode": 1700137,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protoarray-standalone": {
+          "encode": {
+            "median": 1758113,
+            "min": 1747414,
+            "max": 1767763,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1674028,
+            "min": 1663119,
+            "max": 1685129,
+            "spread": 1
           },
           "bytes": {
             "raw": 785,
@@ -896,15 +1625,18 @@
             "brotli": 207
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 1786667,
-          "decode": 1696516,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protoarray-checked": {
+          "encode": {
+            "median": 1548540,
+            "min": 1536792,
+            "max": 1555266,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1693591,
+            "min": 1672133,
+            "max": 1712815,
+            "spread": 2
           },
           "bytes": {
             "raw": 785,
@@ -912,15 +1644,18 @@
             "brotli": 207
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 580692,
-          "decode": 508508,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protobufjs": {
+          "encode": {
+            "median": 575285,
+            "min": 567900,
+            "max": 577269,
+            "spread": 2
+          },
+          "decode": {
+            "median": 507626,
+            "min": 504713,
+            "max": 509022,
+            "spread": 1
           },
           "bytes": {
             "raw": 777,
@@ -928,15 +1663,37 @@
             "brotli": 211
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 488372,
-          "decode": 774981,
-          "spread": {
-            "encode": 4,
-            "decode": 1
+        "protobuf-es": {
+          "encode": {
+            "median": 407763,
+            "min": 391024,
+            "max": 410629,
+            "spread": 5
+          },
+          "decode": {
+            "median": 427814,
+            "min": 423542,
+            "max": 431597,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 777,
+            "gzip": 233,
+            "brotli": 211
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 491511,
+            "min": 488514,
+            "max": 493298,
+            "spread": 1
+          },
+          "decode": {
+            "median": 769652,
+            "min": 765013,
+            "max": 770373,
+            "spread": 1
           },
           "bytes": {
             "raw": 774,
@@ -944,15 +1701,18 @@
             "brotli": 210
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 842689,
-          "decode": 215896,
-          "spread": {
-            "encode": 5,
-            "decode": 2
+        "msgpackr": {
+          "encode": {
+            "median": 840197,
+            "min": 830046,
+            "max": 843768,
+            "spread": 2
+          },
+          "decode": {
+            "median": 212834,
+            "min": 212460,
+            "max": 213663,
+            "spread": 1
           },
           "bytes": {
             "raw": 800,
@@ -960,15 +1720,18 @@
             "brotli": 234
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 862105,
-          "decode": 242365,
-          "spread": {
-            "encode": 3,
-            "decode": 1
+        "msgpackr-records": {
+          "encode": {
+            "median": 862533,
+            "min": 840475,
+            "max": 866609,
+            "spread": 3
+          },
+          "decode": {
+            "median": 240954,
+            "min": 239143,
+            "max": 241024,
+            "spread": 1
           },
           "bytes": {
             "raw": 775,
@@ -976,15 +1739,18 @@
             "brotli": 206
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 379797,
-          "decode": 707285,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "msgpack": {
+          "encode": {
+            "median": 377771,
+            "min": 374768,
+            "max": 379232,
+            "spread": 1
+          },
+          "decode": {
+            "median": 690308,
+            "min": 689544,
+            "max": 696088,
+            "spread": 1
           },
           "bytes": {
             "raw": 798,
@@ -992,15 +1758,18 @@
             "brotli": 233
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 718479,
-          "decode": 246166,
-          "spread": {
-            "encode": 3,
-            "decode": 3
+        "cbor-x": {
+          "encode": {
+            "median": 707953,
+            "min": 697054,
+            "max": 715511,
+            "spread": 3
+          },
+          "decode": {
+            "median": 241858,
+            "min": 240744,
+            "max": 242968,
+            "spread": 1
           },
           "bytes": {
             "raw": 806,
@@ -1008,15 +1777,94 @@
             "brotli": 241
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 1338379,
-          "decode": 1378036,
-          "spread": {
-            "encode": 1,
-            "decode": 3
+        "bson": {
+          "encode": {
+            "median": 604607,
+            "min": 596618,
+            "max": 605364,
+            "spread": 1
+          },
+          "decode": {
+            "median": 387918,
+            "min": 384621,
+            "max": 388760,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 840,
+            "gzip": 290,
+            "brotli": 257
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 822278,
+            "min": 801510,
+            "max": 827981,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1033535,
+            "min": 1003061,
+            "max": 1049949,
+            "spread": 5
+          },
+          "bytes": {
+            "raw": 863,
+            "gzip": 263,
+            "brotli": 247
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 310472,
+            "min": 306161,
+            "max": 319632,
+            "spread": 4
+          },
+          "decode": {
+            "median": 1177765,
+            "min": 1175635,
+            "max": 1186690,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 825,
+            "gzip": 275,
+            "brotli": 233
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 547691,
+            "min": 545720,
+            "max": 552909,
+            "spread": 1
+          },
+          "decode": {
+            "median": 924009,
+            "min": 919603,
+            "max": 929026,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 832,
+            "gzip": 284,
+            "brotli": 243
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 1320247,
+            "min": 1313893,
+            "max": 1329395,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1335361,
+            "min": 1327062,
+            "max": 1339471,
+            "spread": 1
           },
           "bytes": {
             "raw": 816,
@@ -1024,21 +1872,25 @@
             "brotli": 229
           }
         }
-      ]
+      }
     },
     {
-      "name": "packets",
+      "id": "packets",
+      "title": "100 wrpc packets",
       "description": "100 wrpc packets: calls, callbacks and events",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 52900,
-          "decode": 25551,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+      "results": {
+        "json": {
+          "encode": {
+            "median": 51915,
+            "min": 51727,
+            "max": 52140,
+            "spread": 1
+          },
+          "decode": {
+            "median": 24070,
+            "min": 23999,
+            "max": 24130,
+            "spread": 1
           },
           "bytes": {
             "raw": 8834,
@@ -1046,15 +1898,18 @@
             "brotli": 630
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 68205,
-          "decode": 51809,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protoarray": {
+          "encode": {
+            "median": 66308,
+            "min": 65849,
+            "max": 66834,
+            "spread": 1
+          },
+          "decode": {
+            "median": 49455,
+            "min": 48725,
+            "max": 49587,
+            "spread": 2
           },
           "bytes": {
             "raw": 4332,
@@ -1062,15 +1917,18 @@
             "brotli": 501
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 49242,
-          "decode": 27540,
-          "spread": {
-            "encode": 1,
-            "decode": 0
+        "protoarray-closures": {
+          "encode": {
+            "median": 48093,
+            "min": 47942,
+            "max": 48209,
+            "spread": 1
+          },
+          "decode": {
+            "median": 26769,
+            "min": 26446,
+            "max": 26819,
+            "spread": 1
           },
           "bytes": {
             "raw": 4332,
@@ -1078,15 +1936,18 @@
             "brotli": 501
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 34778,
-          "decode": 49435,
-          "spread": {
-            "encode": 2,
-            "decode": 2
+        "protoarray-standalone": {
+          "encode": {
+            "median": 65648,
+            "min": 65438,
+            "max": 65946,
+            "spread": 1
+          },
+          "decode": {
+            "median": 47442,
+            "min": 47330,
+            "max": 47769,
+            "spread": 1
           },
           "bytes": {
             "raw": 4332,
@@ -1094,15 +1955,18 @@
             "brotli": 501
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 68089,
-          "decode": 50707,
-          "spread": {
-            "encode": 0,
-            "decode": 1
+        "protoarray-checked": {
+          "encode": {
+            "median": 33902,
+            "min": 33731,
+            "max": 34037,
+            "spread": 1
+          },
+          "decode": {
+            "median": 49890,
+            "min": 49641,
+            "max": 50257,
+            "spread": 1
           },
           "bytes": {
             "raw": 4332,
@@ -1110,15 +1974,18 @@
             "brotli": 501
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 23929,
-          "decode": 37434,
-          "spread": {
-            "encode": 2,
-            "decode": 1
+        "protobufjs": {
+          "encode": {
+            "median": 24172,
+            "min": 23883,
+            "max": 24344,
+            "spread": 2
+          },
+          "decode": {
+            "median": 37015,
+            "min": 36716,
+            "max": 37165,
+            "spread": 1
           },
           "bytes": {
             "raw": 3691,
@@ -1126,15 +1993,37 @@
             "brotli": 609
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 20729,
-          "decode": 47515,
-          "spread": {
-            "encode": 4,
-            "decode": 2
+        "protobuf-es": {
+          "encode": {
+            "median": 10961,
+            "min": 10824,
+            "max": 11066,
+            "spread": 2
+          },
+          "decode": {
+            "median": 15383,
+            "min": 15338,
+            "max": 15389,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 3691,
+            "gzip": 778,
+            "brotli": 609
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 20632,
+            "min": 19832,
+            "max": 21014,
+            "spread": 6
+          },
+          "decode": {
+            "median": 46294,
+            "min": 46139,
+            "max": 46607,
+            "spread": 1
           },
           "bytes": {
             "raw": 2833,
@@ -1142,15 +2031,18 @@
             "brotli": 521
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 31382,
-          "decode": 23603,
-          "spread": {
-            "encode": 1,
-            "decode": 4
+        "msgpackr": {
+          "encode": {
+            "median": 31025,
+            "min": 30763,
+            "max": 31220,
+            "spread": 1
+          },
+          "decode": {
+            "median": 23611,
+            "min": 23532,
+            "max": 23639,
+            "spread": 0
           },
           "bytes": {
             "raw": 6800,
@@ -1158,15 +2050,18 @@
             "brotli": 640
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 29646,
-          "decode": 92772,
-          "spread": {
-            "encode": 2,
-            "decode": 3
+        "msgpackr-records": {
+          "encode": {
+            "median": 28725,
+            "min": 28501,
+            "max": 28868,
+            "spread": 1
+          },
+          "decode": {
+            "median": 84980,
+            "min": 84679,
+            "max": 85637,
+            "spread": 1
           },
           "bytes": {
             "raw": 3697,
@@ -1174,15 +2069,18 @@
             "brotli": 566
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 25502,
-          "decode": 21591,
-          "spread": {
-            "encode": 1,
-            "decode": 3
+        "msgpack": {
+          "encode": {
+            "median": 25155,
+            "min": 25130,
+            "max": 25267,
+            "spread": 1
+          },
+          "decode": {
+            "median": 20986,
+            "min": 20894,
+            "max": 21125,
+            "spread": 1
           },
           "bytes": {
             "raw": 6400,
@@ -1190,37 +2088,120 @@
             "brotli": 614
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 24139,
-          "decode": 52072,
-          "spread": {
-            "encode": 0,
-            "decode": 1
+        "cbor-x": {
+          "encode": {
+            "median": 23920,
+            "min": 23890,
+            "max": 24125,
+            "spread": 1
+          },
+          "decode": {
+            "median": 50532,
+            "min": 49978,
+            "max": 51899,
+            "spread": 4
           },
           "bytes": {
             "raw": 4401,
             "gzip": 841,
             "brotli": 683
           }
+        },
+        "bson": {
+          "encode": {
+            "median": 16962,
+            "min": 16844,
+            "max": 17057,
+            "spread": 1
+          },
+          "decode": {
+            "median": 15135,
+            "min": 14988,
+            "max": 15167,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 9742,
+            "gzip": 1248,
+            "brotli": 929
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 42445,
+            "min": 40776,
+            "max": 43286,
+            "spread": 6
+          },
+          "decode": {
+            "median": 17679,
+            "min": 16748,
+            "max": 17755,
+            "spread": 6
+          },
+          "bytes": {
+            "raw": 7772,
+            "gzip": 872,
+            "brotli": 693
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 4248,
+            "min": 4128,
+            "max": 4271,
+            "spread": 3
+          },
+          "decode": {
+            "median": 24268,
+            "min": 24179,
+            "max": 24430,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 8843,
+            "gzip": 860,
+            "brotli": 633
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 9382,
+            "min": 9278,
+            "max": 9447,
+            "spread": 2
+          },
+          "decode": {
+            "median": 16310,
+            "min": 16076,
+            "max": 16403,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 8202,
+            "gzip": 1721,
+            "brotli": 1345
+          }
         }
-      ]
+      }
     },
     {
-      "name": "numeric",
+      "id": "numeric",
+      "title": "32 doubles",
       "description": "32 doubles (where binary formats shine)",
-      "results": [
-        {
-          "id": "json",
-          "name": "JSON",
-          "version": "v24.14.1",
-          "encode": 329045,
-          "decode": 479787,
-          "spread": {
-            "encode": 1,
-            "decode": 3
+      "results": {
+        "json": {
+          "encode": {
+            "median": 323242,
+            "min": 319847,
+            "max": 325637,
+            "spread": 2
+          },
+          "decode": {
+            "median": 483381,
+            "min": 480085,
+            "max": 485106,
+            "spread": 1
           },
           "bytes": {
             "raw": 764,
@@ -1228,15 +2209,18 @@
             "brotli": 392
           }
         },
-        {
-          "id": "protoarray",
-          "name": "protoarray (codegen)",
-          "version": "2.0.0+4ddb481",
-          "encode": 418684,
-          "decode": 762539,
-          "spread": {
-            "encode": 1,
-            "decode": 2
+        "protoarray": {
+          "encode": {
+            "median": 406134,
+            "min": 405033,
+            "max": 411158,
+            "spread": 2
+          },
+          "decode": {
+            "median": 733235,
+            "min": 729226,
+            "max": 738020,
+            "spread": 1
           },
           "bytes": {
             "raw": 582,
@@ -1244,15 +2228,18 @@
             "brotli": 295
           }
         },
-        {
-          "id": "protoarray-closures",
-          "name": "protoarray (closures)",
-          "version": "2.0.0+4ddb481",
-          "encode": 345870,
-          "decode": 573750,
-          "spread": {
-            "encode": 8,
-            "decode": 2
+        "protoarray-closures": {
+          "encode": {
+            "median": 360928,
+            "min": 354789,
+            "max": 365179,
+            "spread": 3
+          },
+          "decode": {
+            "median": 566586,
+            "min": 563770,
+            "max": 569043,
+            "spread": 1
           },
           "bytes": {
             "raw": 582,
@@ -1260,15 +2247,18 @@
             "brotli": 295
           }
         },
-        {
-          "id": "protoarray-checked",
-          "name": "protoarray (codegen, metaschema check)",
-          "version": "2.0.0+4ddb481",
-          "encode": 349631,
-          "decode": 752172,
-          "spread": {
-            "encode": 3,
-            "decode": 2
+        "protoarray-standalone": {
+          "encode": {
+            "median": 404218,
+            "min": 400218,
+            "max": 406989,
+            "spread": 2
+          },
+          "decode": {
+            "median": 731900,
+            "min": 723264,
+            "max": 733451,
+            "spread": 1
           },
           "bytes": {
             "raw": 582,
@@ -1276,15 +2266,18 @@
             "brotli": 295
           }
         },
-        {
-          "id": "protoarray-standalone",
-          "name": "protoarray (standalone, inline)",
-          "version": "2.0.0+4ddb481",
-          "encode": 421221,
-          "decode": 740229,
-          "spread": {
-            "encode": 3,
-            "decode": 2
+        "protoarray-checked": {
+          "encode": {
+            "median": 336196,
+            "min": 330408,
+            "max": 337202,
+            "spread": 2
+          },
+          "decode": {
+            "median": 737943,
+            "min": 731826,
+            "max": 740884,
+            "spread": 1
           },
           "bytes": {
             "raw": 582,
@@ -1292,15 +2285,18 @@
             "brotli": 295
           }
         },
-        {
-          "id": "protobufjs",
-          "name": "protobufjs",
-          "version": "8.8.0",
-          "encode": 732841,
-          "decode": 1968496,
-          "spread": {
-            "encode": 3,
-            "decode": 3
+        "protobufjs": {
+          "encode": {
+            "median": 709089,
+            "min": 698854,
+            "max": 714793,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1944328,
+            "min": 1915951,
+            "max": 1954407,
+            "spread": 2
           },
           "bytes": {
             "raw": 305,
@@ -1308,15 +2304,37 @@
             "brotli": 304
           }
         },
-        {
-          "id": "avsc",
-          "name": "avsc",
-          "version": "5.7.9",
-          "encode": 1997448,
-          "decode": 3147786,
-          "spread": {
-            "encode": 0,
-            "decode": 1
+        "protobuf-es": {
+          "encode": {
+            "median": 252782,
+            "min": 250058,
+            "max": 254961,
+            "spread": 2
+          },
+          "decode": {
+            "median": 455256,
+            "min": 453154,
+            "max": 456189,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 305,
+            "gzip": 328,
+            "brotli": 304
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1937808,
+            "min": 1934287,
+            "max": 1941406,
+            "spread": 0
+          },
+          "decode": {
+            "median": 3115855,
+            "min": 3062493,
+            "max": 3129900,
+            "spread": 2
           },
           "bytes": {
             "raw": 256,
@@ -1324,15 +2342,18 @@
             "brotli": 260
           }
         },
-        {
-          "id": "msgpackr",
-          "name": "msgpackr",
-          "version": "2.1.0",
-          "encode": 1119426,
-          "decode": 453632,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "msgpackr": {
+          "encode": {
+            "median": 1100446,
+            "min": 1086699,
+            "max": 1102492,
+            "spread": 1
+          },
+          "decode": {
+            "median": 428775,
+            "min": 421948,
+            "max": 430815,
+            "spread": 2
           },
           "bytes": {
             "raw": 409,
@@ -1340,15 +2361,18 @@
             "brotli": 376
           }
         },
-        {
-          "id": "msgpackr-records",
-          "name": "msgpackr (records, shared structures)",
-          "version": "2.1.0",
-          "encode": 1440436,
-          "decode": 3280266,
-          "spread": {
-            "encode": 2,
-            "decode": 8
+        "msgpackr-records": {
+          "encode": {
+            "median": 1413446,
+            "min": 1407994,
+            "max": 1421249,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3523365,
+            "min": 3410865,
+            "max": 3538846,
+            "spread": 4
           },
           "bytes": {
             "raw": 289,
@@ -1356,15 +2380,18 @@
             "brotli": 280
           }
         },
-        {
-          "id": "msgpack",
-          "name": "@msgpack/msgpack",
-          "version": "3.1.3",
-          "encode": 752764,
-          "decode": 195603,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "msgpack": {
+          "encode": {
+            "median": 731077,
+            "min": 729138,
+            "max": 734447,
+            "spread": 1
+          },
+          "decode": {
+            "median": 187123,
+            "min": 185883,
+            "max": 187887,
+            "spread": 1
           },
           "bytes": {
             "raw": 409,
@@ -1372,15 +2399,18 @@
             "brotli": 376
           }
         },
-        {
-          "id": "cbor-x",
-          "name": "cbor-x (records)",
-          "version": "1.6.6",
-          "encode": 724209,
-          "decode": 445107,
-          "spread": {
-            "encode": 1,
-            "decode": 1
+        "cbor-x": {
+          "encode": {
+            "median": 711125,
+            "min": 701559,
+            "max": 712174,
+            "spread": 1
+          },
+          "decode": {
+            "median": 433751,
+            "min": 428134,
+            "max": 436094,
+            "spread": 2
           },
           "bytes": {
             "raw": 416,
@@ -1388,15 +2418,94 @@
             "brotli": 355
           }
         },
-        {
-          "id": "fast-json-stringify",
-          "name": "fast-json-stringify (encode) + JSON.parse",
-          "version": "7.0.1",
-          "encode": 1867320,
-          "decode": 491611,
-          "spread": {
-            "encode": 4,
-            "decode": 1
+        "bson": {
+          "encode": {
+            "median": 688975,
+            "min": 683203,
+            "max": 693375,
+            "spread": 1
+          },
+          "decode": {
+            "median": 474833,
+            "min": 465995,
+            "max": 480279,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 411,
+            "gzip": 391,
+            "brotli": 341
+          }
+        },
+        "v8": {
+          "encode": {
+            "median": 644279,
+            "min": 630421,
+            "max": 659780,
+            "spread": 5
+          },
+          "decode": {
+            "median": 594638,
+            "min": 559998,
+            "max": 607556,
+            "spread": 8
+          },
+          "bytes": {
+            "raw": 443,
+            "gzip": 387,
+            "brotli": 340
+          }
+        },
+        "superjson": {
+          "encode": {
+            "median": 87844,
+            "min": 85549,
+            "max": 89819,
+            "spread": 5
+          },
+          "decode": {
+            "median": 449255,
+            "min": 446520,
+            "max": 454297,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 773,
+            "gzip": 420,
+            "brotli": 399
+          }
+        },
+        "devalue": {
+          "encode": {
+            "median": 230286,
+            "min": 226128,
+            "max": 235449,
+            "spread": 4
+          },
+          "decode": {
+            "median": 265668,
+            "min": 262278,
+            "max": 265853,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 853,
+            "gzip": 454,
+            "brotli": 443
+          }
+        },
+        "fast-json-stringify": {
+          "encode": {
+            "median": 2243379,
+            "min": 2191865,
+            "max": 2274275,
+            "spread": 4
+          },
+          "decode": {
+            "median": 479670,
+            "min": 474254,
+            "max": 482542,
+            "spread": 2
           },
           "bytes": {
             "raw": 764,
@@ -1404,7 +2513,124 @@
             "brotli": 392
           }
         }
-      ]
+      }
     }
-  ]
+  ],
+  "coldStart": {
+    "scenario": "single",
+    "results": {
+      "json": {
+        "load": 0.004,
+        "build": 0.024,
+        "encode": 0.018,
+        "decode": 0.011,
+        "total": 0.058
+      },
+      "protoarray": {
+        "load": 11.675,
+        "build": 4.455,
+        "encode": 0.142,
+        "decode": 0.158,
+        "total": 16.452
+      },
+      "protoarray-snapshot": {
+        "load": 3.881,
+        "build": 3,
+        "encode": 0.138,
+        "decode": 0.152,
+        "total": 7.262
+      },
+      "protoarray-closures": {
+        "load": 11.627,
+        "build": 3.77,
+        "encode": 0.111,
+        "decode": 0.171,
+        "total": 15.669
+      },
+      "protoarray-standalone": {
+        "load": 1.223,
+        "build": 0.017,
+        "encode": 0.146,
+        "decode": 0.158,
+        "total": 1.588
+      },
+      "protobufjs": {
+        "load": 11.119,
+        "build": 1.506,
+        "encode": 3.117,
+        "decode": 0.35,
+        "total": 16.203
+      },
+      "protobuf-es": {
+        "load": 24.478,
+        "build": 0.378,
+        "encode": 0.803,
+        "decode": 0.063,
+        "total": 25.893
+      },
+      "avsc": {
+        "load": 8.164,
+        "build": 0.588,
+        "encode": 0.184,
+        "decode": 0.169,
+        "total": 9.112
+      },
+      "msgpackr-records": {
+        "load": 5.314,
+        "build": 0.029,
+        "encode": 0.633,
+        "decode": 0.432,
+        "total": 6.441
+      },
+      "msgpack": {
+        "load": 2.861,
+        "build": 0.099,
+        "encode": 0.369,
+        "decode": 0.571,
+        "total": 3.898
+      },
+      "cbor-x": {
+        "load": 5.34,
+        "build": 0.029,
+        "encode": 0.641,
+        "decode": 0.472,
+        "total": 6.492
+      },
+      "bson": {
+        "load": 5.372,
+        "build": 0.02,
+        "encode": 0.511,
+        "decode": 0.596,
+        "total": 6.503
+      },
+      "v8": {
+        "load": 0.266,
+        "build": 0.013,
+        "encode": 0.039,
+        "decode": 0.035,
+        "total": 0.364
+      },
+      "superjson": {
+        "load": 5.804,
+        "build": 0.015,
+        "encode": 0.584,
+        "decode": 0.037,
+        "total": 6.441
+      },
+      "devalue": {
+        "load": 5.128,
+        "build": 0.015,
+        "encode": 0.494,
+        "decode": 0.258,
+        "total": 5.918
+      },
+      "fast-json-stringify": {
+        "load": 20.961,
+        "build": 4.533,
+        "encode": 0.255,
+        "decode": 0.012,
+        "total": 25.748
+      }
+    }
+  }
 }

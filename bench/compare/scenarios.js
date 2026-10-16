@@ -431,6 +431,7 @@ const users = Array.from({ length: 1000 }, (_, i) => user(i));
 const SCENARIOS = [
   {
     name: 'single',
+    title: 'One record',
     description: 'one record: 10 fields, nested address, tags, 2 orders',
     value: user(1),
     schema: USER,
@@ -438,6 +439,7 @@ const SCENARIOS = [
   },
   {
     name: 'records',
+    title: '1,000 records',
     description: '1000 records of the same shape',
     value: users,
     schema: USER,
@@ -446,6 +448,7 @@ const SCENARIOS = [
   },
   {
     name: 'sparse',
+    title: 'Sparse record',
     description: '20 optional fields, 3 present',
     value: sparseValue,
     schema: SPARSE,
@@ -453,6 +456,7 @@ const SCENARIOS = [
   },
   {
     name: 'typed',
+    title: 'Typed record',
     description: 'enum, boolean and date heavy record',
     value: typedValue(1),
     schema: TYPED,
@@ -460,6 +464,7 @@ const SCENARIOS = [
   },
   {
     name: 'strings',
+    title: 'Long strings',
     description: 'long Cyrillic strings',
     value: stringsValue,
     schema: STRINGS,
@@ -467,6 +472,7 @@ const SCENARIOS = [
   },
   {
     name: 'packets',
+    title: '100 wrpc packets',
     description: '100 wrpc packets: calls, callbacks and events',
     value: Array.from({ length: 100 }, (_, i) => packet(i)),
     schema: PACKETS,
@@ -475,6 +481,7 @@ const SCENARIOS = [
   },
   {
     name: 'numeric',
+    title: '32 doubles',
     description: '32 doubles (where binary formats shine)',
     value: numericValue,
     schema: NUMERIC,

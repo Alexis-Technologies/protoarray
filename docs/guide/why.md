@@ -1,5 +1,9 @@
 # Why protoarray?
 
+protoarray is schema-based serialization that stays JSON: the discipline of Protocol Buffers
+(a shared schema, positions instead of names, rules for evolving it) over the transport every
+JavaScript program already has.
+
 ## The idea
 
 A JSON payload repeats every key in every message:
@@ -35,47 +39,61 @@ small. The payload is still plain JSON.
 
 ## Compared with JSON
 
-- **Smaller payloads.** About 45% fewer bytes on a typical record before compression. After gzip
-  or brotli the difference depends on the message size: around 35% for a single small message,
-  5–10% for a list of a thousand records (compression already shortens repeated keys), and about
-  20% again with the [`columns` layout](/guide/collections#columns). The gain is largest exactly
-  where transport compression is absent or weak: small messages, WebSocket frames,
-  `localStorage`, logs.
+- **Smaller payloads.** About half the bytes of JSON on a typical record before compression.
+  After gzip or brotli the difference depends on the message size: around 35% for a single small
+  message, 5–10% for a list of a thousand records (compression already shortens repeated keys),
+  and 27% with the [`columns` layout](/guide/collections#columns), the ids written as differences
+  and the repeated strings interned. The gain is largest exactly where transport compression is
+  absent or weak: small messages, WebSocket frames, `localStorage`, logs.
 - **Faster, not slower.** A positional array is less work for `JSON.parse` and `JSON.stringify`,
   and the conversion between objects and arrays is generated code that costs tens of nanoseconds.
   End to end, on a record with ten fields, a nested address, tags and two orders: ×1.5 faster to
-  encode and ×1.7 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. See
+  encode and ×1.8 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. See
   [Benchmarks](/guide/benchmarks).
 - **Typed, validated, evolvable.** The schema is a [metaschema](https://metaschema.vercel.app/)
   definition, which validates the values a program sends; protoarray checks the wire on decode,
-  reports problems with a path, and lets you add fields without breaking older peers. JSON alone
-  gives you none of that.
+  reports problems with a path, and lets you add fields without breaking older peers. Dates,
+  BigInts, bytes, sets and maps come back as what they were. JSON alone gives you none of that.
 - **Same transport.** The result is JSON, so it goes through HTTP, WebSocket, message brokers and
   storage that already handle JSON, and compresses the same way.
 
-## Compared with Protocol Buffers and MessagePack
+## Compared with Protocol Buffers, Avro and MessagePack
 
-- **No toolchain.** No `.proto` files, no compiler, no generated files to commit. A schema is a
-  [metaschema](https://metaschema.vercel.app/) definition, a plain JavaScript value that also
-  validates, generates TypeScript and describes a domain model; its snapshot is plain JSON that a
-  server can hand to its clients at runtime.
-- **No dependencies, about 21 KB.** Both backends, the wire checks and every type in about 21 KB
-  min+gzip, the registry, resolve, streaming and standalone extras in subpaths of their own;
-  protobufjs is over 20 KB, msgpackr about 10 KB. protoarray does not require metaschema: a client
-  that builds its schemas from snapshots carries protoarray alone.
-- **Readable on the wire.** The payload can be logged, inspected and edited as is.
-- **Faster in JavaScript on real payloads.** Binary codecs written in JavaScript decode strings
-  byte by byte; `JSON.parse` is native. On records and strings protoarray is ahead of protobufjs,
-  msgpackr, @msgpack/msgpack and cbor-x. Two honest exceptions: payloads that are mostly numbers
-  (a double prints as up to 17 characters, binary stores 8 bytes) and msgpackr with shared record
-  structures, which decodes small records faster than `JSON.parse` can read them.
+- **No toolchain.** No `.proto` or `.avsc` files, no compiler, no generated files to commit. A
+  schema is a [metaschema](https://metaschema.vercel.app/) definition, a plain JavaScript value
+  that also validates, generates TypeScript and describes a domain model; its snapshot is plain
+  JSON that a server can hand to its clients at runtime. Code generation is there when you want
+  it: `protoarray compile` writes standalone modules for runtimes without eval.
+- **Fast in JavaScript on real payloads.** Binary codecs written in JavaScript encode and decode
+  strings byte by byte; `JSON.parse` and `JSON.stringify` are native. On records, strings and
+  tagged messages protoarray encodes faster than protobufjs, protobuf-es, avsc, msgpackr and
+  cbor-x, and decodes faster than every one of them on long strings. Two honest exceptions:
+  payloads that are mostly numbers (a double prints as up to 17 characters, binary stores 8
+  bytes), and msgpackr with shared record structures, which decodes records faster than
+  `JSON.parse` can read them (avsc, cbor-x and protobufjs do too on some shapes).
+- **Readable on the wire.** The payload can be logged, inspected and edited as is, and travels
+  over channels that only carry text without base64.
 - **Schema evolution with the same discipline.** Positions are append-only, like protobuf field
-  numbers; decoders tolerate extra and missing trailing fields.
+  numbers; decoders tolerate extra and missing trailing fields. Like Avro, a reader can
+  [resolve](/guide/resolve) an older writer's payload into its own shape, with renames, defaults
+  and widened types, and a [registry](/guide/resolve#the-registry) tags each payload with the id
+  of its schema.
+- **No dependencies, about 22 KB.** Both backends, the wire checks and every type in about 22 KB
+  min+gzip, the registry, resolve, streaming and standalone extras in subpaths of their own.
+  protoarray does not require metaschema: a client that builds its schemas from snapshots carries
+  protoarray alone, and a standalone module of one schema with its own runtime is a few KB. See
+  the [bundle sizes](/guide/benchmarks#bundle-size) of the alternatives.
+
+[Compared with alternatives](/guide/comparison) puts protoarray next to twenty-two other
+serialization libraries, feature by feature.
 
 ## When not to use it
 
-- The other side is not JavaScript and already speaks protobuf or Avro.
+- The other side is not JavaScript and already speaks protobuf or Avro: protoarray's wire is
+  specified, but JavaScript is its only implementation.
 - The payload is dense numeric data (sensor readings, vectors): a typed array in a binary frame is
   the right tool.
+- You need to read one field of a large message without decoding the rest: FlatBuffers and
+  Cap'n Proto read in place.
 - The data has no fixed shape at all: `json` fields pass anything through, but a schema with
   one `json` field is just JSON.

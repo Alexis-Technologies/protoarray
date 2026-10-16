@@ -140,9 +140,13 @@ Scan for staleness:
    coverage thresholds) must match `package.json` and `.github/workflows/ci.yml`
 7. **Benchmarks**: when `src/` changed, `pnpm bench --compare` against `bench/baseline.json`
    (a change inside the spread is noise; more than ±10% needs an explanation or a fix), then
-   `pnpm bench --save`, `pnpm bench:compare --save` and `pnpm bench:report`, so the tables in
-   README and `docs/guide/benchmarks.md` describe the code being released; check the prose
-   around them (×N claims) against the regenerated numbers
+   `pnpm bench --save`, `pnpm bench:compare --save`, `pnpm size:compare --save`,
+   `pnpm bench:releases` (the tree being released) and `pnpm bench:report`, on an otherwise idle
+   machine, so the charts in `docs/public/benchmarks/` and the tables in README and
+   `docs/guide/benchmarks.md` describe the code being released; check the prose around them
+   (×N claims, on the home page `docs/index.md` too) against the regenerated numbers. When a
+   feature changes a row of the feature matrix, edit `docs/comparison.json` and run
+   `pnpm docs:comparison`
 
 Only edit if something is factually wrong or outdated. Don't rewrite style or add unsolicited content.
 

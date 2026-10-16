@@ -1,0 +1,5154 @@
+{
+  "legend": "✅ built in, or in an official package of the same project (named) · ⚠️ partial, opt-in, with a caveat, or through a third-party package (named) · ❌ not built in · 🔜 planned by the maintainers, no code yet · — does not apply. Every cell was checked against the source of the published package in October 2026.",
+  "groups": [
+    {
+      "title": "Package",
+      "rows": [
+        {
+          "id": "version",
+          "title": "Version compared"
+        },
+        {
+          "id": "released",
+          "title": "Latest release"
+        },
+        {
+          "id": "deps",
+          "title": "Runtime dependencies"
+        },
+        {
+          "id": "license",
+          "title": "License"
+        }
+      ]
+    },
+    {
+      "title": "Runtime",
+      "rows": [
+        {
+          "id": "platforms",
+          "title": "Runs on"
+        },
+        {
+          "id": "module",
+          "title": "Module format"
+        },
+        {
+          "id": "noEval",
+          "title": "Works without eval (strict CSP, edge)"
+        },
+        {
+          "id": "noBuild",
+          "title": "Schema at runtime, no code generator"
+        },
+        {
+          "id": "types",
+          "title": "TypeScript types"
+        }
+      ]
+    },
+    {
+      "title": "Schema",
+      "rows": [
+        {
+          "id": "schemaStyle",
+          "title": "How the shape is described"
+        },
+        {
+          "id": "schemaData",
+          "title": "The schema is data (store it, send it)"
+        },
+        {
+          "id": "inferred",
+          "title": "Static type from the schema"
+        },
+        {
+          "id": "validation",
+          "title": "Values checked before encode"
+        }
+      ]
+    },
+    {
+      "title": "Wire format",
+      "rows": [
+        {
+          "id": "wire",
+          "title": "Wire format"
+        },
+        {
+          "id": "readable",
+          "title": "Human-readable payload"
+        },
+        {
+          "id": "jsonChannel",
+          "title": "Travels over a JSON or text channel as is"
+        },
+        {
+          "id": "keysOnWire",
+          "title": "Field names on the wire"
+        },
+        {
+          "id": "selfDescribing",
+          "title": "Decodable without the schema"
+        },
+        {
+          "id": "zeroCopy",
+          "title": "Lazy or zero-copy reads"
+        },
+        {
+          "id": "otherLanguages",
+          "title": "Other languages read the wire"
+        }
+      ]
+    },
+    {
+      "title": "Types",
+      "rows": [
+        {
+          "id": "int64",
+          "title": "64-bit integers, BigInt"
+        },
+        {
+          "id": "date",
+          "title": "Dates"
+        },
+        {
+          "id": "bytes",
+          "title": "Binary data (`Uint8Array`)"
+        },
+        {
+          "id": "mapSet",
+          "title": "`Map` and `Set`"
+        },
+        {
+          "id": "enums",
+          "title": "Enums"
+        },
+        {
+          "id": "unions",
+          "title": "Tagged unions"
+        },
+        {
+          "id": "optional",
+          "title": "Optional fields: absent and null"
+        },
+        {
+          "id": "defaults",
+          "title": "Defaults on decode"
+        },
+        {
+          "id": "recursive",
+          "title": "Recursive types, cyclic values"
+        },
+        {
+          "id": "decimals",
+          "title": "Fixed-point decimals"
+        },
+        {
+          "id": "flags",
+          "title": "Bit flags, packed scalars"
+        },
+        {
+          "id": "dynamic",
+          "title": "A free-form value in a typed schema"
+        }
+      ]
+    },
+    {
+      "title": "Schema evolution",
+      "rows": [
+        {
+          "id": "addFields",
+          "title": "Add fields"
+        },
+        {
+          "id": "rename",
+          "title": "Rename a field"
+        },
+        {
+          "id": "resolution",
+          "title": "Reader and writer schema resolution"
+        },
+        {
+          "id": "fingerprint",
+          "title": "Schema id or fingerprint"
+        },
+        {
+          "id": "envelope",
+          "title": "Registry or envelope with the schema id"
+        },
+        {
+          "id": "unknownFields",
+          "title": "Unknown fields from a newer writer"
+        }
+      ]
+    },
+    {
+      "title": "Decoding untrusted input",
+      "rows": [
+        {
+          "id": "decodeChecks",
+          "title": "Checks the payload on decode"
+        },
+        {
+          "id": "errorPath",
+          "title": "Errors with a path into the payload"
+        },
+        {
+          "id": "depth",
+          "title": "Deeply nested input"
+        },
+        {
+          "id": "proto",
+          "title": "`__proto__` keys"
+        },
+        {
+          "id": "limits",
+          "title": "Size limits"
+        }
+      ]
+    },
+    {
+      "title": "Payloads and layouts",
+      "rows": [
+        {
+          "id": "columnar",
+          "title": "Columnar layout for lists"
+        },
+        {
+          "id": "sparse",
+          "title": "What an absent optional field costs"
+        },
+        {
+          "id": "sharedStrings",
+          "title": "Repeated strings or structures written once"
+        },
+        {
+          "id": "delta",
+          "title": "Delta encoding"
+        }
+      ]
+    },
+    {
+      "title": "Tooling",
+      "rows": [
+        {
+          "id": "streaming",
+          "title": "Streaming decode"
+        },
+        {
+          "id": "aot",
+          "title": "Code generated ahead of time"
+        },
+        {
+          "id": "cli",
+          "title": "CLI"
+        }
+      ]
+    }
+  ],
+  "libraries": [
+    {
+      "id": "protoarray",
+      "name": "protoarray",
+      "url": "https://github.com/Alexis-Technologies/protoarray",
+      "direction": "positional JSON",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.0.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10 (this release)"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node 18+, browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS, ESM named imports"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "closures fallback; standalone modules at codegen speed"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "a definition or a snapshot at runtime"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts, types from the metaschema schema"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "metaschema definition (a JS object) or its JSON snapshot"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "the snapshot is JSON a server hands to clients"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "from the metaschema schema (Standard Schema types)"
+        },
+        "validation": {
+          "mark": "✅",
+          "text": "metaschema `check` of the same definition",
+          "note": "protoarray's encode trusts its values and checks only what the wire is built from (shapes, a union's discriminator, a list of differences); validating the values is metaschema's, on the same definition, so its cost is opt-in."
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text (positional arrays)"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON arrays"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "plain JSON"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "positional"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "parses as JSON; keys need the schema"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "⚠️",
+          "text": "the wire format is specified; JS only"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "`bigint` as a decimal string"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` ↔ epoch ms"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`Uint8Array` ↔ canonical base64"
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "`{ map }`, `{ set }`"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "as an index"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "discriminated `union`: `[tag, …fields]`"
+        },
+        "optional": {
+          "mark": "⚠️",
+          "text": "optional fields; absent and null both `null`",
+          "note": "undefined, null and a missing key travel as null and decode as null (or the default): every key of the schema is present after decode."
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "the definition's `default`"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "references by name, recursion"
+        },
+        "decimals": {
+          "mark": "✅",
+          "text": "`decimals: n` → a scaled integer"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "`flags` → a bitmask"
+        },
+        "dynamic": {
+          "mark": "✅",
+          "text": "`json`, `any` fields"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "append at the end; trailing nulls trimmed"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "positions travel; `aliases` in `resolve`"
+        },
+        "resolution": {
+          "mark": "✅",
+          "text": "`resolve(writer, reader)` (`./resolve`)"
+        },
+        "fingerprint": {
+          "mark": "✅",
+          "text": "`schema.id`, FNV-1a of the canonical form"
+        },
+        "envelope": {
+          "mark": "✅",
+          "text": "`SchemaRegistry`: `[id, payload]` (`./registry`)"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "trailing extras ignored, or rejected with `strict`"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "the wire checked by default"
+        },
+        "errorPath": {
+          "mark": "✅",
+          "text": "`DecodeError` with a path: `orders[1].sku`"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "stack overflow → `DecodeError`; `maxDepth` opt-in"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the schema; a dictionary's `__proto__` stays own"
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "`maxLength` on streams, `maxDepth`",
+          "note": "parse reads a whole text with JSON.parse, so the text a program accepts is its own limit; the stream parsers hold at most maxLength characters of one item (16 MiB by default)."
+        },
+        "columnar": {
+          "mark": "✅",
+          "text": "`layout: 'columns'` (and `flat`)"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "`sparse`: a presence mask, nothing per absent field"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "`intern`: a string table per message"
+        },
+        "delta": {
+          "mark": "✅",
+          "text": "`delta` columns of differences"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "NDJSON, TransformStreams, `parseItems` (`./stream`)"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`toSource`: standalone modules (`./standalone`)"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`protoarray compile`"
+        }
+      }
+    },
+    {
+      "id": "json",
+      "name": "JSON",
+      "url": "https://tc39.es/ecma262/#sec-json-object",
+      "direction": "built in",
+      "package": null,
+      "version": "Node 24.14.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "Node 24.14.1 (V8 13.6)"
+        },
+        "released": {
+          "mark": "",
+          "text": "Node 24 (built in)"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0 (built in)"
+        },
+        "license": {
+          "mark": "",
+          "text": "built in (ECMA-262)"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "every JS runtime"
+        },
+        "module": {
+          "mark": "",
+          "text": "built in (global `JSON`)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "native, no code generation"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "TypeScript's `lib.es5.d.ts`"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "it is JSON"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every message"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "plain JSON"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole text parsed"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "every language (RFC 8259)"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "doubles; `BigInt` throws `TypeError`"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "`Date` → ISO string, comes back a string"
+        },
+        "bytes": {
+          "mark": "❌",
+          "text": "`Uint8Array` → `{\"0\":1,\"1\":2}`"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "`Map` and `Set` → `{}`"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent vs `null`; `undefined` dropped"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cyclic values throw `TypeError`"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "doubles only"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "syntax only: `SyntaxError`",
+          "note": "Any well-formed value comes back; checking its shape is left to the program."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "position in the message"
+        },
+        "depth": {
+          "mark": "⚠️",
+          "text": "no limit: 1 000 000 levels parse",
+          "note": "V8's `JSON.parse` does not recurse, but `JSON.stringify` of the result throws `RangeError` past ~6 200 levels, as may any recursive consumer."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "own property, prototype untouched"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none (engine string limit only)"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "absent keys cost nothing"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none (NDJSON by hand)"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "fast-json-stringify",
+      "name": "fast-json-stringify",
+      "url": "https://github.com/fastify/fast-json-stringify",
+      "direction": "JSON Schema serializer",
+      "package": "fast-json-stringify",
+      "version": "7.1.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "7.1.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "6: ajv, ajv-formats, fast-uri, rfdc, …"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers (bundled with Ajv)"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "`build` uses `new Function`; standalone modules don't",
+          "note": "`index.js:470` compiles every serializer (EvalError in a realm without code generation). A `mode: 'standalone'` module runs there, but `anyOf`/`oneOf`/`if` also need `inlineValidators: true` or Ajv compiles at runtime."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "JSON Schema object at runtime"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "JSON Schema (draft 7, plus `nullable`)"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "JSON Schema is plain data",
+          "note": "The README's security notice: schemas are compiled into code, so a schema from a peer is not safe to build."
+        },
+        "inferred": {
+          "mark": "⚠️",
+          "text": "third-party: TypeBox, json-schema-to-ts"
+        },
+        "validation": {
+          "mark": "❌",
+          "text": "coerces: `'12'` → 12, `null` → 0",
+          "note": "Only `required` and array shapes throw. `pattern`, `minimum`, `enum` and `format` are ignored, `'false'` in a boolean → `true`, and a `const` field writes the constant whatever the value."
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "it is JSON"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every message"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "plain JSON"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "decode is `JSON.parse`"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "plain JSON: any language"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "BigInt → JSON number; `JSON.parse` rounds it"
+        },
+        "date": {
+          "mark": "⚠️",
+          "text": "`format: 'date-time'` → ISO string, string back"
+        },
+        "bytes": {
+          "mark": "❌",
+          "text": "`Uint8Array` in a string → `\"1,2\"`"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "`Map` → `{}`"
+        },
+        "enums": {
+          "mark": "⚠️",
+          "text": "`enum` not enforced; the string travels"
+        },
+        "unions": {
+          "mark": "⚠️",
+          "text": "untagged `anyOf`/`oneOf`; Ajv picks the branch"
+        },
+        "optional": {
+          "mark": "⚠️",
+          "text": "absent omitted; `null` → `\"\"`/0 unless `nullable`"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "`default` written on encode, not on decode"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "`$ref` recursion; cyclic values overflow"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (`multipleOf` ignored)"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "✅",
+          "text": "`{}` schema or `additionalProperties: true`"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "keyed JSON: add properties"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none: decode is `JSON.parse`"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none (`$id` is a name)"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "`JSON.parse` keeps them; encode drops undeclared"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "no decoder: `JSON.parse` ignores the schema",
+          "note": "Validate with Ajv (already a dependency) against the same schema."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "`SyntaxError` position only"
+        },
+        "depth": {
+          "mark": "⚠️",
+          "text": "decode is `JSON.parse`: no limit",
+          "note": "`maxDepth` (default 100) limits the schema, not data; encoding a 100 000-deep recursive value throws a raw `RangeError`."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "`JSON.parse` keeps an own key"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none (`maxDepth` is the schema's)"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "absent keys omitted"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`mode: 'standalone'` writes a CJS module"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "superjson",
+      "name": "superjson",
+      "url": "https://github.com/blitz-js/superjson",
+      "direction": "typed JSON",
+      "package": "superjson",
+      "version": "2.2.6",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.2.6"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-11"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1: copy-anything"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥ 16, browsers"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM only"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "no `eval` or `Function` in `dist/`"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text + metadata (`{ json, meta }`)"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "it is JSON"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every message (and in `meta` paths)"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "`meta` carries the types"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole text parsed"
+        },
+        "otherLanguages": {
+          "mark": "⚠️",
+          "text": "a community Elixir port"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "`BigInt`, as a decimal string"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` in, `Date` out"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "typed arrays, as a number array"
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "both"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent, `undefined` and `null` kept apart"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cycles and shared refs"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (`registerCustom` recipe)"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "bad `meta` → raw `TypeError`, Invalid Date",
+          "note": "`5` annotated `map` throws `TypeError: number 5 is not iterable`; a garbage `Date` string becomes Invalid Date; the text `null` throws a destructuring `TypeError`."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "`SyntaxError` position; `meta` errors none"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw `RangeError` from a deep `meta` tree",
+          "note": "Deep `json` alone parses (`JSON.parse`); a 100 000-deep `meta.values` tree overflows the recursive `traverse` (`dist/plainer.js:8`)."
+        },
+        "proto": {
+          "mark": "⚠️",
+          "text": "own key; a registered class's prototype replaced",
+          "note": "Plain objects are safe and `meta` paths through `__proto__` are rejected, but a value typed as a registered class is built with `Object.assign` (`dist/transformer.js:138`), whose `__proto__` setter replaces the instance's prototype."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "absent keys omitted"
+        },
+        "sharedStrings": {
+          "mark": "⚠️",
+          "text": "`dedupe: true` writes a shared object once"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "devalue",
+      "name": "devalue",
+      "url": "https://github.com/sveltejs/devalue",
+      "direction": "typed JSON",
+      "package": "devalue",
+      "version": "6.0.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "6.0.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node 20+, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "`stringify`/`parse` never eval"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless); reducers/revivers for custom types"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless; `parse` returns `any`"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text (flat value table, index refs)",
+          "note": "`uneval` writes JavaScript source text instead. The README lists stability of the format between devalue versions as a non-goal."
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON, values referenced by index",
+          "note": "README lists human-readable output as a non-goal: `{a:'x'}` travels as `[{\"a\":1},\"x\"]`."
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "JSON string"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every object"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "type tags in the payload"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole payload revived"
+        },
+        "otherLanguages": {
+          "mark": "❌",
+          "text": "JS only",
+          "note": "No port found; the format is not specified and may change between versions (README non-goals)."
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt (`[\"BigInt\",\"…\"]`)"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` in, `Date` out (ISO)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "typed arrays, `ArrayBuffer` (base64 inside)",
+          "note": "Ordinary typed arrays serialize their whole backing `ArrayBuffer`, bytes outside a `subarray` included (README); Node Buffers are copied first (src/operations.js:83)."
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "both"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent, `undefined`, `null` all distinct"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cyclic and repeated refs"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "doubles only"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "indices and tags checked; some raw errors",
+          "note": "Bad indices and unknown tags throw `Error('Invalid input')`/`Unknown type`, but `[\"BigInt\",\"abc\"]`, `[\"RegExp\",\"(\"]`, `[\"URL\",\"x\"]` throw raw SyntaxError/TypeError, `Temporal.*` tags throw ReferenceError on Node 24, and `[\"Date\",5]` is accepted as a Date."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only (`Invalid input`)"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw stack overflow at ~2,200 levels",
+          "note": "`hydrate` (src/parse.js:71) recurses: a 14 KB flat payload of ~2,200 nested arrays (Node 24 default stack) throws a raw `RangeError: Maximum call stack size exceeded`; `stringify` and `uneval` overflow too on deep values."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "rejected (`__proto__` key throws)"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "no size or depth options",
+          "note": "A sparse array's declared length is not allocated (src/operations.js:181), so `[[-7,4294967295]]` is cheap."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (keys omitted)"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "equal values and references written once"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none (`stringifyAsync` awaits promises only)"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "jsonh",
+      "name": "JSONH",
+      "url": "https://github.com/WebReflection/JSONH",
+      "direction": "packed JSON",
+      "package": "jsonh",
+      "version": "0.0.6",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "0.0.6"
+        },
+        "released": {
+          "mark": "",
+          "text": "2017-07"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT (source header)"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers (ES3), Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS + global script (`JSONH`)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "❌",
+          "text": "none (no `@types/jsonh`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none; keys from the first record"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text (`[n, …keys, …values]`)"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "JSON string"
+        },
+        "keysOnWire": {
+          "mark": "⚠️",
+          "text": "once per collection (header)"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "keys in the header"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "Python 2, PHP 5, Ruby (in package)"
+        },
+        "int64": {
+          "mark": "❌",
+          "text": "BigInt throws (`JSON.stringify`)"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "ISO string out (via JSON)"
+        },
+        "bytes": {
+          "mark": "❌",
+          "text": "`Uint8Array` → `{\"0\":1,…}`"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "become `{}`"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "⚠️",
+          "text": "absent becomes `null`; extra keys dropped"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting (JSON); no cycles"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys in the header"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "none; raw errors or garbage",
+          "note": "A row missing a value throws `RangeError: Invalid array length`; `unpack('abc')` returns `[]`, a string key count returns `[ <1 empty item> ]`, `null` throws a TypeError."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "raw engine errors"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "not recursive; 100 000 levels decode"
+        },
+        "proto": {
+          "mark": "❌",
+          "text": "`__proto__` header key sets the prototype",
+          "note": "`o[hlist[++ki]] = hlist[i++]` on a literal `{}` (js/jsonh.js:64): `[1,\"__proto__\",{\"isAdmin\":true}]` decodes to a record that inherits `isAdmin` (tested)."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "row-major values after the header"
+        },
+        "sparse": {
+          "mark": "⚠️",
+          "text": "`null` placeholder per absent field"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "key header once per collection"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "compress-json",
+      "name": "compress-json",
+      "url": "https://github.com/beenotung/compress-json",
+      "direction": "compressed JSON",
+      "package": "compress-json",
+      "version": "3.4.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "3.4.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "BSD-2-Clause"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers (IIFE bundle), Deno, Bun"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS (+ IIFE browser bundle)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless; `decompress<T>` is a cast"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON array (`[values[], rootKey]`, encoded strings)"
+        },
+        "readable": {
+          "mark": "⚠️",
+          "text": "JSON, but base62 numbers and refs"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "`JSON.stringify(compress(x))`"
+        },
+        "keysOnWire": {
+          "mark": "⚠️",
+          "text": "once per distinct key set"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "keys and value kinds encoded"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "Python, PHP, Rust ports",
+          "note": "Python in the same repo (PyPI `compress-json-python`); PHP and Rust are third-party (README)."
+        },
+        "int64": {
+          "mark": "❌",
+          "text": "BigInt throws `unsupported data type`"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "`Date` silently becomes `{}`"
+        },
+        "bytes": {
+          "mark": "❌",
+          "text": "`Uint8Array` → `{\"0\":1,…}`"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "silently become `{}`"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent and `null` distinct"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; no cycles"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "none; `undefined` or raw errors",
+          "note": "Out-of-range or invalid refs decode to `undefined` silently, a self-reference overflows the stack, `decompress(null)` throws `c is not iterable`."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "raw engine errors"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw stack overflow at ~3,200 levels",
+          "note": "`decode` ↔ `decodeArray`/`decodeObject` recurse (dist/core.js:16-51); a chain of ~3,200 nested arrays throws a raw RangeError on Node 24."
+        },
+        "proto": {
+          "mark": "❌",
+          "text": "`__proto__` key sets the prototype",
+          "note": "`o[k] = v` on a literal `{}` (dist/core.js:33): a payload with key `__proto__` yields an object that inherits the attacker's properties (tested)."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none; shared refs expand exponentially",
+          "note": "A 171-byte payload of arrays that each reference the previous one twice decompresses to 6.3 MB of JSON (20 levels); each level doubles it."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (keys omitted)"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "every value and key list stored once"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "protobufjs",
+      "name": "protobufjs",
+      "url": "https://github.com/protobufjs/protobuf.js",
+      "direction": "IDL · Protobuf",
+      "package": "protobufjs",
+      "version": "8.8.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "8.8.1 (protobufjs-cli 2.7.1)"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1: `long`"
+        },
+        "license": {
+          "mark": "",
+          "text": "BSD-3-Clause"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥ 12, browsers, Deno, Bun"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS + UMD bundle (`dist/protobuf.js`)"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "reflection needs `new Function`; static code doesn't",
+          "note": "`Type.encode/decode/verify` and the message constructor are compiled by `util.codegen` (`src/util/codegen.js:53,55`, `Function(source)`); with `--disallow-code-generation-from-strings` reflection throws `EvalError`, while a `pbjs -t static-module` file on `protobufjs/minimal` runs."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "`protobuf.parse`/`load` or `Root.fromJSON` at runtime"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts; `pbts` for messages"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.proto` file, JSON descriptor or reflection API"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "JSON descriptors: `root.toJSON()` / `Root.fromJSON`"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated by `pbts` from static code"
+        },
+        "validation": {
+          "mark": "✅",
+          "text": "`Type.verify`; `encode` coerces silently"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Protobuf); ProtoJSON via `ext/protojson`"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary; base64 to travel as text"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "tag numbers"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "to raw tags only (`Reader`)"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "full decode; `bytes` are views"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Java, Go, Python, C#, Rust…"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "`Long` objects; BigInt only via `toObject`"
+        },
+        "date": {
+          "mark": "⚠️",
+          "text": "`Timestamp` `{ seconds, nanos }`, no `Date`"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`Uint8Array` (`Buffer` on Node)"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "maps as plain objects; no `Set`"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "number on the wire; names via `enums: String`"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`oneof` (virtual property names the case)"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "presence with proto3 `optional`/proto2"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "zero values; `[default]` in proto2/editions only"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "recursive messages, references by name"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (int64 minor units by hand)"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "packed repeated scalars (proto3 default)"
+        },
+        "dynamic": {
+          "mark": "⚠️",
+          "text": "`Struct` as raw `fields`/`Value` messages"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "new tag numbers"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "tag numbers travel, not names"
+        },
+        "resolution": {
+          "mark": "⚠️",
+          "text": "tag matching only; no resolver step"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "`Any` type URL; Confluent via third party"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "dropped by default; `discardUnknown = false` keeps"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "bounds, wire types and UTF-8 checked"
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message with byte offset; `verify` gives `orders.sku`"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "`recursionLimit` 100: `max depth exceeded`"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "`__proto__` map key becomes an own property"
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "depth only (`Reader.recursionLimit`)",
+          "note": "No message, string or array size limits."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing: unset fields are omitted"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none (zigzag `sint` is not delta)"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "`encodeDelimited`/`decodeDelimited` only"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`pbjs -t static-module` + `pbts`"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`pbjs`, `pbts` (protobufjs-cli)"
+        }
+      }
+    },
+    {
+      "id": "protobuf-es",
+      "name": "protobuf-es",
+      "url": "https://github.com/bufbuild/protobuf-es",
+      "direction": "IDL · Protobuf",
+      "package": "@bufbuild/protobuf",
+      "version": "2.16.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.16.0 (protoc-gen-es 2.16.0)"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0 AND BSD-3-Clause"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never: closures over descriptors"
+        },
+        "noBuild": {
+          "mark": "⚠️",
+          "text": "`createFileRegistry` from descriptors; no .proto parser"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts; generated message types"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.proto` file, compiled to descriptors"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "`FileDescriptorSet` → `createFileRegistry`"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated by `protoc-gen-es`"
+        },
+        "validation": {
+          "mark": "⚠️",
+          "text": "`toBinary` range-checks numbers; strings coerced",
+          "note": "`toBinary` throws on `\"abc\"`, `3.7` or 2^40 in an int32 (`cannot encode field t.Msg.age to binary: invalid int32: 3.7`) but writes a number in a string field as `\"42\"`; `create()` checks nothing; `reflect().set` type-checks; rule validation is the separate `@bufbuild/protovalidate`."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Protobuf); ProtoJSON `toJson`/`fromJson`"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary; base64 to travel as text"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "tag numbers"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "to raw tags only (`BinaryReader`)"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "full decode; `bytes` are views"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Java, Go, Python, C#, Rust…"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt (`jstype = JS_STRING` → string)"
+        },
+        "date": {
+          "mark": "⚠️",
+          "text": "`Timestamp` + `timestampFromDate`/`timestampDate`"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`Uint8Array`"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "maps as plain objects; no `Set`"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "number on the wire; name in JSON"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`oneof` as `{ case, value }`"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "presence with `optional`; `isFieldSet`"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "zero values; `[default]` in proto2/editions only"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "recursive messages, references by name"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (int64 minor units by hand)"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "packed repeated scalars (proto3 default)"
+        },
+        "dynamic": {
+          "mark": "✅",
+          "text": "`google.protobuf.Struct` as `JsonObject`"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "new tag numbers"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "tag numbers travel, not names"
+        },
+        "resolution": {
+          "mark": "⚠️",
+          "text": "tag matching only; no resolver step"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "`Any` type URL; Confluent via `@confluentinc/schemaregistry`"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "kept in `$unknown`, re-encoded"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "bounds and UTF-8 checked; wire type ignored",
+          "note": "Truncation throws `RangeError: premature EOF`; but a known scalar field is read by its schema type whatever wire type arrives (`dist/esm/from-binary.js:168-183`): an int32 writer's `08 02 10 03` decodes as `name: \"\\u0010\\u0003\"`, `age: 0`, silently."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "type and field name, no index"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "`recursionLimit` 100 on `fromBinary`/`fromJson`"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "own property (`setOwn`) in maps and Struct"
+        },
+        "limits": {
+          "mark": "✅",
+          "text": "`recursionLimit`; `readMaxBytes` 64 MiB on streams"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing: unset fields are omitted"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none (zigzag `sint` is not delta)"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "`sizeDelimitedDecodeStream` (async iterable)"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`protoc-gen-es`: embedded descriptor + types"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`protoc-gen-es` plugin via `buf`/`protoc`"
+        }
+      }
+    },
+    {
+      "id": "ts-proto",
+      "name": "ts-proto",
+      "url": "https://github.com/stephenh/ts-proto",
+      "direction": "Protobuf codegen",
+      "package": "ts-proto",
+      "version": "2.15.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.15.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1 at runtime: `@bufbuild/protobuf`"
+        },
+        "license": {
+          "mark": "",
+          "text": "ISC"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "anywhere `@bufbuild/protobuf/wire` runs"
+        },
+        "module": {
+          "mark": "",
+          "text": "generated `.ts` (ESM imports); plugin CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never: plain generated code"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "needs `protoc`/`buf` + plugin"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "generated from the IDL"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.proto` file (via protoc)"
+        },
+        "schemaData": {
+          "mark": "⚠️",
+          "text": "export only (`outputSchema=true`)"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated interfaces"
+        },
+        "validation": {
+          "mark": "⚠️",
+          "text": "writer range-checks numbers; no `verify`",
+          "note": "`encode` throws on `\"abc\"` or `3.7` in an int32 (`invalid int32: NaN`) but writes a number in a string field as `\"42\"`; `fromJSON` coerces (`age: \"abc\"` → `NaN`)."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Protobuf); JSON via `toJSON`/`fromJSON`"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary; base64 to travel as text"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "tag numbers"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "to raw tags only (`BinaryReader`)"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "full decode"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Java, Go, Python, C#, Rust…"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "`number` by default; `forceLong=bigint`"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` via `Timestamp` (`useDate`, default)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`Uint8Array`"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "`Map` with `useMapType=true`; no `Set`"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "number on the wire; `stringEnums` in TS"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`oneof=unions` gives a `$case` union"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "`optional` → `field?: T | undefined`"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "zero values; proto2 `[default]` honoured"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "recursive messages, references by name"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (int64 minor units by hand)"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "packed repeated scalars (proto3 default)"
+        },
+        "dynamic": {
+          "mark": "✅",
+          "text": "`google.protobuf.Struct` as a plain object"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "new tag numbers"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "tag numbers travel, not names"
+        },
+        "resolution": {
+          "mark": "⚠️",
+          "text": "tag matching only; no resolver step"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "`google.protobuf.Any` type URL only"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "dropped by default; `unknownFields=true` keeps"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "bounds and wire types checked; UTF-8 not"
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only (`premature EOF`)"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "100 levels on decode, hard-coded"
+        },
+        "proto": {
+          "mark": "❌",
+          "text": "`__proto__` map key sets the prototype",
+          "note": "Binary decode assigns map entries with `obj[key] = value` (`build/src/main.js:1223`): a `map<string, Item>` entry keyed `__proto__` makes the decoded map inherit from the attacker's message; Struct keys hit the same path (with `useMapType` the decoded Struct object's prototype is replaced). `fromJSON` uses `defineProperty` and is safe."
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "depth only (100, fixed)"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing: unset fields are omitted"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none (zigzag `sint` is not delta)"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "`useAsyncIterable` transforms; no framing"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "generated `.ts` per `.proto`"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`protoc-gen-ts_proto` plugin via `protoc`/`buf`"
+        }
+      }
+    },
+    {
+      "id": "avsc",
+      "name": "avsc",
+      "url": "https://github.com/mtth/avsc",
+      "direction": "IDL · Avro",
+      "package": "avsc",
+      "version": "5.7.9",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "5.7.9"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-07"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node ≥ 0.11; browsers need `buffer`/`util`/`stream` shims",
+          "note": "The browser builds in `etc/browser/` still `require('buffer')`, `util` and `stream`; the README assumes browserify. It cannot run where `new Function` is blocked (see noEval)."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "❌",
+          "text": "`new Function` per type; required",
+          "note": "lib/types.js:732 (every type's branch constructor), 2200, 2275, 2295, 2310, 2342, 2434 (record constructor, checker, reader, skipper, writer, resolver). Under `node --disallow-code-generation-from-strings` even `require('avsc')` throws EvalError (lib/containers.js:26 builds a type at load). No no-eval mode exists."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "`Type.forSchema(json)` at runtime"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts (`types/index.d.ts`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "Avro schema JSON (or `.avdl` IDL)"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "Avro schema JSON; `type.schema()` exports it"
+        },
+        "inferred": {
+          "mark": "⚠️",
+          "text": "third-party `@ovotech/avro-ts` codegen"
+        },
+        "validation": {
+          "mark": "✅",
+          "text": "`type.isValid(v, { errorHook })`; `toBuffer` throws"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Avro); Avro JSON via `toString`"
+        },
+        "readable": {
+          "mark": "⚠️",
+          "text": "binary; Avro JSON via `type.toString()`"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "only as Avro JSON (`toString`/`fromString`)"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "positional (schema order)"
+        },
+        "selfDescribing": {
+          "mark": "❌",
+          "text": "needs the writer schema"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole record decoded"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "Apache Avro: Java, Python, C, C#, Rust, Go"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "numbers; throws past 2^53"
+        },
+        "date": {
+          "mark": "⚠️",
+          "text": "logical type you implement (`logicalTypes`)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`bytes`/`fixed` as `Buffer`"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "`map` → plain object; no Set"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "as an index; JS sees the symbol"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "Avro unions (branch index on wire)"
+        },
+        "optional": {
+          "mark": "⚠️",
+          "text": "`[\"null\", T]` union; absent and null merge"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "field `default` (encode and resolver)"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "named types by reference; no cyclic values"
+        },
+        "decimals": {
+          "mark": "⚠️",
+          "text": "`decimal` logical type, not implemented"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none (a byte per boolean)"
+        },
+        "dynamic": {
+          "mark": "❌",
+          "text": "none (no `any` type)"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "with `default`, via `createResolver`"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "`aliases` in resolution; names not on wire"
+        },
+        "resolution": {
+          "mark": "✅",
+          "text": "`reader.createResolver(writer)`: aliases, defaults, promotions"
+        },
+        "fingerprint": {
+          "mark": "✅",
+          "text": "`type.fingerprint()`: MD5 of canonical form"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "container files embed schema; registry third-party"
+        },
+        "unknownFields": {
+          "mark": "⚠️",
+          "text": "skipped by the resolver; not kept"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "`truncated buffer`, bad union/enum index"
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only (`truncated buffer`)"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw RangeError at 100 000 levels",
+          "note": "A 100 001-byte recursive list throws `Maximum call stack size exceeded` from `fromBuffer`; `toBuffer`/`isValid` of a deep or cyclic value overflow the same way."
+        },
+        "proto": {
+          "mark": "❌",
+          "text": "`map` key `__proto__` sets the prototype",
+          "note": "lib/types.js:1833-1838 assigns `val[key]` on `{}`: the key disappears and the decoded map inherits the payload's object (same in `fromString`). No global pollution."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none",
+          "note": "A 4-byte payload decodes into an array of 1 000 000 nulls (`array<null>` with a count only)."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "row-wise only"
+        },
+        "sparse": {
+          "mark": "⚠️",
+          "text": "a byte each (null union branch)"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none (strings repeat)"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "`BlockDecoder`, `RawDecoder` (Node streams)"
+        },
+        "aot": {
+          "mark": "❌",
+          "text": "runtime `new Function` only"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "thrift",
+      "name": "Apache Thrift",
+      "url": "https://github.com/apache/thrift",
+      "direction": "IDL · Thrift",
+      "package": "thrift",
+      "version": "0.25.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "0.25.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-09"
+        },
+        "deps": {
+          "mark": "",
+          "text": "5: ws, uuid, node-int64, isomorphic-ws, browser-or-node"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node ≥ 10.18; browsers need `util`/`Buffer` shims",
+          "note": "The `browser` field maps to lib/nodejs/lib/thrift/browser.js, which still requires `util` (thrift.js) and uses `Buffer` in every protocol; the README suggests webpack."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS (generated code CJS or ESM)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (library and generated code)"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "needs `thrift --gen js:node`"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "generated from the IDL (`js:ts`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.thrift` IDL"
+        },
+        "schemaData": {
+          "mark": "❌",
+          "text": "generated code only"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated d.ts (`js:ts`)"
+        },
+        "validation": {
+          "mark": "❌",
+          "text": "string in `i32` → 0, 2^40 → 0",
+          "note": "Generated `write()` calls `output.writeI32(this.x)` unchecked (binary.js `writeI32` uses bit operations; 1.7 → 1). Required fields are checked only by the constructor when `args` is given; `writeString(42)` throws."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Binary/Compact) or JSON (`TJSONProtocol`)"
+        },
+        "readable": {
+          "mark": "⚠️",
+          "text": "binary; `TJSONProtocol` is JSON"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "only with `TJSONProtocol`"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "tag numbers (field ids)"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "to raw tags only (type ids travel)"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole struct decoded"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Java, Python, Go, Rust, C#, …"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "`Int64` objects; BigInt with `js:node,bigint`"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`binary` → `Buffer`"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "`map` → object, `set` → array"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "as the i32 number"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`union` (one field id set)"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "`optional`; absent reads as `null`"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "IDL defaults set in the constructor"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "structs reference structs; no cyclic values"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "new field ids; old readers skip them"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "field ids travel, names do not"
+        },
+        "resolution": {
+          "mark": "⚠️",
+          "text": "by field id; a mismatched type is skipped"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none in JS"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "none (RPC envelope names the method)"
+        },
+        "unknownFields": {
+          "mark": "⚠️",
+          "text": "skipped (`input.skip`), not kept"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "`InputBufferUnderrunError`; wrong-type fields skipped",
+          "note": "Truncation, negative sizes and bad type ids (`Invalid type: 127`) are errors; a missing required field is not (it reads as `null`)."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "none; underrun error has no message"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "64 levels (`DEFAULT_RECURSION_DEPTH`)"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the IDL; map `__proto__` stays a key"
+        },
+        "limits": {
+          "mark": "✅",
+          "text": "depth 64; server frame `maxLength`"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "row-wise only"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (unset ids omitted)"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none (Compact deltas field ids only)"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "framed/buffered transports (length-prefixed)"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`thrift --gen js:node`"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`thrift` compiler (native, separate install)"
+        }
+      }
+    },
+    {
+      "id": "flatbuffers",
+      "name": "FlatBuffers",
+      "url": "https://github.com/google/flatbuffers",
+      "direction": "IDL · zero-copy",
+      "package": "flatbuffers",
+      "version": "25.9.23",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "25.9.23"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun (no `engines`)"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS + ESM (`module` field)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (runtime and flatc output)"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "requires `flatc` code generation"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "generated from the IDL (`flatc --ts`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.fbs` IDL (flatc also reads `.proto`)"
+        },
+        "schemaData": {
+          "mark": "⚠️",
+          "text": "export only: `.bfbs`, JSON Schema via `flatc`"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated by `flatc --ts`"
+        },
+        "validation": {
+          "mark": "❌",
+          "text": "coerces: string in int → 0, overflow wraps",
+          "note": "Tested: `\"abc\"` in a `short` reads back 0, 70000 reads back 4464, 1.9 reads 1. Only `(required)` presence is checked, by `builder.requiredField` in the generated `endX()`."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (FlatBuffers: vtables + offsets)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "needs base64"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "vtable slots (field ids)"
+        },
+        "selfDescribing": {
+          "mark": "❌",
+          "text": "needs the schema"
+        },
+        "zeroCopy": {
+          "mark": "✅",
+          "text": "accessors read the buffer in place"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Java, Go, Rust, Python, C#, Swift"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt (`readInt64` returns `bigint`)"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "no date type; int64 by hand"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`[ubyte]` → `xArray()` `Uint8Array` view"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "neither; vectors only"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "the integer value travels"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`union` (type byte + offset)"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "`= null` scalars; tables, strings nullable"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "schema defaults returned when absent"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "tables may contain themselves"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "`(bit_flags)` enums"
+        },
+        "dynamic": {
+          "mark": "⚠️",
+          "text": "FlexBuffers bytes in a `[ubyte]` field"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "append fields or explicit `(id: n)`"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "slots travel, names do not"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none; append-only rules instead"
+        },
+        "fingerprint": {
+          "mark": "⚠️",
+          "text": "4-char `file_identifier`, set by hand"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "`file_identifier` in the buffer header"
+        },
+        "unknownFields": {
+          "mark": "⚠️",
+          "text": "ignored; lost on `unpack()` → `pack()`"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "no verifier in JS: garbage or defaults",
+          "note": "Tested: a buffer cut in half decodes to `{ hp: 0, name: \"\" }`, an out-of-bounds root offset to all defaults, no error. `ByteBuffer` reads `bytes_[i]` without bounds checks (`ts/byte-buffer.ts`); the C++ `Verifier` is not ported."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "no decode errors at all"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "object API `unpack()`: raw stack overflow",
+          "note": "Accessors are lazy and do not recurse, but generated `unpack()` does: a 100 000-deep chain throws `RangeError`, and a crafted negative uoffset (accepted: `readInt32` is signed) makes a cycle that overflows too."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the schema"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none (builder capped at 2 GB)"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "⚠️",
+          "text": "2-byte vtable slot up to last present field"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "`createSharedString`; vtables deduplicated"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "size-prefixed buffers (`finishSizePrefixed`) only"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`flatc --ts` (`--gen-object-api`)"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`flatc` (native binary, not on npm)"
+        }
+      }
+    },
+    {
+      "id": "capnp",
+      "name": "Cap'n Proto",
+      "url": "https://github.com/unjs/capnp-es",
+      "direction": "IDL · zero-copy",
+      "package": "capnp-es",
+      "version": "0.0.16",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "0.0.16",
+          "note": "capnp-es is the maintained fork (unjs) of capnp-ts; its README calls it alpha quality. capnp-ts itself was revived in 2026 (0.9.3)."
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-08"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0 (an optional peer for the compiler)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun (no `engines`)"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "requires C++ `capnpc` + `capnp-es` plugin"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "generated from the IDL (`-ots`, `-odts`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.capnp` IDL"
+        },
+        "schemaData": {
+          "mark": "⚠️",
+          "text": "schema nodes as capnp messages; no dynamic codec"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated by `capnp-es -ots`"
+        },
+        "validation": {
+          "mark": "❌",
+          "text": "coerces: string in UInt32 → 0",
+          "note": "Tested: an object in a Text field is stored as `\"[object Object]\"`, `null` as `\"null\"`; an Int64 setter throws a raw TypeError for a number."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Cap'n Proto, optional packing)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "needs base64"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "fixed offsets"
+        },
+        "selfDescribing": {
+          "mark": "⚠️",
+          "text": "to raw structs and lists only"
+        },
+        "zeroCopy": {
+          "mark": "✅",
+          "text": "lazy accessors"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C++, Rust, Go, Java, Python, C#"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`Data` (`toUint8Array()` live view)"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "neither"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "the uint16 ordinal travels"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`union` + `which()`"
+        },
+        "optional": {
+          "mark": "⚠️",
+          "text": "scalars: default = absent; pointers `_hasX()`"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "schema defaults (XOR-encoded)"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "structs may contain themselves"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "Bool fields and `List(Bool)` bit-packed"
+        },
+        "dynamic": {
+          "mark": "⚠️",
+          "text": "`AnyPointer`, cast by hand"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "new `@n` ordinals; old data reads defaults"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "names do not travel"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none; layout rules instead"
+        },
+        "fingerprint": {
+          "mark": "⚠️",
+          "text": "64-bit type ids, stable across versions"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "segment framing carries no type id"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "kept in the buffer; `copyFrom` copies them"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "pointer and bounds checks; some raw RangeErrors",
+          "note": "Library errors (`CAPNP-TS019`, `TS024`) for bad pointers, but an empty buffer and a huge Text length throw raw `RangeError`s, and the frame header is trusted before its size check (see limits)."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message with a pointer address, no field path"
+        },
+        "depth": {
+          "mark": "⚠️",
+          "text": "lazy reads; deep copy → raw RangeError",
+          "note": "Reads do not recurse and the traversal limit stops a pointer cycle (`CAPNP-TS022`), but the nesting limit defaults to `MAX_INT32`: `setRoot`/`copyFrom` of a 100 000-deep message overflows the stack."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the schema"
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "64 MiB traversal limit, not configurable",
+          "note": "It counts pointer objects per Message, so one legit Message re-read ~4.2 M times throws. The segment count in the frame header is allocated (`Array.from`, `BlZmb8ia.mjs:818`) before it is checked: 8 bytes claiming 2^32-1 segments start a multi-billion-element allocation."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "⚠️",
+          "text": "fixed slots; packing squeezes zeros"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "no stream reader (segment framing only)"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`capnp-es` plugin writes .js, .ts, .d.ts"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`capnp-es` (shells out to C++ `capnpc`)"
+        }
+      }
+    },
+    {
+      "id": "bebop",
+      "name": "Bebop",
+      "url": "https://github.com/6over3/bebop",
+      "direction": "IDL · binary",
+      "package": "bebop",
+      "version": "3.2.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "3.2.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun (no `engines`)"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (runtime and bebopc output)"
+        },
+        "noBuild": {
+          "mark": "⚠️",
+          "text": "`BinarySchema` reader/writer; schema from `bebopc`"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "generated from the IDL (`bebopc`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "`.bop` IDL"
+        },
+        "schemaData": {
+          "mark": "✅",
+          "text": "binary schema + `BinarySchema` (`RecordReader`)"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "generated by `bebopc`"
+        },
+        "validation": {
+          "mark": "❌",
+          "text": "trusts: string in uint32 → 0",
+          "note": "Tested on the generated-code shape: a missing struct field writes 0, a number in a string field writes `\"\"`, `null` throws a raw TypeError. The dynamic `RecordWriter` checks shapes, enums and missing fields, not scalar types."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (Bebop)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "needs base64"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "positional structs; 1-byte tags in messages"
+        },
+        "selfDescribing": {
+          "mark": "❌",
+          "text": "needs the schema"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "decodes the whole record (bytes are views)"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "C#, Rust, C++, C, Dart, Python"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`date` ↔ `Date` (100 ns ticks)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`byte[]` ↔ `Uint8Array` (a view)"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "`map[K, V]` ↔ `Map`; no Set"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "the integer value travels"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`union` → `{ tag, value }`"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "message fields: absent ≠ set"
+        },
+        "defaults": {
+          "mark": "❌",
+          "text": "none (absent → `undefined`)"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "messages may contain themselves"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "`@flags` enums"
+        },
+        "dynamic": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "messages: new field indices"
+        },
+        "rename": {
+          "mark": "✅",
+          "text": "indices and positions travel"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "fingerprint": {
+          "mark": "⚠️",
+          "text": "`@opcode` 4-byte id, by hand"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "none (opcode written by hand)"
+        },
+        "unknownFields": {
+          "mark": "⚠️",
+          "text": "ignored: skips to the message end"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "no bounds checks: garbage or raw RangeError",
+          "note": "Tested: a truncated buffer throws DataView `RangeError`; a string length past the end decodes to `\"A\\u0000\"`."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "raw errors, no path"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw stack overflow (100 000 levels)"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the schema"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none: 13 bytes → 10^8-element array",
+          "note": "A `bool[]` length prefix is trusted: 13 bytes decoded into a 100 000 000-element array in 1.2 s (up to 2^32 possible)."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "messages: absent fields cost nothing"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "length-prefixed messages and unions only"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "`bebopc` writes TS"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`bebopc` (npm `bebop-tools`)"
+        }
+      }
+    },
+    {
+      "id": "typia",
+      "name": "typia",
+      "url": "https://github.com/samchon/typia",
+      "direction": "AOT compiler",
+      "package": "typia",
+      "version": "15.1.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "15.1.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "3: @typia/interface, @typia/utils, randexp + optional peer ttsc"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers (build needs ttsc, Node ≥ 22.15)"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (code emitted at build time)"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "every function throws without the ttsc transform"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts (the types are the schema)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "TypeScript type (+ `tags.*`)"
+        },
+        "schemaData": {
+          "mark": "⚠️",
+          "text": "export only: `json.schema<T>()`, `protobuf.message<T>()`"
+        },
+        "inferred": {
+          "mark": "✅",
+          "text": "the TS type is the schema"
+        },
+        "validation": {
+          "mark": "✅",
+          "text": "`assertEncode`, `assertStringify`, `typia.assert`"
+        },
+        "wire": {
+          "mark": "",
+          "text": "JSON text (`json.*`) or binary Protobuf (`protobuf.*`)"
+        },
+        "readable": {
+          "mark": "✅",
+          "text": "JSON path; protobuf path is binary"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "JSON path; protobuf needs base64"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "JSON: every message; protobuf: tag numbers"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "JSON path; protobuf to raw tags only"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "JSON anywhere; protobuf wire via `.proto` export"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "`bigint` ↔ int64 in protobuf; JSON rejects bigint"
+        },
+        "date": {
+          "mark": "⚠️",
+          "text": "`Date` → ISO string; parse returns a string"
+        },
+        "bytes": {
+          "mark": "⚠️",
+          "text": "`Uint8Array` in protobuf only"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "`Map` in protobuf only; no `Set`"
+        },
+        "enums": {
+          "mark": "✅",
+          "text": "literal unions; the string travels"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "TS union types (protobuf `oneof`)"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "`?:` absent vs `null` distinct"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "protobuf zero values; `Default<V>` is schema-only"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "recursive types; cyclic values rejected"
+        },
+        "decimals": {
+          "mark": "⚠️",
+          "text": "`MultipleOf<0.01>` check; travels as a number"
+        },
+        "flags": {
+          "mark": "⚠️",
+          "text": "packed repeated scalars (protobuf path)"
+        },
+        "dynamic": {
+          "mark": "⚠️",
+          "text": "`unknown`/`any` in JSON only (protobuf bans `any`)"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "JSON: names travel; protobuf: new `Sequence<N>`"
+        },
+        "rename": {
+          "mark": "⚠️",
+          "text": "protobuf with `Sequence<N>`; JSON names travel"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownFields": {
+          "mark": "✅",
+          "text": "ignored; `assertEquals` rejects, `assertPrune` strips"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "`json.assertParse`, `protobuf.assertDecode`"
+        },
+        "errorPath": {
+          "mark": "✅",
+          "text": "`TypeGuardError.path` (`$input.a[1].b`)"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "recursive generated code: raw stack overflow",
+          "note": "Not run through the transform (it needs ttsc): a decoder transcribed from `ProtobufDecodeProgrammer.go` overflows at 100 000 levels; no depth option exists."
+        },
+        "proto": {
+          "mark": "❌",
+          "text": "protobuf `Record` key `__proto__` sets the prototype",
+          "note": "Generated decode assigns `output[entry.key] = entry.value` on `{}` (`native/core/programmers/protobuf/ProtobufDecodeProgrammer.go:379-397`); reproduced with the real `_ProtobufReader`. The JSON path parses with `JSON.parse` and is safe."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing: absent keys and tags omitted"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "✅",
+          "text": "the ttsc transform inlines codecs at build"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`ttsc` / `ttsx` (official peer, samchon/ttsc)"
+        }
+      }
+    },
+    {
+      "id": "schemapack",
+      "name": "schemapack",
+      "url": "https://github.com/phretaddin/schemapack",
+      "direction": "schema · binary",
+      "package": "schemapack",
+      "version": "1.4.2",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.4.2"
+        },
+        "released": {
+          "mark": "",
+          "text": "2016-08"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node; browsers need the `buffer` shim",
+          "note": "`require('buffer').Buffer` (schemapack.js:6); the README relies on browserify/webpack 4 adding the shim, which webpack 5 no longer does."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "❌",
+          "text": "`new Function` per `build()`",
+          "note": "schemapack.js:375-376; under `--disallow-code-generation-from-strings` `build` throws EvalError (tested)."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "`build(schema)` at runtime"
+        },
+        "types": {
+          "mark": "❌",
+          "text": "none (no `@types/schemapack`)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "JS object of type names (`{ age: 'uint8' }`)"
+        },
+        "schemaData": {
+          "mark": "⚠️",
+          "text": "plain JSON, but keys become code"
+        },
+        "inferred": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "validation": {
+          "mark": "⚠️",
+          "text": "typeof and range checks, on by default",
+          "note": "`build(schema, false)` drops them: a string in a `uint8` field then encodes as 0. With checks on, 3.7 in an int field becomes 3, NaN passes float checks, a missing string throws Node's ERR_INVALID_ARG_TYPE."
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (custom, big-endian, varints)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "Buffer; base64 needed"
+        },
+        "keysOnWire": {
+          "mark": "❌",
+          "text": "positional (sorted key order)"
+        },
+        "selfDescribing": {
+          "mark": "❌",
+          "text": "schema required"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "❌",
+          "text": "JS only"
+        },
+        "int64": {
+          "mark": "❌",
+          "text": "max int32/uint32; varint ±2³⁰"
+        },
+        "date": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "bytes": {
+          "mark": "⚠️",
+          "text": "`buffer` type, Node Buffer only"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "enums": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unions": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "optional": {
+          "mark": "❌",
+          "text": "every field required"
+        },
+        "defaults": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "recursive": {
+          "mark": "❌",
+          "text": "none (self-referencing schema overflows `build`)"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "a byte per boolean"
+        },
+        "dynamic": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "addFields": {
+          "mark": "❌",
+          "text": "new key shifts sorted positions"
+        },
+        "rename": {
+          "mark": "⚠️",
+          "text": "positions travel, but sorted by key"
+        },
+        "resolution": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "none (README: add a `uint8` field by hand)"
+        },
+        "unknownFields": {
+          "mark": "⚠️",
+          "text": "trailing bytes ignored; no strict mode"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "none; Node RangeErrors or garbage",
+          "note": "A truncated buffer throws Node's ERR_OUT_OF_RANGE or silently shortens the last string; a `buffer` field whose length prefix exceeds the payload returns stale process memory (`allocUnsafe`, schemapack.js:86; tested)."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "raw Node errors"
+        },
+        "depth": {
+          "mark": "—",
+          "text": "no recursive types; depth fixed by schema"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "keys from the schema"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none; declared lengths trusted",
+          "note": "A 4-byte payload for a `buffer` field yields a 268 MB Buffer."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "❌",
+          "text": "no absent fields"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "❌",
+          "text": "runtime compile only"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "msgpackr",
+      "name": "msgpackr",
+      "url": "https://github.com/kriszyp/msgpackr",
+      "direction": "MessagePack",
+      "package": "msgpackr",
+      "version": "2.1.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.1.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-08"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1 optional: `msgpackr-extract` (native)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS (+ UMD)"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "`new Function` for records; catches failure",
+          "note": "From the 4th read of a record structure the reader is compiled with `new Function` (`unpack.js:501`), also by the default `unpack` on a payload that defines records in-message. A throw is caught and code generation is switched off for the process (still a CSP violation report). `msgpackr/index-no-eval` (a UMD build, `dist/index-no-eval.cjs`) never calls it."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (records inferred from object keys)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (MessagePack + record extension)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary, needs base64"
+        },
+        "keysOnWire": {
+          "mark": "⚠️",
+          "text": "once per structure (`new Packr()` records)"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "yes, unless shared `structures` are used"
+        },
+        "zeroCopy": {
+          "mark": "⚠️",
+          "text": "only via `structon` (split out in 2.0)"
+        },
+        "otherLanguages": {
+          "mark": "⚠️",
+          "text": "any MessagePack library; records are msgpackr-only"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt in and out (±2⁶⁴)"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` via the timestamp extension (−1)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`bin` → Buffer/Uint8Array"
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "both with `moreTypes` or `structuredClone`"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent, `null` and `undefined` distinct"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cycles with `structuredClone`"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none (float32 rounding options only)"
+        },
+        "flags": {
+          "mark": "⚠️",
+          "text": "typed arrays only with `moreTypes`"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none for shared structures"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "record ids only; structures kept out of band"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "mostly `Error`s; some raw TypeErrors",
+          "note": "Truncation gives \"Unexpected end of MessagePack data\". In 3 000 random byte mutations 1–5% escaped as raw TypeError/RangeError/SyntaxError (e.g. `read(...).map is not a function`, a pointer ext without a reference map); the reserved byte 0xC1 decodes to a `C1` sentinel object instead of an error."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only, no path"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw RangeError at 100 000 levels",
+          "note": "Recursive `read()` with no depth limit. `checkedRead` marks any RangeError `incomplete` (`unpack.js:225`), so `UnpackrStream` treats a deep message as a partial one: it emits nothing, buffers, and stalls until `maxIncompleteBufferSize` (64 MB) is exceeded. `pack` of a deep value also overflows."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "safe: `__proto__` renamed to `__proto_`"
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "stream `maxIncompleteBufferSize` only",
+          "note": "Array/map lengths are checked against the remaining bytes (no allocation from a small header), but there is no option for string, array, map or depth limits."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (key omitted)"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "records: keys once per structure"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "`UnpackrStream`, `decodeIter` (Node streams)"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "msgpack",
+      "name": "@msgpack/msgpack",
+      "url": "https://github.com/msgpack/msgpack-javascript",
+      "direction": "MessagePack",
+      "package": "@msgpack/msgpack",
+      "version": "3.1.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "3.1.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-12"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "ISC"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥ 18, browsers, Deno, Bun"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS + UMD"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts (written in TypeScript)"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (MessagePack)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary, needs base64"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every object"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "yes"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "MessagePack in C, Go, Python, Rust, Java…"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "numbers by default; `useBigInt64` opt-in"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` via the timestamp extension (−1)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`bin` → Uint8Array"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "Map and Set encode as `{}`"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent vs `null`; `undefined` → `null`"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting on decode; no cycles"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "⚠️",
+          "text": "typed arrays as raw `bin`, type lost"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "`DecodeError`, or `RangeError` on truncation"
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only (byte offsets), no path"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "iterative decoder: 100 000 levels decode"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "safe: `__proto__` key rejected (`DecodeError`)"
+        },
+        "limits": {
+          "mark": "✅",
+          "text": "`maxStrLength`, `maxBinLength`, `maxArrayLength`, `maxMapLength`, `maxExtLength`"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (key omitted)"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none (key cache is decode-side only)"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "`decodeMultiStream`, `decodeArrayStream`, `decodeAsync`"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "cbor-x",
+      "name": "cbor-x",
+      "url": "https://github.com/kriszyp/cbor-x",
+      "direction": "CBOR",
+      "package": "cbor-x",
+      "version": "1.6.6",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.6.6"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-08"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1 optional: `cbor-extract` (native)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS (+ UMD)"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "probes `new Function` at import; compiles records",
+          "note": "`decode.js:47` runs `new Function('')` when the module loads (a CSP report even if records are never used) and compiles record readers from the 4th read (`decode.js:532`). If the probe throws, records use the slow path. `cbor-x/index-no-eval` never calls it."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (records inferred from object keys)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (CBOR + record tags)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary, needs base64"
+        },
+        "keysOnWire": {
+          "mark": "⚠️",
+          "text": "once per structure (`new Encoder()` records)"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "yes, unless shared `structures` are used"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "otherLanguages": {
+          "mark": "⚠️",
+          "text": "any CBOR library; records are cbor-x-only"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "BigInt; bignum tags past 64 bits"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` via tag 1 (epoch)"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "byte string → Uint8Array/Buffer"
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "Map (tag 259) and Set (tag 258)"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent, `null` and `undefined` distinct"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cycles with `structuredClone`"
+        },
+        "decimals": {
+          "mark": "⚠️",
+          "text": "tag 4 decoded to a float; not encoded"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "typed arrays (RFC 8746 tags)"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel (`keyMap` maps names to numbers)"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "fingerprint": {
+          "mark": "❌",
+          "text": "none for shared structures"
+        },
+        "envelope": {
+          "mark": "❌",
+          "text": "record ids only; structures kept out of band"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "mostly `Error`s; some raw TypeErrors",
+          "note": "Truncation gives \"Unexpected end of CBOR data\". In 3 000 random byte mutations 5–7% escaped as raw TypeError/RangeError (e.g. \"Cannot create property 'slowReads' on string\", \"byte length of Float32Array should be a multiple of 4\"); a record key that is a BigInt reaches `JSON.stringify` and throws a TypeError."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only, no path"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw RangeError at 100 000 levels",
+          "note": "Recursive `read()` with no depth limit. `checkedRead` marks any RangeError `incomplete` (`decode.js:239`), so `DecoderStream` treats a deep message as a partial one: it emits nothing and keeps buffering, with no size cap. `encode` of a deep value also overflows."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "safe: `__proto__` renamed to `__proto_`"
+        },
+        "limits": {
+          "mark": "⚠️",
+          "text": "`setSizeLimits`: array and map sizes (global)",
+          "note": "Process-wide, not per decoder; defaults 112 810 000 / 16 810 000. `maxObjectSize`, documented in the README, is never read by the decoder, record objects bypass `maxMapSize`, and there is no string or depth limit."
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (key omitted)"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "records + `pack` (packed CBOR, tag 51)"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "✅",
+          "text": "`DecoderStream`, `decodeIter`, `encodeAsAsyncIterable`"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "bson",
+      "name": "BSON",
+      "url": "https://github.com/mongodb/js-bson",
+      "direction": "BSON",
+      "package": "bson",
+      "version": "7.3.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "7.3.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥ 20.19, browsers, React Native"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (`Code` values are not evaluated)"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (BSON)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary (`EJSON` for text)"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "binary; `EJSON` is a separate JSON form"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every document"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "yes (type-tagged elements)"
+        },
+        "zeroCopy": {
+          "mark": "⚠️",
+          "text": "experimental `onDemand.parseToElements`"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "every MongoDB driver (C, Java, Go, Python…)"
+        },
+        "int64": {
+          "mark": "⚠️",
+          "text": "`Long`/number by default; `useBigInt64` opt-in"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` via UTC datetime"
+        },
+        "bytes": {
+          "mark": "⚠️",
+          "text": "`Binary` wrapper; `promoteBuffers` for bytes"
+        },
+        "mapSet": {
+          "mark": "⚠️",
+          "text": "Map in, plain object out; no Set"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent vs `null`; `undefined` dropped"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cycles rejected"
+        },
+        "decimals": {
+          "mark": "✅",
+          "text": "`Decimal128`"
+        },
+        "flags": {
+          "mark": "✅",
+          "text": "`Binary` vectors: int8, float32, packed bits"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema; keys travel"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "decodeChecks": {
+          "mark": "✅",
+          "text": "`BSONError` on every corruption tried"
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only; some name the field"
+        },
+        "depth": {
+          "mark": "✅",
+          "text": "iterative parser: 100 000 levels decode"
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "safe: own property via `defineProperty`"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none (size header must match the buffer)"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (key omitted)"
+        },
+        "sharedStrings": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "`deserializeStream` over one buffer only"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "v8",
+      "name": "v8.serialize",
+      "url": "https://nodejs.org/api/v8.html#serialization-api",
+      "direction": "built in · Node",
+      "package": null,
+      "version": "Node 24.14.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "Node 24.14.1 (format version 15)"
+        },
+        "released": {
+          "mark": "",
+          "text": "Node 24 (built in)"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0 (built in)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT (Node.js)"
+        },
+        "platforms": {
+          "mark": "❌",
+          "text": "Node only (`node:v8`)"
+        },
+        "module": {
+          "mark": "",
+          "text": "built in (`node:v8`)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "native, no code generation"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "⚠️",
+          "text": "`@types/node`"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (schemaless)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "binary (V8 structured clone)"
+        },
+        "readable": {
+          "mark": "❌",
+          "text": "binary"
+        },
+        "jsonChannel": {
+          "mark": "❌",
+          "text": "needs base64"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "every object, repeated"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "tagged values"
+        },
+        "zeroCopy": {
+          "mark": "❌",
+          "text": "whole buffer decoded"
+        },
+        "otherLanguages": {
+          "mark": "❌",
+          "text": "V8 only"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "`BigInt`"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` in, `Date` out"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "typed arrays, `Buffer`, `ArrayBuffer`"
+        },
+        "mapSet": {
+          "mark": "✅",
+          "text": "both"
+        },
+        "enums": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent, `undefined` and `null` kept apart"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "no schema"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; cycles and shared refs"
+        },
+        "decimals": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "⚠️",
+          "text": "format only: one generic `Error`",
+          "note": "Truncated, garbage and huge-length inputs all throw `Unable to deserialize cloned data.`; there is no shape to check."
+        },
+        "errorPath": {
+          "mark": "❌",
+          "text": "no path or offset"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw `RangeError` past ~4 150 levels",
+          "note": "Measured on a hand-built nested array with the default stack; `v8.serialize` itself throws `RangeError` past ~3 280 levels."
+        },
+        "proto": {
+          "mark": "✅",
+          "text": "own property, prototype untouched"
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "absent keys cost nothing"
+        },
+        "sharedStrings": {
+          "mark": "⚠️",
+          "text": "a shared object written once (back-reference)"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "❌",
+          "text": "none"
+        }
+      }
+    },
+    {
+      "id": "ion",
+      "name": "Amazon Ion",
+      "url": "https://github.com/amazon-ion/ion-js",
+      "direction": "self-describing",
+      "package": "ion-js",
+      "version": "5.2.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "5.2.1"
+        },
+        "released": {
+          "mark": "",
+          "text": "2024-04"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "Apache-2.0"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers (no `engines`, needs BigInt)"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS + ESM (bundlers) + AMD"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "no schema needed"
+        },
+        "types": {
+          "mark": "✅",
+          "text": "bundled d.ts"
+        },
+        "schemaStyle": {
+          "mark": "",
+          "text": "none (self-describing)"
+        },
+        "schemaData": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "inferred": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "validation": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "wire": {
+          "mark": "",
+          "text": "Ion text or Ion binary"
+        },
+        "readable": {
+          "mark": "⚠️",
+          "text": "Ion text (JSON superset, not JSON)"
+        },
+        "jsonChannel": {
+          "mark": "✅",
+          "text": "Ion text is a string"
+        },
+        "keysOnWire": {
+          "mark": "✅",
+          "text": "text: each time; binary: once (symbol table)"
+        },
+        "selfDescribing": {
+          "mark": "✅",
+          "text": "typed values, names in stream"
+        },
+        "zeroCopy": {
+          "mark": "✅",
+          "text": "binary `Reader` skips values by length"
+        },
+        "otherLanguages": {
+          "mark": "✅",
+          "text": "Java, C, Python, Rust, Go, .NET"
+        },
+        "int64": {
+          "mark": "✅",
+          "text": "arbitrary-size ints, `bigIntValue()`"
+        },
+        "date": {
+          "mark": "✅",
+          "text": "`Date` in, `dom.Timestamp` (a Date) out"
+        },
+        "bytes": {
+          "mark": "✅",
+          "text": "`blob` ↔ `Uint8Array`"
+        },
+        "mapSet": {
+          "mark": "❌",
+          "text": "`Map` and `Set` dump as `{}`"
+        },
+        "enums": {
+          "mark": "⚠️",
+          "text": "symbols (no enum type)"
+        },
+        "unions": {
+          "mark": "—",
+          "text": "any value; annotations can tag it"
+        },
+        "optional": {
+          "mark": "✅",
+          "text": "absent vs `null` / typed `null.int`"
+        },
+        "defaults": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "any nesting; no cyclic values"
+        },
+        "decimals": {
+          "mark": "✅",
+          "text": "`decimal` type (`ion.Decimal`)"
+        },
+        "flags": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dynamic": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "addFields": {
+          "mark": "✅",
+          "text": "no schema"
+        },
+        "rename": {
+          "mark": "❌",
+          "text": "names travel"
+        },
+        "resolution": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "fingerprint": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "envelope": {
+          "mark": "⚠️",
+          "text": "shared symbol tables by name/version (`Catalog`)"
+        },
+        "unknownFields": {
+          "mark": "—",
+          "text": "schemaless"
+        },
+        "decodeChecks": {
+          "mark": "❌",
+          "text": "truncated binary → `null` or wrong values",
+          "note": "IonSpan.js:165-170 returns EOF (-1) past the end instead of throwing: a 55-byte value cut to 13-27 bytes loads as `null`, cut to 52 bytes loads with a different timestamp. The text parser rejects truncated input."
+        },
+        "errorPath": {
+          "mark": "⚠️",
+          "text": "message only (`expected ',' or '}'`)"
+        },
+        "depth": {
+          "mark": "❌",
+          "text": "raw RangeError at 100 000 levels",
+          "note": "`load` of 100 000 nested lists or s-expressions, and `dumpText`/`dumpBinary` of a deep or cyclic value, throw `Maximum call stack size exceeded`. The raw `Reader` cursor steps in 100 000 levels fine."
+        },
+        "proto": {
+          "mark": "⚠️",
+          "text": "`dom.Struct` safe; `toJSON()` sets the prototype",
+          "note": "Fields live in `Object.create(null)` (dom/Struct.js:10), so `get('__proto__')` works and nothing global is touched. `toJSON()` copies them onto `Object.create(Struct.prototype)` with `obj[key] =`: `__proto__` replaces the prototype and the fields after it vanish (`JSON.stringify` gives `{}`)."
+        },
+        "limits": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "columnar": {
+          "mark": "❌",
+          "text": "row-wise only"
+        },
+        "sparse": {
+          "mark": "✅",
+          "text": "nothing (absent fields omitted)"
+        },
+        "sharedStrings": {
+          "mark": "✅",
+          "text": "symbol tables (binary)"
+        },
+        "delta": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "streaming": {
+          "mark": "⚠️",
+          "text": "`Reader` steps through values; whole input in memory"
+        },
+        "aot": {
+          "mark": "—",
+          "text": "nothing to compile"
+        },
+        "cli": {
+          "mark": "✅",
+          "text": "`ion` (amazon-ion/ion-cli, Rust)"
+        }
+      }
+    }
+  ]
+}

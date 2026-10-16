@@ -180,15 +180,14 @@ const kernel = (errors, types) => {
     },
   });
 
-  // The codec of an entity a recursion goes through: each call is one level,
-  // so a payload nested deeper than LIMIT is an error at the same depth on
-  // either backend and any engine, before the stack runs out (the closures
-  // backend uses several frames a level). A schema without a recursion never
-  // pays for the count.
-  const LIMIT = 512;
+  // The codec of an entity a recursion goes through, with `maxDepth`: each
+  // call is one level, so a payload nested deeper than the limit is an error
+  // at the same depth on either backend and any engine, before the stack runs
+  // out (the closures backend uses several frames a level). Without the
+  // option nothing is counted, and the stack is the limit.
   const NESTING = { level: 0 };
-  const counted = (run, deeper) => (value, strict) => {
-    if (NESTING.level >= LIMIT) deeper();
+  const counted = (run, limit, deeper) => (value, strict) => {
+    if (NESTING.level >= limit) deeper();
     NESTING.level += 1;
     try {
       return run(value, strict);
@@ -196,13 +195,13 @@ const kernel = (errors, types) => {
       NESTING.level -= 1;
     }
   };
-  const guarded = (codec) => {
+  const guarded = (codec, limit) => {
     const encoding = () => refuse('depth', '');
     const out = {
-      encode: counted(codec.encode, encoding),
-      decode: counted(codec.decode, () => fail('structure', '', 'depth')),
+      encode: counted(codec.encode, limit, encoding),
+      decode: counted(codec.decode, limit, () => fail('structure', '', 'depth')),
     };
-    if (codec.stringify !== undefined) out.stringify = counted(codec.stringify, encoding);
+    if (codec.stringify !== undefined) out.stringify = counted(codec.stringify, limit, encoding);
     return out;
   };
 
@@ -221,7 +220,7 @@ const kernel = (errors, types) => {
     }
   };
 
-  return { flat, columns, padded, withTable, isolated, guarded, LIMIT };
+  return { flat, columns, padded, withTable, isolated, guarded };
 };
 
 const layouts = kernel(require('./errors.js'), require('./types.js'));
@@ -233,6 +232,5 @@ module.exports = {
   withTable: layouts.withTable,
   isolated: layouts.isolated,
   guarded: layouts.guarded,
-  LIMIT: layouts.LIMIT,
   kernel,
 };

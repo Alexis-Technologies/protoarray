@@ -112,6 +112,7 @@ const VALID = Object.assign(Object.create(null), {
   compiled: isCompiled,
   layout: isLayouts,
   fingerprint: (value) => typeof value === 'function',
+  maxDepth: (value) => value === Infinity || (Number.isSafeInteger(value) && value > 0),
   references: (value) => REFERENCES.includes(value),
   types: isWireTypes,
   entity: (value) => typeof value === 'string',
@@ -145,6 +146,7 @@ const readOptions = (options, name) => {
     stringify: 'auto',
     layout: 'rows',
     fingerprint,
+    maxDepth: Infinity,
     references: 'kind',
     types: Object.create(null),
     entity: undefined,
@@ -374,16 +376,30 @@ const itemCodec = (plan, backend, settings, name) => {
   };
 };
 
+// The codec of an entity a recursion goes through, counted when `maxDepth`
+// limits its nesting; by default nothing is counted and the stack is the
+// limit.
+const limited = (codec, settings) =>
+  settings.maxDepth === Infinity ? codec : layouts.guarded(codec, settings.maxDepth);
+
 // The options an entity reached by a reference is built with: the ones that
 // shape no place of the schema that refers to it, then its own (`entities`).
-const SHARED = ['codegen', 'validate', 'stringify', 'fingerprint', 'references', 'types'];
+const SHARED = [
+  'codegen',
+  'validate',
+  'stringify',
+  'fingerprint',
+  'maxDepth',
+  'references',
+  'types',
+];
 // What an entity's own options cannot hold: its name is its key, its snapshot
 // is the one of the schema around it.
 const OWN = ['entity', 'entities', 'metaschema'];
 // What a schema built from another one's plan is compiled with: a collection
 // nested in a layout of its own, the list of a schema's records, a resolved
 // schema (the reader's, with the writer's fingerprint).
-const INHERITED = ['codegen', 'validate', 'stringify', 'fingerprint'];
+const INHERITED = ['codegen', 'validate', 'stringify', 'fingerprint', 'maxDepth'];
 
 const inherited = (settings) => {
   const out = {};
@@ -823,12 +839,12 @@ class Schema {
       for (const entry of internal.compiled) {
         if (entry.slot === slot) continue;
         const target = useCodegen ? codegen : closures;
-        entry.slot.codec = layouts.guarded(build(entry.plan, target, settings).codec);
+        entry.slot.codec = limited(build(entry.plan, target, settings).codec, settings);
       }
     }
     const built = build(plan, useCodegen ? codegen : closures, settings);
     const { backend, fallback } = built;
-    const codec = recursive ? layouts.guarded(built.codec) : built.codec;
+    const codec = recursive ? limited(built.codec, settings) : built.codec;
     if (slot !== undefined) slot.codec = codec;
     // An alias is compiled after what it stands for (see ordered).
     const shape = plan.kind === 'ref' && plan.slot.schema != null ? plan.slot.schema[SHAPE] : plan;

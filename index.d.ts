@@ -170,6 +170,13 @@ export interface SchemaOptions {
    */
   readonly fingerprint?: (signature: string) => string;
   /**
+   * The levels of a recursion one payload may nest, a positive integer: deeper is `DecodeError`
+   * `structure` or `EncodeError` `depth`, at the same level on either backend and in generated
+   * modules. By default (`Infinity`) nothing is counted and the call stack is the limit, which
+   * differs between backends and engines. 512 is a depth both backends reach everywhere.
+   */
+  readonly maxDepth?: number;
+  /**
    * How a reference to an entity travels, as metaschema's check reads it: `'kind'` (the default)
    * as the field's `embed` says, else by the kind of the entity (a stored kind's id, a memory
    * kind's record); `'embed'` always the record; `'id'` always the id.

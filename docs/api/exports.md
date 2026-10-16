@@ -78,6 +78,7 @@ interface SchemaOptions {
   delta?: readonly string[];                          // integer, number, date or decimals lists and columns
   stringify?: 'auto' | 'builder' | 'native';          // how stringify writes the text
   fingerprint?: (signature: string) => string;        // computes `id`; default: FNV-1a 32-bit, 8 hex digits
+  maxDepth?: number;                                  // levels of a recursion a payload may nest; default: the stack
   references?: 'kind' | 'embed' | 'id';               // how references travel; 'kind' as metaschema's check reads them
   types?: Readonly<Record<string, WireType>>;         // the wire type of a custom type with a check of its own
   entity?: string;                                    // the entity of a snapshot to build

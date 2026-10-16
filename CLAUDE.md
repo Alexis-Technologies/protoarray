@@ -147,9 +147,10 @@ docs/               VitePress site (protoarray.vercel.app), not published
    graph whether each payload carries a string table (`slot.interned`, read by `internedIn`) and,
    with Tarjan's components (`cyclic`), which entities a recursion goes through; `ordered`
    compiles each, an alias (a root `ref`) after what it stands for, a cycle of aliases refused.
-   The codec of a recursive entity is `layouts.guarded`: it counts nesting levels and refuses past
-   512 (`LIMIT`), so both backends fail at the same depth before the stack runs out; schemas
-   without a recursion are not wrapped. An entity's own options come from `entities` over the
+   With `maxDepth` (opt-in) the codec of a recursive entity is `layouts.guarded`: it counts
+   nesting levels and refuses past the limit, so both backends fail at the same depth before the
+   stack runs out; by default, and for schemas without a recursion, nothing is wrapped and the
+   stack is the limit (`boundary` turns its overflow into a depth error). An entity's own options come from `entities` over the
    shared ones (`SHARED`); `INHERITED` is what a nested layout, a `list` and a resolved schema
    take. An error in an entity a reference reached names it (`via`). A collection inside a record with a
    layout of its own (`layout: { path }`) is compiled as a root of its own (the module-private

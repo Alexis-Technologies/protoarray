@@ -158,10 +158,29 @@ for (const [backend, options] of BACKENDS) {
 
   test(`Errors (${backend}): a payload nested too deeply is a decode error`, () => {
     const Node = named('Node', { v: 'number', kids: { array: 'Node' } }, options);
-    const depth = 100000;
-    const text = `${'[1,['.repeat(depth)}[1,[]]${']]'.repeat(depth)}`;
-    // A recursion counts its levels: the same depth is too deep on either
-    // backend, at the place it is reached.
+    const levels = (depth) => `${'[1,['.repeat(depth - 1)}[1,[]]${']]'.repeat(depth - 1)}`;
+    const text = levels(100000);
+    // By default nothing is counted: the stack is the limit, and running out
+    // of it is a decode error with no path.
+    const expected = {
+      name: 'DecodeError',
+      code: 'structure',
+      schema: 'Node',
+      message: 'Value is nested too deeply',
+    };
+    assert.throws(() => Node.parse(text), expected);
+    assert.throws(() => Node.decode(JSON.parse(text)), expected);
+    assert.throws(() => Node.list.parse(`[${text}]`), expected);
+    const long = levels(600);
+    assert.strictEqual(JSON.stringify(Node.encode(Node.parse(long))), long);
+  });
+
+  test(`Errors (${backend}): maxDepth counts the levels of a recursion`, () => {
+    const limit = { ...options, maxDepth: 512 };
+    const Node = named('Node', { v: 'number', kids: { array: 'Node' } }, limit);
+    const levels = (depth) => `${'[1,['.repeat(depth - 1)}[1,[]]${']]'.repeat(depth - 1)}`;
+    const text = levels(100000);
+    // The same depth is too deep on either backend, at the place it is reached.
     const expected = {
       name: 'DecodeError',
       code: 'structure',
@@ -175,27 +194,53 @@ for (const [backend, options] of BACKENDS) {
       message: /nested too deeply/,
     });
     // Up to the limit is fine.
-    const LIMIT = 512;
-    const fine = `${'[1,['.repeat(LIMIT - 1)}[1,[]]${']]'.repeat(LIMIT - 1)}`;
+    const fine = levels(512);
     assert.strictEqual(JSON.stringify(Node.encode(Node.parse(fine))), fine);
-    const over = `[1,[${fine}]]`;
-    assert.throws(() => Node.parse(over), { code: 'structure' });
+    assert.throws(() => Node.parse(`[1,[${fine}]]`), { code: 'structure' });
     let deep = { v: 1, kids: [] };
-    for (let i = 1; i < LIMIT; i++) deep = { v: 1, kids: [deep] };
+    for (let i = 1; i < 512; i++) deep = { v: 1, kids: [deep] };
     assert.strictEqual(JSON.stringify(Node.encode(deep)), fine);
-    assert.throws(() => Node.encode({ v: 1, kids: [deep] }), { code: 'depth' });
+    assert.throws(() => Node.encode({ v: 1, kids: [deep] }), {
+      code: 'depth',
+      message: /^Field "kids\[0\][^"]*" is nested too deeply$/,
+    });
+    // Another limit, the same rule; a list, a resolved schema and the
+    // entities of a model take it.
+    const Short = Schema.from(Node, { ...options, maxDepth: 3 });
+    assert.deepStrictEqual(Short.decode(JSON.parse(levels(3))), Node.decode(JSON.parse(levels(3))));
+    assert.throws(() => Short.decode(JSON.parse(levels(4))), { code: 'structure' });
+    assert.throws(() => Short.list.decode([JSON.parse(levels(4))]), { code: 'structure' });
+    const Built = Schema.from(Node, { ...options, maxDepth: 3, stringify: 'builder' });
+    assert.strictEqual(Built.stringify(Built.parse(levels(3))), levels(3));
+    assert.throws(() => Built.stringify(Node.parse(levels(4))), { code: 'depth' });
     const { Outer } = model(
       {
         Node: { Struct: {}, v: 'number', kids: { array: 'Node' } },
         Outer: { Struct: {}, root: 'Node' },
       },
-      options,
+      limit,
     );
     assert.throws(() => Outer.parse(`[${text}]`), {
       ...expected,
       schema: 'Outer',
       message: /^Field "root\.kids\[0\][^"]*" is nested too deeply$/,
     });
+    const { Outer: Own } = model(
+      {
+        Node: { Struct: {}, v: 'number', kids: { array: 'Node' } },
+        Outer: { Struct: {}, root: 'Node' },
+      },
+      { ...options, entities: { Node: { maxDepth: 3 } } },
+    );
+    assert.throws(() => Own.decode([JSON.parse(levels(4))]), {
+      code: 'structure',
+      message: /^Field "root\.kids\[0\]\.kids\[0\]\.kids\[0\]" is nested too deeply$/,
+    });
+    for (const maxDepth of [0, -1, 1.5, NaN, '512', null]) {
+      assert.throws(() => Schema.from(Node, { ...options, maxDepth }), {
+        code: 'ERR_INVALID_OPTIONS',
+      });
+    }
   });
 
   test(`Errors (${backend}): encode errors carry a code, a path and the schema name`, () => {
@@ -561,24 +606,26 @@ test('Errors: the decode boundary', () => {
 
 // A cyclic value, or one nested deeper than the call stack, is a value the
 // schema cannot encode: an encode error like any other, never a RangeError.
+// With maxDepth it is found at the limit, with its path.
 for (const [backend, options] of BACKENDS) {
   test(`Errors (${backend}): a value nested too deeply to encode is an encode error`, () => {
-    const Node = named('Node', { v: 'number', kids: { array: 'Node' } }, options);
-    const expected = {
-      name: 'EncodeError',
-      code: 'depth',
-      schema: 'Node',
-      message: /^Field "kids\[0\][^"]*" is nested too deeply$/,
-    };
+    const definition = { v: 'number', kids: { array: 'Node' } };
     let value = { v: 1, kids: [] };
     for (let i = 0; i < 100000; i++) value = { v: 1, kids: [value] };
-    assert.throws(() => Node.encode(value), expected);
     const cycle = { v: 1, kids: [] };
     cycle.kids.push(cycle);
-    assert.throws(() => Node.encode(cycle), expected);
-    assert.throws(() => Node.stringify(cycle), expected);
-    const Loose = Schema.from(Node, { ...options, validate: false });
-    assert.throws(() => Loose.encode(cycle), expected);
+    for (const [limit, message] of [
+      [{}, 'Value is nested too deeply'],
+      [{ maxDepth: 512 }, /^Field "kids\[0\][^"]*" is nested too deeply$/],
+    ]) {
+      const Node = named('Node', definition, { ...options, ...limit });
+      const expected = { name: 'EncodeError', code: 'depth', schema: 'Node', message };
+      assert.throws(() => Node.encode(value), expected);
+      assert.throws(() => Node.encode(cycle), expected);
+      assert.throws(() => Node.stringify(cycle), expected);
+      const Loose = Schema.from(Node, { ...options, ...limit, validate: false });
+      assert.throws(() => Loose.encode(cycle), expected);
+    }
   });
 }
 

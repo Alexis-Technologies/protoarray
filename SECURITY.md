@@ -64,8 +64,10 @@ timeline once the report is confirmed.
   - Whatever `validate` is set to, the only error they throw is `DecodeError`: for any JSON text,
     and for any in-process value as well (a `BigInt` as a sparse mask or in a list of
     differences, a `Symbol` as an enum index, an array as a bitmask, a negative mask). A payload
-    of a recursive schema nested deeper than 512 levels is `DecodeError` `structure` ("nested too
-    deeply") on either backend, before the stack runs out. The one exception is the platform's: a
+    of a recursive schema nested deeper than the call stack is `DecodeError` `structure` ("nested
+    too deeply"); where the stack ends differs between backends and engines, so set `maxDepth`
+    (512 is reached by both everywhere) to refuse a deep payload at the same level on either, and
+    sooner. The one exception is the platform's: a
     `bytes` field in a realm with neither `Uint8Array.fromBase64` nor `atob` throws a
     `ReferenceError` (see [Runtimes](https://protoarray.vercel.app/guide/runtimes)). The
     registry's `decode` and `parse` give the same guarantee: an envelope whose id the reader
@@ -111,7 +113,7 @@ timeline once the report is confirmed.
   a set or a map of the wrong kind (told by its brand, not by a tag it claims), a union value whose
   discriminator is not one of its values, a value a `delta` list cannot hold and a number a
   `decimals` field cannot scale to a safe integer throw `EncodeError` with the path; a cyclic
-  value, or one nested deeper than 512 levels of a recursion or than the call stack, is
+  value, or one nested deeper than the call stack (or than `maxDepth` levels of a recursion), is
   `EncodeError` with code `depth`. Everything else travels as it is given, or as `null` where it
   has no wire form of its type (a `BigInt` or a `Symbol` as a date). Validate untrusted values
   before encoding them with metaschema's `check` or `parse` (`schema.source`), which apply every

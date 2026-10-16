@@ -107,6 +107,7 @@ Schema.from(UserDefinition, {
   delta: ['orders[].qty'],
   stringify: 'builder',
   fingerprint: (canonical) => canonical,
+  maxDepth: 512,
   references: 'embed',
   types: { money: 'number' },
   entity: 'User',
@@ -116,6 +117,7 @@ expectError(Schema.from(UserDefinition, { validate: 'both' }));
 expectError(Schema.from(UserDefinition, { intern: 'tags' }));
 expectError(Schema.from(UserDefinition, { types: { money: 'float' } }));
 expectError(Schema.from(UserDefinition, { schemas: {} }));
+expectError(Schema.from(UserDefinition, { maxDepth: '512' }));
 
 // The free functions follow the schema's methods.
 expectType<unknown>(encode(User, decoded));

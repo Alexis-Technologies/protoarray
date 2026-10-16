@@ -42,7 +42,8 @@ Key facts:
   form are unchanged from 1.x
 - Options: `codegen`, `validate` (boolean: the wire on decode), `sparse: true | paths`,
   `layout: layout | { path: layout }`, `intern: true | paths`, `delta: paths`, `stringify`,
-  `fingerprint`, `references`, `types` (wire types of custom types), `entity`, `entities`,
+  `fingerprint`, `maxDepth` (levels of a recursion; default: the call stack), `references`,
+  `types` (wire types of custom types), `entity`, `entities`,
   `metaschema`, `compiled`; paths as errors spell them: `address.city`, `orders[].sku`, `scores{}`,
   `pair[1]`, `''`
 - Schema evolution: append fields at the end, never reorder; older and newer versions interoperate;

@@ -112,7 +112,8 @@ const inlineOf = (schema) => {
     codec: codegen.build(target, options),
   };
   if (schema.layout === 'flat' || schema.layout === 'columns') spec.record = plan.item;
-  if (schema[RECURSIVE]) spec.recursive = true;
+  const { maxDepth } = schema[SETTINGS];
+  if (schema[RECURSIVE] && maxDepth !== Infinity) spec.maxDepth = maxDepth;
   return kernel().define(spec);
 };
 
@@ -649,13 +650,14 @@ test('Standalone: register() adds schema.toSource()', () => {
   assert.deepStrictEqual(Object.keys(Schema.prototype), []);
 });
 
-test('Standalone: a recursion counts its levels in a module too, an alias is its target', async () => {
+test('Standalone: maxDepth counts the levels of a recursion in a module too, an alias is its target', async () => {
   const context = await restricted();
-  const { Node, Alias, Id } = model({
+  const entities = {
     Node: { Struct: {}, v: 'number', kids: { array: 'Node' } },
     Alias: 'Node',
     Id: 'string',
-  });
+  };
+  const { Node, Alias, Id } = model(entities, { maxDepth: 512 });
   const nested = (depth) => {
     let value = { v: 1, kids: [] };
     for (let i = 1; i < depth; i++) value = { v: 1, kids: [value] };
@@ -685,6 +687,12 @@ test('Standalone: a recursion counts its levels in a module too, an alias is its
     );
     agree(copies.Alias, Alias, nested(3), runtime);
     agree(copies.Id, Id, 'u1', runtime);
+    // Without the option a module counts nothing either.
+    const free = model(entities).Node;
+    const unlimited = run(standalone.toSource({ Node: free }, { runtime }), context).Node;
+    const long = JSON.stringify(free.encode(nested(600)));
+    assert.strictEqual(JSON.stringify(unlimited.encode(nested(600))), long, runtime);
+    assert.strictEqual(JSON.stringify(free.encode(unlimited.parse(long))), long, runtime);
   }
   // In this process too: the inline kernel, and an import module's alias.
   const inline = inlineOf(Node);

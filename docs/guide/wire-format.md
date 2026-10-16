@@ -69,7 +69,7 @@ throws only for what has no wire at all.
 | A `decimals` number whose scaled value is not a safe integer (`NaN` and the infinities too) | `EncodeError` `type`, whatever `validate` says |
 | A `BigInt` or a `Symbol` as a `date` | `null` |
 | A union value whose discriminator is not one of its values | `EncodeError` `union` |
-| A cyclic value, or one nested deeper than 512 levels of a recursion (or than the call stack) | `EncodeError` `depth` |
+| A cyclic value, or one nested deeper than the call stack (or than `maxDepth` levels of a recursion) | `EncodeError` `depth` |
 | Keys not in the schema, tuple elements beyond its length | ignored |
 
 ## Decoding
@@ -88,7 +88,7 @@ throws only for what has no wire at all.
 | Elements beyond the schema | ignored; `DecodeError` `extra` with `{ strict: true }` |
 | A `null` element of an array of required items | `DecodeError` `type` (with validation); `null` without |
 | A value with no wire form of its type, without validation | passed through as it is, not converted |
-| A payload nested deeper than 512 levels of a recursion (or than the call stack) | `DecodeError` `structure` ("nested too deeply"), always, the same depth on either backend |
+| A payload nested deeper than the call stack (or than `maxDepth` levels of a recursion) | `DecodeError` `structure` ("nested too deeply"), always; with `maxDepth` at the same depth on either backend |
 | Keys on the decoded object | every key of the schema, in schema order |
 
 ## Canonical form

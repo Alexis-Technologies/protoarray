@@ -158,6 +158,14 @@ id is the same too, unless it references another schema by name (see Changed).
   serves the whole message, the entities it reaches, the records of a collection and recursion
   included. A broken table is a `DecodeError` `structure`, an index outside it `type`. The
   canonical form marks it (`city:string*`).
+- **`maxDepth`**, opt-in: `{ maxDepth: 512 }` has every entity a recursion goes through count its
+  levels and refuse a value or a payload nested deeper (`EncodeError` `depth`, `DecodeError`
+  `structure`, with the path), at the same depth on either backend and in generated modules,
+  before the stack runs out. By default nothing is counted, as in 1.x: the call stack is the
+  limit, which the closures backend reaches sooner than generated code (on Node.js 24, about
+  1,800 levels of a linked list against 3,500). A schema without a recursion is never
+  wrapped; one with a limit encodes about 8% and decodes about 3.5% slower on deep trees. The
+  entities a reference reaches, a `list` and a resolved schema (the reader's) take it.
 
 ### Changed
 
@@ -190,10 +198,6 @@ id is the same too, unless it references another schema by name (see Changed).
   whichever entity is built first. An alias (an entity that is a reference to another) encodes,
   decodes, resolves and has the keys and layout of what it stands for; references that come back
   to themselves with no record between them are `ERR_INVALID_SNAPSHOT`.
-- **A recursion counts its levels**: an entity a recursion goes through refuses a value or a
-  payload nested deeper than 512 levels (`EncodeError` `depth`, `DecodeError` `structure`), at
-  the same depth on either backend, before the stack runs out. Schemas without a recursion pay
-  nothing for it; the ones with one encode about 8% slower on deep trees.
 - **Names in the canonical form**: a key, an enum value, a flag name, a discriminator or an entity
   name that holds the form's punctuation (`:,{}[]()|?=@;*~<>`), begins with a quote or is empty
   prints as a JSON string, and so does a string enum value that reads as a number (`enum("1")`

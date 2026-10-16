@@ -381,6 +381,21 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(RH.decode(wire), { size: 2, head: value });
     assert.deepStrictEqual(RH.encode({ size: 2, head: value }), wire);
     assert.throws(() => RH.decode([[1, ['x']], 2]), { code: 'type', path: 'head.next.id' });
+    // The reader's maxDepth counts the levels of either recursion.
+    const levels = (depth) => (depth === 1 ? [1, []] : [1, [levels(depth - 1)]]);
+    const chain = (depth) => (depth === 1 ? [1] : [depth, chain(depth - 1)]);
+    const short = { ...options, maxDepth: 3 };
+    const ST = resolve(T1, Schema.from(T2, short));
+    assert.deepStrictEqual(ST.decode(levels(3)), RT.decode(levels(3)));
+    assert.throws(() => ST.decode(levels(4)), { code: 'structure' });
+    assert.strictEqual(
+      JSON.stringify(RT.encode(RT.decode(levels(600)))),
+      JSON.stringify(levels(600)),
+    );
+    const SH = resolve(H1, model({ Node: node, Head: head }, short).Head);
+    assert.strictEqual(SH.decode([chain(3), 3]).head.next.next.id, 1);
+    assert.throws(() => SH.decode([chain(4), 4]), { code: 'structure' });
+    assert.strictEqual(RH.decode([chain(600), 600]).size, 600);
     // A layout inside a record reads the writer's layout.
     const P1 = define(
       { items: { array: { a: 'number' } } },

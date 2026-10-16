@@ -201,6 +201,7 @@ by a reference keeps the options given for it in `entities`.
 | `intern` | `false` | `true` for every string, or the paths of strings: `[table, body]`. See [Types](/guide/types#interned-strings) |
 | `stringify` | `'auto'` | How `stringify` writes the text: `'auto'`, `'builder'` or `'native'`. See [Runtimes](/guide/runtimes#how-stringify-writes-the-text) |
 | `fingerprint` | FNV-1a 32-bit | `(signature) => string`, computes `id` from the schema's signature (below). See [Schema Evolution](/guide/evolution#your-own-fingerprint) |
+| `maxDepth` | `Infinity` | The levels of a recursion one payload may nest: deeper is `DecodeError` `structure` or `EncodeError` `depth`, at the same depth on either backend. By default nothing is counted and the call stack is the limit, which differs between backends; `512` is a depth both reach everywhere. See [Errors](/guide/errors#depth) |
 | `references` | `'kind'` | How every reference travels: `'kind'`, `'embed'` or `'id'`. See [References](#references) |
 | `types` | `{}` | The wire type of each custom type with a check of its own: `{ decimal: 'string' }` |
 | `entity` | the snapshot's `root` | The entity of a snapshot to build (a metaschema Schema builds its own) |

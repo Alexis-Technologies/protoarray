@@ -197,9 +197,8 @@ argument gives it one: `Schema.from<User>(snapshot)`. See [TypeScript](/guide/ty
   brackets or braces, begins with a quote or is empty is quoted the same way (`["a.b"].c`); a
   column of a `columns` collection is named by its field (`[].price` where 1.x said `[2]`). A
   path keeps 64 levels at most.
-- **Depth.** A recursion counts its levels: a value or a payload nested deeper than 512 levels of
-  one is `EncodeError` `depth` or `DecodeError` `structure` on either backend, where 1.x went
-  as deep as the call stack.
+- **Depth.** A recursion goes as deep as the call stack, as in 1.x; the new `maxDepth` option
+  sets a limit that is the same on either backend.
 - **Values.** A `decimals` number that scales past the safe integers is `EncodeError` `type`
   instead of a wire its decoder refuses; a validated `date` decodes whole milliseconds within
   ±8.64e15 only; a `BigInt` or a `Symbol` as a date encodes as `null` instead of throwing.

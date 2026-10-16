@@ -81,7 +81,7 @@ const inline = (kernelErrors, kernelTypes, kernelLayouts, nested) => {
       codec = kernelLayouts[spec.layout](codec, spec.record, validate);
     }
     if (spec.interned) codec = kernelLayouts.withTable(codec, validate.decode);
-    if (spec.recursive) codec = kernelLayouts.guarded(codec);
+    if (spec.maxDepth !== undefined) codec = kernelLayouts.guarded(codec, spec.maxDepth);
     const run = (call) => (spec.interned ? kernelLayouts.isolated(call) : call());
     const encodeWith = (target, value, method) => {
       if (spec.kind !== 'scalar' && (value === null || typeof value !== 'object')) {
@@ -230,13 +230,15 @@ const codecSource = (schema, names) => planSource(schema[PLAN], schema[SETTINGS]
 
 // The options a schema of the module is built with again, without its
 // compiled codecs. A fingerprint function has no source: the id travels
-// instead.
+// instead. A limit of the nesting is written only when there is one, since
+// JSON has no Infinity.
 const OPTIONS = ['validate', 'sparse', 'layout', 'intern', 'delta', 'stringify', 'references'];
 
 const settingsSource = (schema) => {
   const settings = schema[SETTINGS];
   const options = OPTIONS.map((key) => `${key}:${JSON.stringify(settings[key])}`);
   options.push(`types:${JSON.stringify(settings.types)}`);
+  if (settings.maxDepth !== Infinity) options.push(`maxDepth:${settings.maxDepth}`);
   return options;
 };
 
@@ -315,7 +317,9 @@ const inlineDefinition = (schema, names) => {
   if (schema.layout === 'flat' || schema.layout === 'columns') {
     spec.push(`record:${JSON.stringify(recordOf(plan))}`);
   }
-  if (schema[RECURSIVE]) spec.push('recursive:true');
+  if (schema[RECURSIVE] && settings.maxDepth !== Infinity) {
+    spec.push(`maxDepth:${settings.maxDepth}`);
+  }
   return `R.define({${spec.join(',')}})`;
 };
 

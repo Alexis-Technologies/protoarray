@@ -308,7 +308,10 @@ test('Parity: codegen and closures agree on the constructs the generator does no
     },
     {
       build: (options) =>
-        model({ Node: { Struct: {}, name: 'string', next: '?Node' } }, options).Node,
+        model(
+          { Node: { Struct: {}, name: 'string', next: '?Node' } },
+          { ...options, maxDepth: 512 },
+        ).Node,
       values: [nested(3), nested(511), nested(512), nested(513)],
     },
   ];

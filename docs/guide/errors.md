@@ -18,7 +18,7 @@ two by `name` and `code`, or catch both.
 
 | Code | Meaning | Example message |
 | --- | --- | --- |
-| `structure` | not an array where one is expected, a wrong tuple, `flat` or map length, a bad sparse mask, an interned payload that is not `[table, body]`, an envelope that is not `[id, payload]`, a payload nested deeper than 512 levels of a recursion (or than the call stack), a streamed line or item longer than `maxLength` | `Field "address" is not an array`, `Field "next.next…" is nested too deeply`, `Field "[3]" is longer than maxLength allows` |
+| `structure` | not an array where one is expected, a wrong tuple, `flat` or map length, a bad sparse mask, an interned payload that is not `[table, body]`, an envelope that is not `[id, payload]`, a payload nested deeper than the call stack (or than `maxDepth` levels of a recursion), a streamed line or item longer than `maxLength` | `Field "address" is not an array`, `Field "next.next…" is nested too deeply`, `Field "[3]" is longer than maxLength allows` |
 | `required` | a required field is `null` or missing | `Field "email" is required` |
 | `type` | a value of the wrong type, or a `null` element where the item is required | `Field "orders[1].qty" is not of expected type: number` |
 | `enum` | an index outside the enum (a long enum names its first 16 values) | `Field "role" is not of enum: admin, editor` |
@@ -54,7 +54,7 @@ try {
 | --- | --- | --- |
 | `object`, `array`, `set`, `map` | a record that is not an object, a collection or tuple that is not an array, a set that is neither a `Set` nor an array, a map that is not a `Map` (told by its brand, not a tag it claims) | `Field "orders[1]" is not an object` |
 | `iterable` | `encodeEach` and the stream helpers got something that is not iterable | `Value is not iterable` |
-| `depth` | a cyclic value, or one nested deeper than 512 levels of a recursion (or than the call stack) | `Field "next.next…" is nested too deeply` |
+| `depth` | a cyclic value, or one nested deeper than the call stack (or than `maxDepth` levels of a recursion) | `Field "next.next…" is nested too deeply` |
 | `union` | a union's discriminator is not one of its values | `Field "type" is not of union: call, event` |
 | `type` | a value a `delta` list or column cannot hold (only integers have exact differences), a `decimals` number that scales past the safe integers | `Field "ids" is not of expected type: [integer]` |
 
@@ -94,6 +94,29 @@ else send(User.stringify(input));
 has no `source`; build the metaschema schema where the values are produced, from the same
 definition. A decoded object passes metaschema's `check`: every key present, `null` for the
 optional ones that were missing.
+
+## Depth
+
+A recursive schema (`Node` with `kids: { array: 'Node' }`, a linked list) goes as deep as the
+call stack by default: past it, `decode` throws `DecodeError` `structure` and `encode`
+`EncodeError` `depth`, `Value is nested too deeply`, with no path. Where that happens depends on
+the backend and the engine: the closures backend uses more frames a level, so it reaches the end
+of the stack sooner than generated code (on Node.js 24, about 1,800 levels of a linked list
+against 3,500, and less inside a deep call). A server on generated code can then write a payload
+that a client under a strict CSP cannot read.
+
+`maxDepth` sets the limit instead: every entity a recursion goes through counts its levels, and
+one past the limit is the same error, with its path, on either backend and in generated modules.
+
+```js
+const { Node } = Schema.fromModel(model, { maxDepth: 512 });
+Node.decode(deeper); // DecodeError: Field "kids[0].kids[0]…" is nested too deeply
+```
+
+512 is a depth both backends reach on every engine. A schema without a recursion is never
+counted; one with a limit encodes about 8% and decodes about 3.5% slower on deep trees, which is
+why the limit is opt-in. The entities a reference reaches, `schema.list` and a resolved schema
+(the reader's option) take it; `entities` gives one entity a limit of its own.
 
 ## Schema errors
 

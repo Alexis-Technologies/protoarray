@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-15T15:53:23.503Z",
+  "date": "2026-10-16T14:23:04.822Z",
   "node": "v24.14.1",
   "v8": "13.6.233.17-node.44",
   "cpu": "Apple M3 Max",
@@ -12,10 +12,10 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 1396349,
-          "decode": 954196,
+          "encode": 1379640,
+          "decode": 959977,
           "spread": {
-            "encode": 1,
+            "encode": 2,
             "decode": 2
           },
           "bytes": {
@@ -28,10 +28,10 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 2053665,
-          "decode": 1678585,
+          "encode": 2049171,
+          "decode": 1688759,
           "spread": {
-            "encode": 1,
+            "encode": 2,
             "decode": 1
           },
           "bytes": {
@@ -44,11 +44,11 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 1465362,
-          "decode": 1019966,
+          "encode": 1500700,
+          "decode": 1054956,
           "spread": {
-            "encode": 3,
-            "decode": 1
+            "encode": 1,
+            "decode": 2
           },
           "bytes": {
             "raw": 135,
@@ -57,13 +57,13 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 2033709,
-          "decode": 1601970,
+          "encode": 1131512,
+          "decode": 1673102,
           "spread": {
-            "encode": 1,
+            "encode": 3,
             "decode": 1
           },
           "bytes": {
@@ -76,11 +76,11 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 2054386,
-          "decode": 1561723,
+          "encode": 2040150,
+          "decode": 1653086,
           "spread": {
-            "encode": 2,
-            "decode": 2
+            "encode": 3,
+            "decode": 58
           },
           "bytes": {
             "raw": 135,
@@ -92,11 +92,11 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 1376940,
-          "decode": 1461801,
+          "encode": 1297138,
+          "decode": 1434026,
           "spread": {
-            "encode": 2,
-            "decode": 2
+            "encode": 10,
+            "decode": 1
           },
           "bytes": {
             "raw": 115,
@@ -108,11 +108,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 1745837,
-          "decode": 1821063,
+          "encode": 1644596,
+          "decode": 1798371,
           "spread": {
             "encode": 1,
-            "decode": 1
+            "decode": 0
           },
           "bytes": {
             "raw": 97,
@@ -124,11 +124,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 1216857,
-          "decode": 752995,
+          "encode": 1229830,
+          "decode": 729451,
           "spread": {
-            "encode": 2,
-            "decode": 1
+            "encode": 1,
+            "decode": 2
           },
           "bytes": {
             "raw": 206,
@@ -140,11 +140,11 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 1480975,
-          "decode": 2676271,
+          "encode": 1482145,
+          "decode": 2652598,
           "spread": {
-            "encode": 1,
-            "decode": 2
+            "encode": 2,
+            "decode": 3
           },
           "bytes": {
             "raw": 108,
@@ -156,10 +156,10 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 753516,
-          "decode": 693274,
+          "encode": 752480,
+          "decode": 684807,
           "spread": {
-            "encode": 1,
+            "encode": 2,
             "decode": 1
           },
           "bytes": {
@@ -172,11 +172,11 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 782537,
-          "decode": 670304,
+          "encode": 787143,
+          "decode": 685970,
           "spread": {
             "encode": 1,
-            "decode": 1
+            "decode": 0
           },
           "bytes": {
             "raw": 215,
@@ -188,11 +188,11 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 1740162,
-          "decode": 971288,
+          "encode": 1728148,
+          "decode": 955091,
           "spread": {
             "encode": 1,
-            "decode": 0
+            "decode": 1
           },
           "bytes": {
             "raw": 266,
@@ -210,8 +210,8 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 1457,
-          "decode": 913,
+          "encode": 1450,
+          "decode": 924,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -226,11 +226,11 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 1999,
-          "decode": 1512,
+          "encode": 1977,
+          "decode": 1469,
           "spread": {
-            "encode": 5,
-            "decode": 3
+            "encode": 1,
+            "decode": 4
           },
           "bytes": {
             "raw": 140738,
@@ -242,8 +242,8 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 1386,
-          "decode": 989,
+          "encode": 1423,
+          "decode": 968,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -255,14 +255,14 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 1962,
-          "decode": 1438,
+          "encode": 1098,
+          "decode": 1458,
           "spread": {
-            "encode": 2,
-            "decode": 3
+            "encode": 1,
+            "decode": 1
           },
           "bytes": {
             "raw": 140738,
@@ -274,8 +274,8 @@
           "id": "protoarray-columns",
           "name": "protoarray (columns)",
           "version": "1.1.0",
-          "encode": 2064,
-          "decode": 1522,
+          "encode": 2051,
+          "decode": 1519,
           "spread": {
             "encode": 2,
             "decode": 1
@@ -290,11 +290,11 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 1956,
-          "decode": 1458,
+          "encode": 2010,
+          "decode": 1485,
           "spread": {
-            "encode": 2,
-            "decode": 1
+            "encode": 3,
+            "decode": 2
           },
           "bytes": {
             "raw": 140738,
@@ -306,8 +306,8 @@
           "id": "protoarray-compact",
           "name": "protoarray (columns, delta + intern)",
           "version": "1.1.0",
-          "encode": 2243,
-          "decode": 1707,
+          "encode": 2219,
+          "decode": 1696,
           "spread": {
             "encode": 2,
             "decode": 1
@@ -322,8 +322,8 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 1302,
-          "decode": 1390,
+          "encode": 1306,
+          "decode": 1385,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -338,11 +338,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 1376,
-          "decode": 1806,
+          "encode": 1377,
+          "decode": 1813,
           "spread": {
             "encode": 1,
-            "decode": 3
+            "decode": 1
           },
           "bytes": {
             "raw": 101839,
@@ -354,11 +354,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 1238,
-          "decode": 797,
+          "encode": 1187,
+          "decode": 776,
           "spread": {
             "encode": 2,
-            "decode": 3
+            "decode": 2
           },
           "bytes": {
             "raw": 210061,
@@ -370,11 +370,11 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 1564,
-          "decode": 2868,
+          "encode": 1517,
+          "decode": 2942,
           "spread": {
             "encode": 2,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 112274,
@@ -386,10 +386,10 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 788,
-          "decode": 714,
+          "encode": 762,
+          "decode": 717,
           "spread": {
-            "encode": 1,
+            "encode": 0,
             "decode": 2
           },
           "bytes": {
@@ -402,10 +402,10 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 1388,
-          "decode": 2346,
+          "encode": 1352,
+          "decode": 2340,
           "spread": {
-            "encode": 3,
+            "encode": 1,
             "decode": 2
           },
           "bytes": {
@@ -418,11 +418,11 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 1575,
-          "decode": 904,
+          "encode": 1576,
+          "decode": 897,
           "spread": {
-            "encode": 2,
-            "decode": 1
+            "encode": 3,
+            "decode": 2
           },
           "bytes": {
             "raw": 271215,
@@ -440,11 +440,11 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 6896722,
-          "decode": 4601036,
+          "encode": 6847095,
+          "decode": 4861717,
           "spread": {
-            "encode": 2,
-            "decode": 1
+            "encode": 3,
+            "decode": 2
           },
           "bytes": {
             "raw": 33,
@@ -456,10 +456,10 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 7229732,
-          "decode": 7460316,
+          "encode": 7246764,
+          "decode": 7688319,
           "spread": {
-            "encode": 3,
+            "encode": 5,
             "decode": 1
           },
           "bytes": {
@@ -472,8 +472,8 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 2962654,
-          "decode": 2411533,
+          "encode": 3076062,
+          "decode": 2415547,
           "spread": {
             "encode": 2,
             "decode": 1
@@ -485,13 +485,13 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 7208862,
-          "decode": 7149439,
+          "encode": 2210841,
+          "decode": 7597929,
           "spread": {
-            "encode": 3,
+            "encode": 6,
             "decode": 1
           },
           "bytes": {
@@ -504,11 +504,11 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 6686031,
-          "decode": 7037786,
+          "encode": 7136228,
+          "decode": 7415471,
           "spread": {
-            "encode": 4,
-            "decode": 2
+            "encode": 6,
+            "decode": 1
           },
           "bytes": {
             "raw": 23,
@@ -520,11 +520,11 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 5601417,
-          "decode": 9758924,
+          "encode": 5558833,
+          "decode": 9393232,
           "spread": {
-            "encode": 6,
-            "decode": 1
+            "encode": 4,
+            "decode": 2
           },
           "bytes": {
             "raw": 11,
@@ -536,11 +536,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 1459505,
-          "decode": 3669119,
+          "encode": 1459783,
+          "decode": 3635058,
           "spread": {
             "encode": 2,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 28,
@@ -552,11 +552,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 6100078,
-          "decode": 6703303,
+          "encode": 6139841,
+          "decode": 6766730,
           "spread": {
-            "encode": 2,
-            "decode": 1
+            "encode": 3,
+            "decode": 2
           },
           "bytes": {
             "raw": 21,
@@ -568,11 +568,11 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 6113667,
-          "decode": 12193530,
+          "encode": 6034294,
+          "decode": 12744271,
           "spread": {
             "encode": 3,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 9,
@@ -584,10 +584,10 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 5258483,
-          "decode": 3396723,
+          "encode": 5242558,
+          "decode": 3465625,
           "spread": {
-            "encode": 3,
+            "encode": 2,
             "decode": 1
           },
           "bytes": {
@@ -600,11 +600,11 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 3041346,
-          "decode": 3623621,
+          "encode": 3103691,
+          "decode": 3613254,
           "spread": {
-            "encode": 2,
-            "decode": 3
+            "encode": 1,
+            "decode": 0
           },
           "bytes": {
             "raw": 27,
@@ -616,11 +616,11 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 14461895,
-          "decode": 4582405,
+          "encode": 14396199,
+          "decode": 4615718,
           "spread": {
-            "encode": 3,
-            "decode": 2
+            "encode": 1,
+            "decode": 0
           },
           "bytes": {
             "raw": 33,
@@ -638,11 +638,11 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 836155,
-          "decode": 2868029,
+          "encode": 834265,
+          "decode": 2842769,
           "spread": {
-            "encode": 1,
-            "decode": 1
+            "encode": 0,
+            "decode": 0
           },
           "bytes": {
             "raw": 123,
@@ -654,10 +654,10 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 4921430,
-          "decode": 4881168,
+          "encode": 4902963,
+          "decode": 4889285,
           "spread": {
-            "encode": 5,
+            "encode": 4,
             "decode": 2
           },
           "bytes": {
@@ -670,10 +670,10 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 3482171,
-          "decode": 3140197,
+          "encode": 3544886,
+          "decode": 3118648,
           "spread": {
-            "encode": 5,
+            "encode": 1,
             "decode": 2
           },
           "bytes": {
@@ -683,14 +683,14 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 4647444,
-          "decode": 4822370,
+          "encode": 2760797,
+          "decode": 4891759,
           "spread": {
             "encode": 3,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 36,
@@ -702,11 +702,11 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 4708207,
-          "decode": 4743431,
+          "encode": 4798990,
+          "decode": 4827354,
           "spread": {
             "encode": 3,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 36,
@@ -718,11 +718,11 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 3818606,
-          "decode": 11958604,
+          "encode": 3675588,
+          "decode": 11292678,
           "spread": {
             "encode": 4,
-            "decode": 1
+            "decode": 15
           },
           "bytes": {
             "raw": 13,
@@ -734,11 +734,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 2129878,
-          "decode": 8006809,
+          "encode": 1972256,
+          "decode": 7970057,
           "spread": {
-            "encode": 3,
-            "decode": 1
+            "encode": 4,
+            "decode": 2
           },
           "bytes": {
             "raw": 12,
@@ -750,11 +750,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 2879373,
-          "decode": 2784048,
+          "encode": 2865434,
+          "decode": 2856298,
           "spread": {
             "encode": 1,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 73,
@@ -766,8 +766,8 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 3529451,
-          "decode": 5319295,
+          "encode": 3470761,
+          "decode": 5430276,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -782,11 +782,11 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 1178658,
-          "decode": 1611692,
+          "encode": 1179235,
+          "decode": 1586430,
           "spread": {
-            "encode": 3,
-            "decode": 3
+            "encode": 4,
+            "decode": 1
           },
           "bytes": {
             "raw": 71,
@@ -798,10 +798,10 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 1794743,
-          "decode": 1595528,
+          "encode": 1788634,
+          "decode": 1600105,
           "spread": {
-            "encode": 2,
+            "encode": 1,
             "decode": 2
           },
           "bytes": {
@@ -814,8 +814,8 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 4856219,
-          "decode": 2791643,
+          "encode": 4817573,
+          "decode": 2763508,
           "spread": {
             "encode": 2,
             "decode": 2
@@ -836,8 +836,8 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 1552873,
-          "decode": 1346662,
+          "encode": 1579204,
+          "decode": 1359276,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -852,10 +852,10 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 1782471,
-          "decode": 1701067,
+          "encode": 1813023,
+          "decode": 1718041,
           "spread": {
-            "encode": 2,
+            "encode": 1,
             "decode": 1
           },
           "bytes": {
@@ -868,24 +868,8 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 1674439,
-          "decode": 1562522,
-          "spread": {
-            "encode": 3,
-            "decode": 2
-          },
-          "bytes": {
-            "raw": 785,
-            "gzip": 230,
-            "brotli": 207
-          }
-        },
-        {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
-          "version": "1.1.0",
-          "encode": 1780724,
-          "decode": 1699914,
+          "encode": 1717342,
+          "decode": 1576706,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -897,14 +881,30 @@
           }
         },
         {
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
+          "version": "1.1.0",
+          "encode": 1574313,
+          "decode": 1704821,
+          "spread": {
+            "encode": 2,
+            "decode": 2
+          },
+          "bytes": {
+            "raw": 785,
+            "gzip": 230,
+            "brotli": 207
+          }
+        },
+        {
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 1787846,
-          "decode": 1686922,
+          "encode": 1813963,
+          "decode": 1699374,
           "spread": {
-            "encode": 1,
-            "decode": 0
+            "encode": 2,
+            "decode": 1
           },
           "bytes": {
             "raw": 785,
@@ -916,10 +916,10 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 576892,
-          "decode": 514207,
+          "encode": 581850,
+          "decode": 513099,
           "spread": {
-            "encode": 3,
+            "encode": 1,
             "decode": 1
           },
           "bytes": {
@@ -932,11 +932,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 501229,
-          "decode": 789276,
+          "encode": 491773,
+          "decode": 782934,
           "spread": {
             "encode": 2,
-            "decode": 1
+            "decode": 2
           },
           "bytes": {
             "raw": 774,
@@ -948,11 +948,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 856918,
-          "decode": 215610,
+          "encode": 858013,
+          "decode": 216481,
           "spread": {
             "encode": 1,
-            "decode": 0
+            "decode": 1
           },
           "bytes": {
             "raw": 800,
@@ -964,10 +964,10 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 880913,
-          "decode": 241882,
+          "encode": 880431,
+          "decode": 241954,
           "spread": {
-            "encode": 1,
+            "encode": 3,
             "decode": 1
           },
           "bytes": {
@@ -980,11 +980,11 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 385394,
-          "decode": 696639,
+          "encode": 383707,
+          "decode": 707394,
           "spread": {
             "encode": 1,
-            "decode": 2
+            "decode": 1
           },
           "bytes": {
             "raw": 798,
@@ -996,10 +996,10 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 720814,
-          "decode": 242984,
+          "encode": 722607,
+          "decode": 246036,
           "spread": {
-            "encode": 1,
+            "encode": 2,
             "decode": 1
           },
           "bytes": {
@@ -1012,11 +1012,11 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 1329972,
-          "decode": 1338178,
+          "encode": 1324028,
+          "decode": 1347612,
           "spread": {
-            "encode": 0,
-            "decode": 3
+            "encode": 1,
+            "decode": 1
           },
           "bytes": {
             "raw": 816,
@@ -1034,10 +1034,10 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 52157,
-          "decode": 24402,
+          "encode": 50374,
+          "decode": 25602,
           "spread": {
-            "encode": 2,
+            "encode": 1,
             "decode": 1
           },
           "bytes": {
@@ -1050,11 +1050,11 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 67840,
-          "decode": 47443,
+          "encode": 66960,
+          "decode": 49206,
           "spread": {
             "encode": 1,
-            "decode": 1
+            "decode": 0
           },
           "bytes": {
             "raw": 4332,
@@ -1066,10 +1066,10 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 45534,
-          "decode": 25744,
+          "encode": 48712,
+          "decode": 27053,
           "spread": {
-            "encode": 2,
+            "encode": 1,
             "decode": 1
           },
           "bytes": {
@@ -1079,13 +1079,13 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 66105,
-          "decode": 47127,
+          "encode": 34316,
+          "decode": 49236,
           "spread": {
-            "encode": 1,
+            "encode": 2,
             "decode": 1
           },
           "bytes": {
@@ -1098,8 +1098,8 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 67434,
-          "decode": 51215,
+          "encode": 67454,
+          "decode": 50705,
           "spread": {
             "encode": 1,
             "decode": 2
@@ -1114,11 +1114,11 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 24144,
-          "decode": 36554,
+          "encode": 23322,
+          "decode": 36859,
           "spread": {
             "encode": 2,
-            "decode": 1
+            "decode": 2
           },
           "bytes": {
             "raw": 3691,
@@ -1130,11 +1130,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 20720,
-          "decode": 46217,
+          "encode": 20404,
+          "decode": 46601,
           "spread": {
-            "encode": 4,
-            "decode": 3
+            "encode": 3,
+            "decode": 2
           },
           "bytes": {
             "raw": 2833,
@@ -1146,11 +1146,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 31290,
-          "decode": 24031,
+          "encode": 31052,
+          "decode": 23096,
           "spread": {
-            "encode": 2,
-            "decode": 3
+            "encode": 3,
+            "decode": 1
           },
           "bytes": {
             "raw": 6800,
@@ -1162,11 +1162,11 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 29880,
-          "decode": 91680,
+          "encode": 29686,
+          "decode": 91357,
           "spread": {
-            "encode": 1,
-            "decode": 4
+            "encode": 2,
+            "decode": 2
           },
           "bytes": {
             "raw": 3697,
@@ -1178,8 +1178,8 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 24759,
-          "decode": 21623,
+          "encode": 25189,
+          "decode": 21495,
           "spread": {
             "encode": 1,
             "decode": 2
@@ -1194,11 +1194,11 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 24261,
-          "decode": 51204,
+          "encode": 24197,
+          "decode": 51001,
           "spread": {
             "encode": 1,
-            "decode": 3
+            "decode": 2
           },
           "bytes": {
             "raw": 4401,
@@ -1216,10 +1216,10 @@
           "id": "json",
           "name": "JSON",
           "version": "v24.14.1",
-          "encode": 323761,
-          "decode": 480521,
+          "encode": 323546,
+          "decode": 479268,
           "spread": {
-            "encode": 2,
+            "encode": 1,
             "decode": 1
           },
           "bytes": {
@@ -1232,11 +1232,11 @@
           "id": "protoarray",
           "name": "protoarray (codegen)",
           "version": "1.1.0",
-          "encode": 426063,
-          "decode": 736543,
+          "encode": 403512,
+          "decode": 735638,
           "spread": {
-            "encode": 3,
-            "decode": 1
+            "encode": 4,
+            "decode": 2
           },
           "bytes": {
             "raw": 582,
@@ -1248,10 +1248,10 @@
           "id": "protoarray-closures",
           "name": "protoarray (closures)",
           "version": "1.1.0",
-          "encode": 362367,
-          "decode": 571227,
+          "encode": 372124,
+          "decode": 568991,
           "spread": {
-            "encode": 2,
+            "encode": 5,
             "decode": 1
           },
           "bytes": {
@@ -1261,11 +1261,11 @@
           }
         },
         {
-          "id": "protoarray-both",
-          "name": "protoarray (codegen, validate: 'both')",
+          "id": "protoarray-checked",
+          "name": "protoarray (codegen, metaschema check)",
           "version": "1.1.0",
-          "encode": 421335,
-          "decode": 734548,
+          "encode": 337781,
+          "decode": 737642,
           "spread": {
             "encode": 3,
             "decode": 1
@@ -1280,11 +1280,11 @@
           "id": "protoarray-standalone",
           "name": "protoarray (standalone, inline)",
           "version": "1.1.0",
-          "encode": 424996,
-          "decode": 734593,
+          "encode": 426501,
+          "decode": 691578,
           "spread": {
-            "encode": 3,
-            "decode": 1
+            "encode": 2,
+            "decode": 16
           },
           "bytes": {
             "raw": 582,
@@ -1296,11 +1296,11 @@
           "id": "protobufjs",
           "name": "protobufjs",
           "version": "8.8.0",
-          "encode": 727413,
-          "decode": 1952175,
+          "encode": 700770,
+          "decode": 1893492,
           "spread": {
-            "encode": 3,
-            "decode": 1
+            "encode": 5,
+            "decode": 4
           },
           "bytes": {
             "raw": 305,
@@ -1312,11 +1312,11 @@
           "id": "avsc",
           "name": "avsc",
           "version": "5.7.9",
-          "encode": 1964182,
-          "decode": 3131903,
+          "encode": 1961794,
+          "decode": 3114374,
           "spread": {
-            "encode": 1,
-            "decode": 2
+            "encode": 2,
+            "decode": 1
           },
           "bytes": {
             "raw": 256,
@@ -1328,11 +1328,11 @@
           "id": "msgpackr",
           "name": "msgpackr",
           "version": "2.1.0",
-          "encode": 1106458,
-          "decode": 440776,
+          "encode": 1107674,
+          "decode": 449157,
           "spread": {
-            "encode": 1,
-            "decode": 2
+            "encode": 2,
+            "decode": 1
           },
           "bytes": {
             "raw": 409,
@@ -1344,11 +1344,11 @@
           "id": "msgpackr-records",
           "name": "msgpackr (records, shared structures)",
           "version": "2.1.0",
-          "encode": 1420866,
-          "decode": 3495917,
+          "encode": 1411341,
+          "decode": 3452899,
           "spread": {
-            "encode": 2,
-            "decode": 2
+            "encode": 0,
+            "decode": 0
           },
           "bytes": {
             "raw": 289,
@@ -1360,8 +1360,8 @@
           "id": "msgpack",
           "name": "@msgpack/msgpack",
           "version": "3.1.3",
-          "encode": 745611,
-          "decode": 192581,
+          "encode": 737825,
+          "decode": 191825,
           "spread": {
             "encode": 1,
             "decode": 1
@@ -1376,10 +1376,10 @@
           "id": "cbor-x",
           "name": "cbor-x (records)",
           "version": "1.6.6",
-          "encode": 719961,
-          "decode": 439622,
+          "encode": 714132,
+          "decode": 440909,
           "spread": {
-            "encode": 1,
+            "encode": 0,
             "decode": 1
           },
           "bytes": {
@@ -1392,11 +1392,11 @@
           "id": "fast-json-stringify",
           "name": "fast-json-stringify (encode) + JSON.parse",
           "version": "7.0.1",
-          "encode": 1847873,
-          "decode": 484085,
+          "encode": 1845786,
+          "decode": 484920,
           "spread": {
-            "encode": 3,
-            "decode": 2
+            "encode": 2,
+            "decode": 1
           },
           "bytes": {
             "raw": 764,

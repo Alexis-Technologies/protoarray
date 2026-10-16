@@ -5,12 +5,15 @@
  * checked before anything is timed.
  */
 
+const metaschema = require('@alexify/metaschema');
 const protoarray = require('../../index.js');
 
+// A scenario's definition is metaschema's, read with metaschema injected.
+const schemaOf = (definition, options) =>
+  protoarray.Schema.from(definition, { metaschema, ...options });
+
 const listOf = (scenario, definition, options) =>
-  scenario.list
-    ? protoarray.Schema.from({ array: definition }, options)
-    : protoarray.Schema.from(definition, options);
+  schemaOf(scenario.list ? { array: definition } : definition, options);
 
 const dateFields = (scenario) => scenario.schema.dates || [];
 
@@ -77,17 +80,21 @@ const ADAPTERS = {
       };
     },
   },
-  // The reference row with the values checked on encode too: what validation costs.
-  'protoarray-both': {
-    name: "protoarray (codegen, validate: 'both')",
+  // The reference row with the values checked before encode, by metaschema's
+  // check of the same schema: what validation costs.
+  'protoarray-checked': {
+    name: 'protoarray (codegen, metaschema check)',
     setup: (scenario) => {
       const schema = listOf(scenario, scenario.schema.definition, {
         ...scenario.schema.options,
         codegen: true,
-        validate: 'both',
       });
+      const definition = schema.source;
       return {
-        encode: (value) => schema.stringify(value),
+        encode: (value) => {
+          if (!definition.check(value).valid) throw new TypeError('invalid value');
+          return schema.stringify(value);
+        },
         decode: (text) => schema.parse(text),
         bytes: (text) => Buffer.byteLength(text),
         normalize: (value) => plain(value),
@@ -98,7 +105,7 @@ const ADAPTERS = {
     name: 'protoarray (columns)',
     only: (scenario) => scenario.list === true && scenario.schema.definition.union === undefined,
     setup: (scenario) => {
-      const schema = protoarray.Schema.from(
+      const schema = schemaOf(
         { array: scenario.schema.definition },
         { ...scenario.schema.options, layout: 'columns' },
       );
@@ -141,17 +148,15 @@ const ADAPTERS = {
     name: 'protoarray (columns, delta + intern)',
     only: (scenario) => scenario.name === 'records',
     setup: (scenario) => {
-      const { definition } = scenario.schema;
-      const interned = { type: 'string', intern: true };
-      const record = {
-        ...definition,
-        id: { type: 'integer', delta: true },
-        address: { ...definition.address, city: interned },
-        tags: { array: interned },
-      };
-      const schema = protoarray.Schema.from(
+      const record = { ...scenario.schema.definition, id: 'integer' };
+      const schema = schemaOf(
         { array: record },
-        { ...scenario.schema.options, layout: 'columns' },
+        {
+          ...scenario.schema.options,
+          layout: 'columns',
+          delta: ['[].id'],
+          intern: ['[].address.city', '[].tags[]'],
+        },
       );
       return {
         encode: (value) => schema.stringify(value),

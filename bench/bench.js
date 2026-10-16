@@ -20,7 +20,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const vm = require('node:vm');
+const metaschema = require('@alexify/metaschema');
 const { Schema } = require('../index.js');
+const { resolve } = require('../resolve.js');
 const { toSource } = require('../standalone.js');
 const { parseItems } = require('../stream.js');
 const {
@@ -61,6 +63,9 @@ const compare = (results) => {
   }
 };
 
+// The definitions are metaschema's, read with metaschema injected.
+const from = (definition, options) => Schema.from(definition, { metaschema, ...options });
+
 const FLAT = { name: 'string', age: 'number', email: 'string', active: 'boolean' };
 const NESTED = {
   id: 'number',
@@ -81,7 +86,7 @@ const RECORD = {
   address: { city: 'string', street: 'string', zip: 'string' },
   tags: { array: 'string' },
 };
-const SPARSE = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`field${i}`, '?json']));
+const SPARSE = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`field${i}`, '?any']));
 const TYPED = {
   id: 'number',
   active: 'boolean',
@@ -121,7 +126,7 @@ const MONEY = {
 const MONEY_OBJECT = { price: 19.99, qty: 3, total: 59.97 };
 const BLOB = Uint8Array.from({ length: 1024 }, (_, i) => (i * 31) % 256);
 // Past 31 slots: a sparse record of several segments, flags of several words.
-const SPARSE70 = Object.fromEntries(Array.from({ length: 70 }, (_, i) => [`field${i}`, '?json']));
+const SPARSE70 = Object.fromEntries(Array.from({ length: 70 }, (_, i) => [`field${i}`, '?any']));
 const SPARSE70_OBJECT = { field0: 'value', field35: 42, field69: true };
 const WIDE_FLAGS = {
   id: 'number',
@@ -145,11 +150,8 @@ const CONVERTED_OBJECT = {
 };
 // The same records with an integer id written as differences and the role
 // interned, in columns.
-const COMPACT_RECORD = {
-  ...RECORD,
-  id: { type: 'integer', delta: true },
-  role: { type: 'string', intern: true },
-};
+const COMPACT_RECORD = { ...RECORD, id: 'integer' };
+const COMPACT = { layout: 'columns', delta: ['[].id'], intern: ['[].role'] };
 
 // An inline standalone module of a schema, loaded as a runtime without code
 // generation would load it (here code generation is allowed, but the module
@@ -183,23 +185,23 @@ const benchAsync = async (name, fn, count = 20) => {
 };
 
 // Each entry: [label, schema definition, options, value, json reference value].
-// Encoding is measured as it is by default (the values trusted) and with
-// `validate: 'both'` (the values checked), for both backends.
+// Encoding is measured as it is (the values trusted) and after metaschema's
+// check of the same schema (the values checked), for both backends.
 const pairs = (label, definition, options, value, reference = value) => {
-  const codegen = Schema.from(definition, { ...options, codegen: true });
-  const closures = Schema.from(definition, { ...options, codegen: false });
-  const both = {
-    codegen: Schema.from(definition, { ...options, codegen: true, validate: 'both' }),
-    closures: Schema.from(definition, { ...options, codegen: false, validate: 'both' }),
+  const codegen = from(definition, { ...options, codegen: true });
+  const closures = from(definition, { ...options, codegen: false });
+  const checked = (schema) => () => {
+    if (!schema.source.check(value).valid) throw new TypeError('invalid value');
+    return schema.stringify(value);
   };
   const text = JSON.stringify(reference);
   const wire = codegen.stringify(value);
   return [
     [`${label}: JSON.stringify (keyed, reference)`, () => JSON.stringify(reference)],
     [`${label}: stringify (codegen)`, () => codegen.stringify(value)],
-    [`${label}: stringify (codegen, validate: 'both')`, () => both.codegen.stringify(value)],
+    [`${label}: check (metaschema) + stringify (codegen)`, checked(codegen)],
     [`${label}: stringify (closures)`, () => closures.stringify(value)],
-    [`${label}: stringify (closures, validate: 'both')`, () => both.closures.stringify(value)],
+    [`${label}: check (metaschema) + stringify (closures)`, checked(closures)],
     [`${label}: JSON.parse (keyed, reference)`, () => JSON.parse(text)],
     [`${label}: parse (codegen)`, () => codegen.parse(wire)],
     [`${label}: parse (closures)`, () => closures.parse(wire)],
@@ -207,15 +209,23 @@ const pairs = (label, definition, options, value, reference = value) => {
 };
 
 // What building a schema costs where nothing is warm: a fresh process requires
-// the package, compiles the schema and runs one round trip. The median of
+// the package (and metaschema, to read a definition), builds the schema and
+// runs one round trip. From a snapshot, protoarray needs nothing else: what a
+// client given its schemas by a server or a build step does. The median of
 // several processes, in milliseconds.
 const COLD_RUNS = 15;
-const coldStart = (label, definition, options, value) => {
+const coldStart = (label, definition, options, value, fromSnapshot = false) => {
+  const entry = JSON.stringify(path.join(__dirname, '..', 'index.js'));
+  const snapshot = JSON.stringify(from(definition).snapshot);
+  const build = fromSnapshot
+    ? `Schema.from(${snapshot}, ${JSON.stringify(options)})`
+    : `Schema.from(${JSON.stringify(definition)}, { ...${JSON.stringify(options)}, metaschema })`;
   const script = `
     const t0 = performance.now();
-    const { Schema } = require(${JSON.stringify(path.join(__dirname, '..', 'index.js'))});
+    const { Schema } = require(${entry});
+    ${fromSnapshot ? '' : "const metaschema = require('@alexify/metaschema');"}
     const t1 = performance.now();
-    const schema = Schema.from(${JSON.stringify(definition)}, ${JSON.stringify(options)});
+    const schema = ${build};
     const t2 = performance.now();
     schema.decode(schema.encode(${JSON.stringify(value)}));
     const t3 = performance.now();
@@ -223,7 +233,10 @@ const coldStart = (label, definition, options, value) => {
   `;
   const runs = [];
   for (let i = 0; i < COLD_RUNS; i++) {
-    const output = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+    const output = execFileSync(process.execPath, ['-e', script], {
+      encoding: 'utf8',
+      cwd: path.join(__dirname, '..'),
+    });
     runs.push(JSON.parse(output));
   }
   const median = (index) => {
@@ -242,44 +255,40 @@ const coldStart = (label, definition, options, value) => {
 
 const main = async () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
-  const rows = Schema.from({ array: RECORD });
-  const trusting = { flat: Schema.from(FLAT, { validate: false }) };
-  const checked = {
-    nested: Schema.from(NESTED),
-    nestedClosures: Schema.from(NESTED, { codegen: false }),
-    packet: Schema.from(PACKET),
-    packetClosures: Schema.from(PACKET, { codegen: false }),
-  };
-  const blob = Schema.from({ id: 'number', data: 'bytes' });
-  const blobClosures = Schema.from({ id: 'number', data: 'bytes' }, { codegen: false });
-  trusting.blob = Schema.from({ id: 'number', data: 'bytes' }, { validate: false });
+  const rows = from({ array: RECORD });
+  const trusting = { flat: from(FLAT, { validate: false }) };
+  const native = from(NESTED);
+  const blob = from({ id: 'number', data: 'bytes' });
+  const blobClosures = from({ id: 'number', data: 'bytes' }, { codegen: false });
+  trusting.blob = from({ id: 'number', data: 'bytes' }, { validate: false });
   const blobText = blob.stringify({ id: 1, data: BLOB });
   const blobKeyed = JSON.stringify({ id: 1, data: Buffer.from(BLOB).toString('base64') });
-  const flat = Schema.from({ array: RECORD }, { layout: 'flat' });
-  const columns = Schema.from({ array: RECORD }, { layout: 'columns' });
+  const flat = from({ array: RECORD }, { layout: 'flat' });
+  const columns = from({ array: RECORD }, { layout: 'columns' });
   const recordsText = JSON.stringify(RECORDS);
   // The text builder: by default for converted types, on request for any.
   const text = {
-    converted: Schema.from(CONVERTED),
-    convertedNative: Schema.from(CONVERTED, { stringify: 'native' }),
-    nestedBuilder: Schema.from(NESTED, { stringify: 'builder' }),
-    typedBuilder: Schema.from(TYPED, { stringify: 'builder' }),
+    converted: from(CONVERTED),
+    convertedNative: from(CONVERTED, { stringify: 'native' }),
+    nestedBuilder: from(NESTED, { stringify: 'builder' }),
+    typedBuilder: from(TYPED, { stringify: 'builder' }),
   };
   // Another version of the flat record: a renamed field, a new one with a default.
-  const flatV1 = Schema.from(FLAT);
-  const flatV2 = Schema.from({
+  const flatV1 = from(FLAT);
+  const flatV2 = from({
     name: 'string',
     years: { type: 'number', aliases: ['age'] },
     email: 'string',
     active: 'boolean',
     plan: { type: 'string', default: 'free' },
   });
-  const resolved = Schema.resolve(flatV1, flatV2);
+  const resolved = resolve(flatV1, flatV2);
   const flatText = flatV1.stringify(FLAT_OBJECT);
-  const compact = Schema.from({ array: COMPACT_RECORD }, { layout: 'columns' });
+  const compact = from({ array: COMPACT_RECORD }, COMPACT);
   const compactText = compact.stringify(RECORDS);
-  const inline = { nested: standalone(Schema.from(NESTED)) };
-  const nestedText = Schema.from(NESTED).stringify(NESTED_OBJECT);
+  const inline = { nested: standalone(from(NESTED)) };
+  const nestedSnapshot = JSON.parse(JSON.stringify(from(NESTED).snapshot));
+  const nestedText = from(NESTED).stringify(NESTED_OBJECT);
   const wires = {
     rows: rows.stringify(RECORDS),
     flat: flat.stringify(RECORDS),
@@ -297,11 +306,6 @@ const main = async () => {
     ...pairs('money (decimals)', MONEY, {}, MONEY_OBJECT),
     ...pairs('sparse object (3 of 70)', SPARSE70, { sparse: true }, SPARSE70_OBJECT),
     ...pairs('wide flags (70 names)', WIDE_FLAGS, {}, WIDE_FLAGS_OBJECT),
-    // check() runs the checking codec, compiled once: a validation that never throws.
-    ['nested object: check (codegen)', () => checked.nested.check(NESTED_OBJECT)],
-    ['nested object: check (closures)', () => checked.nestedClosures.check(NESTED_OBJECT)],
-    ['packet (union): check (codegen)', () => checked.packet.check(PACKET_OBJECT)],
-    ['packet (union): check (closures)', () => checked.packetClosures.check(PACKET_OBJECT)],
     // JSON has no bytes: the reference converts with Buffer as an application would.
     [
       'bytes (1 KB): JSON.stringify + base64 (reference)',
@@ -349,7 +353,7 @@ const main = async () => {
     ],
     [
       'nested object: stringify + read (codegen, stringify: native)',
-      () => checked.nested.stringify(NESTED_OBJECT).charCodeAt(1),
+      () => native.stringify(NESTED_OBJECT).charCodeAt(1),
     ],
     [
       'typed object (enum, flags, date): stringify + read (codegen, stringify: builder)',
@@ -364,8 +368,9 @@ const main = async () => {
     ['1000 records: parse (columns, delta + intern)', () => compact.parse(compactText)],
     ['nested object: stringify (standalone, inline)', () => inline.nested.stringify(NESTED_OBJECT)],
     ['nested object: parse (standalone, inline)', () => inline.nested.parse(nestedText)],
-    ['Schema.from (nested definition, codegen)', () => Schema.from(NESTED)],
-    ['Schema.from (nested definition, closures)', () => Schema.from(NESTED, { codegen: false })],
+    ['Schema.from (nested definition, codegen)', () => from(NESTED)],
+    ['Schema.from (nested definition, closures)', () => from(NESTED, { codegen: false })],
+    ['Schema.from (nested snapshot, codegen)', () => Schema.from(nestedSnapshot)],
   ];
 
   const results = [];
@@ -403,6 +408,7 @@ const main = async () => {
       coldStart('nested object (closures)', NESTED, { codegen: false }, NESTED_OBJECT),
       coldStart('packet (union, codegen)', PACKET, {}, PACKET_OBJECT),
       coldStart('sparse object (70 fields, codegen)', SPARSE70, { sparse: true }, SPARSE70_OBJECT),
+      coldStart('nested object (snapshot, codegen)', NESTED, {}, NESTED_OBJECT, true),
     );
   }
   if (json) console.log(JSON.stringify({ results, coldStart: cold }, null, 2));

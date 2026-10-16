@@ -18,7 +18,7 @@ protoarray probes once, when the module loads, and falls back to a second backen
 closures. Nothing changes in the API; `schema.backend` says which one is in use:
 
 ```js
-const User = Schema.from({ id: 'number', name: 'string' });
+const User = Schema.from(snapshot);
 User.backend; // 'codegen' where allowed, 'closures' under a strict CSP
 ```
 
@@ -38,8 +38,8 @@ other on random schemas.
 ## Choosing explicitly
 
 ```js
-Schema.from(definition, { codegen: false }); // closures, everywhere
-Schema.from(definition, { codegen: true });  // codegen, or ERR_CODEGEN_UNAVAILABLE
+Schema.from(source, { codegen: false }); // closures, everywhere
+Schema.from(source, { codegen: true });  // codegen, or ERR_CODEGEN_UNAVAILABLE
 ```
 
 `{ codegen: false }` is the way to run under a report-only CSP without a violation report, or to
@@ -81,6 +81,23 @@ go faster by hand everywhere. The `stringify` option picks:
 The text is the same either way, byte for byte, and so are the errors: a property-based test holds
 them together. Collections of more than 64 records always go through `JSON.stringify`. The closures
 backend always does.
+
+## What a bundle carries
+
+`pnpm size` bundles each entry with esbuild, minified, and CI holds the core under its budget:
+
+| Entry | min+gzip |
+| --- | ---: |
+| `@alexify/protoarray` (Node.js and browser entries) | 18.0 KB, 18.2 KB |
+| `@alexify/protoarray/registry`, over the core (it brings `resolve`) | +2.2 KB |
+| `@alexify/protoarray/resolve`, over the core | +1.7 KB |
+| `@alexify/protoarray/stream`, over the core | +1.5 KB |
+| `@alexify/protoarray/standalone`, over the core | +2.0 KB |
+
+metaschema is not part of any of them: protoarray never requires it. A program that defines its
+schemas brings metaschema itself, the core or the 10.3 KB `./definition` entry that builds schemas
+without validating them; a client that receives snapshots needs none of it (see
+[metaschema and protoarray](/guide/metaschema)).
 
 ## Node.js versions and browsers
 

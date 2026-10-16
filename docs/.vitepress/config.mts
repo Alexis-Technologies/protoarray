@@ -112,6 +112,8 @@ export default defineConfig({
           items: [
             { text: 'Why protoarray?', link: '/guide/why' },
             { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'metaschema and protoarray', link: '/guide/metaschema' },
+            { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
           ],
         },
         {
@@ -134,7 +136,6 @@ export default defineConfig({
             { text: 'Runtimes and CSP', link: '/guide/runtimes' },
             { text: 'Standalone Modules', link: '/guide/standalone' },
             { text: 'Compression', link: '/guide/compression' },
-            { text: 'With metaschema', link: '/guide/metaschema' },
             { text: 'With wrpc', link: '/guide/wrpc' },
             { text: 'Benchmarks', link: '/guide/benchmarks' },
           ],

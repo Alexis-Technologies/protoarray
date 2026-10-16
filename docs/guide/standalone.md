@@ -12,9 +12,27 @@ written once, at build time, and the runtime loads it like any other module.
 protoarray compile src/schemas.js --out src/schemas.compiled.js
 ```
 
-The command loads a module of schemas (CommonJS or ES), takes the schemas it exports and writes a
-module with their code and the code of every schema they reach: embedded ones, ones referenced by
-name, recursion. Options:
+The command loads a module (CommonJS or ES), takes the schemas it exports and writes a module with
+their code and the code of every schema they reach: the entities they reference, recursion
+included. An export is a schema when it is a protoarray `Schema` or a metaschema `Schema` (which
+the command builds with `Schema.from`); a metaschema `Model` stands for its entities, each under
+its own name. The
+module of definitions can stay the one the server validates with:
+
+```js
+// src/schemas.js
+const { Schema: Definition, Model } = require('@alexify/metaschema');
+
+const model = new Model({}, new Map([
+  ['Address', { Struct: {}, city: 'string', zip: '?string' }],
+  ['User', { Entity: {}, name: 'string', home: 'Address' }],
+]));
+const Ping = new Definition('Ping', { at: 'date' });
+
+module.exports = { model, Ping }; // compiles to the exports Address, User and Ping
+```
+
+Options:
 
 | Option | |
 | --- | --- |
@@ -24,7 +42,7 @@ name, recursion. Options:
 | `--only A,B` | the named exports only |
 
 A module whose export is one schema gives a module with that schema as its default export;
-otherwise the schemas keep their export names.
+otherwise the schemas keep their export names. The generated module needs no metaschema.
 
 ## toSource
 
@@ -33,11 +51,16 @@ script of your own:
 
 ```js
 const fs = require('node:fs');
+const { Schema } = require('@alexify/protoarray');
 const { toSource } = require('@alexify/protoarray/standalone');
-const { User, Order } = require('./schemas.js');
+const { model } = require('./schemas.js');
 
-fs.writeFileSync('schemas.compiled.js', toSource({ User, Order }, { format: 'esm' }));
+const { User, Address } = Schema.fromModel(model, { entities: { Address: { sparse: true } } });
+fs.writeFileSync('schemas.compiled.js', toSource({ User, Address }, { format: 'esm' }));
 ```
+
+The options a schema was built with travel with it (`sparse`, `layout`, `delta`, `intern`,
+`references`, `types`, `validate`, `stringify`).
 
 `toSource(schema)` writes one schema as the default export, `toSource({ A, B })` named exports.
 `register()` from the same subpath adds `schema.toSource(options)`.
@@ -47,14 +70,16 @@ fs.writeFileSync('schemas.compiled.js', toSource({ User, Order }, { format: 'esm
 | `runtime` | The module | Exports |
 | --- | --- | --- |
 | `'import'` (default) | imports `@alexify/protoarray` and `@alexify/protoarray/standalone` | real `Schema` instances: the whole API, `instanceof` the package's errors |
-| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `encode`, `decode`, `stringify`, `parse`, `check` |
+| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `backend`, `encode`, `decode`, `stringify`, `parse`, `toString` |
 
-With `import`, each schema is built from its definition as usual, with the generated codec passed
-as the `compiled` option; its `backend` is `'standalone'`. The definition is checked against the
-code: a module older than its definition throws `SchemaDefinitionError` `ERR_COMPILED_MISMATCH`
-when it loads, so a stale build fails loudly instead of misreading payloads. What a standalone
-schema derives at runtime (`schema.list`, the codec of `check` when the module has none) uses the
-closures backend where code generation is blocked.
+With `import`, the module embeds the snapshots its schemas were read from, and builds each one
+from its snapshot as usual, with the generated codec passed as the `compiled` option:
+`Schema.fromModel(snapshot, { entities: { User: { compiled, … } } })`, the entities of one
+snapshot together so that their references reach one another. Its `backend` is `'standalone'`,
+and `snapshot` is the embedded one. The snapshot is checked against the code: a module older than
+its schema throws `SchemaDefinitionError` `ERR_COMPILED_MISMATCH` when it loads, so a stale build
+fails loudly instead of misreading payloads. What a standalone schema derives at runtime
+(`schema.list`) uses the closures backend where code generation is blocked.
 
 `inline` suits a runtime where even the package itself is unwelcome. Its errors are classes of the
 module's own, so tell them by `name` and `code`, not by `instanceof`.
@@ -66,11 +91,13 @@ would otherwise use is about as fast as `JSON` (×1.5 and ×2 slower than the mo
 
 ## What it does not write
 
-- A schema from `Schema.resolve`: it is built at runtime from two schemas; write the writer and
-  the reader, and resolve them at runtime.
-- A schema built from a metaschema `Schema`: write the one `fromMetaschema` builds.
+- A schema from `resolve`: it is built at runtime from two schemas; write the writer and the
+  reader, and resolve them at runtime.
+- `schema.list`: write the schema, and take its `list` at runtime.
 - A custom `fingerprint` function: the module carries each schema's `id` as it was computed, and
   the schemas it derives at runtime (`list`) use the default fingerprint.
+- The metaschema schema: a standalone schema's `source` is `null`. Values are validated where
+  metaschema runs, if anywhere; the module itself encodes and decodes.
 
 Regenerate the module whenever a definition changes; the `ERR_COMPILED_MISMATCH` check is there
 for the times one forgets.

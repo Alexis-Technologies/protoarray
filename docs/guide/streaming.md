@@ -11,14 +11,17 @@ one value at a time: a generator for an iterable, an async generator for an asyn
 stream, a database cursor).
 
 ```js
-const User = new Schema('User', { id: 'integer', name: '?string' });
+const { Schema } = require('@alexify/protoarray');
+const { Schema: Definition } = require('@alexify/metaschema');
+
+const User = Schema.from(new Definition('User', { id: 'integer', name: '?string' }));
 
 [...User.encodeEach([{ id: 1 }, { id: 2, name: 'Bo' }])]; // [[1], [2, 'Bo']]
 
 for await (const user of User.decodeEach(cursor)) handle(user);
 ```
 
-An error names the index of its value: `Field "[3].name" is required`. Something that is not
+An error names the index of its value: `Field "[3].id" is required`. Something that is not
 iterable (a string counts as a mistake) is an `EncodeError` `iterable` or a `DecodeError`
 `structure`. `encodeEach` and `decodeEach` are also functions: `encodeEach(schema, values)`.
 

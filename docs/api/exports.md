@@ -3,7 +3,7 @@
 ```js
 const {
   Schema,
-  encode, decode, stringify, parse, check, encodeEach, decodeEach,
+  encode, decode, stringify, parse, encodeEach, decodeEach,
   SchemaDefinitionError, EncodeError, DecodeError,
 } = require('@alexify/protoarray');
 ```
@@ -13,122 +13,133 @@ bundle them:
 
 | Subpath | Exports | Page |
 | --- | --- | --- |
+| `@alexify/protoarray/resolve` | `resolve`, `register` | [Migrations and the Registry](/guide/resolve) |
 | `@alexify/protoarray/registry` | `SchemaRegistry` | [Migrations and the Registry](/guide/resolve#the-registry) |
 | `@alexify/protoarray/stream` | `stringifyLines`, `parseLines`, `stringifyStream`, `parseStream`, `stringifyItems`, `parseItems`, `register` | [Streaming](/guide/streaming) |
-| `@alexify/protoarray/metaschema` | `fromMetaschema`, `fromModel`, `types`, `register` | [With metaschema](/guide/metaschema) |
 | `@alexify/protoarray/standalone` | `toSource`, `runtime`, `register` | [Standalone Modules](/guide/standalone) |
 
 The package also installs a `protoarray` command: `protoarray compile <module>` (see
-[Standalone Modules](/guide/standalone#protoarray-compile)).
+[Standalone Modules](/guide/standalone#protoarray-compile)). None of it requires
+`@alexify/metaschema`; schemas are built from what metaschema writes (see
+[Defining a Schema](/guide/schema)).
 
 ```ts
-import { Schema, type Infer, type Input, type Definition } from '@alexify/protoarray';
+import { Schema, type Decoded, type Snapshot, type SchemaOptions } from '@alexify/protoarray';
 ```
 
 ## `Schema`
 
 ```ts
-class Schema<const D extends Definition> {
-  constructor(name: string, definition: D, options?: SchemaOptions);
-  constructor(definition: D, options?: SchemaOptions);
-  static from<const D extends Definition>(definition: D, options?: SchemaOptions): Schema<D>;
-  static keys<const K extends readonly string[]>(keys: K, options?: SchemaOptions): Schema<…>;
-  static resolve<const R extends Definition>(writer: AnySchema, reader: Schema<R>, options?: ResolveOptions): Schema<R>;
+class Schema<Output = unknown, Input = Output> {
+  constructor(source: SchemaSource, options?: SchemaOptions);
+  constructor(name: string, source: SchemaSource, options?: SchemaOptions);
+
+  static from<S extends Typed>(source: S, options?: SchemaOptions): Schema<OutputOf<S>, InputOf<S>>;
+  static from<O, I>(source: Schema<O, I>, options?: SchemaOptions): Schema<O, I>;
+  static from<O = unknown, I = O>(source: SchemaSource, options?: SchemaOptions): Schema<O, I>;
+  static fromModel(source: ModelLike | Snapshot, options?: ModelOptions): Readonly<Record<string, Schema>>;
 
   readonly name: string;
-  readonly definition: D;
+  readonly snapshot: Snapshot | null;   // what the schema was read from
+  readonly source: unknown;             // the metaschema Schema it was built from, or null
   readonly keys: readonly string[];
   readonly backend: 'codegen' | 'closures' | 'standalone';
   readonly layout: 'dense' | 'sparse' | 'rows' | 'flat' | 'columns';
   readonly id: string;
-  readonly list: Collection<D>;
+  readonly list: Collection<Output, Input>;
 
-  encode(value: Input<D>): Encoded<D>;
-  decode(array: Encoded<D>, options?: DecodeOptions): Infer<D>;
-  stringify(value: Input<D>): string;
-  parse(text: string, options?: DecodeOptions): Infer<D>;
-  encodeEach(values: Iterable<Input<D>>): Generator<Encoded<D>>;      // AsyncIterable → AsyncGenerator
-  decodeEach(arrays: Iterable<unknown>, options?: DecodeOptions): Generator<Infer<D>>;
-  check(value: unknown): EncodeError | null;
+  encode(value: Input): unknown;
+  decode(array: unknown, options?: DecodeOptions): Output;
+  stringify(value: Input): string;
+  parse(text: string, options?: DecodeOptions): Output;
+  encodeEach(values: Iterable<Input>): Generator<unknown>;            // AsyncIterable → AsyncGenerator
+  decodeEach(arrays: Iterable<unknown>, options?: DecodeOptions): Generator<Output>;
   toString(): string;
 }
 ```
 
-Compiles a definition once (see [Defining a Schema](/guide/schema)) and carries the codec.
-`encode` throws `EncodeError` for a value of the wrong shape or one validation rejects; `decode`
-and `parse` throw `DecodeError` (see [Errors](/guide/errors)); a broken definition or option
-throws `SchemaDefinitionError` from the constructor. `check` returns the `EncodeError` that
-encoding the value with validation would throw, or `null`, without throwing over the data.
-`Schema.resolve` builds a schema that reads what `writer` wrote as `reader` objects and writes them
-back as `writer` does (see [Migrations](/guide/resolve)).
+Reads a schema once and carries its codec. A source is a metaschema `Schema` (typed by its
+Standard Schema props), a snapshot (`schema.toSnapshot()`, `model.toJSON()`, plain JSON), a
+protoarray schema to build again with other options, or a definition with `{ metaschema }`;
+`Schema.fromModel` builds every entity of a metaschema `Model` or of its snapshot (see
+[Defining a Schema](/guide/schema#sources)). `encode` throws `EncodeError` for a value with no wire
+(the wrong shape, a cycle, a union value outside the union); `decode` and `parse` throw
+`DecodeError` (see [Errors](/guide/errors)); a snapshot or an option protoarray cannot read throws
+`SchemaDefinitionError` when the schema is built, and a definition metaschema cannot read throws
+metaschema's.
 
 ```ts
 interface SchemaOptions {
   codegen?: boolean;   // true: require generated code; false: closures; default: what the runtime allows
-  validate?: boolean | 'decode' | 'encode' | 'both';  // true (default) = 'decode': the wire is checked, the values trusted; 'both' checks the values too
-  sparse?: boolean;    // [mask, ...present values], a segment per 31 fields
-  layout?: 'rows' | 'flat' | 'columns';   // for a collection of records
-  schemas?: Readonly<Record<string, AnySchema>>;   // referenced by name
-  fingerprint?: (canonical: string) => string;     // computes `id`; default: FNV-1a 32-bit, 8 hex digits
-  intern?: boolean;    // intern every string: [table, body]
-  stringify?: 'auto' | 'builder' | 'native';       // how stringify writes the text
-  compiled?: { canonical: string; codec: object; checker?: object; id?: string };  // from a standalone module
+  validate?: boolean;  // true (default): the wire is checked on decode; the values given to encode never are
+  sparse?: boolean | readonly string[];               // the root struct, or the structs at these paths
+  layout?: Layout | Readonly<Record<string, Layout>>; // the root collection, or the collections at these paths
+  intern?: boolean | readonly string[];               // every string, or the strings at these paths: [table, body]
+  delta?: readonly string[];                          // integer, number, date or decimals lists and columns
+  stringify?: 'auto' | 'builder' | 'native';          // how stringify writes the text
+  fingerprint?: (signature: string) => string;        // computes `id`; default: FNV-1a 32-bit, 8 hex digits
+  references?: 'kind' | 'embed' | 'id';               // how references travel; 'kind' as metaschema's check reads them
+  types?: Readonly<Record<string, WireType>>;         // the wire type of a custom type with a check of its own
+  entity?: string;                                    // the entity of a snapshot to build
+  entities?: Readonly<Record<string, SchemaOptions>>; // options of the entities references reach, by name
+  metaschema?: MetaschemaModule;                      // require('@alexify/metaschema') or its ./definition
+  compiled?: { canonical: string; id?: string; codec: object };  // from a standalone module
 }
 
-interface ResolveOptions {
-  aliases?: Record<string, string | readonly string[]>;  // reader path → the writer's keys
-}
+type ModelOptions = Omit<SchemaOptions, 'sparse' | 'layout' | 'intern' | 'delta' | 'entity' | 'compiled' | 'metaschema'>;
 
 interface DecodeOptions {
   strict?: boolean;    // reject elements beyond the schema
 }
 ```
 
+Paths are spelled as error paths: `address.city`, `orders[].sku`, `scores{}`, `pair[1]`, `''` for
+the root (see [Paths](/guide/schema#paths)).
+
 ## `encode(schema, value)`
 
 ```ts
-function encode<D>(schema: Schema<D>, value: Input<D>): Encoded<D>;
+function encode<S extends AnySchema>(schema: S, value: Parameters<S['encode']>[0]): ReturnType<S['encode']>;
 ```
 
-`schema.encode(value)` as a function. Throws `SchemaDefinitionError` with code
-`ERR_SCHEMA_EXPECTED` when `schema` is not a `Schema`.
+`schema.encode(value)` as a function, for any schema or collection. Throws
+`SchemaDefinitionError` with code `ERR_SCHEMA_EXPECTED` when `schema` is not a `Schema`.
 
 ## `decode(schema, array, options?)`
 
 ```ts
-function decode<D>(schema: Schema<D>, array: Encoded<D>, options?: DecodeOptions): Infer<D>;
+function decode<S extends AnySchema>(schema: S, array: Parameters<S['decode']>[0], options?: DecodeOptions): ReturnType<S['decode']>;
 ```
 
 ## `stringify(schema, value)`
 
-```ts
-function stringify<D>(schema: Schema<D>, value: Input<D>): string;
-```
-
-`JSON.stringify(schema.encode(value))`.
+`schema.stringify(value)`: the text `JSON.stringify` of the wire would be.
 
 ## `parse(schema, text, options?)`
 
-```ts
-function parse<D>(schema: Schema<D>, text: string, options?: DecodeOptions): Infer<D>;
-```
-
-`schema.decode(JSON.parse(text), options)`; text that is not JSON throws `DecodeError` with code
-`json` and the `SyntaxError` as `cause`.
-
-## `check(schema, value)`
-
-```ts
-function check(schema: AnySchema | Collection<any>, value: unknown): EncodeError | null;
-```
-
-`schema.check(value)`: the problem a validated encode would find, or `null`. It validates whatever
-`validate` the schema, or one it embeds, was built with.
+`schema.parse(text, options)`: `schema.decode(JSON.parse(text), options)`; text that is not JSON
+throws `DecodeError` with code `json` and the `SyntaxError` as `cause`.
 
 ## `encodeEach(schema, values)`, `decodeEach(schema, arrays, options?)`
 
 `schema.encodeEach` and `schema.decodeEach` as functions: lazy, a generator over an iterable and an
 async generator over an async one (see [Streaming](/guide/streaming)).
+
+## `resolve(writer, reader, options?)`
+
+```ts
+import { resolve, register } from '@alexify/protoarray/resolve';
+
+function resolve<S extends AnySchema>(writer: AnySchema, reader: S, options?: ResolveOptions): S;
+function register(): void; // installs Schema.resolve
+
+interface ResolveOptions {
+  aliases?: Readonly<Record<string, string | readonly string[]>>;  // reader path → the writer's keys
+}
+```
+
+A schema that reads what `writer` wrote as `reader` objects and writes them back as `writer` does
+(see [Migrations](/guide/resolve)).
 
 ## Errors
 
@@ -142,13 +153,28 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 
 | Type | Meaning |
 | --- | --- |
-| `Definition`, `FieldDefinition`, `StructDefinition`, `LongForm`, `TupleElement`, `ScalarType`, `TypeName` | the definition DSL |
-| `AnySchema` | any `Schema` instance, what a field or `options.schemas` accepts |
-| `Infer<D>` | the decoded object type |
-| `Input<D>` | the value `encode` accepts |
-| `Encoded<D>` | the wire: `unknown[]`, or `unknown` for a scalar schema |
-| `Collection<D>` | the type of `schema.list` |
-| `SchemaOptions`, `DecodeOptions`, `ResolveOptions`, `Backend`, `Layout` | options and their values |
+| `Decoded<T>` | a value as decode gives it: every key present, the optional ones `\| null` |
+| `InputOf<S>`, `OutputOf<S>` | the input and output types of a metaschema schema |
+| `Typed` | anything with typed Standard Schema props, as a metaschema `Schema` |
+| `Snapshot`, `ModelLike`, `MetaschemaModule`, `SchemaSource` | what a schema is built from |
+| `AnySchema` | any `Schema` instance, what the functions and the registry accept |
+| `Collection<Output, Input>` | the type of `schema.list` |
+| `SchemaOptions`, `ModelOptions`, `DecodeOptions`, `Backend`, `Layout`, `WireType`, `CompiledCodec` | options and their values |
 | `SchemaErrorCode`, `EncodeErrorCode`, `DecodeErrorCode` | the `code` unions |
 
-See [TypeScript](/guide/typescript) for how `Infer` and `Input` map each form of the definition.
+See [TypeScript](/guide/typescript) for how a schema takes its types from metaschema.
+
+## Removed in 2.0
+
+| 1.x | 2.0 |
+| --- | --- |
+| a plain object as a definition | a metaschema `Schema`, a snapshot, or `{ metaschema }` |
+| `options.schemas` | `Schema.fromModel`, entities of a metaschema `Model` |
+| `Schema.keys(keys)` | a definition of `any` fields |
+| `schema.check(value)`, `check(schema, value)`, `validate: 'encode' \| 'both' \| 'decode'` | metaschema's `check` and `parse`; `validate` is a boolean |
+| `schema.definition` | `schema.snapshot`, `schema.source` |
+| `Schema.resolve` | `resolve` from `@alexify/protoarray/resolve`, or its `register()` |
+| `@alexify/protoarray/metaschema` | `Schema.from`, `Schema.fromModel`, `SchemaRegistry.from` |
+| `Infer`, `Input`, `Encoded`, `Definition` and the other definition types | `Schema<Output, Input>`, `Decoded`, `InputOf`, `OutputOf` |
+
+See [Migrating from 1.x](/guide/migrating-from-1).

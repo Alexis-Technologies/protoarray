@@ -1,23 +1,28 @@
 # TypeScript
 
-The package ships hand-written typings, for TypeScript 5.0 or newer (the definition is read as a
-`const` type parameter). A definition literal is enough to type the object a schema decodes to and
-the value it accepts:
+The package ships hand-written typings, for TypeScript 5.0 or newer. A schema is typed by the
+metaschema `Schema` it is built from: metaschema infers the type of its values from the definition
+literal and publishes it in its [Standard Schema](https://metaschema.vercel.app/guide/standard-schema)
+props (`~standard.types`), and `Schema.from` reads them by their shape. protoarray's typings import
+nothing of metaschema.
 
 ```ts
-import { Schema, type Infer, type Input } from '@alexify/protoarray';
+import { Schema } from '@alexify/protoarray';
+import { Schema as Definition } from '@alexify/metaschema';
 
-const User = new Schema('User', {
-  id: 'number',
-  name: 'string',
-  role: { enum: ['admin', 'editor', 'viewer'] },
-  address: { city: 'string', zip: '?string' },
-  tags: { array: 'string' },
-  createdAt: 'date',
-  email: '?string',
-});
+const User = Schema.from(
+  new Definition('User', {
+    id: 'number',
+    name: 'string',
+    role: { enum: ['admin', 'editor', 'viewer'] },
+    address: { city: 'string', zip: '?string' },
+    tags: { array: 'string' },
+    createdAt: 'date',
+    email: '?string',
+  }),
+);
 
-type User = Infer<typeof User.definition>;
+const user = User.decode(wire);
 // {
 //   id: number;
 //   name: string;
@@ -28,61 +33,85 @@ type User = Infer<typeof User.definition>;
 //   email: string | null;
 // }
 
-const user = User.decode(['x']); // User
 User.encode({ id: 1, name: 'Alex', role: 'editor', address: { city: 'Kyiv' }, tags: [], createdAt: new Date() });
+User.encode({ id: 'x' }); // a compile error
 ```
 
-`Schema` takes a `const` type parameter, so the literal keeps its string literal types without
-`as const`.
+`Schema<Output, Input>` has two type parameters:
 
-- `Infer<D>` is what `decode` and `parse` return: every field present, optional ones
-  `T | null`.
-- `Input<D>` is what `encode` and `stringify` accept: optional fields may be left out, `null` or
-  `undefined`; a missing required field or a wrong type is a compile error.
-- `Encoded<D>` is the wire: `unknown[]`, or `unknown` for a scalar schema.
+- `Output` is what `decode` and `parse` return: metaschema's output type as decode gives it,
+  `Decoded<T>`, with every key of a record present and the optional ones `T | null` (a key missing
+  on the wire decodes as `null`).
+- `Input` is what `encode` and `stringify` accept: metaschema's input type, where optional fields
+  may be left out, `null` or `undefined`, and a missing required field or a wrong type is a
+  compile error.
 
-| Definition | `Infer` |
-| --- | --- |
-| `'string'`, `'number'`, `'integer'`, `'boolean'`, `'bigint'`, `'date'`, `'bytes'` | `string`, `number`, `number`, `boolean`, `bigint`, `Date`, `Uint8Array` |
-| `'json'`, `'any'`, `'unknown'` | `unknown` |
-| `'null'` | `null` |
-| `'?T'`, `'key?'`, `required: false`, `default` | `T \| null` |
-| `{ array: T }` | `T[]` |
-| `{ set: T }` | `Set<T>` (`Input` also takes `readonly T[]`) |
-| `{ map: { string: V } }`, `{ map: { number: V } }` | `Map<string, V>`, `Map<number, V>` |
-| `{ object: { string: V } }` | `Record<string, V>` |
-| the long forms (`{ type: 'map', key, value }`, …) | as their shorthands |
-| `{ enum: ['a', 'b'] }` | `'a' \| 'b'` |
-| `{ flags: ['x', 'y'] }` | `{ x: boolean; y: boolean }` |
-| `['number', '?string']`, `[{ x: 'number' }, { 'y?': 'string' }]` | `[number, string \| null]` |
-| a nested struct or a schema by value | the nested object type |
-| `{ union: [A, B], discriminator: 'type' }` | `Infer<A> \| Infer<B>`, narrowed by the discriminator |
-| a schema by name (`'User'`) | `unknown` — the registry is not visible to the type system |
+The mapping of each form of the definition to a type is metaschema's (see its
+[TypeScript guide](https://metaschema.vercel.app/guide/typescript)): `{ enum: ['a', 'b'] }` is
+`'a' | 'b'`, `{ set: T }` a `Set<T>`, `{ map: { string: V } }` a `Map<string, V>`, `bytes` a
+`Uint8Array`, a discriminated union the union of its branches. `Decoded<T>` keeps `Date`, `Map`, `Set`, `Uint8Array`
+and functions as they are, and makes the optional keys and tuple elements of everything else
+present and nullable:
+
+```ts
+import type { Decoded } from '@alexify/protoarray';
+
+type A = Decoded<{ a: number; b?: string }>;       // { a: number; b: string | null }
+type T = Decoded<{ t: [number, string?] }>;        // { t: [number, string | null] }
+```
 
 A union decodes to the union of its branches, so checking the discriminator narrows it:
 
 ```ts
-const Packet = Schema.from({
-  union: [
-    { Struct: {}, type: { enum: ['call'] }, id: 'string' },
-    { Struct: {}, type: { enum: ['event'] }, name: 'string' },
-  ],
-  discriminator: 'type',
-});
+const Packet = Schema.from(
+  Definition.from({
+    union: [
+      { Struct: {}, type: { enum: ['call'] }, id: 'string' },
+      { Struct: {}, type: { enum: ['event'] }, name: 'string' },
+    ],
+    discriminator: 'type',
+  }),
+);
 const packet = Packet.decode(wire);
 if (packet.type === 'call') packet.id; // string
 ```
 
-Branches declared as separate constants need `as const` to keep their enum literals. A struct's
-kind (`Struct: {}`, a capitalised first key holding an object) is not a field; the types, which
-cannot see key order, skip any capitalised key that holds plain metadata.
+## Schemas without a type
 
-`schema.list` is typed as a `Collection<D>` whose `decode` returns `Infer<D>[]`. The functional
-entry points (`encode(schema, value)` and friends) are typed after the methods of the schema they
-get. `Schema.resolve(writer, reader)` is typed as the reader: it decodes to `Infer` of the reader's
-definition. The subpaths ship their own typings (`registry.d.ts`, `stream.d.ts`,
-`metaschema.d.ts`, `standalone.d.ts`); the methods `register()` installs on `Schema` are declared
-by module augmentation, so they type-check whether `register()` ran or not.
+A snapshot, a definition with `{ metaschema }` and a `Model`'s entities carry no type the
+compiler can see: such a schema is `Schema<unknown>`. A type argument gives it one:
 
-The error classes export their code unions: `SchemaErrorCode`, `EncodeErrorCode`,
-`DecodeErrorCode`.
+```ts
+import { Schema, type Snapshot } from '@alexify/protoarray';
+
+interface User {
+  id: number;
+  name: string | null;
+}
+
+const User = Schema.from<User>(snapshot as Snapshot);
+User.decode(wire).name; // string | null
+```
+
+`Schema.fromModel` returns `Record<string, Schema>`, and `Schema.from(User, options)` keeps the
+types of `User`. On a client that receives its snapshots, the server's types can travel too: a
+module of interfaces generated by metaschema (`toTypeScript`) or written by hand, given as the type
+argument.
+
+## The rest
+
+`schema.list` is typed as a `Collection<Output, Input>` whose `decode` returns `Output[]`. The
+functional entry points (`encode(schema, value)` and friends) are typed after the methods of the
+schema they get. `resolve(writer, reader)` is typed as the reader. The subpaths ship their own
+typings (`registry.d.ts`, `resolve.d.ts`, `stream.d.ts`, `standalone.d.ts`); the methods
+`register()` installs (`Schema.resolve`, the stream methods, `schema.toSource`) are declared by
+module augmentation, so they type-check whether `register()` ran or not.
+
+| Type | Meaning |
+| --- | --- |
+| `Schema<Output, Input>`, `Collection<Output, Input>` | a schema, the type of `schema.list` |
+| `Decoded<T>` | a value as decode gives it |
+| `InputOf<S>`, `OutputOf<S>` | the input and output types of a metaschema schema `S` |
+| `Snapshot`, `ModelLike`, `MetaschemaModule`, `Typed` | what a schema is built from, by shape |
+| `SchemaOptions`, `ModelOptions`, `DecodeOptions`, `Layout`, `Backend`, `WireType` | options and their values |
+| `SchemaErrorCode`, `EncodeErrorCode`, `DecodeErrorCode` | the `code` unions of the error classes |

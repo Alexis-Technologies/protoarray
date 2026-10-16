@@ -4,8 +4,8 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-**protoarray** (npm package `@alexify/protoarray`) is a schema-based compact serialization library
-for JavaScript, a lightweight alternative to Protocol Buffers. A payload such as
+**protoarray** (npm package `@alexify/protoarray`) is a fast, zero-dependency schema-based compact
+serialization library for JavaScript, a lightweight alternative to Protocol Buffers. A payload such as
 `{ name: 'Alex', age: 27 }` travels as the positional array `['Alex', 27]`; the client and the
 server share a schema of keys and positions, so the receiver knows that position `0` is `name` and
 position `1` is `age`. The payload is still plain JSON. It has zero runtime dependencies and runs

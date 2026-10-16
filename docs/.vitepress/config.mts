@@ -7,7 +7,7 @@ const { version } = createRequire(import.meta.url)('../../package.json') as { ve
 
 const ogTitle = 'protoarray — compact positional payloads for JavaScript';
 const ogDescription =
-  'Zero-dependency, schema-based serialization for Node.js and browsers: objects travel as ' +
+  'Fast, zero-dependency, schema-based serialization for Node.js and browsers: objects travel as ' +
   'positional JSON arrays, and a shared schema maps every position back to its key. Smaller and ' +
   'faster than JSON, a lightweight alternative to Protocol Buffers.';
 const repo = 'https://github.com/Alexis-Technologies/protoarray';

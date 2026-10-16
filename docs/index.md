@@ -7,7 +7,7 @@ titleTemplate: Compact positional payloads for JavaScript
 hero:
   name: protoarray
   text: Compact positional payloads for JavaScript
-  tagline: Send objects as positional arrays and let a shared schema map every position back to its key. Smaller than JSON, faster than JSON, still JSON. A zero-dependency alternative to Protocol Buffers for Node.js and browsers.
+  tagline: Send objects as positional arrays and let a shared schema map every position back to its key. Smaller than JSON, faster than JSON, still JSON. A fast, zero-dependency alternative to Protocol Buffers for Node.js and browsers.
   image:
     src: /logo-mark.svg
     alt: protoarray

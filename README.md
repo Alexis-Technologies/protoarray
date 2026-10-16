@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/%40alexify%2Fprotoarray)](./LICENSE)
 
 **Compact positional payloads for JavaScript.** Send objects as positional arrays and let a schema
-shared by the client and the server map every position back to its key. A zero-dependency
+shared by the client and the server map every position back to its key. A fast, zero-dependency
 alternative to Protocol Buffers for Node.js and browsers: smaller than JSON, faster than JSON, and
 still JSON. Schemas are [`@alexify/metaschema`](https://metaschema.vercel.app/)'s: one definition
 validates with metaschema and travels with protoarray.

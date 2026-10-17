@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="788" viewBox="0 0 760 788" role="img" aria-label="Cold start. Load the library, build the schema of one record, encode it and decode it once: a fresh process, median of 10 runs. Lower is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">Cold start</text>
+<text class="subtitle" x="20" y="56">Load the library, build the schema of one record, encode it and decode it once: a fresh process, median of 10</text>
+<text class="subtitle" x="20" y="73">runs. Lower is better.</text>
+<line class="grid" x1="217" y1="88" x2="217" y2="728"/>
+<text class="tick" x="217" y="744" text-anchor="middle">0</text>
+<line class="grid" x1="370" y1="88" x2="370" y2="728"/>
+<text class="tick" x="370" y="744" text-anchor="middle">10 ms</text>
+<line class="grid" x1="523" y1="88" x2="523" y2="728"/>
+<text class="tick" x="523" y="744" text-anchor="middle">20 ms</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="728"/>
+<text class="tick" x="676" y="744" text-anchor="middle">30 ms</text>
+<line class="axis" x1="217" y1="88" x2="217" y2="728"/>
+<g><title>JSON · stringify · parse
+0.06 ms in total
+load 0.00 ms · build 0.02 ms
+first encode 0.02 ms · first decode 0.01 ms
+JSON (built in), Node 24.14.1</title>
+<text class="label" x="20" y="105">JSON</text>
+<text class="sublabel" x="20" y="120">stringify · parse</text>
+<path class="bar" d="M217,101H217A2,2 0 0 1 219,103V113A2,2 0 0 1 217,115H217Z"/>
+<text class="value" x="225" y="114">0.1 ms</text>
+</g>
+<g><title>v8.serialize · structured clone, Node only
+0.36 ms in total
+load 0.27 ms · build 0.01 ms
+first encode 0.04 ms · first decode 0.04 ms
+node:v8, Node 24.14.1</title>
+<text class="label" x="20" y="145">v8.serialize</text>
+<text class="sublabel" x="20" y="160">structured clone, Node only</text>
+<path class="bar" d="M217,141H218.5692A4,4 0 0 1 222.5692,145V151A4,4 0 0 1 218.5692,155H217Z"/>
+<text class="value" x="228.5692" y="154">0.4 ms</text>
+</g>
+<g><title>protoarray · standalone module, no eval
+1.6 ms in total
+load 1.2 ms · build 0.02 ms
+first encode 0.15 ms · first decode 0.16 ms
+@alexify/protoarray@2.0.0 (72941bf)</title>
+<text class="label secondary" x="20" y="185">protoarray</text>
+<text class="sublabel" x="20" y="200">standalone module, no eval</text>
+<path class="bar secondary" d="M217,181H237.2964A4,4 0 0 1 241.2964,185V191A4,4 0 0 1 237.2964,195H217Z"/>
+<text class="value" x="247.2964" y="194">1.6 ms</text>
+</g>
+<g><title>@msgpack/msgpack · Encoder · Decoder
+3.9 ms in total
+load 2.9 ms · build 0.10 ms
+first encode 0.37 ms · first decode 0.57 ms
+@msgpack/msgpack@3.1.3</title>
+<text class="label" x="20" y="225">@msgpack/msgpack</text>
+<text class="sublabel" x="20" y="240">Encoder · Decoder</text>
+<path class="bar" d="M217,221H272.6394A4,4 0 0 1 276.6394,225V231A4,4 0 0 1 272.6394,235H217Z"/>
+<text class="value" x="282.6394" y="234">3.9 ms</text>
+</g>
+<g><title>devalue · stringify · parse
+5.9 ms in total
+load 5.1 ms · build 0.01 ms
+first encode 0.49 ms · first decode 0.26 ms
+devalue@6.0.3</title>
+<text class="label" x="20" y="265">devalue</text>
+<text class="sublabel" x="20" y="280">stringify · parse</text>
+<path class="bar" d="M217,261H303.5454A4,4 0 0 1 307.5454,265V271A4,4 0 0 1 303.5454,275H217Z"/>
+<text class="value" x="313.5454" y="274">5.9 ms</text>
+</g>
+<g><title>msgpackr · records, shared structures
+6.4 ms in total
+load 5.3 ms · build 0.03 ms
+first encode 0.63 ms · first decode 0.43 ms
+msgpackr@2.1.0</title>
+<text class="label" x="20" y="305">msgpackr</text>
+<text class="sublabel" x="20" y="320">records, shared structures</text>
+<path class="bar" d="M217,301H311.5473A4,4 0 0 1 315.5473,305V311A4,4 0 0 1 311.5473,315H217Z"/>
+<text class="value" x="321.5473" y="314">6.4 ms</text>
+</g>
+<g><title>superjson · stringify · parse
+6.4 ms in total
+load 5.8 ms · build 0.01 ms
+first encode 0.58 ms · first decode 0.04 ms
+superjson@2.2.6</title>
+<text class="label" x="20" y="345">superjson</text>
+<text class="sublabel" x="20" y="360">stringify · parse</text>
+<path class="bar" d="M217,341H311.5473A4,4 0 0 1 315.5473,345V351A4,4 0 0 1 311.5473,355H217Z"/>
+<text class="value" x="321.5473" y="354">6.4 ms</text>
+</g>
+<g><title>cbor-x · records
+6.5 ms in total
+load 5.3 ms · build 0.03 ms
+first encode 0.64 ms · first decode 0.47 ms
+cbor-x@1.6.6</title>
+<text class="label" x="20" y="385">cbor-x</text>
+<text class="sublabel" x="20" y="400">records</text>
+<path class="bar" d="M217,381H312.3276A4,4 0 0 1 316.3276,385V391A4,4 0 0 1 312.3276,395H217Z"/>
+<text class="value" x="322.3276" y="394">6.5 ms</text>
+</g>
+<g><title>BSON · serialize · deserialize
+6.5 ms in total
+load 5.4 ms · build 0.02 ms
+first encode 0.51 ms · first decode 0.60 ms
+bson@7.3.3</title>
+<text class="label" x="20" y="425">BSON</text>
+<text class="sublabel" x="20" y="440">serialize · deserialize</text>
+<path class="bar" d="M217,421H312.4959A4,4 0 0 1 316.4959,425V431A4,4 0 0 1 312.4959,435H217Z"/>
+<text class="value" x="322.4959" y="434">6.5 ms</text>
+</g>
+<g><title>protoarray · codegen, from a snapshot
+7.3 ms in total
+load 3.9 ms · build 3.0 ms
+first encode 0.14 ms · first decode 0.15 ms
+@alexify/protoarray@2.0.0 (72941bf)</title>
+<text class="label primary" x="20" y="465">protoarray</text>
+<text class="sublabel" x="20" y="480">codegen, from a snapshot</text>
+<path class="bar primary" d="M217,461H324.1086A4,4 0 0 1 328.1086,465V471A4,4 0 0 1 324.1086,475H217Z"/>
+<text class="value" x="334.1086" y="474">7.3 ms</text>
+</g>
+<g><title>avsc · Type.forSchema
+9.1 ms in total
+load 8.2 ms · build 0.59 ms
+first encode 0.18 ms · first decode 0.17 ms
+avsc@5.7.9</title>
+<text class="label" x="20" y="505">avsc</text>
+<text class="sublabel" x="20" y="520">Type.forSchema</text>
+<path class="bar" d="M217,501H352.4136A4,4 0 0 1 356.4136,505V511A4,4 0 0 1 352.4136,515H217Z"/>
+<text class="value" x="362.4136" y="514">9.1 ms</text>
+</g>
+<g><title>protoarray · closures, no eval
+15.7 ms in total
+load 11.6 ms · build 3.8 ms
+first encode 0.11 ms · first decode 0.17 ms
+@alexify/protoarray@2.0.0 (72941bf)</title>
+<text class="label secondary" x="20" y="545">protoarray</text>
+<text class="sublabel" x="20" y="560">closures, no eval</text>
+<path class="bar secondary" d="M217,541H452.73569999999995A4,4 0 0 1 456.73569999999995,545V551A4,4 0 0 1 452.73569999999995,555H217Z"/>
+<text class="value" x="462.73569999999995" y="554">16 ms</text>
+</g>
+<g><title>protobufjs · reflection, Root.fromJSON
+16.2 ms in total
+load 11.1 ms · build 1.5 ms
+first encode 3.1 ms · first decode 0.35 ms
+protobufjs@8.8.1</title>
+<text class="label" x="20" y="585">protobufjs</text>
+<text class="sublabel" x="20" y="600">reflection, Root.fromJSON</text>
+<path class="bar" d="M217,581H460.9059A4,4 0 0 1 464.9059,585V591A4,4 0 0 1 460.9059,595H217Z"/>
+<text class="value" x="470.9059" y="594">16 ms</text>
+</g>
+<g><title>protoarray · codegen
+16.5 ms in total
+load 11.7 ms · build 4.5 ms
+first encode 0.14 ms · first decode 0.16 ms
+@alexify/protoarray@2.0.0 (72941bf)</title>
+<text class="label secondary" x="20" y="625">protoarray</text>
+<text class="sublabel" x="20" y="640">codegen</text>
+<path class="bar secondary" d="M217,621H464.71560000000005A4,4 0 0 1 468.71560000000005,625V631A4,4 0 0 1 464.71560000000005,635H217Z"/>
+<text class="value" x="474.71560000000005" y="634">16 ms</text>
+</g>
+<g><title>fast-json-stringify · compiled stringify, JSON.parse
+25.7 ms in total
+load 21.0 ms · build 4.5 ms
+first encode 0.26 ms · first decode 0.01 ms
+fast-json-stringify@7.1.0</title>
+<text class="label" x="20" y="665">fast-json-stringify</text>
+<text class="sublabel" x="20" y="680">compiled stringify, JSON.parse</text>
+<path class="bar" d="M217,661H606.9444000000001A4,4 0 0 1 610.9444000000001,665V671A4,4 0 0 1 606.9444000000001,675H217Z"/>
+<text class="value" x="616.9444000000001" y="674">26 ms</text>
+</g>
+<g><title>protobuf-es · create · toBinary · fromBinary
+25.9 ms in total
+load 24.5 ms · build 0.38 ms
+first encode 0.80 ms · first decode 0.06 ms
+@bufbuild/protobuf@2.16.0</title>
+<text class="label" x="20" y="705">protobuf-es</text>
+<text class="sublabel" x="20" y="720">create · toBinary · fromBinary</text>
+<path class="bar" d="M217,701H609.1629A4,4 0 0 1 613.1629,705V711A4,4 0 0 1 609.1629,715H217Z"/>
+<text class="value" x="619.1629" y="714">26 ms</text>
+</g>
+<text class="caption" x="20" y="769">Apple M3 Max · 16 cores · Node v24.14.1 · 2026-10-16</text>
+</svg>

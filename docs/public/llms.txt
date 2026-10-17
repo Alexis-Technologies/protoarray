@@ -1,9 +1,10 @@
 # @alexify/protoarray
 
-> Fast, zero-dependency, schema-based serialization for Node.js and browsers. Objects travel as
-> positional JSON arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`), and a schema shared
-> by the client and the server maps every position back to its key. Schemas are @alexify/metaschema's.
-> A lightweight alternative to Protocol Buffers, maintained by Alexis Technologies.
+> Schema-based serialization that stays JSON, for Node.js and browsers, with zero dependencies.
+> Objects travel as positional JSON arrays (`{ name: 'Alex', age: 27 }` becomes `['Alex', 27]`),
+> and a schema shared by the client and the server maps every position back to its key: the
+> discipline of Protocol Buffers over JSON. Schemas are @alexify/metaschema's. Maintained by
+> Alexis Technologies.
 
 Key facts:
 - Package (npm): `@alexify/protoarray`, installed with `npm install @alexify/protoarray
@@ -11,12 +12,17 @@ Key facts:
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`;
   a schema is typed by the metaschema Schema it is built from (`Schema<Output, Input>`,
   `Decoded<T>`)
-- Zero runtime dependencies, no build step, about 21 KB min+gzip for the core; subpaths
+- Zero runtime dependencies, no build step, about 22 KB min+gzip for the core; subpaths
   `/resolve`, `/registry`, `/stream` and `/standalone` add 1.8–2.5 KB each. protoarray never
   requires metaschema: it recognises metaschema objects by their brand, reads snapshots as plain
   JSON, and reads a raw definition only with metaschema injected (`{ metaschema }`)
-- The payload is plain JSON: about 45% smaller than keyed objects before compression, and faster
-  to parse and stringify (×1.5 encode, ×1.7 decode on a typical record in V8)
+- The payload is plain JSON: about half the bytes of keyed objects before compression, and faster
+  to parse and stringify (×1.5 encode, ×1.8 decode on a typical record in V8). Against
+  protobufjs, protobuf-es, avsc, msgpackr, @msgpack/msgpack, cbor-x, BSON, v8.serialize,
+  superjson, devalue and fast-json-stringify (https://protoarray.vercel.app/guide/benchmarks): the
+  fastest encoder on records, strings and tagged messages, the fastest decoder on long strings;
+  msgpackr's shared structures decode the other payloads faster; binary codecs win on mostly
+  numeric payloads
 - Building a schema: `Schema.from(new (require('@alexify/metaschema').Schema)('User', definition))`
   (typed); `Schema.from(definition, { metaschema: require('@alexify/metaschema') })` (or
   `@alexify/metaschema/definition`, which builds without validating); `Schema.from(snapshot)` from
@@ -66,4 +72,8 @@ Key facts:
   `SchemaDefinitionError`, `EncodeError`, `DecodeError`
 - Upgrading from 1.x: https://protoarray.vercel.app/guide/migrating-from-1
 - wrpc: a union of wrpc's packet types makes a packet codec (https://protoarray.vercel.app/guide/wrpc)
+- Compared feature by feature with 22 serialization libraries (Protocol Buffers, Avro, Thrift,
+  FlatBuffers, Cap'n Proto, MessagePack, CBOR, BSON, typed JSON):
+  https://protoarray.vercel.app/guide/comparison
+- Architecture (source → plan → backend → codec): https://protoarray.vercel.app/guide/architecture
 - Docs: https://protoarray.vercel.app/ (guide, wire format, benchmarks, API reference)

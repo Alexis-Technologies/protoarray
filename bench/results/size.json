@@ -1,0 +1,143 @@
+{
+  "generatedAt": "2026-10-16T20:47:11.991Z",
+  "scenario": "single",
+  "libraries": [
+    {
+      "id": "protoarray-snapshot",
+      "name": "protoarray",
+      "variant": "codegen, from a snapshot",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "min": 62390,
+      "gzip": 22538,
+      "note": "the schema built from its snapshot: a client without metaschema"
+    },
+    {
+      "id": "protoarray",
+      "name": "protoarray",
+      "variant": "codegen, metaschema definition",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "min": 122929,
+      "gzip": 43642,
+      "note": "protoarray and @alexify/metaschema, which reads the definition and validates values"
+    },
+    {
+      "id": "protoarray-standalone",
+      "name": "protoarray",
+      "variant": "standalone module, no eval",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "min": 18712,
+      "gzip": 7069,
+      "note": "the module protoarray compile writes for this schema, with its inline runtime"
+    },
+    {
+      "id": "protobufjs",
+      "name": "protobufjs",
+      "variant": "protobufjs/light, Root.fromJSON",
+      "package": "protobufjs",
+      "version": "8.8.1",
+      "family": "binary",
+      "min": 108215,
+      "gzip": 29951,
+      "note": "reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code"
+    },
+    {
+      "id": "protobuf-es",
+      "name": "protobuf-es",
+      "variant": "create · toBinary · fromBinary",
+      "package": "@bufbuild/protobuf",
+      "version": "2.16.0",
+      "family": "binary",
+      "min": 68190,
+      "gzip": 18606,
+      "note": "the runtime and the descriptor generated code embeds"
+    },
+    {
+      "id": "avsc",
+      "name": "avsc",
+      "variant": "Type.forSchema",
+      "package": "avsc",
+      "version": "5.7.9",
+      "family": "binary",
+      "min": 118197,
+      "gzip": 35137,
+      "note": "avsc's browser build of types, with the buffer and util polyfills it requires"
+    },
+    {
+      "id": "msgpackr-records",
+      "name": "msgpackr",
+      "variant": "records, shared structures",
+      "package": "msgpackr",
+      "version": "2.1.0",
+      "family": "binary",
+      "min": 28105,
+      "gzip": 10536
+    },
+    {
+      "id": "msgpack",
+      "name": "@msgpack/msgpack",
+      "variant": "Encoder · Decoder",
+      "package": "@msgpack/msgpack",
+      "version": "3.1.3",
+      "family": "binary",
+      "min": 21222,
+      "gzip": 5924
+    },
+    {
+      "id": "cbor-x",
+      "name": "cbor-x",
+      "variant": "records",
+      "package": "cbor-x",
+      "version": "1.6.6",
+      "family": "binary",
+      "min": 29298,
+      "gzip": 10869
+    },
+    {
+      "id": "bson",
+      "name": "BSON",
+      "variant": "serialize · deserialize",
+      "package": "bson",
+      "version": "7.3.3",
+      "family": "binary",
+      "min": 76598,
+      "gzip": 22749
+    },
+    {
+      "id": "superjson",
+      "name": "superjson",
+      "variant": "stringify · parse",
+      "package": "superjson",
+      "version": "2.2.6",
+      "family": "text",
+      "min": 11396,
+      "gzip": 4089
+    },
+    {
+      "id": "devalue",
+      "name": "devalue",
+      "variant": "stringify · parse",
+      "package": "devalue",
+      "version": "6.0.3",
+      "family": "text",
+      "min": 10913,
+      "gzip": 4060
+    },
+    {
+      "id": "fast-json-stringify",
+      "name": "fast-json-stringify",
+      "variant": "compiled stringify, JSON.parse",
+      "package": "fast-json-stringify",
+      "version": "7.1.0",
+      "family": "text",
+      "min": 222581,
+      "gzip": 64405,
+      "note": "encode only; JSON.parse decodes"
+    }
+  ]
+}

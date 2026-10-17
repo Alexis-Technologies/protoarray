@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="652" viewBox="0 0 760 652" role="img" aria-label="Bundle size. A browser bundle that builds the schema of one record, encodes it and decodes it (esbuild, minified, tree-shaken), min+gzip. Lower is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">Bundle size</text>
+<text class="subtitle" x="20" y="56">A browser bundle that builds the schema of one record, encodes it and decodes it (esbuild, minified,</text>
+<text class="subtitle" x="20" y="73">tree-shaken), min+gzip. Lower is better.</text>
+<line class="grid" x1="223" y1="88" x2="223" y2="608"/>
+<text class="tick" x="223" y="624" text-anchor="middle">0</text>
+<line class="grid" x1="336.25" y1="88" x2="336.25" y2="608"/>
+<text class="tick" x="336.25" y="624" text-anchor="middle">20 KB</text>
+<line class="grid" x1="449.5" y1="88" x2="449.5" y2="608"/>
+<text class="tick" x="449.5" y="624" text-anchor="middle">40 KB</text>
+<line class="grid" x1="562.75" y1="88" x2="562.75" y2="608"/>
+<text class="tick" x="562.75" y="624" text-anchor="middle">60 KB</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="608"/>
+<text class="tick" x="676" y="624" text-anchor="middle">80 KB</text>
+<line class="axis" x1="223" y1="88" x2="223" y2="608"/>
+<g><title>devalue · stringify · parse
+4.0 KB min+gzip
+10.7 KB minified
+devalue@6.0.3</title>
+<text class="label" x="20" y="105">devalue</text>
+<text class="sublabel" x="20" y="120">stringify · parse</text>
+<path class="bar" d="M223,101H241.450927734375A4,4 0 0 1 245.450927734375,105V111A4,4 0 0 1 241.450927734375,115H223Z"/>
+<text class="value" x="251.450927734375" y="114">4.0 KB</text>
+</g>
+<g><title>superjson · stringify · parse
+4.0 KB min+gzip
+11.1 KB minified
+superjson@2.2.6</title>
+<text class="label" x="20" y="145">superjson</text>
+<text class="sublabel" x="20" y="160">stringify · parse</text>
+<path class="bar" d="M223,141H241.61129150390624A4,4 0 0 1 245.61129150390624,145V151A4,4 0 0 1 241.61129150390624,155H223Z"/>
+<text class="value" x="251.61129150390624" y="154">4.0 KB</text>
+</g>
+<g><title>@msgpack/msgpack · Encoder · Decoder
+5.8 KB min+gzip
+20.7 KB minified
+@msgpack/msgpack@3.1.3</title>
+<text class="label" x="20" y="185">@msgpack/msgpack</text>
+<text class="sublabel" x="20" y="200">Encoder · Decoder</text>
+<path class="bar" d="M223,181H251.758447265625A4,4 0 0 1 255.758447265625,185V191A4,4 0 0 1 251.758447265625,195H223Z"/>
+<text class="value" x="261.758447265625" y="194">5.8 KB</text>
+</g>
+<g><title>protoarray · standalone module, no eval
+6.9 KB min+gzip
+18.3 KB minified
+@alexify/protoarray@2.0.0
+the module protoarray compile writes for this schema, with its inline runtime</title>
+<text class="label secondary" x="20" y="225">protoarray</text>
+<text class="sublabel" x="20" y="240">standalone module, no eval</text>
+<path class="bar secondary" d="M223,221H258.0900512695313A4,4 0 0 1 262.0900512695313,225V231A4,4 0 0 1 258.0900512695313,235H223Z"/>
+<text class="value" x="268.0900512695313" y="234">6.9 KB</text>
+</g>
+<g><title>msgpackr · records, shared structures
+10.3 KB min+gzip
+27.4 KB minified
+msgpackr@2.1.0</title>
+<text class="label" x="20" y="265">msgpackr</text>
+<text class="sublabel" x="20" y="280">records, shared structures</text>
+<path class="bar" d="M223,261H277.26181640625A4,4 0 0 1 281.26181640625,265V271A4,4 0 0 1 277.26181640625,275H223Z"/>
+<text class="value" x="287.26181640625" y="274">10.3 KB</text>
+</g>
+<g><title>cbor-x · records
+10.6 KB min+gzip
+28.6 KB minified
+cbor-x@1.6.6</title>
+<text class="label" x="20" y="305">cbor-x</text>
+<text class="sublabel" x="20" y="320">records</text>
+<path class="bar" d="M223,301H279.1032348632813A4,4 0 0 1 283.1032348632813,305V311A4,4 0 0 1 279.1032348632813,315H223Z"/>
+<text class="value" x="289.1032348632813" y="314">10.6 KB</text>
+</g>
+<g><title>protobuf-es · create · toBinary · fromBinary
+18.2 KB min+gzip
+66.6 KB minified
+@bufbuild/protobuf@2.16.0
+the runtime and the descriptor generated code embeds</title>
+<text class="label" x="20" y="345">protobuf-es</text>
+<text class="sublabel" x="20" y="360">create · toBinary · fromBinary</text>
+<path class="bar" d="M223,341H321.8871826171875A4,4 0 0 1 325.8871826171875,345V351A4,4 0 0 1 321.8871826171875,355H223Z"/>
+<text class="value" x="331.8871826171875" y="354">18.2 KB</text>
+</g>
+<g><title>protoarray · codegen, from a snapshot
+22.0 KB min+gzip
+60.9 KB minified
+@alexify/protoarray@2.0.0
+the schema built from its snapshot: a client without metaschema</title>
+<text class="label primary" x="20" y="385">protoarray</text>
+<text class="sublabel" x="20" y="400">codegen, from a snapshot</text>
+<path class="bar primary" d="M223,381H343.63029785156255A4,4 0 0 1 347.63029785156255,385V391A4,4 0 0 1 343.63029785156255,395H223Z"/>
+<text class="value" x="353.63029785156255" y="394">22.0 KB</text>
+</g>
+<g><title>BSON · serialize · deserialize
+22.2 KB min+gzip
+74.8 KB minified
+bson@7.3.3</title>
+<text class="label" x="20" y="425">BSON</text>
+<text class="sublabel" x="20" y="440">serialize · deserialize</text>
+<path class="bar" d="M223,421H344.7970825195313A4,4 0 0 1 348.7970825195313,425V431A4,4 0 0 1 344.7970825195313,435H223Z"/>
+<text class="value" x="354.7970825195313" y="434">22.2 KB</text>
+</g>
+<g><title>protobufjs · protobufjs/light, Root.fromJSON
+29.2 KB min+gzip
+105.7 KB minified
+protobufjs@8.8.1
+reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code</title>
+<text class="label" x="20" y="465">protobufjs</text>
+<text class="sublabel" x="20" y="480">protobufjs/light, Root.fromJSON</text>
+<path class="bar" d="M223,461H384.6225952148437A4,4 0 0 1 388.6225952148437,465V471A4,4 0 0 1 384.6225952148437,475H223Z"/>
+<text class="value" x="394.6225952148437" y="474">29.2 KB</text>
+</g>
+<g><title>avsc · Type.forSchema
+34.3 KB min+gzip
+115.4 KB minified
+avsc@5.7.9
+avsc's browser build of types, with the buffer and util polyfills it requires</title>
+<text class="label" x="20" y="505">avsc</text>
+<text class="sublabel" x="20" y="520">Type.forSchema</text>
+<path class="bar" d="M223,501H413.3000610351562A4,4 0 0 1 417.3000610351562,505V511A4,4 0 0 1 413.3000610351562,515H223Z"/>
+<text class="value" x="423.3000610351562" y="514">34.3 KB</text>
+</g>
+<g><title>protoarray · codegen, metaschema definition
+42.6 KB min+gzip
+120.0 KB minified
+@alexify/protoarray@2.0.0
+protoarray and @alexify/metaschema, which reads the definition and validates values</title>
+<text class="label secondary" x="20" y="545">protoarray</text>
+<text class="sublabel" x="20" y="560">codegen, metaschema definition</text>
+<path class="bar secondary" d="M223,541H460.33088378906245A4,4 0 0 1 464.33088378906245,545V551A4,4 0 0 1 460.33088378906245,555H223Z"/>
+<text class="value" x="470.33088378906245" y="554">42.6 KB</text>
+</g>
+<g><title>fast-json-stringify · compiled stringify, JSON.parse
+62.9 KB min+gzip
+217.4 KB minified
+fast-json-stringify@7.1.0
+encode only; JSON.parse decodes</title>
+<text class="label" x="20" y="585">fast-json-stringify</text>
+<text class="sublabel" x="20" y="600">compiled stringify, JSON.parse</text>
+<path class="bar" d="M223,581H575.1458129882812A4,4 0 0 1 579.1458129882812,585V591A4,4 0 0 1 575.1458129882812,595H223Z"/>
+<text class="value" x="585.1458129882812" y="594">62.9 KB</text>
+</g>
+</svg>

@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="353" viewBox="0 0 760 353" role="img" aria-label="Layouts of a list of a thousand records. pnpm bench, generated code: lists a second, linear scale, higher is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">Layouts of a list of a thousand records</text>
+<text class="subtitle" x="20" y="56">pnpm bench, generated code: lists a second, linear scale, higher is better.</text>
+<rect class="bar primary" x="20" y="67" width="10" height="10" rx="2"/>
+<text class="legend" x="35" y="76">encode</text>
+<rect class="bar secondary" x="88.4" y="67" width="10" height="10" rx="2"/>
+<text class="legend" x="103.4" y="76">decode</text>
+<line class="grid" x1="300" y1="93" x2="300" y2="293"/>
+<text class="tick" x="300" y="309" text-anchor="middle">0</text>
+<line class="grid" x1="425.3333333333333" y1="93" x2="425.3333333333333" y2="293"/>
+<text class="tick" x="425.3333333333333" y="309" text-anchor="middle">1,000</text>
+<line class="grid" x1="550.6666666666666" y1="93" x2="550.6666666666666" y2="293"/>
+<text class="tick" x="550.6666666666666" y="309" text-anchor="middle">2,000</text>
+<line class="grid" x1="676" y1="93" x2="676" y2="293"/>
+<text class="tick" x="676" y="309" text-anchor="middle">3,000</text>
+<line class="axis" x1="300" y1="93" x2="300" y2="293"/>
+<g><title>JSON · keyed objects
+encode 1,713 lists/s · 584 µs
+decode 1,247 lists/s · 802 µs</title>
+<text class="label" x="20" y="110">JSON</text>
+<text class="sublabel" x="20" y="125">keyed objects</text>
+<path class="bar" d="M300,103H510.6959999999999A4,4 0 0 1 514.6959999999999,107V108A4,4 0 0 1 510.6959999999999,112H300Z"/>
+<text class="value small" x="520.6959999999999" y="111">1,713</text>
+<path class="bar" d="M300,114H452.29066666666665A4,4 0 0 1 456.29066666666665,118V119A4,4 0 0 1 452.29066666666665,123H300Z"/>
+<text class="value small" x="462.29066666666665" y="122">1,247</text>
+</g>
+<g><title>rows · an array of arrays, the default
+encode 2,247 lists/s · 445 µs
+decode 2,002 lists/s · 500 µs</title>
+<text class="label primary" x="20" y="150">rows</text>
+<text class="sublabel" x="20" y="165">an array of arrays, the default</text>
+<path class="bar primary" d="M300,143H577.624A4,4 0 0 1 581.624,147V148A4,4 0 0 1 577.624,152H300Z"/>
+<text class="value small" x="587.624" y="151">2,247</text>
+<path class="bar secondary" d="M300,154H546.9173333333333A4,4 0 0 1 550.9173333333333,158V159A4,4 0 0 1 546.9173333333333,163H300Z"/>
+<text class="value small" x="556.9173333333333" y="162">2,002</text>
+</g>
+<g><title>flat · one array, a fixed stride
+encode 2,113 lists/s · 473 µs
+decode 1,979 lists/s · 505 µs</title>
+<text class="label primary" x="20" y="190">flat</text>
+<text class="sublabel" x="20" y="205">one array, a fixed stride</text>
+<path class="bar primary" d="M300,183H560.8293333333334A4,4 0 0 1 564.8293333333334,187V188A4,4 0 0 1 560.8293333333334,192H300Z"/>
+<text class="value small" x="570.8293333333334" y="191">2,113</text>
+<path class="bar secondary" d="M300,194H544.0346666666667A4,4 0 0 1 548.0346666666667,198V199A4,4 0 0 1 544.0346666666667,203H300Z"/>
+<text class="value small" x="554.0346666666667" y="202">1,979</text>
+</g>
+<g><title>columns · an array per field
+encode 2,217 lists/s · 451 µs
+decode 1,980 lists/s · 505 µs</title>
+<text class="label primary" x="20" y="230">columns</text>
+<text class="sublabel" x="20" y="245">an array per field</text>
+<path class="bar primary" d="M300,223H573.864A4,4 0 0 1 577.864,227V228A4,4 0 0 1 573.864,232H300Z"/>
+<text class="value small" x="583.864" y="231">2,217</text>
+<path class="bar secondary" d="M300,234H544.1600000000001A4,4 0 0 1 548.1600000000001,238V239A4,4 0 0 1 544.1600000000001,243H300Z"/>
+<text class="value small" x="554.1600000000001" y="242">1,980</text>
+</g>
+<g><title>columns, delta + intern · ids as differences, cities and tags interned
+encode 2,347 lists/s · 426 µs
+decode 2,126 lists/s · 470 µs</title>
+<text class="label primary" x="20" y="270">columns, delta + intern</text>
+<text class="sublabel" x="20" y="285">ids as differences, cities and tags interned</text>
+<path class="bar primary" d="M300,263H590.1573333333333A4,4 0 0 1 594.1573333333333,267V268A4,4 0 0 1 590.1573333333333,272H300Z"/>
+<text class="value small" x="600.1573333333333" y="271">2,347</text>
+<path class="bar secondary" d="M300,274H562.4586666666667A4,4 0 0 1 566.4586666666667,278V279A4,4 0 0 1 562.4586666666667,283H300Z"/>
+<text class="value small" x="572.4586666666667" y="282">2,126</text>
+</g>
+<text class="caption" x="20" y="334">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-16</text>
+</svg>

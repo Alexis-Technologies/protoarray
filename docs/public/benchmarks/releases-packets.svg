@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="385" viewBox="0 0 760 385" role="img" aria-label="100 wrpc packets, release over release. 100 wrpc packets: calls, callbacks and events. stringify and parse, ops/s, linear scale, higher is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #0891b2; }
+  .bar.secondary { fill: #67e8f9; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #22d3ee; }
+    .bar.secondary { fill: #0e7490; }
+  }
+</style>
+<text class="title" x="20" y="35">100 wrpc packets, release over release</text>
+<text class="subtitle" x="20" y="56">100 wrpc packets: calls, callbacks and events. stringify and parse, ops/s, linear scale, higher is better.</text>
+<rect class="bar primary" x="20" y="67" width="10" height="10" rx="2"/>
+<text class="legend" x="35" y="76">encode</text>
+<rect class="bar secondary" x="88.4" y="67" width="10" height="10" rx="2"/>
+<text class="legend" x="103.4" y="76">decode</text>
+<line class="grid" x1="202" y1="93" x2="202" y2="309"/>
+<text class="tick" x="202" y="325" text-anchor="middle">0</text>
+<line class="grid" x1="320.5" y1="93" x2="320.5" y2="309"/>
+<text class="tick" x="320.5" y="325" text-anchor="middle">20k</text>
+<line class="grid" x1="439" y1="93" x2="439" y2="309"/>
+<text class="tick" x="439" y="325" text-anchor="middle">40k</text>
+<line class="grid" x1="557.5" y1="93" x2="557.5" y2="309"/>
+<text class="tick" x="557.5" y="325" text-anchor="middle">60k</text>
+<line class="grid" x1="676" y1="93" x2="676" y2="309"/>
+<text class="tick" x="676" y="325" text-anchor="middle">80k</text>
+<line class="axis" x1="202" y1="93" x2="202" y2="309"/>
+<text class="group" x="20" y="111">GENERATED CODE</text>
+<g><title>1.1.0
+encode 66,846 ops/s · 15 µs
+decode 47,355 ops/s · 21.1 µs</title>
+<text class="label" x="20" y="145">1.1.0</text>
+<path class="bar primary" d="M202,131H594.06255A4,4 0 0 1 598.06255,135V136A4,4 0 0 1 594.06255,140H202Z"/>
+<text class="value small" x="604.06255" y="139">66.8k</text>
+<path class="bar secondary" d="M202,142H478.578375A4,4 0 0 1 482.578375,146V147A4,4 0 0 1 478.578375,151H202Z"/>
+<text class="value small" x="488.578375" y="150">47.4k</text>
+</g>
+<g><title>2.0.0 · this release
+encode 67,609 ops/s · 14.8 µs
+decode 50,608 ops/s · 19.8 µs</title>
+<text class="label" x="20" y="178">2.0.0</text>
+<text class="sublabel" x="20" y="193">this release</text>
+<path class="bar primary" d="M202,171H598.5833250000001A4,4 0 0 1 602.5833250000001,175V176A4,4 0 0 1 598.5833250000001,180H202Z"/>
+<text class="value small" x="608.5833250000001" y="179">67.6k</text>
+<path class="bar secondary" d="M202,182H497.85240000000005A4,4 0 0 1 501.85240000000005,186V187A4,4 0 0 1 497.85240000000005,191H202Z"/>
+<text class="value small" x="507.85240000000005" y="190">50.6k</text>
+</g>
+<text class="group" x="20" y="219">CLOSURES, NO EVAL</text>
+<g><title>1.1.0
+encode 47,769 ops/s · 20.9 µs
+decode 25,973 ops/s · 38.5 µs</title>
+<text class="label" x="20" y="253">1.1.0</text>
+<path class="bar primary" d="M202,239H481.03132500000004A4,4 0 0 1 485.03132500000004,243V244A4,4 0 0 1 481.03132500000004,248H202Z"/>
+<text class="value small" x="491.03132500000004" y="247">47.8k</text>
+<path class="bar secondary" d="M202,250H351.89002500000004A4,4 0 0 1 355.89002500000004,254V255A4,4 0 0 1 351.89002500000004,259H202Z"/>
+<text class="value small" x="361.89002500000004" y="258">26k</text>
+</g>
+<g><title>2.0.0 · this release
+encode 48,056 ops/s · 20.8 µs
+decode 26,817 ops/s · 37.3 µs</title>
+<text class="label" x="20" y="286">2.0.0</text>
+<text class="sublabel" x="20" y="301">this release</text>
+<path class="bar primary" d="M202,279H482.7318A4,4 0 0 1 486.7318,283V284A4,4 0 0 1 482.7318,288H202Z"/>
+<text class="value small" x="492.7318" y="287">48.1k</text>
+<path class="bar secondary" d="M202,290H356.890725A4,4 0 0 1 360.890725,294V295A4,4 0 0 1 356.890725,299H202Z"/>
+<text class="value small" x="366.890725" y="298">26.8k</text>
+</g>
+<text class="caption" x="20" y="350">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
+<text class="caption" x="20" y="366">process · 2026-10-16</text>
+</svg>

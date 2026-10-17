@@ -123,4 +123,6 @@ Same.id === User.id; // true
 - [Optional Fields](/guide/optional-fields) — `null`, defaults, trimming and sparse records.
 - [Schema Evolution](/guide/evolution) — adding fields without breaking older peers.
 - [metaschema and protoarray](/guide/metaschema) — which way to build a schema, and why.
+- [Architecture](/guide/architecture) — from a source to the functions that write and read the wire.
+- [Compared with alternatives](/guide/comparison) — protoarray next to twenty-two serialization libraries.
 - [Migrating from 1.x](/guide/migrating-from-1) — from protoarray's own DSL to metaschema's.

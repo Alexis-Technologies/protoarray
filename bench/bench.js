@@ -133,6 +133,19 @@ const WIDE_FLAGS = {
   perms: { flags: Array.from({ length: 70 }, (_, i) => `n${i}`) },
 };
 const WIDE_FLAGS_OBJECT = { id: 1, perms: { n1: true, n35: true, n69: true } };
+// A record of 128 fields of the types that travel as they are: past 127 keys
+// V8 keeps an object parsed from JSON in dictionary mode, which is where the
+// closures backend's template used to fall off a cliff.
+const WIDE_TYPES = ['string', 'integer', 'boolean', 'number'];
+const WIDE128 = Object.fromEntries(
+  Array.from({ length: 128 }, (_, i) => [`f${String(i).padStart(5, '0')}`, WIDE_TYPES[i % 4]]),
+);
+const WIDE128_OBJECT = Object.fromEntries(
+  Object.keys(WIDE128).map((key, i) => {
+    const type = i % 4;
+    return [key, type === 0 ? `v${i}` : type === 1 ? i : type === 2 ? (i & 1) === 0 : i / 8];
+  }),
+);
 // A record of converted types only: where `stringify: 'auto'` writes the text itself.
 const CONVERTED = {
   id: 'integer',
@@ -314,6 +327,7 @@ const main = async () => {
     ...pairs('money (decimals)', MONEY, {}, MONEY_OBJECT),
     ...pairs('sparse object (3 of 70)', SPARSE70, { sparse: true }, SPARSE70_OBJECT),
     ...pairs('wide flags (70 names)', WIDE_FLAGS, {}, WIDE_FLAGS_OBJECT),
+    ...pairs('wide object (128 fields)', WIDE128, {}, WIDE128_OBJECT),
     // JSON has no bytes: the reference converts with Buffer as an application would.
     [
       'bytes (1 KB): JSON.stringify + base64 (reference)',

@@ -121,7 +121,8 @@ flowchart TB
 The generated code writes array and object literals, so every decoded object has the hidden class
 a literal of the schema's keys would, and the engine keeps the call sites monomorphic. The
 closures compose the same steps without compiling anything; a decoded object starts as a copy of a
-template with the schema's keys, which keeps its hidden class stable too. The two backends are
+template with the schema's keys at their defaults, which keeps its hidden class stable too and
+makes a missing field free. The two backends are
 indistinguishable on the outside: the same wire, the same objects in the same key order and the
 same errors, which a property-based suite checks on random schemas, values and corrupted wires.
 Schema keys reach generated source only as `JSON.stringify(key)`, and generated code gets every

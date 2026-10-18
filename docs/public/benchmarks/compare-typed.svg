@@ -54,14 +54,14 @@ protobufjs@8.8.1, writes bytes</title>
 <text class="value" x="669.1350048505418" y="114">2.92M</text>
 </g>
 <g><title>protoarray · codegen
-2,389,998 ops/s
-418 ns per payload
-×3.73 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+2,376,690 ops/s
+421 ns per payload
+×3.71 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">codegen</text>
-<path class="bar primary" d="M217,141H578.6696933726826A4,4 0 0 1 582.6696933726826,145V151A4,4 0 0 1 578.6696933726826,155H217Z"/>
-<text class="value" x="588.6696933726826" y="154">2.39M</text>
+<path class="bar primary" d="M217,141H576.6335777963482A4,4 0 0 1 580.6335777963482,145V151A4,4 0 0 1 576.6335777963482,155H217Z"/>
+<text class="value" x="586.6335777963482" y="154">2.38M</text>
 </g>
 <g><title>protoarray · standalone module, no eval
 2,340,726 ops/s
@@ -114,14 +114,14 @@ avsc@5.7.9, writes bytes</title>
 <text class="value" x="480.3184815870094" y="354">1.68M</text>
 </g>
 <g><title>protoarray · closures, no eval
-1,652,181 ops/s
-605 ns per payload
-×2.58 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+1,622,603 ops/s
+616 ns per payload
+×2.54 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label secondary" x="20" y="385">protoarray</text>
 <text class="sublabel" x="20" y="400">closures, no eval</text>
-<path class="bar secondary" d="M217,381H465.7836866519317A4,4 0 0 1 469.7836866519317,385V391A4,4 0 0 1 465.7836866519317,395H217Z"/>
-<text class="value" x="475.7836866519317" y="394">1.65M</text>
+<path class="bar secondary" d="M217,381H461.25833007393067A4,4 0 0 1 465.25833007393067,385V391A4,4 0 0 1 461.25833007393067,395H217Z"/>
+<text class="value" x="471.25833007393067" y="394">1.62M</text>
 </g>
 <g><title>msgpackr · pack · unpack
 1,386,649 ops/s
@@ -213,5 +213,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="255.55397735605695" y="754">213k</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="825">2026-10-18</text>
 </svg>

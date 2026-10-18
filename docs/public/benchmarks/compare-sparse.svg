@@ -54,14 +54,14 @@ msgpackr@2.1.0, writes bytes</title>
 <text class="value" x="529.0729548258812" y="114">4M</text>
 </g>
 <g><title>protoarray · codegen
-3,751,781 ops/s
+3,739,715 ops/s
 267 ns per payload
 ×1.37 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">codegen</text>
-<path class="bar primary" d="M217,141H500.01122364220777A4,4 0 0 1 504.01122364220777,145V151A4,4 0 0 1 500.01122364220777,155H217Z"/>
-<text class="value" x="510.01122364220777" y="154">3.75M</text>
+<path class="bar primary" d="M217,141H499.08817325587336A4,4 0 0 1 503.08817325587336,145V151A4,4 0 0 1 499.08817325587336,155H217Z"/>
+<text class="value" x="509.08817325587336" y="154">3.74M</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 3,556,803 ops/s
@@ -132,35 +132,35 @@ bson@7.3.3, writes bytes</title>
 <path class="bar" d="M217,421H352.2261595706545A4,4 0 0 1 356.2261595706545,425V431A4,4 0 0 1 352.2261595706545,435H217Z"/>
 <text class="value" x="362.2261595706545" y="434">1.82M</text>
 </g>
+<g><title>protoarray · closures, no eval
+1,801,438 ops/s
+555 ns per payload
+×0.66 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
+<text class="label secondary" x="20" y="465">protoarray</text>
+<text class="sublabel" x="20" y="480">closures, no eval</text>
+<path class="bar secondary" d="M217,461H350.80999568248643A4,4 0 0 1 354.80999568248643,465V471A4,4 0 0 1 350.80999568248643,475H217Z"/>
+<text class="value" x="360.80999568248643" y="474">1.8M</text>
+</g>
 <g><title>cbor-x · records
 1,651,536 ops/s
 605 ns per payload
 ×0.60 the speed of JSON
 cbor-x@1.6.6, writes bytes</title>
-<text class="label" x="20" y="465">cbor-x</text>
-<text class="sublabel" x="20" y="480">records</text>
-<path class="bar" d="M217,461H339.34249543030086A4,4 0 0 1 343.34249543030086,465V471A4,4 0 0 1 339.34249543030086,475H217Z"/>
-<text class="value" x="349.34249543030086" y="474">1.65M</text>
+<text class="label" x="20" y="505">cbor-x</text>
+<text class="sublabel" x="20" y="520">records</text>
+<path class="bar" d="M217,501H339.34249543030086A4,4 0 0 1 343.34249543030086,505V511A4,4 0 0 1 339.34249543030086,515H217Z"/>
+<text class="value" x="349.34249543030086" y="514">1.65M</text>
 </g>
 <g><title>protoarray · codegen + metaschema check
 1,626,285 ops/s
 615 ns per payload
 ×0.60 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="505">protoarray</text>
-<text class="sublabel" x="20" y="520">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,501H337.4108153103917A4,4 0 0 1 341.4108153103917,505V511A4,4 0 0 1 337.4108153103917,515H217Z"/>
-<text class="value" x="347.4108153103917" y="514">1.63M</text>
-</g>
-<g><title>protoarray · closures, no eval
-1,333,542 ops/s
-750 ns per payload
-×0.49 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
 <text class="label secondary" x="20" y="545">protoarray</text>
-<text class="sublabel" x="20" y="560">closures, no eval</text>
-<path class="bar secondary" d="M217,541H315.01598205533463A4,4 0 0 1 319.01598205533463,545V551A4,4 0 0 1 315.01598205533463,555H217Z"/>
-<text class="value" x="325.01598205533463" y="554">1.33M</text>
+<text class="sublabel" x="20" y="560">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,541H337.4108153103917A4,4 0 0 1 341.4108153103917,545V551A4,4 0 0 1 337.4108153103917,555H217Z"/>
+<text class="value" x="347.4108153103917" y="554">1.63M</text>
 </g>
 <g><title>avsc · Type.forSchema
 1,039,354 ops/s
@@ -213,5 +213,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="271.9160825493596" y="754">639k</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="825">2026-10-18</text>
 </svg>

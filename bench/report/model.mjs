@@ -481,6 +481,7 @@ const ENGINE = [
   { prefix: 'packet (union)', label: 'Tagged union', sublabel: 'a wrpc packet' },
   { prefix: 'money (decimals)', label: 'Money', sublabel: 'decimals' },
   { prefix: 'wide flags (70 names)', label: 'Wide flags', sublabel: '70 names' },
+  { prefix: 'wide object (128 fields)', label: 'Wide object', sublabel: '128 fields' },
   { prefix: 'bytes (1 KB)', label: 'Bytes', sublabel: '1 KB, base64' },
 ];
 

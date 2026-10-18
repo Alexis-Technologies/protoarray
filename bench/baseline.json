@@ -1,518 +1,558 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-16T18:30:33.111Z",
+  "date": "2026-10-18T17:15:58.532Z",
   "results": [
     {
       "name": "flat object (4 fields): JSON.stringify (keyed, reference)",
-      "opsPerSec": 5430865,
+      "opsPerSec": 5378497,
       "spread": 3
     },
     {
       "name": "flat object (4 fields): stringify (codegen)",
-      "opsPerSec": 6754475,
-      "spread": 3
+      "opsPerSec": 6908081,
+      "spread": 1
     },
     {
       "name": "flat object (4 fields): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 4506580,
-      "spread": 1
+      "opsPerSec": 4552530,
+      "spread": 2
     },
     {
       "name": "flat object (4 fields): stringify (closures)",
-      "opsPerSec": 5641119,
-      "spread": 2
-    },
-    {
-      "name": "flat object (4 fields): check (metaschema) + stringify (closures)",
-      "opsPerSec": 3810128,
-      "spread": 7
-    },
-    {
-      "name": "flat object (4 fields): JSON.parse (keyed, reference)",
-      "opsPerSec": 3724096,
-      "spread": 2
-    },
-    {
-      "name": "flat object (4 fields): parse (codegen)",
-      "opsPerSec": 6827288,
-      "spread": 2
-    },
-    {
-      "name": "flat object (4 fields): parse (closures)",
-      "opsPerSec": 4310870,
-      "spread": 2
-    },
-    {
-      "name": "nested object: JSON.stringify (keyed, reference)",
-      "opsPerSec": 1434024,
+      "opsPerSec": 5905135,
       "spread": 1
     },
     {
+      "name": "flat object (4 fields): check (metaschema) + stringify (closures)",
+      "opsPerSec": 4080857,
+      "spread": 4
+    },
+    {
+      "name": "flat object (4 fields): JSON.parse (keyed, reference)",
+      "opsPerSec": 3818097,
+      "spread": 1
+    },
+    {
+      "name": "flat object (4 fields): parse (codegen)",
+      "opsPerSec": 7047625,
+      "spread": 1
+    },
+    {
+      "name": "flat object (4 fields): parse (closures)",
+      "opsPerSec": 4446616,
+      "spread": 1
+    },
+    {
+      "name": "nested object: JSON.stringify (keyed, reference)",
+      "opsPerSec": 1463062,
+      "spread": 2
+    },
+    {
       "name": "nested object: stringify (codegen)",
-      "opsPerSec": 1966355,
+      "opsPerSec": 1973269,
       "spread": 1
     },
     {
       "name": "nested object: check (metaschema) + stringify (codegen)",
-      "opsPerSec": 1055223,
-      "spread": 2
+      "opsPerSec": 1074692,
+      "spread": 1
     },
     {
       "name": "nested object: stringify (closures)",
-      "opsPerSec": 1513275,
-      "spread": 2
+      "opsPerSec": 1566011,
+      "spread": 1
     },
     {
       "name": "nested object: check (metaschema) + stringify (closures)",
-      "opsPerSec": 903182,
+      "opsPerSec": 926735,
       "spread": 1
     },
     {
       "name": "nested object: JSON.parse (keyed, reference)",
-      "opsPerSec": 924816,
+      "opsPerSec": 943705,
       "spread": 1
     },
     {
       "name": "nested object: parse (codegen)",
-      "opsPerSec": 1644326,
+      "opsPerSec": 1657169,
       "spread": 2
     },
     {
       "name": "nested object: parse (closures)",
-      "opsPerSec": 867708,
+      "opsPerSec": 860017,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 20): JSON.stringify (keyed, reference)",
-      "opsPerSec": 6697156,
+      "opsPerSec": 6623864,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 20): stringify (codegen)",
-      "opsPerSec": 6770678,
-      "spread": 2
+      "opsPerSec": 6894832,
+      "spread": 1
     },
     {
       "name": "sparse object (3 of 20): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 2065974,
+      "opsPerSec": 2127174,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 20): stringify (closures)",
-      "opsPerSec": 2653609,
-      "spread": 2
-    },
-    {
-      "name": "sparse object (3 of 20): check (metaschema) + stringify (closures)",
-      "opsPerSec": 1412770,
+      "opsPerSec": 2747115,
       "spread": 1
     },
     {
+      "name": "sparse object (3 of 20): check (metaschema) + stringify (closures)",
+      "opsPerSec": 1468460,
+      "spread": 2
+    },
+    {
       "name": "sparse object (3 of 20): JSON.parse (keyed, reference)",
-      "opsPerSec": 4663739,
+      "opsPerSec": 4554826,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 20): parse (codegen)",
-      "opsPerSec": 7113587,
+      "opsPerSec": 7240902,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 20): parse (closures)",
-      "opsPerSec": 1388388,
+      "opsPerSec": 1699421,
       "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): JSON.stringify (keyed, reference)",
-      "opsPerSec": 2984920,
-      "spread": 2
+      "opsPerSec": 2989570,
+      "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): stringify (codegen)",
-      "opsPerSec": 4631975,
+      "opsPerSec": 4670819,
       "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 2247121,
+      "opsPerSec": 2271656,
       "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): stringify (closures)",
-      "opsPerSec": 3127871,
-      "spread": 2
+      "opsPerSec": 3125463,
+      "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): check (metaschema) + stringify (closures)",
-      "opsPerSec": 1771924,
+      "opsPerSec": 1797984,
       "spread": 1
     },
     {
       "name": "typed object (enum, flags, date): JSON.parse (keyed, reference)",
-      "opsPerSec": 2118376,
-      "spread": 1
-    },
-    {
-      "name": "typed object (enum, flags, date): parse (codegen)",
-      "opsPerSec": 3939181,
+      "opsPerSec": 2122792,
       "spread": 2
     },
     {
+      "name": "typed object (enum, flags, date): parse (codegen)",
+      "opsPerSec": 3996320,
+      "spread": 1
+    },
+    {
       "name": "typed object (enum, flags, date): parse (closures)",
-      "opsPerSec": 2070272,
-      "spread": 3
+      "opsPerSec": 2058430,
+      "spread": 1
     },
     {
       "name": "packet (union): JSON.stringify (keyed, reference)",
-      "opsPerSec": 3617670,
+      "opsPerSec": 3643315,
       "spread": 1
     },
     {
       "name": "packet (union): stringify (codegen)",
-      "opsPerSec": 5089820,
-      "spread": 2
-    },
-    {
-      "name": "packet (union): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 2839513,
-      "spread": 3
-    },
-    {
-      "name": "packet (union): stringify (closures)",
-      "opsPerSec": 3955165,
+      "opsPerSec": 5039237,
       "spread": 1
     },
     {
+      "name": "packet (union): check (metaschema) + stringify (codegen)",
+      "opsPerSec": 2830639,
+      "spread": 2
+    },
+    {
+      "name": "packet (union): stringify (closures)",
+      "opsPerSec": 4046015,
+      "spread": 2
+    },
+    {
       "name": "packet (union): check (metaschema) + stringify (closures)",
-      "opsPerSec": 2326119,
-      "spread": 4
+      "opsPerSec": 2348300,
+      "spread": 3
     },
     {
       "name": "packet (union): JSON.parse (keyed, reference)",
-      "opsPerSec": 2195014,
+      "opsPerSec": 2265030,
       "spread": 1
     },
     {
       "name": "packet (union): parse (codegen)",
-      "opsPerSec": 4242250,
-      "spread": 2
+      "opsPerSec": 4227193,
+      "spread": 1
     },
     {
       "name": "packet (union): parse (closures)",
-      "opsPerSec": 2283962,
-      "spread": 2
+      "opsPerSec": 2294634,
+      "spread": 1
     },
     {
       "name": "money (decimals): JSON.stringify (keyed, reference)",
-      "opsPerSec": 4872723,
+      "opsPerSec": 4886993,
       "spread": 1
     },
     {
       "name": "money (decimals): stringify (codegen)",
-      "opsPerSec": 9889055,
+      "opsPerSec": 10050521,
       "spread": 1
     },
     {
       "name": "money (decimals): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 5171320,
-      "spread": 1
+      "opsPerSec": 5208550,
+      "spread": 2
     },
     {
       "name": "money (decimals): stringify (closures)",
-      "opsPerSec": 6088127,
+      "opsPerSec": 6119243,
       "spread": 1
     },
     {
       "name": "money (decimals): check (metaschema) + stringify (closures)",
-      "opsPerSec": 3807913,
+      "opsPerSec": 3803160,
       "spread": 2
     },
     {
       "name": "money (decimals): JSON.parse (keyed, reference)",
-      "opsPerSec": 4119858,
+      "opsPerSec": 4114398,
       "spread": 1
     },
     {
       "name": "money (decimals): parse (codegen)",
-      "opsPerSec": 8957765,
-      "spread": 0
-    },
-    {
-      "name": "money (decimals): parse (closures)",
-      "opsPerSec": 4705833,
+      "opsPerSec": 8991095,
       "spread": 2
     },
     {
+      "name": "money (decimals): parse (closures)",
+      "opsPerSec": 4754161,
+      "spread": 1
+    },
+    {
       "name": "sparse object (3 of 70): JSON.stringify (keyed, reference)",
-      "opsPerSec": 6642989,
+      "opsPerSec": 6625070,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 70): stringify (codegen)",
-      "opsPerSec": 6194428,
+      "opsPerSec": 6256542,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 70): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 764247,
-      "spread": 0
+      "opsPerSec": 802355,
+      "spread": 1
     },
     {
       "name": "sparse object (3 of 70): stringify (closures)",
-      "opsPerSec": 969898,
+      "opsPerSec": 1113692,
       "spread": 1
     },
     {
       "name": "sparse object (3 of 70): check (metaschema) + stringify (closures)",
-      "opsPerSec": 464778,
-      "spread": 2
+      "opsPerSec": 501186,
+      "spread": 0
     },
     {
       "name": "sparse object (3 of 70): JSON.parse (keyed, reference)",
-      "opsPerSec": 4628758,
-      "spread": 2
+      "opsPerSec": 4566282,
+      "spread": 1
     },
     {
       "name": "sparse object (3 of 70): parse (codegen)",
-      "opsPerSec": 5048858,
-      "spread": 2
+      "opsPerSec": 5086982,
+      "spread": 1
     },
     {
       "name": "sparse object (3 of 70): parse (closures)",
-      "opsPerSec": 324960,
+      "opsPerSec": 465381,
       "spread": 1
     },
     {
       "name": "wide flags (70 names): JSON.stringify (keyed, reference)",
-      "opsPerSec": 5180605,
-      "spread": 2
-    },
-    {
-      "name": "wide flags (70 names): stringify (codegen)",
-      "opsPerSec": 1328518,
+      "opsPerSec": 5138144,
       "spread": 1
     },
     {
+      "name": "wide flags (70 names): stringify (codegen)",
+      "opsPerSec": 1313851,
+      "spread": 2
+    },
+    {
       "name": "wide flags (70 names): check (metaschema) + stringify (codegen)",
-      "opsPerSec": 1108638,
+      "opsPerSec": 1109344,
       "spread": 1
     },
     {
       "name": "wide flags (70 names): stringify (closures)",
-      "opsPerSec": 1131079,
+      "opsPerSec": 1104338,
       "spread": 1
     },
     {
       "name": "wide flags (70 names): check (metaschema) + stringify (closures)",
-      "opsPerSec": 955889,
+      "opsPerSec": 946163,
       "spread": 1
     },
     {
       "name": "wide flags (70 names): JSON.parse (keyed, reference)",
-      "opsPerSec": 3234115,
+      "opsPerSec": 3293230,
       "spread": 1
     },
     {
       "name": "wide flags (70 names): parse (codegen)",
-      "opsPerSec": 615841,
-      "spread": 1
+      "opsPerSec": 2885873,
+      "spread": 2
     },
     {
       "name": "wide flags (70 names): parse (closures)",
-      "opsPerSec": 559861,
+      "opsPerSec": 2178617,
+      "spread": 1
+    },
+    {
+      "name": "wide object (128 fields): JSON.stringify (keyed, reference)",
+      "opsPerSec": 210927,
+      "spread": 2
+    },
+    {
+      "name": "wide object (128 fields): stringify (codegen)",
+      "opsPerSec": 367373,
+      "spread": 2
+    },
+    {
+      "name": "wide object (128 fields): check (metaschema) + stringify (codegen)",
+      "opsPerSec": 152565,
+      "spread": 1
+    },
+    {
+      "name": "wide object (128 fields): stringify (closures)",
+      "opsPerSec": 184771,
+      "spread": 1
+    },
+    {
+      "name": "wide object (128 fields): check (metaschema) + stringify (closures)",
+      "opsPerSec": 107704,
+      "spread": 1
+    },
+    {
+      "name": "wide object (128 fields): JSON.parse (keyed, reference)",
+      "opsPerSec": 76468,
+      "spread": 2
+    },
+    {
+      "name": "wide object (128 fields): parse (codegen)",
+      "opsPerSec": 319416,
+      "spread": 1
+    },
+    {
+      "name": "wide object (128 fields): parse (closures)",
+      "opsPerSec": 98991,
       "spread": 2
     },
     {
       "name": "bytes (1 KB): JSON.stringify + base64 (reference)",
-      "opsPerSec": 990286,
+      "opsPerSec": 1001593,
       "spread": 1
     },
     {
       "name": "bytes (1 KB): stringify (codegen)",
-      "opsPerSec": 1090504,
-      "spread": 1
+      "opsPerSec": 1089536,
+      "spread": 3
     },
     {
       "name": "bytes (1 KB): stringify (closures)",
-      "opsPerSec": 1044250,
-      "spread": 1
+      "opsPerSec": 1030871,
+      "spread": 2
     },
     {
       "name": "bytes (1 KB): JSON.parse + base64 (reference)",
-      "opsPerSec": 975737,
+      "opsPerSec": 975818,
       "spread": 1
     },
     {
       "name": "bytes (1 KB): parse (codegen)",
-      "opsPerSec": 722131,
-      "spread": 1
+      "opsPerSec": 712790,
+      "spread": 2
     },
     {
       "name": "bytes (1 KB): parse (closures)",
-      "opsPerSec": 678094,
-      "spread": 1
+      "opsPerSec": 679373,
+      "spread": 2
     },
     {
       "name": "bytes (1 KB): parse (codegen, validate: false)",
-      "opsPerSec": 720426,
-      "spread": 2
-    },
-    {
-      "name": "flat object (4 fields): stringify (codegen, validate: false)",
-      "opsPerSec": 7020952,
+      "opsPerSec": 717336,
       "spread": 1
     },
     {
-      "name": "1000 records: JSON.stringify (keyed, reference)",
-      "opsPerSec": 1713,
+      "name": "flat object (4 fields): stringify (codegen, validate: false)",
+      "opsPerSec": 7204373,
       "spread": 2
     },
     {
+      "name": "1000 records: JSON.stringify (keyed, reference)",
+      "opsPerSec": 1665,
+      "spread": 3
+    },
+    {
       "name": "1000 records: stringify (rows)",
-      "opsPerSec": 2247,
+      "opsPerSec": 2229,
       "spread": 1
     },
     {
       "name": "1000 records: stringify (flat)",
-      "opsPerSec": 2113,
-      "spread": 1
+      "opsPerSec": 2073,
+      "spread": 2
     },
     {
       "name": "1000 records: stringify (columns)",
-      "opsPerSec": 2217,
-      "spread": 0
+      "opsPerSec": 2187,
+      "spread": 1
     },
     {
       "name": "1000 records: JSON.parse (keyed, reference)",
-      "opsPerSec": 1247,
+      "opsPerSec": 1255,
       "spread": 1
     },
     {
       "name": "1000 records: parse (rows)",
-      "opsPerSec": 2002,
+      "opsPerSec": 1939,
       "spread": 3
     },
     {
       "name": "1000 records: parse (flat)",
-      "opsPerSec": 1979,
-      "spread": 2
+      "opsPerSec": 1978,
+      "spread": 1
     },
     {
       "name": "1000 records: parse (columns)",
-      "opsPerSec": 1980,
-      "spread": 2
+      "opsPerSec": 1964,
+      "spread": 1
     },
     {
       "name": "converted record: stringify + read (codegen, stringify: auto, the builder)",
-      "opsPerSec": 6333762,
-      "spread": 4
+      "opsPerSec": 6455159,
+      "spread": 2
     },
     {
       "name": "converted record: stringify + read (codegen, stringify: native)",
-      "opsPerSec": 5296090,
-      "spread": 4
+      "opsPerSec": 5219837,
+      "spread": 2
     },
     {
       "name": "nested object: stringify + read (codegen, stringify: builder)",
-      "opsPerSec": 1611449,
-      "spread": 5
+      "opsPerSec": 1550892,
+      "spread": 2
     },
     {
       "name": "nested object: stringify + read (codegen, stringify: native)",
-      "opsPerSec": 2147727,
+      "opsPerSec": 2146294,
       "spread": 2
     },
     {
       "name": "typed object (enum, flags, date): stringify + read (codegen, stringify: builder)",
-      "opsPerSec": 4954673,
-      "spread": 2
+      "opsPerSec": 4994942,
+      "spread": 1
     },
     {
       "name": "resolved (renamed, defaulted): parse (codegen)",
-      "opsPerSec": 7080495,
+      "opsPerSec": 6980321,
       "spread": 1
     },
     {
       "name": "resolved (renamed, defaulted): stringify (codegen)",
-      "opsPerSec": 3711297,
+      "opsPerSec": 3604992,
       "spread": 3
     },
     {
       "name": "1000 records: stringify (columns, delta + intern)",
-      "opsPerSec": 2347,
+      "opsPerSec": 2350,
       "spread": 1
     },
     {
       "name": "1000 records: parse (columns, delta + intern)",
-      "opsPerSec": 2126,
+      "opsPerSec": 2075,
       "spread": 1
     },
     {
       "name": "nested object: stringify (standalone, inline)",
-      "opsPerSec": 2152445,
+      "opsPerSec": 2148499,
       "spread": 1
     },
     {
       "name": "nested object: parse (standalone, inline)",
-      "opsPerSec": 1732828,
+      "opsPerSec": 1707463,
       "spread": 1
     },
     {
       "name": "Schema.from (nested definition, codegen)",
-      "opsPerSec": 15786,
-      "spread": 5
+      "opsPerSec": 15544,
+      "spread": 3
     },
     {
       "name": "Schema.from (nested definition, closures)",
-      "opsPerSec": 26081,
-      "spread": 6
+      "opsPerSec": 23804,
+      "spread": 7
     },
     {
       "name": "Schema.from (nested snapshot, codegen)",
-      "opsPerSec": 27978,
-      "spread": 1
+      "opsPerSec": 27583,
+      "spread": 3
     },
     {
       "name": "1000 records: parseItems (stream, 64 KB chunks)",
-      "opsPerSec": 885,
-      "spread": 2
+      "opsPerSec": 859,
+      "spread": 1
     },
     {
       "name": "1000 records: parse (rows, whole text)",
-      "opsPerSec": 2011,
+      "opsPerSec": 1945,
       "spread": 1
     }
   ],
   "coldStart": [
     {
       "name": "nested object (codegen)",
-      "requireMs": 12.618166,
-      "buildMs": 4.004040999999997,
-      "firstCallMs": 0.23387500000000117
+      "requireMs": 12.701958999999999,
+      "buildMs": 4.068999999999999,
+      "firstCallMs": 0.24329099999999926
     },
     {
       "name": "nested object (closures)",
-      "requireMs": 12.773834,
-      "buildMs": 3.543458000000001,
-      "firstCallMs": 0.22595900000000313
+      "requireMs": 13.003459000000001,
+      "buildMs": 3.667375,
+      "firstCallMs": 0.24054200000000492
     },
     {
       "name": "packet (union, codegen)",
-      "requireMs": 12.534333,
-      "buildMs": 4.189916,
-      "firstCallMs": 0.15812500000000185
+      "requireMs": 12.572125,
+      "buildMs": 4.212750000000003,
+      "firstCallMs": 0.1600830000000002
     },
     {
       "name": "sparse object (70 fields, codegen)",
-      "requireMs": 12.399542,
-      "buildMs": 4.313458999999998,
-      "firstCallMs": 0.4432919999999996
+      "requireMs": 12.679124999999999,
+      "buildMs": 4.345458000000001,
+      "firstCallMs": 0.4432079999999985
     },
     {
       "name": "nested object (snapshot, codegen)",
-      "requireMs": 4.472791000000001,
-      "buildMs": 2.6734159999999996,
-      "firstCallMs": 0.23874999999999957
+      "requireMs": 4.5177499999999995,
+      "buildMs": 2.7060829999999996,
+      "firstCallMs": 0.23887500000000017
     }
   ]
 }

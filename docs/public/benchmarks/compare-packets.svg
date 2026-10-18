@@ -44,14 +44,14 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="728"/>
 <line class="ref" x1="468.6126730933737" y1="88" x2="468.6126730933737" y2="728"/>
 <g><title>protoarray · codegen
-28,327 ops/s
-35.3 µs per payload
-×1.72 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+28,520 ops/s
+35.1 µs per payload
+×1.73 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">codegen</text>
-<path class="bar primary" d="M217,101H646.4088676174598A4,4 0 0 1 650.4088676174598,105V111A4,4 0 0 1 646.4088676174598,115H217Z"/>
-<text class="value" x="656.4088676174598" y="114">28.3k</text>
+<path class="bar primary" d="M217,101H649.3552565314678A4,4 0 0 1 653.3552565314678,105V111A4,4 0 0 1 649.3552565314678,115H217Z"/>
+<text class="value" x="659.3552565314678" y="114">28.5k</text>
 </g>
 <g><title>protoarray · standalone module, no eval
 27,540 ops/s
@@ -84,14 +84,14 @@ msgpackr@2.1.0, writes bytes</title>
 <text class="value" x="531.8358427296162" y="234">20.2k</text>
 </g>
 <g><title>protoarray · closures, no eval
-17,197 ops/s
-58.1 µs per payload
-×1.05 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+16,648 ops/s
+60.1 µs per payload
+×1.01 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label secondary" x="20" y="265">protoarray</text>
 <text class="sublabel" x="20" y="280">closures, no eval</text>
-<path class="bar secondary" d="M217,261H476.1140393003126A4,4 0 0 1 480.1140393003126,265V271A4,4 0 0 1 476.1140393003126,275H217Z"/>
-<text class="value" x="486.1140393003126" y="274">17.2k</text>
+<path class="bar secondary" d="M217,261H467.71015559004945A4,4 0 0 1 471.71015559004945,265V271A4,4 0 0 1 467.71015559004945,275H217Z"/>
+<text class="value" x="477.71015559004945" y="274">16.6k</text>
 </g>
 <g><title>JSON · stringify · parse
 16,445 ops/s
@@ -203,5 +203,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="278.3122492355169" y="714">3,615</text>
 </g>
 <text class="caption" x="20" y="769">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="785">2026-10-16</text>
+<text class="caption" x="20" y="785">2026-10-18</text>
 </svg>

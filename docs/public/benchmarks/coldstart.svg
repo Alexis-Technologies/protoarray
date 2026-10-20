@@ -156,7 +156,7 @@ avsc@5.7.9</title>
 15.7 ms in total
 load 11.6 ms · build 3.8 ms
 first encode 0.11 ms · first decode 0.17 ms
-@alexify/protoarray@2.0.0 (72941bf)</title>
+@alexify/protoarray@2.0.0 (2ad6ede)</title>
 <text class="label secondary" x="20" y="545">protoarray</text>
 <text class="sublabel" x="20" y="560">closures, no eval</text>
 <path class="bar secondary" d="M217,541H452.73569999999995A4,4 0 0 1 456.73569999999995,545V551A4,4 0 0 1 452.73569999999995,555H217Z"/>
@@ -176,7 +176,7 @@ protobufjs@8.8.1</title>
 16.5 ms in total
 load 11.7 ms · build 4.5 ms
 first encode 0.14 ms · first decode 0.16 ms
-@alexify/protoarray@2.0.0 (72941bf)</title>
+@alexify/protoarray@2.0.0 (2ad6ede)</title>
 <text class="label secondary" x="20" y="625">protoarray</text>
 <text class="sublabel" x="20" y="640">codegen</text>
 <path class="bar secondary" d="M217,621H464.71560000000005A4,4 0 0 1 468.71560000000005,625V631A4,4 0 0 1 464.71560000000005,635H217Z"/>
@@ -212,5 +212,5 @@ first encode 0.80 ms · first decode 0.06 ms
 <path class="bar" d="M217,741H609.1629A4,4 0 0 1 613.1629,745V751A4,4 0 0 1 609.1629,755H217Z"/>
 <text class="value" x="619.1629" y="754">26 ms</text>
 </g>
-<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · 2026-10-18</text>
+<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · 2026-10-20</text>
 </svg>

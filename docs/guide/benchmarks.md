@@ -49,8 +49,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,393,246 (×1.00) | 970,015 (×1.00) | 266 | 212 | 178 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 2,060,585 (×1.48) | 1,721,172 (×1.77) | 135 | 134 | 110 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,565,372 (×1.12) | 1,052,962 (×1.09) | 135 | 134 | 110 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 2,075,360 (×1.49) | 1,714,176 (×1.77) | 135 | 134 | 110 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,552,418 (×1.11) | 1,065,721 (×1.10) | 135 | 134 | 110 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 2,038,604 (×1.46) | 1,606,745 (×1.66) | 135 | 134 | 110 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,148,641 (×0.82) | 1,723,478 (×1.78) | 135 | 134 | 110 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 2,250,702 (×1.62) | 1,975,521 (×2.04) | 125 | 128 | 120 |
@@ -72,8 +72,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,466 (×1.00) | 891 (×1.00) | 271,215 | 33,793 | 29,133 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 1,978 (×1.35) | 1,482 (×1.66) | 140,738 | 30,666 | 26,946 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,424 (×0.97) | 965 (×1.08) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 2,002 (×1.37) | 1,463 (×1.64) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,432 (×0.98) | 974 (×1.09) | 140,738 | 30,666 | 26,946 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1,992 (×1.36) | 1,471 (×1.65) | 140,738 | 30,666 | 26,946 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,090 (×0.74) | 1,462 (×1.64) | 140,738 | 30,666 | 26,946 |
 | **protoarray**<br><sub>columns layout · v2.0.0</sub> | 2,059 (×1.40) | 1,535 (×1.72) | 138,758 | 27,412 | 21,053 |
@@ -97,8 +97,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 6,800,381 (×1.00) | 4,562,955 (×1.00) | 33 | 53 | 36 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 7,410,265 (×1.09) | 7,549,897 (×1.65) | 23 | 43 | 27 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,233,774 (×0.48) | 4,067,092 (×0.89) | 23 | 43 | 27 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 7,293,917 (×1.07) | 7,592,074 (×1.66) | 23 | 43 | 27 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,363,686 (×0.49) | 4,230,746 (×0.93) | 23 | 43 | 27 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 6,712,097 (×0.99) | 7,171,599 (×1.57) | 23 | 43 | 27 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 2,089,158 (×0.31) | 7,340,173 (×1.61) | 23 | 43 | 27 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 12,291,110 (×1.81) | 7,879,352 (×1.73) | 18 | 34 | 22 |
@@ -120,8 +120,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 821,191 (×1.00) | 2,898,740 (×1.00) | 123 | 120 | 94 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 4,677,198 (×5.70) | 4,832,085 (×1.67) | 36 | 46 | 36 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,518,242 (×4.28) | 3,011,498 (×1.04) | 36 | 46 | 36 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 4,754,490 (×5.79) | 4,833,543 (×1.67) | 36 | 46 | 36 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,594,105 (×4.38) | 3,173,728 (×1.09) | 36 | 46 | 36 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 4,666,737 (×5.68) | 4,696,261 (×1.62) | 36 | 46 | 36 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 2,803,310 (×3.41) | 4,851,985 (×1.67) | 36 | 46 | 36 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 6,636,444 (×8.08) | 6,594,808 (×2.28) | 26 | 38 | 30 |
@@ -143,8 +143,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,557,669 (×1.00) | 1,335,778 (×1.00) | 816 | 266 | 229 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 1,824,978 (×1.17) | 1,730,970 (×1.30) | 785 | 230 | 207 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,719,394 (×1.10) | 1,589,045 (×1.19) | 785 | 230 | 207 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 1,841,409 (×1.18) | 1,722,754 (×1.29) | 785 | 230 | 207 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,753,548 (×1.13) | 1,597,016 (×1.20) | 785 | 230 | 207 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1,758,113 (×1.13) | 1,674,028 (×1.25) | 785 | 230 | 207 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,548,540 (×0.99) | 1,693,591 (×1.27) | 785 | 230 | 207 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 1,849,724 (×1.19) | 2,276,200 (×1.70) | 821 | 265 | 247 |
@@ -166,8 +166,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 51,915 (×1.00) | 24,070 (×1.00) | 8,834 | 852 | 630 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 66,967 (×1.29) | 49,676 (×2.06) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 47,938 (×0.92) | 25,505 (×1.06) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 67,758 (×1.31) | 49,394 (×2.05) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 48,225 (×0.93) | 25,649 (×1.07) | 4,332 | 685 | 501 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 65,648 (×1.26) | 47,442 (×1.97) | 4,332 | 685 | 501 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 33,902 (×0.65) | 49,890 (×2.07) | 4,332 | 685 | 501 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 110,336 (×2.13) | 68,447 (×2.84) | 3,064 | 656 | 540 |
@@ -188,8 +188,8 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 323,242 (×1.00) | 483,381 (×1.00) | 764 | 406 | 392 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 396,687 (×1.23) | 729,668 (×1.51) | 582 | 309 | 295 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 369,242 (×1.14) | 558,993 (×1.16) | 582 | 309 | 295 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 432,744 (×1.34) | 742,205 (×1.54) | 582 | 309 | 295 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 375,124 (×1.16) | 578,897 (×1.20) | 582 | 309 | 295 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 404,218 (×1.25) | 731,900 (×1.51) | 582 | 309 | 295 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 336,196 (×1.04) | 737,943 (×1.53) | 582 | 309 | 295 |
 | **protoarray**<br><sub>binary wire · v2.0.0</sub> | 2,492,508 (×7.71) | 5,009,602 (×10.36) | 260 | 283 | 262 |
@@ -206,7 +206,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 230,286 (×0.71) | 265,668 (×0.55) | 853 | 454 | 443 |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 2,243,379 (×6.94) | 479,670 (×0.99) | 764 | 406 | 392 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-18. Medians; (×n) against JSON; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5. The spread of the rounds is in bench/results/compare.json._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-20. Medians; (×n) against JSON; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5. The spread of the rounds is in bench/results/compare.json._
 
 </details>
 

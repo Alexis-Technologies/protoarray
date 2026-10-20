@@ -54,14 +54,14 @@
 <text class="value" x="535.2608611435402" y="114">1.02M</text>
 </g>
 <g><title>protoarray · codegen
-875,763 ops/s
-1.14 µs per payload
-×1.22 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+890,053 ops/s
+1.12 µs per payload
+×1.24 the speed of JSON
+@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
 <text class="label primary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">codegen</text>
-<path class="bar primary" d="M217,141H480.98335090644304A4,4 0 0 1 484.98335090644304,145V151A4,4 0 0 1 480.98335090644304,155H217Z"/>
-<text class="value" x="490.98335090644304" y="154">876k</text>
+<path class="bar primary" d="M217,141H485.35628236927323A4,4 0 0 1 489.35628236927323,145V151A4,4 0 0 1 485.35628236927323,155H217Z"/>
+<text class="value" x="495.35628236927323" y="154">890k</text>
 </g>
 <g><title>protoarray · standalone module, no eval
 857,520 ops/s
@@ -73,25 +73,25 @@
 <path class="bar secondary" d="M217,181H475.40119478896236A4,4 0 0 1 479.40119478896236,185V191A4,4 0 0 1 475.40119478896236,195H217Z"/>
 <text class="value" x="485.40119478896236" y="194">858k</text>
 </g>
+<g><title>protoarray · closures, no eval
+835,813 ops/s
+1.2 µs per payload
+×1.16 the speed of JSON
+@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+<text class="label secondary" x="20" y="225">protoarray</text>
+<text class="sublabel" x="20" y="240">closures, no eval</text>
+<path class="bar secondary" d="M217,221H468.75871080421325A4,4 0 0 1 472.75871080421325,225V231A4,4 0 0 1 468.75871080421325,235H217Z"/>
+<text class="value" x="478.75871080421325" y="234">836k</text>
+</g>
 <g><title>protoarray · codegen + metaschema check
 808,910 ops/s
 1.24 µs per payload
 ×1.12 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="225">protoarray</text>
-<text class="sublabel" x="20" y="240">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,221H460.52657513988174A4,4 0 0 1 464.52657513988174,225V231A4,4 0 0 1 460.52657513988174,235H217Z"/>
-<text class="value" x="470.52657513988174" y="234">809k</text>
-</g>
-<g><title>protoarray · closures, no eval
-806,654 ops/s
-1.24 µs per payload
-×1.12 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
 <text class="label secondary" x="20" y="265">protoarray</text>
-<text class="sublabel" x="20" y="280">closures, no eval</text>
-<path class="bar secondary" d="M217,261H459.83599590131143A4,4 0 0 1 463.83599590131143,265V271A4,4 0 0 1 459.83599590131143,275H217Z"/>
-<text class="value" x="469.83599590131143" y="274">807k</text>
+<text class="sublabel" x="20" y="280">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,261H460.52657513988174A4,4 0 0 1 464.52657513988174,265V271A4,4 0 0 1 460.52657513988174,275H217Z"/>
+<text class="value" x="470.52657513988174" y="274">809k</text>
 </g>
 <g><title>JSON · stringify · parse
 719,108 ops/s
@@ -223,5 +223,5 @@ msgpackr@2.1.0, writes bytes</title>
 <text class="value" x="274.9639796161633" y="794">170k</text>
 </g>
 <text class="caption" x="20" y="849">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="865">2026-10-18</text>
+<text class="caption" x="20" y="865">2026-10-20</text>
 </svg>

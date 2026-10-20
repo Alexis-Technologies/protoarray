@@ -23,7 +23,8 @@ bundle them:
 The package also installs a `protoarray` command: `protoarray compile <module>` (see
 [Standalone Modules](/guide/standalone#protoarray-compile)), `protoarray snapshot <module>` and
 `protoarray check <module> --against <baseline.json>` (see
-[Checking it in CI](/guide/evolution#checking-it-in-ci)). None of it requires
+[Checking it in CI](/guide/evolution#checking-it-in-ci); exit codes 0 done or compatible, 1
+incompatible, 2 a wrong command line, 3 the module or the baseline could not be used). None of it requires
 `@alexify/metaschema`; schemas are built from what metaschema writes (see
 [Defining a Schema](/guide/schema)).
 
@@ -153,7 +154,7 @@ import { compatible, baseline, restore, register } from '@alexify/protoarray/evo
 
 function compatible(previous: AnySchema, next: AnySchema, options?: CompatibleOptions): Compatibility;
 function baseline(schemas: Readonly<Record<string, AnySchema>>): Baseline;
-function restore(baseline: Baseline): Readonly<Record<string, Schema>>;
+function restore(source: unknown): Readonly<Record<string, Schema>>;
 function register(): void; // installs Schema.compatible
 
 interface CompatibleOptions { strict?: boolean }  // a warning fails the check too
@@ -161,14 +162,23 @@ interface Compatibility { ok: boolean; problems: readonly Problem[] }
 interface Problem {
   path: string;        // as the errors spell it: 'address.city', 'orders[].sku', '' for the root
   rule: Rule;          // 'inserted' | 'moved' | 'removed' | 'renamed' | 'required' | 'retired' | 'type'
-                       // | 'optional' | 'appended' | 'wire' | 'flat' | 'default'
+                       // | 'optional' | 'appended' | 'wire' | 'flat' | 'default' | 'fingerprint'
   severity: Severity;  // 'error' | 'warning' | 'info'
   message: string;
-  previous?: string;   // the canonical form of the node in `previous`, where there is one
+  previous?: string;   // the canonical form of the node in `previous`, where there is one (once
+                       // per place for the values of an enum, flags or a union)
   next?: string;       // the same in `next`
 }
-interface Baseline { format: 1; snapshots: readonly Snapshot[]; schemas: Readonly<Record<string, BaselineEntry>> }
-interface BaselineEntry { snapshot: number; entity: string; options: BaselineOptions; canonical: string; id: string }
+interface Baseline {
+  format: 1;
+  generator?: string;  // the protoarray that wrote it, '@alexify/protoarray@2.1.0'; not checked
+  snapshots: readonly Snapshot[];
+  schemas: Readonly<Record<string, BaselineEntry>>;  // sorted by name
+}
+interface BaselineEntry {
+  snapshot: number; entity: string; options: BaselineOptions;
+  canonical: string; signature: string; id: string;  // checked by restore
+}
 ```
 
 Whether `next` reads what `previous` writes by position, with every rule a change breaks;
@@ -180,7 +190,7 @@ Whether `next` reads what `previous` writes by position, with every rule a chang
 ```ts
 class SchemaDefinitionError extends TypeError { code: SchemaErrorCode; schema: string; field: string }
 class EncodeError extends TypeError { code: EncodeErrorCode; path: string; schema: string }
-class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown }
+class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown; offset?: number }
 ```
 
 ## Types

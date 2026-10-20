@@ -24,7 +24,8 @@ export type Rule =
   | 'appended'
   | 'wire'
   | 'flat'
-  | 'default';
+  | 'default'
+  | 'fingerprint';
 
 export interface Problem {
   /** The place, as the errors spell it (`address.city`, `orders[].sku`, `''` for the root). */
@@ -32,9 +33,13 @@ export interface Problem {
   readonly rule: Rule;
   readonly severity: Severity;
   readonly message: string;
-  /** The canonical form of the node in the previous version, where there is one. */
+  /**
+   * The canonical form of the node in the previous version, where there is one; for the values
+   * of an enum, the names of flags or the values of a union, with the first problem of the place
+   * only (every problem of a wide enum would otherwise carry the whole enum).
+   */
   readonly previous?: string;
-  /** The canonical form of the node in the next version, where there is one. */
+  /** The canonical form of the node in the next version, where there is one, likewise. */
   readonly next?: string;
 }
 
@@ -74,12 +79,20 @@ export interface BaselineEntry {
   readonly options: BaselineOptions;
   /** The canonical form the schema was written with: `restore` checks it. */
   readonly canonical: string;
+  /**
+   * The signature the schema was written with: its canonical form, then `;Name=<canonical>` for
+   * every entity it reaches. `restore` checks it, so a reached entity is held too, whatever the
+   * fingerprint.
+   */
+  readonly signature: string;
   readonly id: string;
 }
 
-/** What `baseline` writes and `restore` reads: plain JSON. */
+/** What `baseline` writes and `restore` reads: plain JSON. The schemas are sorted by name. */
 export interface Baseline {
   readonly format: 1;
+  /** The version of protoarray that wrote it (`@alexify/protoarray@2.1.0`); not checked. */
+  readonly generator?: string;
   /** Each snapshot once, however many schemas share it. */
   readonly snapshots: readonly Snapshot[];
   readonly schemas: Readonly<Record<string, BaselineEntry>>;
@@ -88,9 +101,10 @@ export interface Baseline {
 /**
  * Whether `next` reads what `previous` writes, and writes what it reads, by position: the two
  * plans walked together, every place where the newer version reads an older payload differently
- * reported with the rule it breaks. Throws `ERR_SCHEMA_EXPECTED` for anything but a schema of its
- * own (a resolved schema is no version), `ERR_INCOMPATIBLE` for a chain of references too long
- * for the stack.
+ * reported with the rule it breaks; two versions hashed with different fingerprints are told
+ * apart (`fingerprint`, info), since their ids are not comparable. Throws `ERR_SCHEMA_EXPECTED`
+ * for anything but a schema of its own (a resolved schema is no version), `ERR_INCOMPATIBLE` for
+ * a chain of references too long for the stack.
  */
 export function compatible(
   previous: AnySchema,
@@ -106,10 +120,13 @@ export function compatible(
 export function baseline(schemas: Readonly<Record<string, AnySchema>>): Baseline;
 
 /**
- * The schemas of a baseline, built again and checked against the canonical form each was written
- * with (`ERR_INVALID_SNAPSHOT` when one does not rebuild to it: write the baseline again).
+ * The schemas of a baseline (the parsed JSON, checked here: anything else is
+ * `ERR_INVALID_SNAPSHOT`), built again and held to the canonical form, the signature and the id
+ * each was written with (`ERR_INVALID_SNAPSHOT`, naming what differs with both values: another
+ * version of protoarray wrote the baseline, or it was edited). Only the options of the wire are
+ * taken from a baseline.
  */
-export function restore(baseline: Baseline): Readonly<Record<string, Schema>>;
+export function restore(source: unknown): Readonly<Record<string, Schema>>;
 
 /** Installs `Schema.compatible`. Once per process. */
 export function register(): void;

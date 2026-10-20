@@ -150,16 +150,21 @@ sees it. `register()` from the same subpath installs it as `Schema.compatible(pr
 | `removed` | error | one the new version does not have, or fewer positions | 1, 3 |
 | `renamed` | info | a key, a value or an entity under another name at the same place, the old one nowhere else | 1 |
 | `required` | error | a field or an element appended as required without a default; an optional one now required | 2 |
-| `retired` | info | a slot that now takes anything (`?any`, `json`); **warning** when it takes only `null`, which a validating decoder holds older writers to | 3 |
+| `retired` | warning | a slot that now takes anything (`?any`, `json`) or only `null`: a validating decoder on either side holds the slot to what it took before, so readers deploy before writers | 3 |
 | `type` | error | another type or form: `integer` for `number`, an enum for a string, `decimals` changed, a record for an id, a Set for an array, a map keyed otherwise, a union on another discriminator | 4, 7 |
-| `optional` | info | a required slot now optional | 4 |
+| `optional` | warning | a required slot now optional: the newer version may write a `null` an older validating reader refuses, so readers deploy before writers | 4 |
 | `appended` | warning | an enum value, a flag name or a union value appended: deploy decoders before encoders | 4, 5 |
 | `wire` | error | `sparse`, a `layout`, `delta` or `intern` switched at a place | 6 |
 | `flat` | error | the record of a `flat` collection has another number of fields, optional or not | Nested records |
 | `default` | warning | a default added, removed or changed: an empty slot in older payloads decodes differently | 2 |
+| `fingerprint` | info | the two versions hash their ids differently (`fnv1a32` against `fnv1a64`, or a function of your own): the ids are not comparable, which a handshake must know | — |
 
 Fields, tuple elements, enum values, flag names and a union's values compare by position, and
-references by the entity they reach, once per pair of entities (a recursion included). A stored
+references by the entity they reach, once per pair of entities (a recursion included); a record
+written in place in one version and reached by a reference in the other is the same wire, noted
+as `renamed`. A field that moved is compared where it stands now as well, so what changed inside
+it is reported too. A message names at most five keys or values and counts the rest, and the
+problems of the values of one enum carry its canonical form once. A stored
 kind's id that moves because a field was appended to the definition (rule 8) is an `inserted`
 problem whose message says where to declare it. The telling of a rename from a shift is
 conservative: a key that changes at a position where neither the old nor the new key is anywhere
@@ -168,13 +173,16 @@ was.
 
 ### A baseline
 
-A CI job needs the version that shipped. `baseline` writes schemas as JSON: each one's snapshot
-(once, however many schemas share it), the entity it is of, the options that shape its wire
-(`sparse`, `layout`, `intern`, `delta`, `references`, `types`, the options of the entities it
-reaches, and the name of a built-in fingerprint; a function of your own cannot travel, so it is
-written as `null` and the id is recorded, not checked), and its canonical form and id as
-checksums. `restore` builds them again and refuses a baseline that does not rebuild to the
-canonical form it was written with (`ERR_INVALID_SNAPSHOT`: write it again):
+A CI job needs the version that shipped. `baseline` writes schemas as JSON, sorted by name: each
+one's snapshot (once, however many schemas share it), the entity it is of, the options that shape
+its wire (`sparse`, `layout`, `intern`, `delta`, `references`, `types`, the options of the
+entities it reaches, and the name of a built-in fingerprint; a function of your own cannot
+travel, so it is written as `null` and the id is recorded, not checked), and its canonical form,
+its signature (the canonical forms of the entities it reaches, by name) and its id as checksums,
+with the version of protoarray that wrote the file (`generator`). `restore` builds them again,
+taking only the options of the wire from the file, and refuses a baseline that does not rebuild
+to what it was written with (`ERR_INVALID_SNAPSHOT`, naming what differs with both values: another
+version of protoarray wrote it, or it was edited; compare the versions before writing it again):
 
 ```js
 const { baseline, restore } = require('@alexify/protoarray/evolve');
@@ -194,22 +202,27 @@ protoarray snapshot src/schemas.js --out schemas.baseline.json   # when a versio
 protoarray check src/schemas.js --against schemas.baseline.json  # on every change
 ```
 
-`check` prints one line per problem and a summary, and exits with 1 when any schema is
-incompatible, or when the module or the baseline cannot be used (a baseline that does not
-rebuild fails the job too), with 2 for a wrong command line:
+`check` prints, for each schema with problems, the ids of the two versions compared and one
+line per problem, then a summary of what was compared, and exits with 0 when every schema is
+compatible, 1 when one is not, 2 for a wrong command line and 3 when the module, its schemas or
+the baseline cannot be used (a baseline that does not rebuild fails the job too):
 
 ```
+User: 4cbe92a9 → d66abd92
 error    User.id: Type changed: number → integer (type)
 info     User.fullName: Field "name" is now "fullName" (renamed)
 error    User.org: Field "org" inserted at position 2: "email", "score" and "role" move further (inserted)
 warning  User.role: Enum value "guest" appended: deploy decoders before encoders (appended)
-1 schema checked: 2 errors, 1 warning, 1 info; incompatible
+1 schema compared: 2 errors, 1 warning, 1 info; incompatible
 ```
 
-A schema the baseline has and the module no longer exports is a `removed` warning; one the
-module exports and the baseline lacks is noted (`appended`, info). `--only A,B` names the pairs
-to check, `--strict` fails on warnings too and `--json` writes `{ ok, schemas: { Name: { ok,
-problems } } }` instead of the lines. A workflow step holds every pull request to the rules:
+A schema the baseline has and the module no longer exports is a warning (`missing`); one the
+module exports and the baseline lacks is noted (`new`, info); when no schema is in both, the
+summary says so. `--only A,B` names the pairs to check, `--strict` fails on warnings too and
+`--json` writes `{ ok, schemas: { Name: { ok, problems, previous: { id }, next: { id } } } }`
+instead of the lines (`{ ok: false, error: { code, message } }` when the check could not run).
+An option takes its value as the next word or after `=`. A workflow step holds every pull request
+to the rules:
 
 ```yaml
 - run: npx protoarray check src/schemas.js --against schemas.baseline.json --strict

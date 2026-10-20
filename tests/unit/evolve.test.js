@@ -4,6 +4,13 @@ const { Schema } = require('../../index.js');
 const { compatible, baseline, restore, register } = require('../../evolve.js');
 const { resolve } = require('../../resolve.js');
 const { ms, define, named, model } = require('../support/schema.js');
+const { version } = require('../../package.json');
+
+const SIGNATURE = Symbol.for('alexify.protoarray.signature');
+
+// 40 optional fields: a canonical form longer than a message shows.
+const WIDE = {};
+for (let i = 0; i < 40; i++) WIDE[`field${i}`] = '?number';
 
 // The four versions of the evolution guide: V1 to V3 follow the rules, V4
 // breaks them (a widened type, a rename, reordered enum values, a default).
@@ -208,9 +215,14 @@ test('Evolve: required, optional, retired and defaults', () => {
   );
   assert.strictEqual(relaxed.ok, true);
   assert.deepStrictEqual(relaxed.list, [
-    ['a', 'optional', 'info'],
+    ['a', 'optional', 'warning'],
     ['n', 'default', 'warning'],
   ]);
+  assert.strictEqual(
+    relaxed.messages[0],
+    'Optional now: older validating readers refuse the null this version may write; deploy ' +
+      'readers before writers',
+  );
   assert.strictEqual(
     relaxed.messages[1],
     'Default changed from 1 to 2: an empty slot in older payloads decodes differently',
@@ -229,11 +241,21 @@ test('Evolve: required, optional, retired and defaults', () => {
   // Retired as ?any (anything is read as is), or as null (a warning).
   const any = found(base, define({ a: '?any', b: 'json', n: 'unknown' }));
   assert.deepStrictEqual(any.list, [
-    ['a', 'retired', 'info'],
-    ['b', 'retired', 'info'],
-    ['n', 'retired', 'info'],
+    ['a', 'retired', 'warning'],
+    ['b', 'retired', 'warning'],
+    ['n', 'retired', 'warning'],
   ]);
-  assert.strictEqual(any.messages[0], 'Retired as ?any: whatever older writers send is read as is');
+  assert.strictEqual(
+    any.messages[0],
+    'Retired as ?any: whatever older writers send is read as is, and older validating readers ' +
+      'hold the slot to its type; deploy readers before writers',
+  );
+  // A warning: the newer writer may send what an older validating reader refuses.
+  assert.strictEqual(any.ok, true);
+  assert.strictEqual(
+    found(base, define({ a: '?any', b: 'json', n: 'unknown' }), { strict: true }).ok,
+    false,
+  );
   const nulled = found(
     base,
     define({ a: 'null', b: '?string', n: { type: 'number', default: 1 } }),
@@ -252,7 +274,7 @@ test('Evolve: required, optional, retired and defaults', () => {
   assert.deepStrictEqual(reused.list, [
     ['a', 'required', 'error'],
     ['a', 'type', 'error'],
-    ['b', 'retired', 'info'],
+    ['b', 'retired', 'warning'],
   ]);
   assert.strictEqual(reused.messages[1], 'Type changed: json → string');
   assert.deepStrictEqual(found(define({ a: 'null' }), define({ a: 'null' })).list, []);
@@ -500,7 +522,7 @@ test('Evolve: tuples and root scalars', () => {
   );
   // A root scalar keeps its own optionality.
   assert.deepStrictEqual(found(define('string'), define('?string')).list, [
-    ['', 'optional', 'info'],
+    ['', 'optional', 'warning'],
   ]);
   assert.deepStrictEqual(found(define('?string'), define('string')).list, [
     ['', 'required', 'error'],
@@ -561,8 +583,152 @@ test('Evolve: references, recursion and entities renamed', () => {
   // A reference to a scalar entity keeps the entity's own optionality.
   const scalarEntity = (type) => model({ Name: { type }, User: { Struct: {}, name: 'Name' } });
   assert.deepStrictEqual(found(scalarEntity('string').User, scalarEntity('?string').User).list, [
-    ['name', 'optional', 'info'],
+    ['name', 'optional', 'warning'],
   ]);
+});
+
+test('Evolve: a field that moved is compared where it stands, a record in place is a reference', () => {
+  // The inner changes of a moved field are reported too.
+  const before = define({ y: { p: 'string', q: 'number' }, a: 'string', b: 'string' });
+  const after = define({ a: 'string', b: 'string', y: { p: 'number', q: 'number' } });
+  const moved = found(before, after);
+  assert.deepStrictEqual(moved.list, [
+    ['y', 'moved', 'error'],
+    ['y.p', 'type', 'error'],
+  ]);
+  // A record written in place and one reached by a reference are the same
+  // wire: the referenced schema's own form, in place.
+  const { User: byRef } = model({
+    Address: { Struct: {}, city: 'string' },
+    User: { Struct: {}, home: 'Address' },
+  });
+  const inline = define({ home: { city: 'string' } });
+  const referenced = found(inline, byRef);
+  assert.deepStrictEqual(referenced.list, [['home', 'renamed', 'info']]);
+  assert.deepStrictEqual(referenced.messages, [
+    'A reference to "Address" now, written in place before',
+  ]);
+  assert.strictEqual(referenced.ok, true);
+  const [problem] = compatible(inline, byRef).problems;
+  assert.deepStrictEqual([problem.previous, problem.next], ['{city:string}', '@Address']);
+  assert.deepStrictEqual(found(byRef, inline).messages, [
+    'Written in place now, a reference to "Address" before',
+  ]);
+  // What differs inside is still a problem, and another kind a change of type.
+  assert.deepStrictEqual(found(define({ home: { city: 'number' } }), byRef).list, [
+    ['home', 'renamed', 'info'],
+    ['home.city', 'type', 'error'],
+  ]);
+  assert.deepStrictEqual(found(define({ home: 'string' }), byRef).messages, [
+    'Type changed: string → @Address',
+  ]);
+  // The branches of a union reordered: one move; two versions in mutual
+  // recursion compare once per pair and end.
+  const packets = (first, second) =>
+    define({
+      p: {
+        union: [
+          { Struct: {}, kind: { enum: [first] }, a: 'string' },
+          { Struct: {}, kind: { enum: [second] }, a: 'string' },
+        ],
+        discriminator: 'kind',
+      },
+    });
+  assert.deepStrictEqual(found(packets('x', 'y'), packets('y', 'x')).list, [
+    ['p', 'moved', 'error'],
+  ]);
+  const mutual = (extra) =>
+    model({
+      A: { Struct: {}, b: '?B', ...extra },
+      B: { Struct: {}, a: '?A' },
+    }).A;
+  assert.deepStrictEqual(found(mutual({}), mutual({ x: '?string' })).list, []);
+  assert.deepStrictEqual(found(mutual({}), mutual({ x: 'string' })).list, [
+    ['x', 'required', 'error'],
+  ]);
+});
+
+test('Evolve: versions hashed with different fingerprints are told apart', () => {
+  const narrow = define({ a: 'string' });
+  const wide = define({ a: 'string' }, { fingerprint: 'fnv1a64' });
+  const told = found(narrow, wide);
+  assert.deepStrictEqual(told.list, [['', 'fingerprint', 'info']]);
+  assert.strictEqual(told.ok, true);
+  assert.deepStrictEqual(told.messages, [
+    'The id is computed with fnv1a64 instead of fnv1a32: the ids of the two versions are not comparable',
+  ]);
+  const own = (signature) => `x${signature.length}`;
+  assert.deepStrictEqual(found(narrow, define({ a: 'string' }, { fingerprint: own })).messages, [
+    'The id is computed with a function of its own instead of fnv1a32: the ids of the two versions are not comparable',
+  ]);
+  assert.deepStrictEqual(
+    found(
+      define({ a: 'string' }, { fingerprint: own }),
+      define({ a: 'string' }, { fingerprint: own }),
+    ).list,
+    [],
+  );
+  // Before the problems of the plans, which it does not change.
+  assert.deepStrictEqual(found(narrow, define({ a: 'number' }, { fingerprint: 'fnv1a64' })).list, [
+    ['', 'fingerprint', 'info'],
+    ['a', 'type', 'error'],
+  ]);
+});
+
+test('Evolve: a wide enum compares in its time, and its problems carry the enum once', () => {
+  const values = (keep) =>
+    Array.from({ length: 20000 }, (_, i) => `v${i}`).filter((_, i) => keep(i));
+  const big = define({ e: { enum: values(() => true) } });
+  const less = define({ e: { enum: values((i) => i % 50 !== 0) } });
+  const started = performance.now();
+  const { ok, problems } = compatible(big, less);
+  const took = performance.now() - started;
+  assert.ok(took < 1000, `${took} ms`);
+  assert.strictEqual(ok, false);
+  assert.strictEqual(problems.length, 400);
+  assert.ok(JSON.stringify(problems).length < 2 ** 20);
+  // The enum prints with the first problem of the place; a message names
+  // five values and counts the rest.
+  assert.match(problems[0].previous, /^enum\(v0\|v1\|/);
+  assert.strictEqual(problems[1].previous, undefined);
+  assert.strictEqual(problems[1].next, undefined);
+  assert.match(
+    problems[0].message,
+    /^Enum value "v0" removed: "v1", "v2", "v3", "v4", "v5" and 19595 more move up$/,
+  );
+  // A struct's message likewise.
+  const fields = (n, extra = {}) => ({
+    ...extra,
+    ...Object.fromEntries(Array.from({ length: n }, (_, i) => [`f${i}`, 'string'])),
+  });
+  const inserted = found(define(fields(8)), define(fields(8, { z: 'string' })));
+  assert.deepStrictEqual(inserted.messages, [
+    'Field "z" inserted at position 0: "f0", "f1", "f2", "f3", "f4" and 3 more move further',
+  ]);
+});
+
+test('Evolve: the rules of the code, the typings and the guide are one list', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { RULES } = require('../../src/evolve.js');
+  const root = path.join(__dirname, '..', '..');
+  const source = fs.readFileSync(path.join(root, 'src', 'evolve.js'), 'utf8');
+  const used = new Set();
+  const calls = /(?:report|once)\((?:[\w.]+|[\w.]+\([^()]*\)|`[^`]*`),\s*'(\w+)'/g;
+  for (const match of source.matchAll(calls)) used.add(match[1]);
+  for (const match of source.matchAll(/rule: '(\w+)'/g)) used.add(match[1]);
+  assert.deepStrictEqual([...used].sort(), Object.keys(RULES).sort());
+  const typings = fs.readFileSync(path.join(root, 'evolve.d.ts'), 'utf8');
+  const union = typings.match(/export type Rule =([^;]+);/)[1].match(/'(\w+)'/g);
+  assert.deepStrictEqual(
+    union.map((quoted) => quoted.slice(1, -1)).sort(),
+    Object.keys(RULES).sort(),
+  );
+  const guide = fs.readFileSync(path.join(root, 'docs', 'guide', 'evolution.md'), 'utf8');
+  const table = Object.fromEntries(
+    [...guide.matchAll(/^\| `(\w+)` \| (error|warning|info) \|/gm)].map((row) => [row[1], row[2]]),
+  );
+  assert.deepStrictEqual(table, { ...RULES });
 });
 
 test('Evolve: what cannot be compared', () => {
@@ -648,10 +814,12 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
   const written = baseline({ User: schemas.User, Address: schemas.Address, Ping: V1 });
   const text = JSON.stringify(written);
   const parsed = JSON.parse(text);
-  // One snapshot for the two entities of the model, another for V1.
+  // One snapshot for the two entities of the model, another for V1; the names
+  // sorted, so the file does not change when the exports are reordered.
   assert.strictEqual(parsed.format, 1);
+  assert.strictEqual(parsed.generator, `@alexify/protoarray@${version}`);
   assert.strictEqual(parsed.snapshots.length, 2);
-  assert.deepStrictEqual(Object.keys(parsed.schemas), ['User', 'Address', 'Ping']);
+  assert.deepStrictEqual(Object.keys(parsed.schemas), ['Address', 'Ping', 'User']);
   assert.deepStrictEqual(parsed.schemas.User, {
     snapshot: 0,
     entity: 'User',
@@ -676,6 +844,7 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
       },
     },
     canonical: schemas.User.toString(),
+    signature: schemas.User[SIGNATURE],
     id: schemas.User.id,
   });
   assert.strictEqual(parsed.schemas.Address.snapshot, 0);
@@ -693,10 +862,11 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
       entities: {},
     },
     canonical: V1.toString(),
+    signature: V1.toString(),
     id: V1.id,
   });
   const restored = restore(parsed);
-  assert.deepStrictEqual(Object.keys(restored), ['User', 'Address', 'Ping']);
+  assert.deepStrictEqual(Object.keys(restored), ['Address', 'Ping', 'User']);
   for (const name of Object.keys(restored)) {
     const original = { User: schemas.User, Address: schemas.Address, Ping: V1 }[name];
     assert.strictEqual(restored[name].toString(), original.toString());
@@ -753,16 +923,38 @@ test('Evolve: a baseline with a fingerprint of its own, and what restore refuses
     change(copy);
     return copy;
   };
-  const mismatch = {
+  // What differs is named with both values, so a baseline another version
+  // wrote is told from a schema that changed before anyone writes it again.
+  const mismatch = (what, was, now) => ({
     code: 'ERR_INVALID_SNAPSHOT',
-    message: 'The baseline does not rebuild to its canonical form: write it again',
+    message:
+      `The entry "A" rebuilds to another ${what} than it was written with (written: ${was}, ` +
+      `now: ${now}): another version of protoarray wrote the baseline, or it was edited; ` +
+      'compare the versions before writing it again',
     schema: 'A',
-  };
+  });
   assert.throws(
     () => restore(forged((copy) => (copy.schemas.A.canonical = '{a:number}'))),
-    mismatch,
+    mismatch('canonical form', '{a:number}', '{a:string}'),
   );
-  assert.throws(() => restore(forged((copy) => (copy.schemas.A.id = '00000000'))), mismatch);
+  assert.throws(
+    () => restore(forged((copy) => (copy.schemas.A.id = '00000000'))),
+    mismatch('id', '00000000', plain.schemas.A.id),
+  );
+  assert.throws(
+    () => restore(forged((copy) => (copy.schemas.A.signature = '{a:string};B={}'))),
+    mismatch('signature', '{a:string};B={}', '{a:string}'),
+  );
+  // A long form is cut in the message.
+  const wide = JSON.parse(JSON.stringify(baseline({ W: define(WIDE) })));
+  assert.throws(
+    () => restore(forged((copy) => (copy.schemas.A.canonical = wide.schemas.W.canonical))),
+    {
+      message: new RegExp(
+        `written: ${wide.schemas.W.canonical.slice(0, 120).replaceAll('?', '\\?')}…, now`,
+      ),
+    },
+  );
   // A baseline written by hand may leave the entities out.
   const bare = forged((copy) => delete copy.schemas.A.options.entities);
   assert.strictEqual(restore(bare).A.id, plain.schemas.A.id);
@@ -793,6 +985,60 @@ test('Evolve: a baseline with a fingerprint of its own, and what restore refuses
       'The entry "A" of the baseline is incomplete',
     ],
     [forged((copy) => delete copy.schemas.A.id), 'The entry "A" of the baseline is incomplete'],
+    [
+      forged((copy) => delete copy.schemas.A.signature),
+      'The entry "A" of the baseline is incomplete',
+    ],
+    [
+      { format: 1, generator: 1, snapshots: [], schemas: {} },
+      'A baseline of format 1 with snapshots and schemas expected',
+    ],
+    [
+      forged((copy) => (copy.schemas.A.snapshot = -1)),
+      'The entry "A" names no snapshot of the baseline',
+    ],
+    [
+      forged((copy) => (copy.snapshots[0] = 'text')),
+      'The snapshot 0 of the baseline is not an object',
+    ],
+    // Only the options of the wire travel in a baseline: anything else is no
+    // option of a baseline, however the schema would take it.
+    [
+      forged((copy) => (copy.schemas.A.options.validate = false)),
+      'The entry "A" carries an option that is not of the wire: "validate"',
+    ],
+    [
+      forged((copy) => (copy.schemas.A.options.codegen = false)),
+      'The entry "A" carries an option that is not of the wire: "codegen"',
+    ],
+    [
+      forged((copy) => (copy.schemas.A.options.entities = [])),
+      'The entry "A" carries entities that are not a record',
+    ],
+    [
+      forged((copy) => (copy.schemas.A.options.entities = { B: 1 })),
+      'The entry "A" carries no options for the entity "B"',
+    ],
+    [
+      forged((copy) => (copy.schemas.A.options.entities = { B: { entities: {} } })),
+      'The entry "A" carries an option that is not of the wire: "entities"',
+    ],
+  ]) {
+    assert.throws(() => restore(source), { code: 'ERR_INVALID_SNAPSHOT', message });
+  }
+  // A key `__proto__` of the entities of a forged baseline is an own key of
+  // the parsed object, refused as such; a schema named so travels.
+  const proto = forged(
+    (copy) => (copy.schemas.A.options.entities = JSON.parse('{"__proto__": {}}')),
+  );
+  assert.throws(() => restore(proto), {
+    message: 'The entry "A" carries an entity named "__proto__"',
+  });
+  const key = '__proto__';
+  const owned = JSON.parse(JSON.stringify(baseline({ [key]: define({ a: 'string' }) })));
+  assert.deepStrictEqual(Object.keys(owned.schemas), [key]);
+  assert.strictEqual(restore(owned)[key].toString(), '{a:string}');
+  for (const [source, message] of [
     [
       forged((copy) => (copy.schemas.A.snapshot = 3)),
       'The entry "A" names no snapshot of the baseline',
@@ -825,7 +1071,12 @@ test('Evolve: what baseline refuses', () => {
       message: '"A" was not read from a snapshot: give a schema of its own',
     });
   }
-  assert.deepStrictEqual(baseline({}), { format: 1, snapshots: [], schemas: {} });
+  assert.deepStrictEqual(baseline({}), {
+    format: 1,
+    generator: `@alexify/protoarray@${version}`,
+    snapshots: [],
+    schemas: {},
+  });
 });
 
 test('Evolve: register() installs Schema.compatible', () => {

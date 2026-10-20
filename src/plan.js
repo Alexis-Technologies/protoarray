@@ -216,21 +216,31 @@ const hashed = (hash, text) => {
 
 const hex = (hash) => (hash >>> 0).toString(16).padStart(8, '0');
 
-// The 64-bit width, for a registry of many schemas, where 32 bits collide.
-// On a BigInt: it runs once per schema, when its id is first read.
-const OFFSET64 = 0xcbf29ce484222325n;
-const PRIME64 = 0x100000001b3n;
-const MASK64 = 0xffffffffffffffffn;
+// The 64-bit width, for a registry of many schemas, where 32 bits collide, on
+// two 32-bit halves `[hi, lo]`: a BigInt a code unit is eight times slower,
+// and a BigInt literal is syntax the core would ask of every bundler's
+// target. The prime is 2^40 + 0x1b3, so the product of the hash and the prime
+// is lo·0x1b3 (in 16-bit parts, for the carry into the high half), plus
+// hi·0x1b3 and lo·2^8 into the high half, everything above 2^64 dropped.
+const OFFSET64 = [0xcbf29ce4, 0x84222325];
+const PRIME64_LOW = 0x1b3;
 
 const hashed64 = (hash, text) => {
-  let out = hash;
+  let hi = hash[0];
+  let lo = hash[1];
   for (let i = 0; i < text.length; i++) {
-    out = ((out ^ BigInt(text.charCodeAt(i))) * PRIME64) & MASK64;
+    lo = (lo ^ text.charCodeAt(i)) >>> 0;
+    const l0 = (lo & 0xffff) * PRIME64_LOW;
+    const l1 = (lo >>> 16) * PRIME64_LOW;
+    const low = l0 + (l1 & 0xffff) * 0x10000;
+    const carry = (l1 >>> 16) + Math.floor(low / 0x100000000);
+    hi = (Math.imul(hi, PRIME64_LOW) + (lo << 8) + carry) >>> 0;
+    lo = low >>> 0;
   }
-  return out;
+  return [hi, lo];
 };
 
-const hex64 = (hash) => hash.toString(16).padStart(16, '0');
+const hex64 = (hash) => hex(hash[0]) + hex(hash[1]);
 
 // A built-in hash, by the name the `fingerprint` option takes: its seed, its
 // step over a piece of text and the hex digits of the result.
@@ -261,9 +271,21 @@ const identify = (text, entities, hash) => {
   return digits(out);
 };
 
+// A slot of the json type, which takes anything, and of the null type, which
+// takes only null: how a retired slot is kept.
+const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
+const isNull = (node) => node.kind === 'scalar' && node.type === 'null';
+
+// A schema from Schema.resolve (./resolve.js): its plan prints as its writer,
+// and it is no version of its own.
+const isResolved = (schema) => schema[PLAN].text !== undefined;
+
 module.exports = {
   BRAND,
   PLAN,
+  isJson,
+  isNull,
+  isResolved,
   CODEC,
   FALLBACK,
   FOREIGN,

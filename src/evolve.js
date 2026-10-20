@@ -14,37 +14,45 @@
 // another at runtime, by name. `register()` installs `Schema.compatible`.
 
 const { SchemaDefinitionError, overflowed, join, step } = require('./errors.js');
-const { PLAN, canonical, isSchema, referenced } = require('./plan.js');
+const { PLAN, canonical, isSchema, isJson, isNull, isResolved, referenced } = require('./plan.js');
+const { put } = require('./types.js');
 const { isObject } = require('./snapshot.js');
-const { Schema, SETTINGS, ENTITY, SAME } = require('./schema.js');
+const { Schema, SETTINGS, ENTITY, SAME, SIGNATURE, registrar } = require('./schema.js');
+const { VERSION } = require('./version.js');
 
-// The rules, by the problem they give, and how bad each one is. A retired
-// slot is for information when it takes anything (`?any`) and a warning when
-// it takes only null, which a validating decoder holds older writers to.
+// The rules, by the problem they give, and how bad each one is. A slot that
+// becomes optional, or retired, is a warning: the newer version may write a
+// null (or anything) where an older validating reader holds the slot to its
+// type, so readers deploy before writers, as for a value appended to an enum.
 const RULES = Object.assign(Object.create(null), {
   inserted: 'error',
   moved: 'error',
   removed: 'error',
   renamed: 'info',
   required: 'error',
-  retired: 'info',
+  retired: 'warning',
   type: 'error',
-  optional: 'info',
+  optional: 'warning',
   appended: 'warning',
   wire: 'error',
   flat: 'error',
   default: 'warning',
+  fingerprint: 'info',
 });
 
-const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
-const isNull = (node) => node.kind === 'scalar' && node.type === 'null';
 // A list of differences is a scalar node over its item: a list all the same.
 const isDeltas = (node) => node.kind === 'scalar' && node.type === 'deltas';
 const isList = (node) => node.kind === 'array' || isDeltas(node);
 
-// A key, a value or a name in a message: quoted, a number as it is.
+// A key, a value or a name in a message: quoted, a number as it is. A list of
+// them names the first few and counts the rest, so a message stays a line
+// however wide the record or the enum.
+const MOST = 5;
 const show = (value) => JSON.stringify(value);
 const listed = (values) => {
+  if (values.length > MOST) {
+    return `${values.slice(0, MOST).map(show).join(', ')} and ${values.length - MOST} more`;
+  }
   const quoted = values.map(show);
   if (quoted.length < 2) return quoted.join('');
   return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
@@ -116,20 +124,33 @@ const aligned = (previous, next, hooks) => {
   for (; j < next.length; j++) if (!skipped.has(next[j])) hooks.appended(j);
 };
 
-// One slot of a struct, a tuple or a collection: its node, and whether it is
+// One place of a struct, a tuple or a collection: its node, and whether it is
 // required and what it defaults to where the field (or the root) says so.
-const slotOf = (node, required, def) => ({ node, required, def });
+const placeOf = (node, required, def) => ({ node, required, def });
 const rootOf = (plan) => {
   const required = plan.kind === 'scalar' ? plan.required !== false : true;
-  return slotOf(plan, required, null);
+  return placeOf(plan, required, null);
 };
+
+// The plan a reference reaches, or the node itself.
+const targetOf = (node) => (node.kind === 'ref' ? node.slot.schema[PLAN] : node);
 
 const comparePlans = (previousPlan, nextPlan) => {
   const problems = [];
-  const report = (path, rule, message, previous, next, severity = RULES[rule]) => {
-    const problem = { path, rule, severity, message };
-    if (previous !== undefined) problem.previous = canonical(previous);
-    if (next !== undefined) problem.next = canonical(next);
+  // The canonical form of a node, printed once however many problems name it.
+  const forms = new Map();
+  const formOf = (node) => {
+    let form = forms.get(node);
+    if (form === undefined) {
+      form = canonical(node);
+      forms.set(node, form);
+    }
+    return form;
+  };
+  const report = (path, rule, message, previous, next) => {
+    const problem = { path, rule, severity: RULES[rule], message };
+    if (previous !== undefined) problem.previous = formOf(previous);
+    if (next !== undefined) problem.next = formOf(next);
     problems.push(problem);
   };
 
@@ -141,29 +162,31 @@ const comparePlans = (previousPlan, nextPlan) => {
     if (byNext === undefined) pairs.set(p, (byNext = new Set()));
     if (byNext.has(n)) return;
     byNext.add(n);
-    slot(rootOf(p), rootOf(n), path);
+    place(rootOf(p), rootOf(n), path);
   };
 
-  const slot = (p, n, path) => {
+  const place = (p, n, path) => {
     const from = p.node;
     const to = n.node;
     // A retired slot: what older writers sent is read as anything, or as null.
     if (isNull(to) && !isNull(from)) {
       const text = 'Retired as null: a validating decoder rejects the values older writers send';
-      report(path, 'retired', text, from, to, 'warning');
+      report(path, 'retired', text, from, to);
       return;
     }
     if (isJson(to) && !isJson(from)) {
-      report(
-        path,
-        'retired',
-        'Retired as ?any: whatever older writers send is read as is',
-        from,
-        to,
-      );
+      const text =
+        'Retired as ?any: whatever older writers send is read as is, and older validating ' +
+        'readers hold the slot to its type; deploy readers before writers';
+      report(path, 'retired', text, from, to);
       return;
     }
-    if (p.required && !n.required) report(path, 'optional', 'Optional now', from, to);
+    if (p.required && !n.required) {
+      const text =
+        'Optional now: older validating readers refuse the null this version may write; ' +
+        'deploy readers before writers';
+      report(path, 'optional', text, from, to);
+    }
     if (!p.required && n.required) {
       report(path, 'required', 'Required now, where older payloads may send null', from, to);
     }
@@ -182,14 +205,29 @@ const comparePlans = (previousPlan, nextPlan) => {
 
   const node = (p, n, path) => {
     if (p.kind === 'ref' || n.kind === 'ref') {
-      if (p.kind !== n.kind) {
+      if (p.kind === n.kind) {
+        if (p.name !== n.name) {
+          report(path, 'renamed', `Entity ${show(p.name)} is now ${show(n.name)}`, p, n);
+        }
+        pair(p.slot.schema[PLAN], n.slot.schema[PLAN], path);
+        return;
+      }
+      // A record written in place in one version and reached by a reference
+      // in the other has the same wire: the referenced schema's own form, in
+      // place. The two are compared as what they are; anything else is a
+      // change of type.
+      const from = targetOf(p);
+      const to = targetOf(n);
+      if (from.kind !== to.kind) {
         report(path, 'type', `Type changed: ${bare(p)} → ${bare(n)}`, p, n);
         return;
       }
-      if (p.name !== n.name) {
-        report(path, 'renamed', `Entity ${show(p.name)} is now ${show(n.name)}`, p, n);
-      }
-      pair(p.slot.schema[PLAN], n.slot.schema[PLAN], path);
+      const text =
+        n.kind === 'ref'
+          ? `A reference to ${show(n.name)} now, written in place before`
+          : `Written in place now, a reference to ${show(p.name)} before`;
+      report(path, 'renamed', text, p, n);
+      node(from, to, path);
       return;
     }
     if (isList(p) && isList(n)) {
@@ -213,9 +251,9 @@ const comparePlans = (previousPlan, nextPlan) => {
         report(path, 'type', `Type changed: ${bare(p)} → ${bare(n)}`, p, n);
         return;
       }
-      slot(
-        slotOf(p.value, p.valueRequired, null),
-        slotOf(n.value, n.valueRequired, null),
+      place(
+        placeOf(p.value, p.valueRequired, null),
+        placeOf(n.value, n.valueRequired, null),
         `${path}{}`,
       );
     }
@@ -233,31 +271,33 @@ const comparePlans = (previousPlan, nextPlan) => {
     if (delta) wire(path, switched('delta', n.delta === true), p, n);
   };
 
-  // The values of an enum, the names of flags: an index travels.
+  // The values of an enum, the names of flags: an index travels. The two
+  // nodes print with the first problem of the place only: every problem of a
+  // wide enum would otherwise carry the whole enum.
   const values = (previous, next, word, path, p, n) => {
+    const kept = new Set(next);
     const rest = (i) => {
-      const after = previous.slice(i + 1).filter((value) => next.includes(value));
+      const after = previous.slice(i + 1).filter((value) => kept.has(value));
       return after.length === 0 ? '' : `: ${moves(after, 'up')}`;
+    };
+    let described = false;
+    const once = (text, rule) => {
+      report(path, rule, text, described ? undefined : p, described ? undefined : n);
+      described = true;
     };
     aligned(previous.map(show), next.map(show), {
       same: () => {},
-      renamed: (i, j) => {
-        report(path, 'renamed', `${word} ${show(previous[i])} is now ${show(next[j])}`, p, n);
-      },
-      removed: (i) => {
-        report(path, 'removed', `${word} ${show(previous[i])} removed${rest(i)}`, p, n);
-      },
+      renamed: (i, j) => once(`${word} ${show(previous[i])} is now ${show(next[j])}`, 'renamed'),
+      removed: (i) => once(`${word} ${show(previous[i])} removed${rest(i)}`, 'removed'),
       inserted: (i, j) => {
         const text = `${word} ${show(next[j])} inserted before ${show(previous[i])}, which moves`;
-        report(path, 'inserted', text, p, n);
+        once(text, 'inserted');
       },
       moved: (i, to) => {
-        const text = `${word} ${show(previous[i])} moved from position ${i} to ${to}`;
-        report(path, 'moved', text, p, n);
+        once(`${word} ${show(previous[i])} moved from position ${i} to ${to}`, 'moved');
       },
       appended: (j) => {
-        const text = `${word} ${show(next[j])} appended: deploy decoders before encoders`;
-        report(path, 'appended', text, p, n);
+        once(`${word} ${show(next[j])} appended: deploy decoders before encoders`, 'appended');
       },
     });
   };
@@ -267,9 +307,10 @@ const comparePlans = (previousPlan, nextPlan) => {
     const at = (field) => join(path, step(field.key));
     const previous = p.fields.map((field) => field.key);
     const next = n.fields.map((field) => field.key);
+    const kept = new Set(next);
     // The fields from `i` on that keep a place in the next version: what an
     // insertion or a removal before them shifts.
-    const shifted = (i) => previous.slice(i).filter((key) => next.includes(key));
+    const shifted = (i) => previous.slice(i).filter((key) => kept.has(key));
     // Rule 8: a stored kind's id, appended by metaschema after the fields of
     // the definition, moves when a field is appended to the definition.
     const hint = (keys) => {
@@ -280,11 +321,11 @@ const comparePlans = (previousPlan, nextPlan) => {
         : '';
     };
     aligned(previous, next, {
-      same: (i, j) => slot(p.fields[i], n.fields[j], at(n.fields[j])),
+      same: (i, j) => place(p.fields[i], n.fields[j], at(n.fields[j])),
       renamed: (i, j) => {
         const text = `Field ${show(previous[i])} is now ${show(next[j])}`;
         report(at(n.fields[j]), 'renamed', text, p.fields[i].node, n.fields[j].node);
-        slot(p.fields[i], n.fields[j], at(n.fields[j]));
+        place(p.fields[i], n.fields[j], at(n.fields[j]));
       },
       removed: (i) => {
         const keys = shifted(i + 1);
@@ -301,9 +342,12 @@ const comparePlans = (previousPlan, nextPlan) => {
           hint(keys);
         report(at(n.fields[j]), 'inserted', text, undefined, n.fields[j].node);
       },
+      // A field that moved is compared where it stands now: what changed
+      // inside it is reported too.
       moved: (i, to) => {
         const text = `Field ${show(previous[i])} moved from position ${i} to ${to}`;
         report(at(p.fields[i]), 'moved', text, p.fields[i].node, n.fields[to].node);
+        place(p.fields[i], n.fields[to], at(n.fields[to]));
       },
       appended: (j) => {
         if (!n.fields[j].required) return;
@@ -339,7 +383,7 @@ const comparePlans = (previousPlan, nextPlan) => {
 
   const tuple = (p, n, path) => {
     const size = Math.min(p.items.length, n.items.length);
-    for (let i = 0; i < size; i++) slot(p.items[i], n.items[i], `${path}[${i}]`);
+    for (let i = 0; i < size; i++) place(p.items[i], n.items[i], `${path}[${i}]`);
     for (let i = size; i < p.items.length; i++) {
       report(`${path}[${i}]`, 'removed', `Element ${i} removed`, p.items[i].node);
     }
@@ -365,7 +409,11 @@ const comparePlans = (previousPlan, nextPlan) => {
         report(path, 'flat', text, p, n);
       }
     }
-    slot(slotOf(p.item, p.itemRequired, null), slotOf(n.item, n.itemRequired, null), `${path}[]`);
+    place(
+      placeOf(p.item, p.itemRequired, null),
+      placeOf(n.item, n.itemRequired, null),
+      `${path}[]`,
+    );
   };
 
   pair(previousPlan, nextPlan, '');
@@ -385,35 +433,50 @@ const readOptions = (options) => {
   return { strict: options.strict === true };
 };
 
-const version = (schema) => {
+const expectVersion = (schema) => {
   if (!isSchema(schema)) {
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
   }
   // A resolved schema reads one version as another: it is no version itself.
-  if (schema[PLAN].text !== undefined) {
+  if (isResolved(schema)) {
     const text = 'A resolved schema is no version to compare: give its writer or its reader';
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text);
   }
 };
 
+// The fingerprint of a schema, as a message names it.
+const hashOf = (schema) => {
+  const { fingerprint } = schema[SETTINGS];
+  return typeof fingerprint === 'string' ? fingerprint : 'a function of its own';
+};
+
 // Whether `next` reads what `previous` writes and writes what it reads, by
 // position: `ok` when no problem is an error (with `strict`, a warning
 // neither), and every problem with the rule it breaks, its severity, a path
-// as the errors spell it, and the canonical forms of the two nodes.
+// as the errors spell it, and the canonical forms of the two nodes. Two
+// versions hashed with different fingerprints are told apart: their ids are
+// not comparable, which a handshake must know.
 const compatible = (previous, next, options) => {
-  version(previous);
-  version(next);
+  expectVersion(previous);
+  expectVersion(next);
   const { strict } = readOptions(options);
-  if (previous[SAME](next)) return { ok: true, problems: [] };
-  let problems;
-  try {
-    problems = comparePlans(previous[PLAN], next[PLAN]);
-  } catch (error) {
-    // Two versions are walked together, a chain of references included: one
-    // too long for the stack cannot be compared, which is no RangeError.
-    if (!overflowed(error)) throw error;
-    const message = 'The schemas are nested too deeply to compare';
-    throw new SchemaDefinitionError('ERR_INCOMPATIBLE', message, next.name, '', error);
+  let problems = [];
+  if (!previous[SAME](next)) {
+    try {
+      problems = comparePlans(previous[PLAN], next[PLAN]);
+    } catch (error) {
+      // Two versions are walked together, a chain of references included: one
+      // too long for the stack cannot be compared, which is no RangeError.
+      if (!overflowed(error)) throw error;
+      const message = 'The schemas are nested too deeply to compare';
+      throw new SchemaDefinitionError('ERR_INCOMPATIBLE', message, next.name, '', error);
+    }
+  }
+  if (previous[SETTINGS].fingerprint !== next[SETTINGS].fingerprint) {
+    const text =
+      `The id is computed with ${hashOf(next)} instead of ${hashOf(previous)}: ` +
+      'the ids of the two versions are not comparable';
+    problems.unshift({ path: '', rule: 'fingerprint', severity: RULES.fingerprint, message: text });
   }
   const worst = strict ? /^(error|warning)$/ : /^error$/;
   const ok = !problems.some((problem) => worst.test(problem.severity));
@@ -445,7 +508,7 @@ const optionsOf = (schema) => {
   // which its id depends on.
   const entities = {};
   for (const [name, entity] of referenced(schema[PLAN], [schema])) {
-    entities[name] = wireOptions(entity[SETTINGS]);
+    put(entities, name, wireOptions(entity[SETTINGS]));
   }
   out.entities = entities;
   return out;
@@ -455,13 +518,16 @@ const expected = (text) => new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text
 
 // The schemas given, by name, as JSON: each one's snapshot (written once,
 // however many schemas share it), the entity it is of, the options that
-// shape its wire, and its canonical form and id as checksums.
+// shape its wire, and its canonical form, its signature (the canonical forms
+// of the entities it reaches, by name) and its id as checksums. The names are
+// sorted and the snapshots follow them, so the file changes only when a
+// schema does, not when the module's exports are reordered.
 const baseline = (schemas) => {
   if (!isObject(schemas)) throw expected('A record of schemas by name expected');
   const snapshots = [];
   const indexes = new Map();
-  const out = { format: 1, snapshots, schemas: {} };
-  for (const name of Object.keys(schemas)) {
+  const out = { format: 1, generator: `@alexify/protoarray@${VERSION}`, snapshots, schemas: {} };
+  for (const name of Object.keys(schemas).sort()) {
     const schema = schemas[name];
     if (!isSchema(schema)) throw expected(`${show(name)} is not a Schema`);
     if (schema.snapshot === null) {
@@ -473,13 +539,14 @@ const baseline = (schemas) => {
       indexes.set(schema.snapshot, index);
       snapshots.push(schema.snapshot);
     }
-    out.schemas[name] = {
+    put(out.schemas, name, {
       snapshot: index,
       entity: schema[ENTITY],
       options: optionsOf(schema),
       canonical: schema.toString(),
+      signature: schema[SIGNATURE],
       id: schema.id,
-    };
+    });
   }
   return out;
 };
@@ -493,25 +560,45 @@ const isEntry = (entry) =>
   isObject(entry.options) &&
   (entry.options.fingerprint == null || typeof entry.options.fingerprint === 'string') &&
   typeof entry.canonical === 'string' &&
+  typeof entry.signature === 'string' &&
   typeof entry.id === 'string';
 
-// The options as the schema takes them again: a fingerprint written as null
-// (a function of the caller's own) is left out, so the default one applies.
-const carried = (options) => {
-  const out = { ...options };
-  if (out.fingerprint === null) delete out.fingerprint;
+// The options as the schema takes them again: the ones of the wire and the
+// fingerprint, which is all a baseline carries (`wireOptions`); anything else
+// is no option of a baseline, however the schema would take it. A fingerprint
+// written as null (a function of the caller's own) is left out, so the
+// default one applies.
+const CARRIED = new Set([...WIRE, 'fingerprint']);
+
+const carried = (options, name, inner) => {
+  const out = Object.create(null);
+  for (const key of Object.keys(options)) {
+    // The entities of the root entry are read apart (below).
+    if (key === 'entities' && !inner) continue;
+    if (!CARRIED.has(key)) {
+      const text = `The entry ${show(name)} carries an option that is not of the wire: ${show(key)}`;
+      throw broken(text, name);
+    }
+    if (key === 'fingerprint' && options[key] === null) continue;
+    out[key] = options[key];
+  }
   return out;
 };
 
+// A form cut to a line, for a message.
+const CUT = 120;
+const shown = (text) => (text.length > CUT ? `${text.slice(0, CUT)}…` : text);
+
 // The schemas of a baseline, built again from its snapshots and checked
-// against the canonical form each one was written with, and against its id
-// unless a fingerprint of the caller's own computed it.
+// against the canonical form, the signature and (unless a fingerprint of the
+// caller's own computed it) the id each one was written with.
 const restore = (source) => {
   if (
     !isObject(source) ||
     source.format !== 1 ||
     !Array.isArray(source.snapshots) ||
-    !isObject(source.schemas)
+    !isObject(source.schemas) ||
+    (source.generator !== undefined && typeof source.generator !== 'string')
   ) {
     throw broken('A baseline of format 1 with snapshots and schemas expected');
   }
@@ -525,37 +612,61 @@ const restore = (source) => {
     if (snapshot === undefined) {
       throw broken(`The entry ${show(name)} names no snapshot of the baseline`, name);
     }
-    const options = carried(entry.options);
-    if (isObject(options.entities)) {
-      const entities = {};
-      for (const key of Object.keys(options.entities)) {
-        entities[key] = carried(options.entities[key]);
+    if (!isObject(snapshot)) {
+      throw broken(`The snapshot ${entry.snapshot} of the baseline is not an object`, name);
+    }
+    const options = carried(entry.options, name, false);
+    if (entry.options.entities !== undefined) {
+      if (!isObject(entry.options.entities)) {
+        throw broken(`The entry ${show(name)} carries entities that are not a record`, name);
+      }
+      const entities = Object.create(null);
+      for (const key of Object.keys(entry.options.entities)) {
+        if (key === '__proto__') {
+          throw broken(`The entry ${show(name)} carries an entity named "__proto__"`, name);
+        }
+        if (!isObject(entry.options.entities[key])) {
+          throw broken(
+            `The entry ${show(name)} carries no options for the entity ${show(key)}`,
+            name,
+          );
+        }
+        entities[key] = carried(entry.options.entities[key], name, true);
       }
       options.entities = entities;
     }
+    // Each entry builds its own assembly: the entities of one Model are built
+    // once per entry that is of it, which stays cheap (thirty entries of a
+    // Model of thirty entities restore in about 12 ms).
     const schema = new Schema(name, snapshot, { ...options, entity: entry.entity });
-    // The id is checked where the baseline says how it was computed: by a
-    // built-in fingerprint, or by the default one when it names none.
-    const checked = entry.options.fingerprint === null || schema.id === entry.id;
-    if (schema.toString() !== entry.canonical || !checked) {
-      throw broken('The baseline does not rebuild to its canonical form: write it again', name);
+    // What differs is named with both values: a baseline that another version
+    // of protoarray wrote, or one edited by hand, should be told from a
+    // schema that changed, before anyone writes the baseline again.
+    const differs = (what, written, now) =>
+      broken(
+        `The entry ${show(name)} rebuilds to another ${what} than it was written with ` +
+          `(written: ${shown(written)}, now: ${shown(now)}): another version of protoarray wrote ` +
+          'the baseline, or it was edited; compare the versions before writing it again',
+        name,
+      );
+    if (schema.toString() !== entry.canonical) {
+      throw differs('canonical form', entry.canonical, schema.toString());
+    }
+    if (schema[SIGNATURE] !== entry.signature) {
+      throw differs('signature', entry.signature, schema[SIGNATURE]);
+    }
+    if (entry.options.fingerprint !== null && schema.id !== entry.id) {
+      throw differs('id', entry.id, schema.id);
     }
     out[name] = schema;
   }
   return out;
 };
 
-let registered = false;
-
 // Installs `Schema.compatible`, non-enumerable, once.
-const register = () => {
-  if (registered) return;
-  registered = true;
-  Object.defineProperty(Schema, 'compatible', {
-    value: compatible,
-    writable: true,
-    configurable: true,
-  });
-};
+const register = registrar(Schema, { compatible });
 
 module.exports = { compatible, baseline, restore, register };
+// The rules, for the tests that hold the typings and the guide to them; not
+// part of the public surface.
+Object.defineProperty(module.exports, 'RULES', { value: RULES });

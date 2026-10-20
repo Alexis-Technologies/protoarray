@@ -21,7 +21,7 @@
 // not need it; `register()` installs `Schema.resolve`.
 
 const { SchemaDefinitionError, overflowed, join, step } = require('./errors.js');
-const { PLAN, canonical, isSchema } = require('./plan.js');
+const { PLAN, canonical, isSchema, isJson, isNull, isResolved } = require('./plan.js');
 const { bridge } = require('./types.js');
 const { Schema, SETTINGS, SAME, INTERNAL, inherited } = require('./schema.js');
 
@@ -55,9 +55,6 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
     while (out.slot !== undefined) out = out.slot.schema[PLAN];
     return out;
   };
-
-  const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
-  const isNull = (node) => node.kind === 'scalar' && node.type === 'null';
 
   const scalar = (w, r, path, fallback) => {
     const from = canonical(w);
@@ -309,7 +306,7 @@ const resolve = (writer, reader, options) => {
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
   }
   // A resolved schema reads one version as another: it is no version itself.
-  if (writer[PLAN].text !== undefined || reader[PLAN].text !== undefined) {
+  if (isResolved(writer) || isResolved(reader)) {
     const text = 'A resolved schema is no version to resolve: give its writer or its reader';
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text);
   }

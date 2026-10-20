@@ -32,8 +32,25 @@ test('Registry: schemas by id and by name', () => {
   assert.throws(() => registry.add({}), { code: 'ERR_SCHEMA_EXPECTED' });
 });
 
-// What a collision's message tells to do.
-const REMEDY = "use a wider fingerprint ({ fingerprint: 'fnv1a64' })";
+// What a collision's message tells to do: a wider hash where the default one
+// collided, another one where the schemas are on a hash of their own already.
+const REMEDY = 'their fingerprint gives both one id, use a wider or another one';
+const WIDER = "use a wider fingerprint ({ fingerprint: 'fnv1a64' })";
+
+test('Registry: two schemas the default fingerprint gives one id are told to widen it', () => {
+  // Two enums whose canonical forms hash alike under FNV-1a 32 (found by search).
+  const A = named('A', { e: { enum: ['v468489'] } });
+  const B = named('B', { e: { enum: ['v1076304'] } });
+  assert.strictEqual(A.id, 'de175229');
+  assert.strictEqual(B.id, A.id);
+  assert.throws(() => new SchemaRegistry([A, B]), {
+    code: 'ERR_ID_COLLISION',
+    message: `Schemas "A" and "B" share the id de175229: ${WIDER}`,
+  });
+  // Widened, they are told apart.
+  const wide = (name, value) => named(name, { e: { enum: [value] } }, { fingerprint: 'fnv1a64' });
+  assert.strictEqual(new SchemaRegistry([wide('A', 'v468489'), wide('B', 'v1076304')]).size, 2);
+});
 
 test('Registry: a narrow fingerprint is a collision, not a silent mix-up', () => {
   const narrow = () => 'x';

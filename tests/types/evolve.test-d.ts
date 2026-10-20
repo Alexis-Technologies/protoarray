@@ -33,9 +33,13 @@ expectType<Baseline>(written);
 expectType<1>(written.format);
 expectType<number>(written.schemas.V1.snapshot);
 expectType<string | null | undefined>(written.schemas.V1.options.fingerprint);
+expectType<string>(written.schemas.V1.signature);
+expectType<string | undefined>(written.generator);
 expectError(baseline(V1));
 expectError(baseline({ V1: 1 }));
 expectType<Readonly<Record<string, Schema>>>(restore(written));
+// What JSON.parse gives: checked at runtime, so anything is taken.
+expectType<Readonly<Record<string, Schema>>>(restore(JSON.parse('{}') as unknown));
 expectType<unknown>(restore(written).V1.decode([1]));
 expectType<void>(register());
 expectType<Compatibility>(Schema.compatible(V1, V2));

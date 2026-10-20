@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   module writes it (the `list` of a module's schema hashed with the default before), and
   `ERR_ID_COLLISION` names it as the remedy. A function of the signature is accepted as before;
   anything else is `ERR_INVALID_OPTIONS` ("fnv1a32, fnv1a64 or a function").
+- **`@alexify/protoarray/evolve`**: `compatible(previous, next, { strict? })` checks two versions
+  of a schema by position, the way the evolution rules read, and reports every place where the
+  newer one reads an older payload differently: `{ ok, problems }`, each problem with its `path`,
+  the `rule` it breaks (`inserted`, `moved`, `removed`, `renamed`, `required`, `retired`, `type`,
+  `optional`, `appended`, `wire`, `flat`, `default`), its `severity` (`error`, `warning`, `info`)
+  and the canonical forms of the two nodes; `ok` is false on an error, with `strict` on a warning
+  too. Fields, tuple elements, enum values, flag names and a union's values compare by position;
+  references by the entity they reach, once per pair; a key that changes where neither key is
+  anywhere else is a rename, any other shift is an error. `baseline(schemas)` writes schemas as
+  JSON (their snapshots, the options that shape their wire, their canonical forms and ids) and
+  `restore(baseline)` builds them again, refusing one that does not rebuild to its canonical form
+  (`ERR_INVALID_SNAPSHOT`); `register()` installs `Schema.compatible`. The core does not carry it.
+- **`protoarray snapshot <module> [--only A,B] [--out <file>]`** writes the baseline of the
+  schemas a module exports, and **`protoarray check <module> --against <baseline.json> [--only
+  A,B] [--strict] [--json]`** compares the module with it, by export name: one line per problem
+  and a summary (`--json`: `{ ok, schemas }`), exit code 1 when incompatible or when the module
+  or the baseline cannot be used, 2 for a wrong command line. The usage of the command names
+  every command now, and `--out` refuses to write over the module it reads (the message says so).
 
 ### Changed
 

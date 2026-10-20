@@ -32,6 +32,9 @@ const Ping = new Definition('Ping', { at: 'date' });
 module.exports = { model, Ping }; // compiles to the exports Address, User and Ping
 ```
 
+The same command writes and checks the baselines of the evolution guide, `protoarray snapshot` and
+`protoarray check` (see [Checking it in CI](/guide/evolution#checking-it-in-ci)).
+
 Options:
 
 | Option | |

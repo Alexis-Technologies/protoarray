@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The closures backend decodes faster.** A decoded object starts as a copy of a template that
+  holds every field at its default, so a field that is missing costs no store: a sparse record of
+  70 fields with three set decodes about four times faster. A nested value is one call instead of
+  two, and the loop reads each field by a kind decided when the schema is built. The same template
+  serves `flags`, where only the set bits are stored now: a record of 70 flags decodes about four
+  and a half times faster on both backends. The wire, the decoded objects and the errors did not
+  change. What remains is structural: the closures store each present field through one keyed
+  store, about 60 ns a field on decode against 30 in generated code (see
+  [Runtimes and CSP](https://protoarray.vercel.app/guide/runtimes)).
+- `pnpm bench` measures a record of 128 fields, and the new `pnpm bench:sweep` prints the cost per
+  field from 4 to 256 fields for JSON and both backends, each point in a fresh process
+  (`bench/results/sweep.json`).
+
+### Fixed
+
+- **A record of 128 fields or more decoded seven times slower on closures than one of 127** (26 µs
+  against 7 µs): the template was parsed from JSON, which V8 hands over in dictionary mode from 128
+  keys on, and a copy of such an object costs a transition per key. The template is built with
+  `Object.fromEntries` now and keeps fast properties up to the engine's limit; both backends stay
+  linear in the number of fields. The same applied to `flags` of 128 names or more on either
+  backend.
+
 ## [2.0.0] - 2026-10-16
 
 2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.

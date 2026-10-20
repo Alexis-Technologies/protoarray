@@ -36,6 +36,7 @@ pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browse
 node bin/protoarray.js compile <module> [--out f] [--format cjs|esm] [--runtime import|inline] [--only A,B]   # the CLI
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--no-cold-start] [--save]   # against JSON and 11 codecs, plus the cold start; --save merges into bench/results/compare.json
+pnpm bench:sweep [--widths 4,8,…] [--standalone] [--json] [--save]   # ns per field by record width, each (backend, width) point in a fresh process; --save writes bench/results/sweep.json
 pnpm bench:releases [--ref v1.0.0] # a release (a tag, via git archive) or the current tree on the compare scenarios, both backends; merges into bench/results/releases.json
 pnpm size:compare [--save]         # browser bundle of one record's round trip per library, bench/results/size.json
 pnpm bench:report                  # the SVG charts (docs/public/benchmarks/) and the tables of README.md and docs/guide/benchmarks.md
@@ -121,10 +122,10 @@ tests/
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 scripts/size-compare.js   cross-library bundle sizes; scripts/comparison.js renders the feature matrix
-bench/              engine harness (bench.js), comparison (compare.js + compare/: adapters, scenarios,
-                    measure, releases-worker), releases.js, report.js + report/ (model.mjs: the
-                    chart models, svg.mjs: README images); baseline.json and results/*.json are
-                    snapshots
+bench/              engine harness (bench.js), the width sweep (sweep.js), comparison (compare.js +
+                    compare/: adapters, scenarios, measure, releases-worker), releases.js, report.js
+                    + report/ (model.mjs: the chart models, svg.mjs: README images); baseline.json
+                    and results/*.json are snapshots
 docs/               VitePress site (protoarray.vercel.app), not published; comparison.json is the
                     data of the feature matrix, .vitepress/theme/components/Bench*.vue the charts
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
@@ -181,8 +182,12 @@ docs/               VitePress site (protoarray.vercel.app), not published; compa
 2. **A backend builds `{ encode, decode }` from the plan.** `codegen.js` emits one encode and one
    decode function per struct through `new Function` (array and object literals, so every decoded
    object has the hidden class an object literal would). `closures.js` composes closures over the
-   same plan and objects start as a spread of a literal-shaped template, so their hidden class is
-   still stable. The probe `new Function('return 1')` runs once, when the first schema that may
+   same plan and objects start as a spread of a template that holds every key at its default, so
+   their hidden class is still stable and a missing field costs no store; the template comes from
+   `Object.fromEntries` (`literal` in `types.js`), which keeps fast properties: V8 hands an object
+   parsed from JSON over in dictionary mode from 128 keys, one filled by keyed assignment from
+   about 18, and a spread of either costs a transition per key (`pnpm bench:sweep` tracks the cost
+   per field, `wide object (128 fields)` in `pnpm bench` the step). The probe `new Function('return 1')` runs once, when the first schema that may
    use generated code is built (`codegen.available()`), never for `{ codegen: false }` or a
    `compiled` codec, so such a program triggers no CSP report; `{ codegen }` forces a
    backend, `{ codegen: true }` throws `ERR_CODEGEN_UNAVAILABLE` where it cannot be honoured, and

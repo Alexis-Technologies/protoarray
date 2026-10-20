@@ -35,6 +35,65 @@ for (const [backend, options] of BACKENDS) {
     assert.deepStrictEqual(schema.decode([null, 1], null), decoded);
   });
 
+  // On V8 an object parsed from JSON with 128 keys or more is in dictionary
+  // mode, and so is one filled by keyed assignment from about 18: the template
+  // a decoded record starts from must be neither, on either side of the line.
+  const WIDE_TYPES = ['string', 'integer', 'boolean', 'number'];
+  const wideKeys = (width) => Array.from({ length: width }, (_, i) => `f${i}`);
+  const wideValue = (keys) =>
+    Object.fromEntries(
+      keys.map((key, i) => {
+        const type = i % 4;
+        return [key, type === 0 ? `s${i}` : type === 1 ? i : type === 2 ? i % 3 === 0 : i / 4];
+      }),
+    );
+  for (const width of [127, 128, 129]) {
+    test(`Codec (${backend}): a record of ${width} fields decodes with every key in order`, () => {
+      const keys = wideKeys(width);
+      // Every eighth field is optional and left out: it decodes to null.
+      const definition = Object.fromEntries(
+        keys.map((key, i) => [key, `${i % 8 === 7 ? '?' : ''}${WIDE_TYPES[i % 4]}`]),
+      );
+      const full = wideValue(keys);
+      const value = { ...full };
+      const expected = { ...full };
+      for (let i = 7; i < width; i += 8) {
+        delete value[keys[i]];
+        expected[keys[i]] = null;
+      }
+      const dense = define(definition, options);
+      const decoded = dense.decode(dense.encode(value));
+      assert.deepStrictEqual(Object.keys(decoded), keys);
+      assert.deepStrictEqual(decoded, expected);
+      assert.deepStrictEqual(dense.parse(dense.stringify(value)), expected);
+      // A sparse record of the same width, every field optional, three present.
+      const optional = Object.fromEntries(keys.map((key, i) => [key, `?${WIDE_TYPES[i % 4]}`]));
+      const sparse = define(optional, { ...options, sparse: true });
+      const few = { f0: 's0', f64: 's64', [keys[width - 1]]: full[keys[width - 1]] };
+      const back = sparse.decode(sparse.encode(few));
+      assert.deepStrictEqual(Object.keys(back), keys);
+      assert.deepStrictEqual(back, {
+        ...Object.fromEntries(keys.map((key) => [key, null])),
+        ...few,
+      });
+    });
+  }
+
+  test(`Codec (${backend}): flags past 127 names decode as an object of every name`, () => {
+    const names = Array.from({ length: 130 }, (_, i) => `n${i}`);
+    const schema = define({ perms: { flags: names } }, options);
+    const none = Object.fromEntries(names.map((name) => [name, false]));
+    const wire = schema.encode({ perms: { n0: true, n31: true, n129: true } });
+    assert.deepStrictEqual(wire, [[1, 1, 0, 0, 32]]);
+    const decoded = schema.decode(wire).perms;
+    assert.deepStrictEqual(Object.keys(decoded), names);
+    assert.deepStrictEqual(decoded, { ...none, n0: true, n31: true, n129: true });
+    // One integer is the first word; the words a payload stops short of are false.
+    assert.deepStrictEqual(schema.decode([3]).perms, { ...none, n0: true, n1: true });
+    assert.deepStrictEqual(schema.decode([[0, 2]]).perms, { ...none, n32: true });
+    assert.deepStrictEqual(schema.decode([[0]]).perms, none);
+  });
+
   test(`Codec (${backend}): extra trailing elements are ignored unless strict`, () => {
     const schema = define({ id: 'number' }, options);
     assert.deepStrictEqual(schema.decode([1, 'future']), { id: 1 });

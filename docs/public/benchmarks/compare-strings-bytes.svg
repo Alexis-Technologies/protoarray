@@ -80,7 +80,7 @@ protobufjs@8.8.1, writes bytes</title>
 <g><title>protoarray · codegen
 785 bytes
 96% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="265">protoarray</text>
 <text class="sublabel" x="20" y="280">codegen</text>
 <path class="bar primary" d="M217,261H573.315A4,4 0 0 1 577.315,265V271A4,4 0 0 1 573.315,275H217Z"/>
@@ -89,7 +89,7 @@ protobufjs@8.8.1, writes bytes</title>
 <g><title>protoarray · closures, no eval
 785 bytes
 96% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label secondary" x="20" y="305">protoarray</text>
 <text class="sublabel" x="20" y="320">closures, no eval</text>
 <path class="bar secondary" d="M217,301H573.315A4,4 0 0 1 577.315,305V311A4,4 0 0 1 573.315,315H217Z"/>
@@ -194,5 +194,5 @@ node:v8, Node 24.14.1, writes bytes</title>
 <text class="value" x="619.117" y="754">863 B</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="825">2026-10-18</text>
 </svg>

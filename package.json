@@ -87,6 +87,7 @@
     "size:compare": "node scripts/size-compare.js",
     "bench": "node bench/bench.js",
     "bench:compare": "node bench/compare.js",
+    "bench:sweep": "node bench/sweep.js",
     "bench:releases": "node bench/releases.js",
     "bench:report": "node bench/report.js",
     "docs:dev": "vitepress dev docs",

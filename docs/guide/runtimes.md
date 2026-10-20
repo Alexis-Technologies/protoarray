@@ -51,18 +51,33 @@ reports nothing. `{ codegen: false }` is also the way to compare the two.
 ## What the fallback costs
 
 Closures cannot write object literals, so decoded objects start as a copy of a template with the
-schema's keys (which keeps their hidden class stable) and are filled one property at a time. On a
-typical record the closures backend stays within 10% of `JSON.stringify` and `JSON.parse` of the
-keyed object, a little ahead on one record and a little behind on a list; the codegen backend is
-×1.5 and ×1.8. The cost of closures grows with the number of fields, about 40 ns per field on
-decode against a few in generated code, so a sparse record of 70 fields decodes about 15 times
-slower than with codegen. The payload is identical either way; in a fresh process, loading the
-package takes about 4 ms and building a first schema about 2 ms with either backend, a few
-microseconds once warm (`pnpm bench` prints a cold-start table).
+schema's keys at their defaults (which keeps their hidden class stable, and makes a missing field
+free) and each field that is present is stored on its own, through a store whose key changes with
+every field. That store is what the fallback costs. On decode it is about 60 ns a field against
+30 in generated code and 47 for `JSON.parse` of the keyed object; on encode about 45 against 24
+and 39, as the table below measures (`pnpm bench:sweep`: records of string, integer, boolean and
+number fields, 128 of them in rotation, each backend in a fresh process; Node.js 24, Apple M3
+Max). So on a typical record the closures backend stays near `JSON.stringify` and `JSON.parse` of
+the keyed object, a little ahead on one record and a little behind on a list, where the codegen
+backend is ×1.5 and ×1.8. The gap to generated code is structural: the closures are the same code
+for every schema, so the engine's inline caches meet every schema's keys at the same sites, while
+generated code has sites of its own per schema. Both backends grow linearly with the number of
+fields, with no step at 128 fields, where V8 hands an object parsed from JSON over in dictionary
+mode (which is why the template is not parsed from JSON). The payload is identical either way; in
+a fresh process, loading the package takes about 4 ms and building a first schema about 2 ms with
+either backend, a few microseconds once warm (`pnpm bench` prints a cold-start table).
+
+| Fields | `JSON.parse`, keyed | parse, codegen | parse, closures | `JSON.stringify`, keyed | stringify, codegen | stringify, closures |
+| -----: | ------------------: | -------------: | --------------: | ----------------------: | -----------------: | ------------------: |
+| 4 | 298 ns | 154 ns | 227 ns | 210 ns | 151 ns | 181 ns |
+| 16 | 850 ns | 474 ns | 756 ns | 695 ns | 443 ns | 596 ns |
+| 64 | 3.0 µs | 1.8 µs | 3.5 µs | 2.6 µs | 1.6 µs | 2.7 µs |
+| 128 | 14.5 µs | 4.2 µs | 7.3 µs | 5.1 µs | 3.1 µs | 5.5 µs |
+| 256 | 30.1 µs | 8.6 µs | 15.3 µs | 10.1 µs | 6.1 µs | 11.5 µs |
 
 A very wide record makes a large function: about 200 to 500 bytes of source a field, 4 ms to build
-for 1,000 fields and 16 ms for 3,000. It still decodes two to ten times faster than closures do,
-so the automatic choice stays codegen however wide a record is.
+for 1,000 fields and 16 ms for 3,000. It still decodes about twice as fast as closures do, so the
+automatic choice stays codegen however wide a record is.
 
 ## Without code generation, at its speed
 

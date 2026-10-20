@@ -90,9 +90,9 @@ generation where it is allowed.
 module's own, so tell them by `name` and `code`, not by `instanceof`.
 
 Either way the module compiles no source text to load, and its schemas run at the speed of the codegen
-backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.85 faster to `parse`
+backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.8 faster to `parse`
 than `JSON` of the keyed object, where the closures backend a runtime without code generation
-would otherwise use is about as fast as `JSON` (×1.5 and ×2 slower than the module).
+would otherwise use is about as fast as `JSON` (×1.4 and ×2 slower than the module).
 
 ## What it does not write
 

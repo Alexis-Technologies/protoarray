@@ -91,7 +91,7 @@ msgpackr@2.1.0, writes bytes</title>
 <g><title>protoarray · codegen
 23 bytes
 70% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="305">protoarray</text>
 <text class="sublabel" x="20" y="320">codegen</text>
 <path class="bar primary" d="M217,301H388.95000000000005A4,4 0 0 1 392.95000000000005,305V311A4,4 0 0 1 388.95000000000005,315H217Z"/>
@@ -100,7 +100,7 @@ msgpackr@2.1.0, writes bytes</title>
 <g><title>protoarray · closures, no eval
 23 bytes
 70% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label secondary" x="20" y="345">protoarray</text>
 <text class="sublabel" x="20" y="360">closures, no eval</text>
 <path class="bar secondary" d="M217,341H388.95000000000005A4,4 0 0 1 392.95000000000005,345V351A4,4 0 0 1 388.95000000000005,355H217Z"/>
@@ -196,5 +196,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="544.3" y="754">42 B</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="825">2026-10-18</text>
 </svg>

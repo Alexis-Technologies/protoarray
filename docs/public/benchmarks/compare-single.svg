@@ -42,14 +42,14 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="768"/>
 <line class="ref" x1="479.48666951247026" y1="88" x2="479.48666951247026" y2="768"/>
 <g><title>protoarray · codegen
-939,732 ops/s
-1.06 µs per payload
+937,824 ops/s
+1.07 µs per payload
 ×1.64 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label primary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">codegen</text>
-<path class="bar primary" d="M217,101H644.3368974890616A4,4 0 0 1 648.3368974890616,105V111A4,4 0 0 1 644.3368974890616,115H217Z"/>
-<text class="value" x="654.3368974890616" y="114">940k</text>
+<path class="bar primary" d="M217,101H643.4610617180269A4,4 0 0 1 647.4610617180269,105V111A4,4 0 0 1 643.4610617180269,115H217Z"/>
+<text class="value" x="653.4610617180269" y="114">938k</text>
 </g>
 <g><title>msgpackr · records, shared structures
 916,227 ops/s
@@ -102,14 +102,14 @@ protobufjs@8.8.1, writes bytes</title>
 <text class="value" x="539.3736563386412" y="314">689k</text>
 </g>
 <g><title>protoarray · closures, no eval
-623,082 ops/s
-1.6 µs per payload
-×1.09 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+629,514 ops/s
+1.59 µs per payload
+×1.10 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes JSON text</title>
 <text class="label secondary" x="20" y="345">protoarray</text>
 <text class="sublabel" x="20" y="360">closures, no eval</text>
-<path class="bar secondary" d="M217,341H498.9947793327892A4,4 0 0 1 502.9947793327892,345V351A4,4 0 0 1 498.9947793327892,355H217Z"/>
-<text class="value" x="508.9947793327892" y="354">623k</text>
+<path class="bar secondary" d="M217,341H501.9468071779903A4,4 0 0 1 505.9468071779903,345V351A4,4 0 0 1 501.9468071779903,355H217Z"/>
+<text class="value" x="511.9468071779903" y="354">630k</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 615,075 ops/s
@@ -211,5 +211,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="272.84229835828364" y="754">109k</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="825">2026-10-18</text>
 </svg>

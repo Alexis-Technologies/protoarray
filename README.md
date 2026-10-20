@@ -180,8 +180,8 @@ text or bytes and back.
 | Library | One record<br><sub>round trips/s</sub> | 1,000 records<br><sub>round trips/s</sub> | Sparse record<br><sub>round trips/s</sub> | Typed record<br><sub>round trips/s</sub> | Long strings<br><sub>round trips/s</sub> | 100 wrpc packets<br><sub>round trips/s</sub> | 32 doubles<br><sub>round trips/s</sub> |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 572,000 | 554 | 2,730,000 | 640,000 | 719,000 | 16,400 | 194,000 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 940,000 | 842 | 3,750,000 | 2,390,000 | 876,000 | 28,300 | 261,000 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 623,000 | 574 | 1,330,000 | 1,650,000 | 807,000 | 17,200 | 220,000 |
+| **protoarray**<br><sub>codegen · v2.0.0</sub> | 938,000 | 847 | 3,740,000 | 2,380,000 | 888,000 | 28,500 | 257,000 |
+| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 630,000 | 575 | 1,800,000 | 1,620,000 | 826,000 | 16,600 | 222,000 |
 | **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 899,000 | 846 | 3,470,000 | 2,340,000 | 858,000 | 27,500 | 260,000 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 689,000 | 624 | 1,630,000 | 1,780,000 | 809,000 | 20,200 | 231,000 |
 | **protoarray**<br><sub>columns layout · v2.0.0</sub> | — | 879 | — | — | — | — | — |
@@ -199,7 +199,7 @@ text or bytes and back.
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 184,000 | 171 | 1,010,000 | 383,000 | 344,000 | 5,960 | 123,000 |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 615,000 | 577 | 3,560,000 | 1,820,000 | 664,000 | — | 395,000 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-16. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-18. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
 
 <!-- bench:compare:end -->
 

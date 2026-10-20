@@ -60,7 +60,8 @@ fs.writeFileSync('schemas.compiled.js', toSource({ User, Address }, { format: 'e
 ```
 
 The options a schema was built with travel with it (`sparse`, `layout`, `delta`, `intern`,
-`references`, `types`, `validate`, `stringify`).
+`references`, `types`, `validate`, `stringify`, `maxDepth`, and `fingerprint` when it names a
+built-in hash).
 
 `toSource(schema)` writes one schema as the default export, `toSource({ A, B })` named exports.
 `register()` from the same subpath adds `schema.toSource(options)`.
@@ -99,8 +100,9 @@ would otherwise use is about as fast as `JSON` (×1.4 and ×2 slower than the mo
 - A schema from `resolve`: it is built at runtime from two schemas; write the writer and the
   reader, and resolve them at runtime.
 - `schema.list`: write the schema, and take its `list` at runtime.
-- A custom `fingerprint` function: the module carries each schema's `id` as it was computed, and
-  the schemas it derives at runtime (`list`) use the default fingerprint.
+- A `fingerprint` function: the module carries each schema's `id` as it was computed, and the
+  schemas it derives at runtime (`list`) use the default fingerprint. A built-in hash
+  (`'fnv1a64'`) travels by name, and `list` hashes with it.
 - The metaschema schema: a standalone schema's `source` is `null`. Values are validated where
   metaschema runs, if anywhere; the module itself encodes and decodes.
 

@@ -147,6 +147,7 @@ know, or one of a version the reader cannot resolve, a `DecodeError` `schema` wi
 `error.id` (never in the message: the payload gave it) and, for the second, the `ERR_INCOMPATIBLE`
 as `cause`. `decode` and `parse` throw nothing else, and a pair that cannot resolve is tried once.
 Writing `as` an id the registry does not know is `SchemaDefinitionError` `ERR_UNKNOWN_SCHEMA`. Two schemas of different signatures under one id throw
-`ERR_ID_COLLISION` when added: the 32-bit fingerprint is too narrow for that registry, and a wider one is the remedy (see
-[Your own fingerprint](/guide/evolution#your-own-fingerprint)). The registry is a subpath of its
+`ERR_ID_COLLISION` when added: the 32-bit fingerprint is too narrow for that registry, and
+`{ fingerprint: 'fnv1a64' }` on its schemas is the remedy (see
+[A wider fingerprint](/guide/evolution#a-wider-fingerprint)). The registry is a subpath of its
 own, so a program that does not use it does not carry it.

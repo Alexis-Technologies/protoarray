@@ -110,5 +110,6 @@ as a JSON string (`{"a:b":number}`), and so does a string enum value that reads 
 its UTF-16 code units (not UTF-8 bytes, as most FNV-1a implementations): the canonical form, then
 `;Name=<canonical form>` for every other entity the schema references by name (`@Name`), sorted by
 name as code units (the name printed as in the form); a reference to its own name adds nothing,
-nor does the schema itself as the record of its `list`. The `fingerprint` option supplies another
-function of the signature.
+nor does the schema itself as the record of its `list`. `{ fingerprint: 'fnv1a64' }` is the
+64-bit FNV-1a of the same code units, as sixteen hex digits, and a `fingerprint` function
+computes the id from the signature itself.

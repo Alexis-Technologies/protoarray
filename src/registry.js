@@ -47,9 +47,10 @@ class SchemaRegistry {
     const { id } = schema;
     const known = this.#byId.get(id);
     if (known !== undefined && !known[SAME](schema)) {
+      const remedy = "use a wider fingerprint ({ fingerprint: 'fnv1a64' })";
       throw new SchemaDefinitionError(
         'ERR_ID_COLLISION',
-        `Schemas "${known.name}" and "${schema.name}" share the id ${id}: use a wider fingerprint`,
+        `Schemas "${known.name}" and "${schema.name}" share the id ${id}: ${remedy}`,
         schema.name,
       );
     }

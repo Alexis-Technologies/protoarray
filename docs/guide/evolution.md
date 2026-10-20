@@ -91,12 +91,12 @@ pass `{ strict: true }` to `decode` or `parse`: extra elements, values or column
 
 ## Telling versions apart
 
-`schema.id` is a 32-bit FNV-1a fingerprint of the schema's signature: its canonical form
-(`schema.toString()`: every position, its type and its key, with the layout), followed by the
-canonical form of every other entity it references by name (see
-[Defining a Schema](/guide/schema#properties)). Two sides whose ids match agree on the wire, the
-entities their references reach included: a change to `Address` changes the id of a `User` that
-references it, so a registry or a handshake tells the two versions apart.
+`schema.id` is an FNV-1a fingerprint of the schema's signature, 32 bits as eight hex digits by
+default (`'fnv1a64'` below widens it): its canonical form (`schema.toString()`: every position,
+its type and its key, with the layout), followed by the canonical form of every other entity it
+references by name (see [Defining a Schema](/guide/schema#properties)). Two sides whose ids match
+agree on the wire, the entities their references reach included: a change to `Address` changes
+the id of a `User` that references it, so a registry or a handshake tells the two versions apart.
 Exchange it in a handshake (an HTTP header, the `hello` of an RPC session, a field in an
 envelope) and map ids to schemas on the receiving side when a breaking change has to coexist with
 the old version for a while: [`SchemaRegistry`](/guide/resolve#the-registry) keeps that map and
@@ -111,14 +111,36 @@ The id includes keys, so renaming a field changes it even though the wire stays 
 is deliberate: a swap of two same-typed fields is a change of meaning, and the id should say so.
 If only wire compatibility matters, compare `toString()` after stripping keys on your side.
 
-### Your own fingerprint
+### A wider fingerprint
 
 Thirty-two bits are plenty for a handshake between two sides, where the only question is "do we
 have the same schema?": two different schemas collide with probability 2⁻³². They are not enough
-for a registry that keys many schemas by id, where a collision becomes likely around 65,000
-entries. The `fingerprint` option replaces the hash with any synchronous function of the
-signature, which is the canonical form itself for a schema that references no other entity, and
-`schema.list` inherits it:
+for a registry that keys many schemas by id. Among K schemas, some two share a b-bit id with
+probability P ≈ 1 − exp(−K(K−1)/2ᵇ⁺¹), the birthday bound:
+
+| Schemas | 32 bits | 64 bits |
+| --- | ---: | ---: |
+| 2¹⁰ (1,024) | 0.012% | 2.8 × 10⁻¹⁴ |
+| 2¹² (4,096) | 0.2% | 4.6 × 10⁻¹³ |
+| 2¹⁴ (16,384) | 3.1% | 7.3 × 10⁻¹² |
+| 2¹⁶ (65,536) | 39% | 1.2 × 10⁻¹⁰ |
+| 2¹⁸ (262,144) | ≈ 100% | 1.9 × 10⁻⁹ |
+| 2²⁰ (1,048,576) | ≈ 100% | 3.0 × 10⁻⁸ |
+
+The `fingerprint` option names the hash: `'fnv1a32'` is the default, `'fnv1a64'` the 64-bit
+FNV-1a of the same signature, as sixteen hex digits, computed as cheaply and without a
+dependency. A registry of thousands of schemas takes it on every schema it holds: the registry
+refuses two schemas of different signatures under one id (`ERR_ID_COLLISION`) rather than mix
+them up. What a schema derives hashes with the same name (`schema.list`, the entities its
+references reach, a resolved schema), and a standalone module carries it.
+
+```js
+const V1 = Schema.from({ id: 'number', name: 'string' }, { metaschema, fingerprint: 'fnv1a64' });
+V1.id; // '2eb324893863d0cf' — 64-bit FNV-1a of '{id:number,name:string}'; '030d98ef' with 32
+```
+
+The option also takes any synchronous function of the signature, which is the canonical form
+itself for a schema that references no other entity, for a hash of your own:
 
 ```js
 const { createHash } = require('node:crypto');
@@ -131,7 +153,9 @@ User.id; // '17ad5aba43b19ad4' — 64 bits of SHA-256 of '{id:number,name:string
 The function must be deterministic and derive the id from its argument only: both sides compute
 it on their own from the same schema, which is what makes the handshake work. A random or
 time-based identifier (a cuid, a ulid) would differ between two copies of the same schema; if you
-need hand-written version ids, keep a map from id to schema in the application instead.
+need hand-written version ids, keep a map from id to schema in the application instead. A
+function has no source, so a [standalone module](/guide/standalone#what-it-does-not-write)
+carries the ids it computed and hashes what it derives with the default; a name travels.
 
 ### Past 31 fields or names
 

@@ -5,6 +5,7 @@ const { BACKENDS } = require('../support/backends.js');
 const { ms, define, model } = require('../support/schema.js');
 
 const CODEC = Symbol.for('alexify.protoarray.codec');
+const PLAN = Symbol.for('alexify.protoarray.plan');
 const BRAND = Symbol.for('alexify.metaschema.brand');
 
 // A snapshot of one struct entity `T`, written by hand: what metaschema
@@ -1004,6 +1005,63 @@ test('Schema: the list of a recursive schema has the id of its canonical form', 
   assert.strictEqual(User.id, fingerprint(User.toString()));
   assert.strictEqual(User.list.toString(), '[{name:?string,next:?@User}]');
   assert.strictEqual(User.list.id, fingerprint(User.list.toString()));
+});
+
+test('Schema: the built-in fingerprints', () => {
+  const { FINGERPRINTS, fingerprint, signature, identify } = require('../../src/plan.js');
+  assert.deepStrictEqual(Object.keys(FINGERPRINTS), ['fnv1a32', 'fnv1a64']);
+  assert.strictEqual(FINGERPRINTS.fnv1a32, fingerprint);
+  // The reference vectors of FNV-1a over one-byte texts, where code units
+  // and UTF-8 bytes agree, then a code unit past one byte, hashed as one.
+  const vectors = [
+    ['', '811c9dc5', 'cbf29ce484222325'],
+    ['a', 'e40c292c', 'af63dc4c8601ec8c'],
+    ['foobar', 'bf9cf968', '85944171f73967e8'],
+    ['a\u20acb', 'ba777fc6', '77a39118a6897166'],
+  ];
+  for (const [text, narrow, wide] of vectors) {
+    assert.strictEqual(FINGERPRINTS.fnv1a32(text), narrow, text);
+    assert.strictEqual(FINGERPRINTS.fnv1a64(text), wide, text);
+  }
+  // A named hash of a signature, piece by piece, is the hash of the text.
+  const entities = {
+    Address: { Struct: {}, city: 'string' },
+    User: { Struct: {}, home: 'Address', 'boss?': 'User' },
+  };
+  const SIGNATURE = Symbol.for('alexify.protoarray.signature');
+  const wide = model(entities, { fingerprint: 'fnv1a64' });
+  const text = '{home:@Address,boss:?@User};Address={city:string}';
+  assert.strictEqual(wide.User[SIGNATURE], text);
+  assert.strictEqual(wide.User.id, FINGERPRINTS.fnv1a64(text));
+  assert.match(wide.User.id, /^[0-9a-f]{16}$/);
+  const reached = [['Address', wide.Address]];
+  const canonical = wide.User.toString();
+  assert.strictEqual(signature(canonical, reached), text);
+  assert.strictEqual(identify(canonical, reached, 'fnv1a64'), FINGERPRINTS.fnv1a64(text));
+  assert.strictEqual(identify(canonical, reached, 'fnv1a32'), fingerprint(text));
+  // The 32-bit one is the default, by name or not.
+  const plain = model(entities).User;
+  assert.strictEqual(model(entities, { fingerprint: 'fnv1a32' }).User.id, plain.id);
+  assert.strictEqual(plain.id, fingerprint(text));
+  assert.match(plain.id, /^[0-9a-f]{8}$/);
+  // What a schema derives takes the name: its list, a collection in a layout
+  // of its own.
+  assert.strictEqual(wide.User.list.id, FINGERPRINTS.fnv1a64(wide.User.list[SIGNATURE]));
+  assert.match(wide.User.list.id, /^[0-9a-f]{16}$/);
+  const Outer = define(
+    { items: { array: { s: 'string' } } },
+    { layout: { items: 'columns' }, fingerprint: 'fnv1a64' },
+  );
+  const nested = Outer[PLAN].fields[0].node.slot.schema;
+  assert.strictEqual(nested.toString(), 'columns[{s:string}]');
+  assert.strictEqual(nested.id, FINGERPRINTS.fnv1a64(nested.toString()));
+  // Anything else is an invalid option, a name of the prototype included.
+  for (const value of ['sha256', 'FNV1A64', 'fnv1a128', '', 'constructor', 'toString', 1]) {
+    invalid(() => define({ a: 'number' }, { fingerprint: value }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Invalid option "fingerprint": fnv1a32, fnv1a64 or a function',
+    });
+  }
 });
 
 test('Schema: a fingerprint gives a non-empty string', () => {

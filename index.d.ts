@@ -164,11 +164,13 @@ export interface SchemaOptions {
    */
   readonly stringify?: 'auto' | 'builder' | 'native';
   /**
-   * Computes `id` from the schema's signature: its canonical form (`toString()`), then
-   * `;Name=<canonical form>` for every other entity it references, by name. The default is a
-   * 32-bit FNV-1a hash as eight hex digits. It must be synchronous and deterministic.
+   * What `id` is of the schema's signature: its canonical form (`toString()`), then
+   * `;Name=<canonical form>` for every other entity it references, by name. `'fnv1a32'` (the
+   * default) is a 32-bit FNV-1a hash as eight hex digits, enough for a handshake; `'fnv1a64'` the
+   * 64-bit one as sixteen, for a registry of many schemas; a function computes it from the
+   * signature, and must be synchronous and deterministic.
    */
-  readonly fingerprint?: (signature: string) => string;
+  readonly fingerprint?: 'fnv1a32' | 'fnv1a64' | ((signature: string) => string);
   /**
    * The levels of a recursion one payload may nest, a positive integer: deeper is `DecodeError`
    * `structure` or `EncodeError` `depth`, at the same level on either backend and in generated

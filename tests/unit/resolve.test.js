@@ -696,6 +696,16 @@ test("Resolve: a resolved schema has the writer's id, whatever its fingerprint",
   assert.strictEqual(resolved[SIGNATURE], writer[SIGNATURE]);
 });
 
+test("Resolve: a resolved schema hashes with the writer's built-in fingerprint", () => {
+  const writer = define({ a: 'number' }, { fingerprint: 'fnv1a64' });
+  const resolved = resolve(writer, define({ a: 'number', 'b?': 'string' }));
+  assert.strictEqual(resolved.id, writer.id);
+  assert.match(resolved.id, /^[0-9a-f]{16}$/);
+  // What it derives hashes with the same width.
+  assert.strictEqual(resolved.list.id, writer.list.id);
+  assert.match(resolved.list.id, /^[0-9a-f]{16}$/);
+});
+
 test('Resolve: a chain too long for the stack is an error, not a RangeError', () => {
   const chain = (extra) => {
     const entities = {};

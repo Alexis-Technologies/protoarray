@@ -117,8 +117,10 @@ A schema with no binary form (`intern`, `delta`, a `flat` or `columns` layout, s
 [What has no binary form](/guide/binary#what-has-no-binary-form)) is refused when the module is
 written, `SchemaDefinitionError` `ERR_NO_BINARY_FORM` naming it, an entity it reaches by a
 reference included: write such schemas into a module of their own, without the flag. A module
-without the flag does not grow: the inline module of a record of five fields is 6.5 KB min+gzip
-without it and 8.2 KB with it.
+without the flag carries nothing of the binary wire: the inline module of a record of five fields
+is 6.5 KB min+gzip without it (6.1 KB in 2.0: the string functions of the runtime and the depth
+guard, which its kernels carry whole, are the difference) and 8.6 KB with it. A recursive schema's
+`maxDepth` counts on the module's binary codec as on its text one, slots included.
 
 Either way the module compiles no source text to load, and its schemas run at the speed of the codegen
 backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.8 faster to `parse`
@@ -136,8 +138,10 @@ would otherwise use is about as fast as `JSON` (×1.4 and ×2 slower than the mo
 - The metaschema schema: a standalone schema's `source` is `null`. Values are validated where
   metaschema runs, if anywhere; the module itself encodes and decodes.
 
-Regenerate the module whenever a definition changes and whenever protoarray is upgraded; the
-`ERR_COMPILED_MISMATCH` check is there for the times one forgets. Run `toSource` (or `protoarray
+Regenerate the module whenever a definition changes, and when protoarray is upgraded to take
+what the new version writes: a module of an earlier minor still loads (the ABI it checks moves
+only when something is added; a module of 2.0 loads on 2.1), and one written for a later ABI is
+refused with `ERR_COMPILED_MISMATCH`, which names both numbers. Run `toSource` (or `protoarray
 compile`) from the package as installed, not from a bundle of it: the inline runtime writes the
 source of the package's functions, which a bundler may rewrite with helpers of its own
 (`keepNames`, an older `target`) the module would not have.

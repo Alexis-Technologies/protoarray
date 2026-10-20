@@ -419,4 +419,9 @@ export class DecodeError extends TypeError {
   readonly cause?: unknown;
   /** The id an envelope names, on a `schema` error: the payload's, kept out of the message. */
   readonly id?: string;
+  /**
+   * On an error of the binary wire (`fromBinary`): where the reader stood when it refused the
+   * message, the start of the slot that did not fit or the byte after a wrong value.
+   */
+  readonly offset?: number;
 }

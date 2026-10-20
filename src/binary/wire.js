@@ -8,9 +8,14 @@
 // reset on each message; a schema reached through a slot writes and reads
 // through the root's.
 //
-// The reader checks nothing on its own: the backends check the bounds before
-// a fixed-size read and after a varint, and a string or a byte array whose
-// length runs past the message reads as undefined.
+// The reader checks little on its own: the backends check the bounds before
+// a fixed-size read and after a varint. A varint of more than eight bytes (no
+// value of the wire takes more) ends past the message, so that check refuses
+// it; a string or a byte array whose length runs past the message, and an
+// odd length of UTF-16, read as undefined. The writer's loops end after ten
+// bytes whatever they are given, so a value with no form (an infinity) can
+// corrupt a message but not hang the writer; the backends refuse such values
+// before they get here.
 //
 // The module is a closed function of the runtime twin, run once: nothing in
 // it reaches outside, so a standalone module can embed its source.
@@ -33,15 +38,26 @@ const kernel = (runtime) => {
 
   // The string of the UTF-8 between two positions, its character codes joined
   // at once: for short text, cheaper than a call into the runtime. The bytes
-  // are taken as well-formed UTF-8, which the writer always produces.
+  // are taken as well-formed UTF-8, which the writer always produces; a
+  // sequence the end cuts (a corrupted message) ends the string on the
+  // replacement character, as the runtime's decoder does, and never reads
+  // past `end`.
   const decodeUtf8 = (bytes, start, end) => {
     const codes = [];
     let i = start;
     while (i < end) {
       const b = bytes[i++];
-      if (b < 0x80) codes.push(b);
-      else if (b < 0xe0) codes.push(((b & 0x1f) << 6) | (bytes[i++] & 0x3f));
-      else if (b < 0xf0) {
+      if (b < 0x80) {
+        codes.push(b);
+        continue;
+      }
+      const more = b < 0xe0 ? 1 : b < 0xf0 ? 2 : 3;
+      if (i + more > end) {
+        codes.push(0xfffd);
+        break;
+      }
+      if (more === 1) codes.push(((b & 0x1f) << 6) | (bytes[i++] & 0x3f));
+      else if (more === 2) {
         codes.push(((b & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f));
       } else {
         const c =
@@ -55,9 +71,15 @@ const kernel = (runtime) => {
     return String.fromCharCode.apply(null, codes);
   };
 
+  // A writer starts with a small buffer and doubles it as a message needs;
+  // one grown past RETAIN is let go after the message, so a rare large one
+  // does not pin its memory for the life of the schema the writer is kept on.
+  const INITIAL = 1024;
+  const RETAIN = 1 << 20;
+
   class Writer {
     constructor() {
-      this.bytes = new Uint8Array(1024);
+      this.bytes = new Uint8Array(INITIAL);
       this.view = new DataView(this.bytes.buffer);
       this.pos = 0;
     }
@@ -90,12 +112,15 @@ const kernel = (runtime) => {
     }
 
     // Unsigned LEB128 of an integer up to 2^53: bit operations while it fits
-    // 31 bits, arithmetic above.
+    // 31 bits, arithmetic above. Ten bytes at most, so the loop ends on any
+    // value (an infinity would never leave it): the backends refuse what has
+    // no form before it is written.
     uvar(u) {
-      this.ensure(8);
+      this.ensure(10);
       const bytes = this.bytes;
       let pos = this.pos;
-      while (u >= 0x80) {
+      const stop = pos + 9;
+      while (u >= 0x80 && pos < stop) {
         if (u < 0x80000000) {
           bytes[pos++] = (u & 0x7f) | 0x80;
           u >>>= 7;
@@ -114,9 +139,10 @@ const kernel = (runtime) => {
     // magnitude are exact for any integer (ToInt32 keeps them); the rest is
     // shifted by arithmetic once it leaves 31 bits.
     svar(n) {
-      this.ensure(9);
+      this.ensure(10);
       const bytes = this.bytes;
       let pos = this.pos;
+      const stop = pos + 9;
       let s = 0;
       let m = n;
       if (n < 0) {
@@ -130,7 +156,7 @@ const kernel = (runtime) => {
       }
       bytes[pos++] = ((m & 0x3f) << 1) | s | 0x80;
       m = m < 0x80000000 ? m >>> 6 : Math.floor(m / 0x40);
-      while (m >= 0x80) {
+      while (m >= 0x80 && pos < stop) {
         if (m < 0x80000000) {
           bytes[pos++] = (m & 0x7f) | 0x80;
           m >>>= 7;
@@ -235,9 +261,14 @@ const kernel = (runtime) => {
       this.bytes[start + (i >> 3)] |= 1 << (i & 7);
     }
 
-    // A copy: the buffer is reused.
+    // A copy: the buffer is reused, unless it grew past what is worth keeping.
     finish() {
-      return this.bytes.slice(0, this.pos);
+      const out = this.bytes.slice(0, this.pos);
+      if (this.bytes.length > RETAIN) {
+        this.bytes = new Uint8Array(INITIAL);
+        this.view = new DataView(this.bytes.buffer);
+      }
+      return out;
     }
   }
 
@@ -259,6 +290,13 @@ const kernel = (runtime) => {
       return this;
     }
 
+    // The message is let go once read: a reader kept on a schema would hold
+    // the last one until the next.
+    release() {
+      this.bytes = null;
+      this.view = null;
+    }
+
     u8() {
       return this.bytes[this.pos++];
     }
@@ -270,7 +308,10 @@ const kernel = (runtime) => {
     }
 
     // A varint truncated by the message ends on an undefined byte: the loop
-    // stops and the position runs past the end, which the caller checks.
+    // stops and the position runs past the end, which the caller checks. One
+    // of more than eight bytes ends past it too: no value of the wire takes
+    // more, and past 2^56 the arithmetic would reach Infinity and NaN, which
+    // no comparison of the backends refuses.
     uvar() {
       const bytes = this.bytes;
       let pos = this.pos;
@@ -278,6 +319,10 @@ const kernel = (runtime) => {
       let u = b & 0x7f;
       let shift = 7;
       while (b >= 0x80) {
+        if (shift === 56) {
+          this.pos = this.end + 1;
+          return 0;
+        }
         b = bytes[pos++];
         u = shift < 28 ? u | ((b & 0x7f) << shift) : u + (b & 0x7f) * 2 ** shift;
         shift += 7;
@@ -296,6 +341,10 @@ const kernel = (runtime) => {
       let m = (b >> 1) & 0x3f;
       let shift = 6;
       while (b >= 0x80) {
+        if (shift === 55) {
+          this.pos = this.end + 1;
+          return 0;
+        }
         b = bytes[pos++];
         m = shift < 25 ? m | ((b & 0x7f) << shift) : m + (b & 0x7f) * 2 ** shift;
         shift += 7;
@@ -310,8 +359,9 @@ const kernel = (runtime) => {
       return out;
     }
 
-    // Undefined when the length runs past the message. A byte past the end
-    // reads as 0, so a truncated length still ends past the message.
+    // Undefined when the length runs past the message, or is odd for UTF-16,
+    // which comes in pairs. A byte past the end reads as 0, so a truncated
+    // length still ends past the message.
     string() {
       const bytes = this.bytes;
       let pos = this.pos;
@@ -324,7 +374,7 @@ const kernel = (runtime) => {
       const form = v & 1;
       const n = (v - form) / 2;
       const end = pos + n;
-      if (end > this.end) return undefined;
+      if (!(end <= this.end) || (form === 1 && (n & 1) === 1)) return undefined;
       this.pos = end;
       if (form === 1) return readUtf16(bytes, pos, end);
       if (n <= SMALL) {
@@ -345,7 +395,7 @@ const kernel = (runtime) => {
     raw() {
       const n = this.uvar();
       const end = this.pos + n;
-      if (end > this.end) return undefined;
+      if (!(end <= this.end)) return undefined;
       const out = new Uint8Array(this.bytes.subarray(this.pos, end));
       this.pos = end;
       return out;

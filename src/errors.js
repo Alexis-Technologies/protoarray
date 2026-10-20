@@ -20,6 +20,7 @@ const kernel = () => {
     depth: 'is nested too deeply',
     size: 'is longer than maxLength allows',
     bytes: 'is not a Uint8Array',
+    presence: 'is not a presence byte',
   });
 
   const TEXT = Object.assign(Object.create(null), {

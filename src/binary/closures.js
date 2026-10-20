@@ -7,20 +7,8 @@
 // from Schema.resolve is read and written as ./generate.js describes.
 
 const { expectedOf, fail, nest, refuse, step } = require('../errors.js');
-const { WORD, literal, isBytes, isMap, listOf, put, member } = require('../types.js');
-
-const BYTE = 256;
-
-const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
-const wordsOf = (node) => Math.ceil(node.names.length / WORD);
-
-// The node whose form a value has on the wire: the writer's for a resolved
-// node that carries one (Schema.resolve), its own otherwise.
-const wireOf = (node) => (node.writer === undefined ? node : node.writer);
-
-// A boolean of the writer that the reader drops (Schema.resolve): a bit of
-// the header that reads as null.
-const droppedBit = (node) => node.writer !== undefined && inHeader(node.writer);
+const { literal, isBytes, isMap, listOf, put, member } = require('../types.js');
+const { byteTag, wordsOf, inHeader, wireOf, droppedBit } = require('./inspect.js');
 
 // A call of `fn` whose error gets `path` prepended.
 const nested = (fn, path) => (a, b) => {
@@ -72,6 +60,12 @@ const build = (plan, context) => {
       case 'number':
         return (w, v) => w.f64(v);
       case 'integer':
+        // Only a safe integer has a form: an infinity or a fraction would read
+        // back as another number (the writer's loop ends on any value).
+        return (w, v) => {
+          if (!Number.isSafeInteger(v)) refuse('type', '', 'integer');
+          w.svar(v);
+        };
       case 'date':
         return (w, v) => w.svar(v);
       case 'boolean':
@@ -79,7 +73,7 @@ const build = (plan, context) => {
       case 'string':
         return writeString;
       case 'enum':
-        return node.values.length <= BYTE ? (w, v) => w.u8(v) : (w, v) => w.uvar(v);
+        return byteTag(node) ? (w, v) => w.u8(v) : (w, v) => w.uvar(v);
       case 'flags': {
         const words = wordsOf(node);
         return words === 1 ? (w, v) => w.uvar(v) : (w, v) => w.words(v, words);
@@ -103,11 +97,49 @@ const build = (plan, context) => {
     }
   };
 
-  // The checks of the generated backend, behind `validate`; a scalar's path is
-  // its own level's.
+  // The checks of the generated backend: the structure of the wire in every
+  // mode, the values behind `validate`; a scalar's path is its own level's.
   const length = () => fail('structure', '', 'length');
   const truncated = (r) => {
     if (r.pos > r.end) length();
+  };
+
+  // A read of a converted type: the raw value, then its own `checkedUnpack`
+  // (types.js) under validation, its `unpack` without, as on the text wire.
+  const converted = (node, raw, unpack) => {
+    if (!validate) {
+      return (r) => {
+        const v = raw(r);
+        truncated(r);
+        return unpack(v);
+      };
+    }
+    const { checkedUnpack, code, expected } = node;
+    return (r) => {
+      const v = raw(r);
+      truncated(r);
+      const out = checkedUnpack(v);
+      if (out === undefined) fail(code, '', expected);
+      return out;
+    };
+  };
+
+  // A read of an integer of the wire, a safe one under validation: the varint
+  // is exact over them and no further.
+  const integer = (expected) => {
+    if (!validate) {
+      return (r) => {
+        const v = r.svar();
+        truncated(r);
+        return v;
+      };
+    }
+    return (r) => {
+      const v = r.svar();
+      truncated(r);
+      if (!Number.isSafeInteger(v)) fail('type', '', expected);
+      return v;
+    };
   };
 
   // The text wire's form of the writer's scalar, for a bridge (Schema.resolve)
@@ -115,18 +147,16 @@ const build = (plan, context) => {
   // writer types a bridge reads.
   const rawReader = (node) => {
     if (node.type === 'enum') {
-      const wide = node.values.length > BYTE;
-      if (!validate) return wide ? (r) => r.uvar() : (r) => r.u8();
+      const wide = !byteTag(node);
       return (r) => {
         const t = wide ? r.uvar() : r.u8();
-        if (wide) truncated(r);
+        truncated(r);
         return t;
       };
     }
     if (node.type === 'flags') {
       const words = wordsOf(node);
       const read = words === 1 ? (r) => r.uvar() : (r) => r.words(words);
-      if (!validate) return read;
       return (r) => {
         const v = read(r);
         truncated(r);
@@ -158,96 +188,105 @@ const build = (plan, context) => {
     };
   };
 
+  // The text of a string slot, which must fit the message.
+  const text = (r) => {
+    const s = r.string();
+    if (s === undefined) length();
+    return s;
+  };
+
   const scalarReader = (node) => {
     if (node.writer !== undefined) return bridgedReader(node);
     if (node.decimals !== undefined) {
       const scale = 10 ** node.decimals;
-      if (!validate) return (r) => r.svar() / scale;
-      return (r) => {
-        const v = r.svar() / scale;
-        truncated(r);
-        return v;
-      };
+      const read = integer(node.expected);
+      return (r) => read(r) / scale;
     }
     switch (node.type) {
       case 'number':
-        if (!validate) return (r) => r.f64();
         return (r) => {
           if (r.pos + 8 > r.end) length();
           return r.f64();
         };
       case 'integer':
-        if (!validate) return (r) => r.svar();
-        return (r) => {
-          const v = r.svar();
-          truncated(r);
-          return v;
-        };
+        return integer('integer');
       case 'date':
-        if (!validate) return (r) => new Date(r.svar());
-        return (r) => {
-          const t = r.svar();
-          truncated(r);
-          if (t > 8.64e15 || t < -8.64e15) fail('type', '', 'date');
-          return new Date(t);
-        };
+        return converted(
+          node,
+          (r) => r.svar(),
+          (t) => new Date(t),
+        );
       case 'boolean':
-        if (!validate) return (r) => r.u8() === 1;
+        if (!validate) {
+          return (r) => {
+            const t = r.u8();
+            truncated(r);
+            return t === 1;
+          };
+        }
         return (r) => {
           const t = r.u8();
+          truncated(r);
           if (!(t < 2)) fail('type', '', 'boolean');
           return t === 1;
         };
       case 'string':
-        if (!validate) return (r) => r.string();
-        return (r) => {
-          const s = r.string();
-          if (s === undefined) length();
-          return s;
-        };
+        return text;
       case 'enum': {
         const { values } = node;
         const size = values.length;
-        const wide = size > BYTE;
-        if (!validate) return wide ? (r) => values[r.uvar()] : (r) => values[r.u8()];
+        const wide = !byteTag(node);
+        if (!validate) {
+          return (r) => {
+            const t = wide ? r.uvar() : r.u8();
+            truncated(r);
+            return values[t];
+          };
+        }
         return (r) => {
           const t = wide ? r.uvar() : r.u8();
-          if (wide) truncated(r);
+          truncated(r);
           if (!(t < size)) fail('enum', '', node.expected);
           return values[t];
         };
       }
       case 'flags': {
         const words = wordsOf(node);
-        const { unpack } = node;
-        const read = words === 1 ? (r) => unpack(r.uvar()) : (r) => unpack(r.words(words));
-        if (!validate) return read;
-        return (r) => {
-          const v = read(r);
-          truncated(r);
-          return v;
-        };
+        const raw = words === 1 ? (r) => r.uvar() : (r) => r.words(words);
+        return converted(node, raw, node.unpack);
       }
       case 'bytes':
-        if (!validate) return (r) => r.raw();
         return (r) => {
           const v = r.raw();
           if (v === undefined) length();
           return v;
         };
-      case 'bigint':
-        if (!validate) return (r) => BigInt(r.string());
+      case 'bigint': {
+        if (!validate) {
+          return (r) => {
+            const s = text(r);
+            try {
+              return BigInt(s);
+            } catch {
+              return fail('type', '', 'bigint');
+            }
+          };
+        }
+        const { checkedUnpack } = node;
         return (r) => {
-          const s = r.string();
-          if (s === undefined || !/^-?\d+$/.test(s)) fail('type', '', 'bigint');
-          return BigInt(s);
+          const v = checkedUnpack(text(r));
+          if (v === undefined) fail('type', '', 'bigint');
+          return v;
         };
+      }
       case 'json':
-        if (!validate) return (r) => JSON.parse(r.string());
         return (r) => {
-          const s = r.string();
-          if (s === undefined) length();
-          return JSON.parse(s);
+          const s = text(r);
+          try {
+            return JSON.parse(s);
+          } catch {
+            return fail('json', '');
+          }
         };
       default:
         return () => null;
@@ -366,7 +405,7 @@ const build = (plan, context) => {
     if (node.extras !== undefined) for (const extra of node.extras) template[extra.key] = extra.def;
     return (r, t) => {
       const start = r.pos;
-      if (validate && start + bytes > r.end) length();
+      if (start + bytes > r.end) length();
       r.pos = start + bytes;
       const object = { ...template };
       if (tag !== undefined) object[tag.key] = tag.values[t];
@@ -396,7 +435,7 @@ const build = (plan, context) => {
 
   const unionWriter = (node) => {
     const { key, tag } = node;
-    const wide = tag.values.length > BYTE;
+    const wide = !byteTag(tag);
     const writers = branchCodecs(node, structWriter);
     const branches = branchOf(node);
     return (w, object) => {
@@ -412,13 +451,13 @@ const build = (plan, context) => {
 
   const unionReader = (node) => {
     const { key, tag } = node;
-    const wide = tag.values.length > BYTE;
+    const wide = !byteTag(tag);
     const readers = branchCodecs(node, structReader);
     const branches = branchOf(node);
     const where = step(key);
     return (r) => {
       const t = wide ? r.uvar() : r.u8();
-      if (wide && validate && r.pos > r.end) fail('structure', where, 'length');
+      if (r.pos > r.end) fail('structure', where, 'length');
       const b = branches[t];
       if (b === undefined) fail('union', where, tag.expected);
       return readers[b](r, t);
@@ -473,13 +512,10 @@ const build = (plan, context) => {
   // A collection's count, bounded by the bytes left, of which every item
   // takes at least one (a required item, a key) or a bit of the bitmap (a
   // nullable item), so no count allocates past the message.
-  const counter = (perByte) => {
-    if (!validate) return (r) => r.uvar();
-    return (r) => {
-      const count = r.uvar();
-      if (r.pos > r.end || count > (r.end - r.pos) * perByte) length();
-      return count;
-    };
+  const counter = (perByte) => (r) => {
+    const count = r.uvar();
+    if (r.pos > r.end || count > (r.end - r.pos) * perByte) length();
+    return count;
   };
 
   const arrayReader = (node) => {
@@ -497,7 +533,7 @@ const build = (plan, context) => {
       const out = new Array(n);
       if (nullable) {
         const start = r.pos;
-        r.pos = start + ((n + 7) >> 3);
+        r.pos = start + Math.ceil(n / 8);
         for (let i = 0; i < n; i++) {
           if (bit(r, start, i)) out[i] = read(r, undefined, i);
           else if (refused) fail('type', `[${i}]`, expected);
@@ -537,7 +573,8 @@ const build = (plan, context) => {
     const expected = expectedOf(node);
     return (r) => {
       const f = r.u8();
-      if (validate && !(f < 2)) length();
+      truncated(r);
+      if (!(f < 2)) fail('structure', '', 'presence');
       if (f === 1) return read(r);
       if (refused) fail('type', '', expected);
       return null;
@@ -568,11 +605,11 @@ const build = (plan, context) => {
     const numeric = node.key.type !== 'string';
     const key = (r) => {
       if (numeric) {
-        if (validate && r.pos + 8 > r.end) length();
+        if (r.pos + 8 > r.end) length();
         return r.f64();
       }
       const k = r.string();
-      if (validate && k === undefined) length();
+      if (k === undefined) length();
       return k;
     };
     const entry = indexed((r) => {
@@ -623,7 +660,7 @@ const build = (plan, context) => {
       const out = {};
       for (let i = 0; i < n; i++) {
         const k = r.string();
-        if (validate && k === undefined) length();
+        if (k === undefined) length();
         put(out, k, value(r, undefined, k));
       }
       return out;
@@ -654,7 +691,7 @@ const build = (plan, context) => {
     return (r) => {
       const start = r.pos;
       r.pos = start + bytes;
-      if (validate) truncated(r);
+      truncated(r);
       const out = new Array(read + extras.length);
       for (let i = 0; i < read; i++) out[i] = readers[i](r, bit(r, start, i));
       for (let i = read; i < size; i++) readers[i](r, bit(r, start, i));
@@ -681,7 +718,8 @@ const build = (plan, context) => {
       },
       read: (r) => {
         const f = r.u8();
-        if (validate && !(f < 2)) length();
+        truncated(r);
+        if (!(f < 2)) fail('structure', '', 'presence');
         return f === 1 ? read(r) : missing();
       },
     };

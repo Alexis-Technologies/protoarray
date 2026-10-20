@@ -5,9 +5,12 @@ const { Schema, DecodeError, EncodeError, SchemaDefinitionError } = require('../
 const { toBinary, fromBinary, register } = require('../../binary.js');
 const { resolve } = require('../../resolve.js');
 const codegen = require('../../src/codegen.js');
+const closuresBackend = require('../../src/binary/closures.js');
 const { kernel } = require('../../src/binary/wire.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
 const { VECTORS, Address } = require('../support/vectors.js');
+const { CASES } = require('../support/binary-cases.js');
+const GOLDEN = require('../fixtures/golden-binary.json');
 const { generate } = require('../support/generate.js');
 const { mutate } = require('../support/mutate.js');
 const { define, named, model } = require('../support/schema.js');
@@ -18,6 +21,24 @@ const RUNTIME = {
 };
 
 const SEEDS = 120;
+
+const BINARY = Symbol.for('alexify.protoarray.binary');
+
+// The outcome of a call that may fail, without its value: what two codecs
+// must agree on where they succeed on different wires.
+const failure = (fn) => {
+  const out = outcome(fn);
+  return out.value === undefined ? out : 'ok';
+};
+
+const offsetOf = (fn) => {
+  try {
+    fn();
+  } catch (error) {
+    return [error.code, error.offset];
+  }
+  return null;
+};
 
 // The options of the text wire a binary wire has no form for.
 const refused = (options = {}) =>
@@ -78,6 +99,12 @@ for (const [backend, options] of BACKENDS) {
         continue;
       }
       const bytes = toBinary(schema, vector.value);
+      // The bytes are a contract, held to the fixture: a change is a new major version.
+      assert.strictEqual(
+        Buffer.from(bytes).toString('base64'),
+        GOLDEN.vectors[vector.name],
+        vector.name,
+      );
       assert.strictEqual(Object.getPrototypeOf(bytes), Uint8Array.prototype, vector.name);
       assert.deepStrictEqual(normalize(fromBinary(schema, bytes)), expected(schema, vector.value));
     }
@@ -380,8 +407,18 @@ for (const [backend, options] of BACKENDS) {
         `${code} at ${JSON.stringify(path)}`,
       );
     }
-    // A trusted value of the wrong type is written as it is, as on the text wire.
-    assert.doesNotThrow(() => toBinary(S, { ...ok, id: 'x' }));
+    // A trusted value of the wrong type is written as it is where the wire has a form for
+    // it (a NaN for a number), as on the text wire; an integer slot holds a safe integer, since
+    // an infinity would never end a varint and a fraction would read back as another number.
+    assert.doesNotThrow(() => toBinary(S, { ...ok, pair: ['x', 'a'] }));
+    for (const bad of ['x', Infinity, -Infinity, NaN, 2 ** 70, 1.5, -(2 ** 53)]) {
+      assert.throws(() => toBinary(S, { ...ok, id: bad }), { code: 'type', path: 'id' }, `${bad}`);
+      assert.throws(
+        () => toBinary(S, { ...ok, ids: new Set([1, bad]) }),
+        { code: 'type', path: 'ids[1]' },
+        `${bad}`,
+      );
+    }
     // A string slot holds a string and a bytes slot a Uint8Array: the binary wire has no form
     // for anything else, where the text wire carries it as it is.
     const T = define(
@@ -481,9 +518,132 @@ for (const [backend, options] of BACKENDS) {
     const foreign = vm.runInNewContext('new Uint8Array(bytes)', { bytes: Array.from(bytes) });
     assert.deepStrictEqual(normalize(fromBinary(S, foreign)), expected(S, value));
     assert.deepStrictEqual(normalize(fromBinary(S, Buffer.from(bytes))), expected(S, value));
-    // Every truncation of a message of every kind is refused.
+    // Every truncation of a message of every kind is refused as a structure error, whatever
+    // `validate` says: the structure of the wire is checked in every mode.
+    const loose = new Schema('Thing', S, { ...options, validate: false });
     for (let cut = 0; cut < bytes.length; cut++) {
-      assert.throws(() => fromBinary(S, bytes.subarray(0, cut)), DecodeError, `cut ${cut}`);
+      for (const reader of [S, loose]) {
+        assert.throws(
+          () => fromBinary(reader, bytes.subarray(0, cut)),
+          { name: 'DecodeError', code: 'structure' },
+          `cut ${cut}, validate ${reader.validate}`,
+        );
+      }
+    }
+  });
+
+  // The structure of the wire bounds every read and every count in both modes, so a message
+  // of a few bytes cannot allocate past itself, loop for long or throw anything but a
+  // DecodeError; a varint of more than eight bytes is refused rather than read as Infinity or
+  // NaN, which no comparison would catch.
+  test(`Binary (${backend}): the structure of the wire is checked whatever validate says`, () => {
+    const LONG = [...new Array(150).fill(0x80), 0x00];
+    const INFINITE = [...new Array(150).fill(0x81), 0x01];
+    const varint = (n) => {
+      const out = [];
+      let u = n;
+      while (u >= 0x80) {
+        out.push((u & 0x7f) | 0x80);
+        u = Math.floor(u / 0x80);
+      }
+      out.push(u);
+      return out;
+    };
+    const kernelOf = kernel(RUNTIME.node);
+    for (const validate of [true, false]) {
+      const label = `validate ${validate}`;
+      const rejects = (schema, bytes, path, code = 'structure') => {
+        assert.throws(
+          () => fromBinary(schema, Uint8Array.from(bytes)),
+          { name: 'DecodeError', code, path },
+          `${label}: ${code} at ${JSON.stringify(path)} for ${bytes.slice(0, 8)}`,
+        );
+      };
+      const L = define({ items: { array: 'integer' } }, { ...options, validate });
+      const [header] = toBinary(L, { items: [1] });
+      const started = performance.now();
+      rejects(L, [header, ...varint(2 ** 24)], 'items');
+      rejects(L, [header, ...varint(2 ** 40)], 'items');
+      rejects(L, [header, ...LONG, 1, 2, 3], 'items');
+      rejects(L, [header, ...INFINITE], 'items');
+      assert.ok(performance.now() - started < 1000, `${label}: counts are bounded, not read`);
+      const N = define({ items: { array: '?integer' } }, { ...options, validate });
+      rejects(N, [toBinary(N, { items: [1] })[0], ...varint(2 ** 24)], 'items');
+      const T = define(
+        { name: 'string', age: 'integer', y: 'bytes', j: 'json', g: 'bigint' },
+        { ...options, validate },
+      );
+      const fine = { name: 'ab', age: 5, y: new Uint8Array(2), j: [1], g: 7n };
+      const bytes = toBinary(T, fine);
+      assert.deepStrictEqual(normalize(fromBinary(T, bytes)), normalize(fine));
+      const [head] = bytes;
+      // A length of Infinity or NaN runs the string past the message.
+      rejects(T, [head, ...LONG, 0x61, 0x62], 'name');
+      rejects(T, [head, ...INFINITE], 'name');
+      // An odd length of UTF-16 is no string of the wire.
+      rejects(T, [head, (3 << 1) | 1, 0x61, 0x00, 0x62], 'name');
+      // A bytes slot whose length runs past the message.
+      const w = new kernelOf.Writer();
+      w.u8(head);
+      w.string('ab');
+      w.svar(5);
+      w.uvar(2 ** 30);
+      rejects(T, Array.from(w.finish()), 'y');
+      // The text of a json or a bigint slot must parse, in every mode.
+      const broken = (patch) => {
+        const v = new kernelOf.Writer();
+        v.u8(head);
+        v.string('ab');
+        v.svar(5);
+        v.raw(new Uint8Array(2));
+        patch(v);
+        return Array.from(v.finish());
+      };
+      rejects(
+        T,
+        broken((v) => v.string('{')),
+        'j',
+        'json',
+      );
+      rejects(
+        T,
+        broken((v) => {
+          v.string('[1]');
+          v.string('1e3');
+        }),
+        'g',
+        'type',
+      );
+      // The presence byte of a nullable value is 0 or 1.
+      const M = define({ m: { map: { string: '?integer' } } }, { ...options, validate });
+      const [mhead] = toBinary(M, { m: new Map([['k', 1]]) });
+      rejects(M, [mhead, 1, 1 << 1, 0x6b, 2], 'm[0]');
+      const D = define({ d: { object: { string: '?integer' } } }, { ...options, validate });
+      const [dhead] = toBinary(D, { d: { k: 1 } });
+      rejects(D, [dhead, 1, 1 << 1, 0x6b, 5], 'd.k');
+      // An integer past the safe range is a value the wire cannot carry: rejects under
+      // validation, read as the nearest double without it.
+      const I = define({ n: 'integer' }, { ...options, validate });
+      const big = new kernelOf.Writer();
+      big.u8(toBinary(I, { n: 1 })[0]);
+      big.svar(2 ** 54);
+      if (validate) rejects(I, Array.from(big.finish()), 'n', 'type');
+      else assert.strictEqual(fromBinary(I, big.finish()).n, 2 ** 54, label);
+      // A date and a flags mask convert through the type table: a mask with a word past 31
+      // bits is rejects under validation and read as the text wire reads it without.
+      const F = define({ f: { flags: ['a', 'b'] }, d: 'date' }, { ...options, validate });
+      const fw = new kernelOf.Writer();
+      fw.u8(toBinary(F, { f: { a: true }, d: new Date(0) })[0]);
+      fw.uvar(2 ** 40);
+      fw.svar(0);
+      if (validate) rejects(F, Array.from(fw.finish()), 'f', 'type');
+      else assert.deepStrictEqual(fromBinary(F, fw.finish()).f, F.decode([2 ** 40, 0]).f, label);
+      const dw = new kernelOf.Writer();
+      dw.u8(toBinary(F, { f: { a: true }, d: new Date(0) })[0]);
+      dw.uvar(1);
+      dw.svar(8.64e15 + 1);
+      if (validate) rejects(F, Array.from(dw.finish()), 'd', 'type');
+      else assert.strictEqual(fromBinary(F, dw.finish()).d.getTime(), NaN, label);
     }
   });
 
@@ -768,7 +928,7 @@ for (const [backend, options] of BACKENDS) {
       // A null item of a list the writer requires has no form.
       assert.throws(() => toBinary(A2, d2), { code: 'type', path: 'm[0]' });
       // Collections of another optionality: the wire has the writer's, a null
-      // where the reader requires a value is refused as on the text wire.
+      // where the reader requires a value is rejects as on the text wire.
       const W3 = define(
         {
           a: { array: '?integer' },
@@ -898,11 +1058,30 @@ test('Binary: both backends write the same bytes on random schemas and read what
     const bytes = schemas.map((schema) => toBinary(schema, value));
     assert.deepStrictEqual(bytes[1], bytes[0], `seed ${seed}`);
     const want = expected(schemas[0], value);
-    // Without validation the same bytes read the same.
-    for (const [, options] of BACKENDS) {
-      const loose = define(definition, { ...options, validate: false });
+    // Without validation the same bytes read the same, a truncated message is still rejects
+    // and corrupted bytes give a value or a DecodeError, the same on both backends.
+    const loosened = BACKENDS.map(([, options]) =>
+      define(definition, { ...options, validate: false }),
+    );
+    for (const loose of loosened) {
       assert.deepStrictEqual(toBinary(loose, value), bytes[0], `seed ${seed}`);
       assert.deepStrictEqual(normalize(fromBinary(loose, bytes[0])), want, `seed ${seed}`);
+      for (let cut = 0; cut < bytes[0].length; cut++) {
+        assert.throws(
+          () => fromBinary(loose, bytes[0].subarray(0, cut)),
+          { name: 'DecodeError', code: 'structure' },
+          `seed ${seed}, truncated at ${cut} without validation`,
+        );
+      }
+    }
+    for (let i = 0; i < 12; i++) {
+      const bad = corruptBytes(bytes[0], random);
+      const outcomes = loosened.map((schema) => outcome(() => fromBinary(schema, bad)));
+      assert.deepStrictEqual(outcomes[1], outcomes[0], `seed ${seed}, loose corrupted bytes ${i}`);
+      assert.ok(
+        outcomes[0].value !== undefined || outcomes[0].name === 'DecodeError',
+        `seed ${seed}, loose corrupted bytes ${i}: ${outcomes[0].message}`,
+      );
     }
     for (const schema of schemas) {
       assert.deepStrictEqual(normalize(fromBinary(schema, bytes[0])), want, `seed ${seed}`);
@@ -1049,7 +1228,7 @@ test('Binary: what the text wire shapes with its own options has no binary form'
     assert.throws(() => fromBinary(schema, new Uint8Array(1)), { code: 'ERR_NO_BINARY_FORM' });
   }
   // A resolved schema reads the writer's wire: what that has no form for is
-  // refused too, a value the reader drops and a collection in a layout of its
+  // rejects too, a value the reader drops and a collection in a layout of its
   // own included.
   const Old = named('Old', { s: 'string', items: { array: { a: 'number' } } }, { intern: ['s'] });
   const New = define({ s: 'null', items: { array: { a: 'number' } } });
@@ -1095,8 +1274,29 @@ test('Binary: generated code falls back to closures where the runtime refuses it
     const auto = define({ id: 'number' });
     assert.strictEqual(auto.backend, 'codegen');
     assert.deepStrictEqual(fromBinary(auto, toBinary(auto, { id: 1 })), { id: 1 });
+    // The error that made generated code fall back is kept on the entry.
+    assert.ok(auto[BINARY].fallback instanceof EvalError);
     const forced = define({ id: 'number' }, { codegen: true });
     assert.throws(() => toBinary(forced, { id: 1 }), EvalError);
+    // A schema left without a codec keeps the error, and throws it again rather
+    // than calling a codec it does not have.
+    const first = outcome(() => toBinary(forced, { id: 1 }));
+    assert.strictEqual(first.name, 'EvalError');
+    assert.strictEqual(forced[BINARY].error, forced[BINARY].error);
+    assert.throws(() => fromBinary(forced, Uint8Array.of(1)), EvalError);
+    const { build } = closuresBackend;
+    closuresBackend.build = () => {
+      throw new Error('boom');
+    };
+    let broken;
+    try {
+      broken = define({ id: 'number' });
+      assert.throws(() => toBinary(broken, { id: 1 }), { message: 'boom' });
+    } finally {
+      closuresBackend.build = build;
+    }
+    assert.throws(() => toBinary(broken, { id: 1 }), { message: 'boom' });
+    assert.strictEqual(broken[BINARY].write, null);
     // The codecs of a resolved plan's inner recursions fall back with it.
     const entities = (key) => ({
       Outer: { Struct: {}, a: 'A' },
@@ -1136,6 +1336,226 @@ test('Binary: a call made while the schema is encoding takes a writer and a read
   assert.deepStrictEqual(fromBinary(S, bytes), { j: 'outer', n: 1 });
   assert.deepStrictEqual(inner[0], expectedOther);
   assert.deepStrictEqual(inner[1], other);
+});
+
+for (const [backend, options] of BACKENDS) {
+  test(`Binary (${backend}): the cases of the wire give the golden bytes and read back`, () => {
+    for (const item of CASES) {
+      const schema = define(item.definition, { ...item.options, ...options });
+      const bytes = toBinary(schema, item.value);
+      assert.strictEqual(Buffer.from(bytes).toString('base64'), GOLDEN.cases[item.name], item.name);
+      assert.deepStrictEqual(
+        normalize(fromBinary(schema, Buffer.from(GOLDEN.cases[item.name], 'base64'))),
+        expected(schema, item.value),
+        item.name,
+      );
+    }
+    for (const vector of VECTORS) {
+      if (refused(vector.options)) continue;
+      const schema = define(vector.definition, { ...vector.options, ...options });
+      const golden = Buffer.from(GOLDEN.vectors[vector.name], 'base64');
+      assert.deepStrictEqual(normalize(fromBinary(schema, golden)), expected(schema, vector.value));
+    }
+  });
+
+  // A payload nested deeper than the stack is a depth error on both wires, as
+  // on the text wire, without `maxDepth`; the message tells no offset, since
+  // the engine, not the reader, refused it.
+  test(`Binary (${backend}): a payload deeper than the stack is refused, as the text wire refuses it`, () => {
+    const { Node } = model({ Node: { Struct: {}, v: 'integer', next: '?Node' } }, options);
+    const levels = 200_000;
+    const value = { v: 1, next: null };
+    let tail = value;
+    for (let i = 1; i < levels; i++) {
+      tail.next = { v: 1, next: null };
+      tail = tail.next;
+    }
+    assert.deepStrictEqual(
+      failure(() => toBinary(Node, value)),
+      failure(() => Node.encode(value)),
+    );
+    assert.strictEqual(failure(() => toBinary(Node, value)).code, 'depth');
+    // The message such a value would give: a header of both fields and v at every level.
+    const bytes = new Uint8Array(levels * 2);
+    for (let i = 0; i < levels; i++) {
+      bytes[i * 2] = i === levels - 1 ? 1 : 3;
+      bytes[i * 2 + 1] = 2;
+    }
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(Node, bytes)),
+      ['structure', undefined],
+    );
+    assert.strictEqual(
+      failure(() => fromBinary(Node, bytes)).message,
+      'Value is nested too deeply',
+    );
+  });
+}
+
+test('Binary: a schema that reaches one with no binary form keeps the refusal, as does one that reaches it', () => {
+  // In automatic mode too, where the refusal is no reason to fall back.
+  for (const [backend, options] of [...BACKENDS, ['automatic', {}]]) {
+    const { A, C } = model(
+      {
+        A: { Struct: {}, c: '?C', tags: { array: 'string' } },
+        C: { Struct: {}, a: '?A' },
+      },
+      { ...options, entities: { A: { intern: ['tags[]'] } } },
+    );
+    const refusal = { name: 'SchemaDefinitionError', code: 'ERR_NO_BINARY_FORM' };
+    assert.throws(() => toBinary(A, { tags: [] }), refusal, backend);
+    // C reaches A through a slot: its own build fails on A's refusal, which it
+    // keeps rather than falling back to a codec it cannot have, and throws
+    // again on every call instead of calling through a broken entry.
+    assert.throws(() => toBinary(C, { a: null }), refusal, backend);
+    assert.throws(() => toBinary(C, { a: null }), refusal, backend);
+    assert.throws(() => fromBinary(C, Uint8Array.of(0)), refusal, backend);
+    assert.strictEqual(C[BINARY].write, null, backend);
+    assert.ok(C[BINARY].error instanceof SchemaDefinitionError, backend);
+    assert.strictEqual(A[BINARY], undefined, backend);
+  }
+});
+
+test('Binary: a message is read whole, and a DecodeError says where it broke', () => {
+  for (const [backend, options] of BACKENDS) {
+    const definition = { i: 'integer', role: { enum: ['a', 'b'] }, s: 'string' };
+    const S = define(definition, options);
+    const bytes = toBinary(S, { i: 1, role: 'b', s: 'hi' });
+    // Nothing follows a message: a byte past it is an error, in every mode.
+    for (const validate of [true, false]) {
+      const R = define(definition, { ...options, validate });
+      assert.deepStrictEqual(
+        outcome(() => fromBinary(R, Uint8Array.of(...bytes, 99))),
+        {
+          name: 'DecodeError',
+          code: 'extra',
+          path: '',
+          message: 'Value has extra elements',
+          schema: '',
+        },
+        `${backend} validate ${validate}`,
+      );
+      assert.deepStrictEqual(normalize(fromBinary(R, bytes)), { i: 1, role: 'b', s: 'hi' });
+    }
+    // `offset` is where the reader stood when it refused the message: the
+    // start of the slot that did not fit (the length byte of a cut string),
+    // the byte after a wrong value, the end of the message before a byte past it.
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(S, Uint8Array.of(...bytes, 99))),
+      ['extra', bytes.length],
+    );
+    for (let cut = 0; cut < bytes.length; cut++) {
+      const [code, offset] = offsetOf(() => fromBinary(S, bytes.subarray(0, cut)));
+      assert.strictEqual(code, 'structure', `${backend} cut ${cut}`);
+      assert.ok(Number.isInteger(offset) && offset <= cut, `${backend} cut ${cut}: ${offset}`);
+    }
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(S, bytes.subarray(0, 4))),
+      ['structure', 3],
+    );
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(S, bytes.subarray(0, 1))),
+      ['structure', 1],
+    );
+    const wrong = Uint8Array.from(bytes);
+    wrong[2] = 7;
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(S, wrong)),
+      ['enum', 3],
+      backend,
+    );
+    // Not for what is no message at all.
+    assert.deepStrictEqual(
+      offsetOf(() => fromBinary(S, 'text')),
+      ['structure', undefined],
+    );
+    // The generated source is reachable through the entry, for debugging; a
+    // closures codec has none.
+    const { source } = S[BINARY];
+    if (backend === 'codegen') assert.match(source, /function write\(w,v\)/);
+    else assert.strictEqual(source, undefined);
+  }
+});
+
+test('Binary: a schema makes its writer and reader on its first call of its own, and lets a message go', () => {
+  const { Inner, Outer } = model({
+    Inner: { Struct: {}, n: 'number' },
+    Outer: { Struct: {}, in: 'Inner' },
+  });
+  const bytes = toBinary(Outer, { in: { n: 1 } });
+  // Inner is reached through a slot: it writes and reads through Outer's.
+  assert.strictEqual(Inner[BINARY].writer, null);
+  assert.strictEqual(Inner[BINARY].reader, null);
+  assert.notStrictEqual(Outer[BINARY].writer, null);
+  assert.strictEqual(Outer[BINARY].reader, null);
+  assert.deepStrictEqual(fromBinary(Outer, bytes), { in: { n: 1 } });
+  assert.strictEqual(Outer[BINARY].reader.bytes, null);
+  assert.strictEqual(Outer[BINARY].reader.view, null);
+  assert.throws(() => fromBinary(Outer, bytes.subarray(0, 1)), DecodeError);
+  assert.strictEqual(Outer[BINARY].reader.bytes, null);
+  // A buffer grown past a mebibyte for one message is let go after it; a
+  // smaller one is kept for the next.
+  const Big = define({ s: 'string' });
+  toBinary(Big, { s: 'x'.repeat(2 ** 21) });
+  assert.strictEqual(Big[BINARY].writer.bytes.length, 1024);
+  toBinary(Big, { s: 'x'.repeat(100_000) });
+  const kept = Big[BINARY].writer.bytes.length;
+  assert.ok(kept > 200_000 && kept <= 2 ** 20, `${kept}`);
+  toBinary(Big, { s: 'y' });
+  assert.strictEqual(Big[BINARY].writer.bytes.length, kept);
+});
+
+// `maxDepth` counts the levels of a recursion on the binary wire as it does on
+// the text wire: the same count, so both refuse a payload at the same depth,
+// on either backend, through a list and through a resolved plan's own
+// recursions too.
+test('Binary: maxDepth refuses a payload at the depth the text wire does', () => {
+  const chain = (n) => (n === 0 ? null : { v: n, next: chain(n - 1) });
+  const entities = (key) => ({ Node: { Struct: {}, [key]: 'integer', next: '?Node' } });
+  for (const [backend, options] of BACKENDS) {
+    const { Node } = model(entities('v'), { ...options, maxDepth: 3 });
+    const { Node: Free } = model(entities('v'), options);
+    const Read = resolve(Free, model(entities('w'), { ...options, maxDepth: 3 }).Node, {
+      aliases: { w: 'v' },
+    });
+    for (let n = 1; n <= 5; n++) {
+      const value = chain(n);
+      const label = `${backend} depth ${n}`;
+      assert.deepStrictEqual(
+        failure(() => toBinary(Node, value)),
+        failure(() => Node.encode(value)),
+        label,
+      );
+      const bytes = toBinary(Free, value);
+      assert.deepStrictEqual(
+        failure(() => fromBinary(Node, bytes)),
+        failure(() => Node.decode(Free.encode(value))),
+        label,
+      );
+      assert.deepStrictEqual(
+        failure(() => fromBinary(Node.list, toBinary(Free.list, [value]))),
+        failure(() => Node.list.decode(Free.list.encode([value]))),
+        label,
+      );
+      assert.deepStrictEqual(
+        failure(() => fromBinary(Read, bytes)),
+        failure(() => Read.decode(Free.encode(value))),
+        `${label} resolved`,
+      );
+      const renamed = JSON.parse(JSON.stringify(value).replaceAll('"v"', '"w"'));
+      assert.deepStrictEqual(
+        failure(() => toBinary(Read, renamed)),
+        failure(() => Read.encode(renamed)),
+        `${label} resolved`,
+      );
+    }
+    assert.strictEqual(
+      failure(() => toBinary(Node, chain(3))),
+      'ok',
+      backend,
+    );
+    assert.strictEqual(failure(() => toBinary(Node, chain(4))).code, 'depth', backend);
+  }
 });
 
 // The writer and reader of each runtime twin write the same bytes and read
@@ -1219,5 +1639,54 @@ for (const platform of ['node', 'browser']) {
     const past = new Reader().reset(Uint8Array.of(0x80), false);
     past.uvar();
     assert.ok(past.pos > past.end);
+    // A varint of more than eight bytes ends past the message too: no value of the wire takes
+    // more, and the arithmetic past 2^56 would reach Infinity and NaN.
+    const nine = Uint8Array.of(...new Array(8).fill(0x80), 0x01);
+    const eight = Uint8Array.of(...new Array(7).fill(0x80), 0x01);
+    for (const method of ['uvar', 'svar']) {
+      const long = new Reader().reset(nine, false);
+      assert.strictEqual(long[method](), 0, method);
+      assert.ok(long.pos > long.end, method);
+      const fits = new Reader().reset(eight, false);
+      fits[method]();
+      assert.strictEqual(fits.pos, 8, method);
+    }
+    // An odd length of UTF-16 reads as undefined, in either twin.
+    assert.strictEqual(new Reader().reset(Uint8Array.of(7, 65, 0, 66), false).string(), undefined);
+    assert.strictEqual(new Reader().reset(Uint8Array.of(5, 65, 0), false).string(), 'A');
+    // A UTF-8 sequence the string's end cuts ends it on the replacement character, as the
+    // runtime's decoder does, without reading past the end.
+    assert.strictEqual(
+      new Reader().reset(Uint8Array.of(6, 65, 0xe2, 0x82), false).string(),
+      'A\ufffd',
+    );
+    assert.strictEqual(
+      new Reader().reset(Uint8Array.of(8, 0xd1, 0x8b, 0xf0, 0x9f), false).string(),
+      'ы\ufffd',
+    );
+    // A buffer grown past a mebibyte is let go once the message is finished, a
+    // smaller one kept; a released reader holds no message.
+    const grown = new Writer();
+    grown.string('x'.repeat(2 ** 21));
+    assert.ok(grown.bytes.length > 2 ** 22);
+    assert.strictEqual(grown.finish().length, 2 ** 22 + 4);
+    assert.strictEqual(grown.bytes.length, 1024);
+    grown.reset();
+    grown.string('x'.repeat(50_000));
+    grown.finish();
+    assert.strictEqual(grown.bytes.length, 131072);
+    const released = new Reader().reset(bytes, true);
+    released.release();
+    assert.strictEqual(released.bytes, null);
+    assert.strictEqual(released.view, null);
+    // The writer's loops end on any value: a value with no form never hangs the writer (the
+    // backends refuse it before it gets here).
+    const loose = new Writer();
+    for (const v of [Infinity, -Infinity, NaN, 2 ** 70, -(2 ** 70)]) {
+      const before = loose.pos;
+      loose.uvar(v);
+      loose.svar(v);
+      assert.ok(loose.pos - before <= 20, `${v}`);
+    }
   });
 }

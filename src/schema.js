@@ -1076,6 +1076,22 @@ class Schema {
   }
 }
 
+// The `register()` of a subpath: installs its methods on Schema (or its
+// prototype), non-enumerable like the class's own members, once per process
+// however often it is called.
+const registrar = (target, members) => {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    const descriptors = Object.getOwnPropertyDescriptors(members);
+    for (const name of Object.keys(descriptors)) {
+      descriptors[name].enumerable = false;
+      Object.defineProperty(target, name, descriptors[name]);
+    }
+  };
+};
+
 module.exports = {
   Schema,
   ITEMS,
@@ -1087,6 +1103,7 @@ module.exports = {
   inherited,
   SHAPE,
   RECURSIVE,
+  registrar,
   each,
   iterable,
   codecOptions,

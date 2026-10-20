@@ -84,10 +84,11 @@ The normative table is in [Wire Format](/guide/wire-format#the-binary-wire). In 
 ## Both sides need the schema
 
 Positions, header bits and tags are the schema's, so the reader needs the writer's schema, as an
-Avro reader needs the writer's. There is no trimming of trailing optionals and no tolerance of
-extra elements: a message of another version of the schema is a `DecodeError` (or garbage without
-validation), not a partially understood one. Hand the snapshot to the other side, or agree on it
-through `schema.id` in a handshake (see [Schema Evolution](/guide/evolution#telling-versions-apart)).
+Avro reader needs the writer's. There is no trimming of trailing optionals and nothing beyond the
+schema is tolerated: a message is read whole, a byte past it is a `DecodeError` `extra`, and a
+message of another version of the schema is a `DecodeError`, with or without validation, not a
+partially understood one. Hand the snapshot to the other side, or agree on it through `schema.id`
+in a handshake (see [Schema Evolution](/guide/evolution#telling-versions-apart)).
 
 A message of another version is read through [`resolve`](/guide/resolve), as on the text wire: the
 resolved schema has the writer's wire under the reader's keys, types and defaults, so it reads the
@@ -111,20 +112,37 @@ envelope of the registry is the text wire's in this release.
 
 ## Validation and errors
 
-Decode checks the wire as the text wire does, behind the schema's `validate` option (`true` by
-default): the bounds of every read (a truncated message is a `DecodeError` `structure`), the
-range of an enum index, the fit of a bitmap, a string or a count, a required field's presence
-(`required`), a date within its range (`type`); a union's tag is checked whatever `validate`
-says. Errors carry the schema's name and a path, as `decode` writes them: `orders[1].sku`.
+Decode checks the structure of the wire on every message, whatever `validate` says, as the text
+wire checks its arrays: the bounds of every read (a truncated message is a `DecodeError`
+`structure`), that a count fits the bytes left (so a message of a few bytes cannot make the
+reader allocate past itself), a bitmap and a string their length, a presence byte and a union's
+tag their values, a varint its eight bytes at most, and that the text of a `json` or a `bigint`
+slot parses. Behind the schema's `validate` option (`true` by default) it checks the values: the
+range of an enum index, a date, a boolean, an integer within the safe range, the words of a flags
+mask, a required field's presence (`required`). Whatever the bytes, `fromBinary` throws
+`DecodeError` and nothing else, in time linear in their length, and builds no array longer than
+eight times it (a list of nullable items, a bit each). Errors carry the schema's name and a path,
+as `decode` writes them (`orders[1].sku`), and `offset`: where the reader stood when it refused
+the message, the start of the slot that did not fit or the byte after a wrong value. With
+`maxDepth` a recursive schema refuses a payload at the same depth on both wires and both backends;
+without it the call stack is the limit, as on the text wire (`structure`, `depth`).
 
 Encode trusts its values, as `encode` does (checking them is metaschema's), and throws
 `EncodeError` only for what has no form on the wire: `null` at the root (`required`), a record
 that is not an object, a collection that is not an array, a `Set` or a `Map` (`object`, `array`,
 `set`, `map`), a `null` item of a list of required items (`type`), a union value outside the
 union (`union`), a `decimals` number past the safe integers (`type`), and, unlike the text wire,
-which carries anything as it is, a string slot that does not hold a string or a `bytes` slot that
-does not hold a `Uint8Array` (`type`). A value JSON has no text for in a `json` slot (a function)
-travels as `null`, as on the text wire.
+which carries anything as it is, a string slot that does not hold a string, a `bytes` slot that
+does not hold a `Uint8Array` and an `integer` slot that does not hold a safe integer (`type`): an
+infinity would never end a varint, and a fraction or a larger integer would read back as another
+number. A value JSON has no text for in a `json` slot (a function) travels as `null`, as on the
+text wire. A `number` travels as its float64, `NaN`, the infinities and `-0` included, where the
+text wire writes `null` for the first two; a `bigint` travels as its decimal digits, as UTF-16
+past 21 of them like any string.
+
+The bytes are a contract, as the text wire's arrays are: `tests/fixtures/golden-binary.json`
+holds the bytes of every vector of the wire format and of the edges of this wire, and a change
+to them is a new major version of protoarray, never a patch.
 
 ## What has no binary form
 
@@ -152,5 +170,5 @@ schemas, as it does the text backends). Under a strict CSP the closures are what
 generated codec along: an import module's schemas then carry it for `toBinary` and `fromBinary`,
 an inline module's have the two as methods of their own. In Node.js the strings go through
 `Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
-runtime twin that handles base64. The subpath adds about 8.6 KB min+gzip to a bundle that uses
+runtime twin that handles base64. The subpath adds about 9.1 KB min+gzip to a bundle that uses
 it; the core is unchanged.

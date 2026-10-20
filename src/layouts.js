@@ -205,6 +205,13 @@ const kernel = (errors, types) => {
     return out;
   };
 
+  // The same for a codec of the binary wire (../binary.js), `write(w, v)` and
+  // `read(r)`, on the same count: both wires refuse a payload at the same depth.
+  const guardedBinary = (codec, limit) => ({
+    write: counted(codec.write, limit, () => refuse('depth', '')),
+    read: counted(codec.read, limit, () => fail('structure', '', 'depth')),
+  });
+
   // A call from outside into an interned schema starts without a table, even
   // one made midway through another (a getter of the value encoding another
   // payload): the outer table is put back after it.
@@ -220,7 +227,7 @@ const kernel = (errors, types) => {
     }
   };
 
-  return { flat, columns, padded, withTable, isolated, guarded };
+  return { flat, columns, padded, withTable, isolated, guarded, guardedBinary };
 };
 
 const layouts = kernel(require('./errors.js'), require('./types.js'));
@@ -232,5 +239,6 @@ module.exports = {
   withTable: layouts.withTable,
   isolated: layouts.isolated,
   guarded: layouts.guarded,
+  guardedBinary: layouts.guardedBinary,
   kernel,
 };

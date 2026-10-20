@@ -24,13 +24,17 @@
 // bytes behind its length (wire.js); bytes behind their length; a bigint its
 // decimal digits as a string; json its text as a string; null nothing.
 //
-// Decode checks the wire behind `validate`: the bounds of every read (a
-// truncated message is a DecodeError), the range of an enum index, the fit of
-// a bitmap and of a string, a required field's presence; a union's tag is
-// checked in every mode. Encode trusts its values and checks only the shapes
-// the wire is built from, as the text wire does, which here includes a string
-// slot holding a string and a bytes slot holding a Uint8Array: the text wire
-// carries anything else as it is, the binary one has no form for it.
+// Decode checks the structure of the wire in every mode, as the text wire
+// checks its arrays: the bounds of every read (a truncated message is a
+// DecodeError), that a count fits the bytes left, a bitmap and a string their
+// length, a presence byte and a union's tag their values, and that the text
+// of a json or a bigint slot parses. Behind `validate` it checks the values:
+// the range of an enum index, a date, a boolean, an integer within the safe
+// range, the words of a flags mask, a required field's presence. Encode
+// trusts its values and checks only the shapes the wire is built from, as the
+// text wire does, which here includes a string slot holding a string, a bytes
+// slot holding a Uint8Array and an integer slot holding a safe integer: the
+// text wire carries anything else as it is, the binary one has no form for it.
 //
 // A plan from Schema.resolve (../resolve.js) has the writer's wire under the
 // reader's keys: a field only the writer has is read and dropped, and absent
@@ -42,27 +46,11 @@
 // convert between it and the reader's value, as they do on the text wire.
 
 const { expectedOf, step } = require('../errors.js');
-const { WORD, isBytes, isMap, listOf, put, member } = require('../types.js');
+const { isBytes, isMap, listOf, put, member } = require('../types.js');
 const codegen = require('../codegen.js');
+const { byteTag, wordsOf, inHeader, wireOf, droppedBit } = require('./inspect.js');
 
 const str = JSON.stringify;
-
-// An enum index or a union tag over this many values takes a varint.
-const BYTE = 256;
-
-const byteTag = (node) => node.values.length <= BYTE;
-const wordsOf = (node) => Math.ceil(node.names.length / WORD);
-
-// A boolean field of a struct travels in the struct's header.
-const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
-
-// The node whose form a value has on the wire: the writer's for a resolved
-// node that carries one (Schema.resolve), its own otherwise.
-const wireOf = (node) => (node.writer === undefined ? node : node.writer);
-
-// A boolean of the writer that the reader drops (Schema.resolve): a bit of
-// the header that reads as null.
-const droppedBit = (node) => node.writer !== undefined && inHeader(node.writer);
 
 // The source of a plan's binary codec and the helpers it reads through `H`.
 // `context.validate` says whether decode checks the wire; `context.slot(slot)`
@@ -86,10 +74,13 @@ const generate = (plan, context) => {
     return `H[${index}]`;
   };
 
-  // A decode check, only with validation; `path` is a source expression.
-  const check = (condition, code, path, detail) =>
-    validate ? `if(${condition})F(${str(code)},${path},${str(detail)});` : '';
-  const truncated = (path) => check('r.pos>r.end', 'structure', path, 'length');
+  // A decode check of a value, only with validation, and one of the structure
+  // of the wire, in every mode; `path` is a source expression.
+  const always = (condition, code, path, detail) =>
+    `if(${condition})F(${str(code)},${path},${str(detail)});`;
+  const check = validate ? always : () => '';
+  const structure = (condition, path, detail) => always(condition, 'structure', path, detail);
+  const truncated = (path) => structure('r.pos>r.end', path, 'length');
   // The else branch of a presence test where the reader requires a value the
   // writer may omit (Schema.resolve), only with validation.
   const absent = (path, expected) => (validate ? `else{F('type',${path},${str(expected)});}` : '');
@@ -126,6 +117,9 @@ const generate = (plan, context) => {
       case 'number':
         return `w.f64(${x});`;
       case 'integer':
+        // Only a safe integer has a form: an infinity or a fraction would read
+        // back as another number (the writer's loop ends on any value).
+        return `if(!Number.isSafeInteger(${x}))E('type',${path},'integer');w.svar(${x});`;
       case 'date':
         return `w.svar(${x});`;
       case 'boolean':
@@ -244,14 +238,16 @@ const generate = (plan, context) => {
   // a string, the writer types a bridge reads.
   const readRaw = (node, t, path) => {
     if (node.type === 'enum') {
-      return `const ${t}=${byteTag(node) ? 'r.u8();' : `r.uvar();${truncated(path)}`}`;
+      return `const ${t}=${byteTag(node) ? 'r.u8()' : 'r.uvar()'};${truncated(path)}`;
     }
     if (node.type === 'flags') {
       const words = wordsOf(node);
       return `const ${t}=${words === 1 ? 'r.uvar()' : `r.words(${words})`};${truncated(path)}`;
     }
-    if (node.type === 'integer') return `const ${t}=r.svar();${truncated(path)}`;
-    return `const ${t}=r.string();${check(`${t}===undefined`, 'structure', path, 'length')}`;
+    if (node.type === 'integer') {
+      return `const ${t}=r.svar();${truncated(path)}${safe(t, path, 'integer')}`;
+    }
+    return `const ${t}=r.string();${structure(`${t}===undefined`, path, 'length')}`;
   };
 
   // Statements that set `dst` from a resolved scalar (Schema.resolve): a value
@@ -268,50 +264,66 @@ const generate = (plan, context) => {
     );
   };
 
-  // Statements that set `dst` from a present scalar on the wire.
+  // An integer of the wire is a safe one, under validation: the varint is
+  // exact over them and no further.
+  const safe = (t, path, expected) => check(`!Number.isSafeInteger(${t})`, 'type', path, expected);
+
+  // Statements that set `dst` from a present scalar on the wire. A converted
+  // type checks and converts through its own `checkedUnpack` (types.js) under
+  // validation and its `unpack` without, as on the text wire, so the two
+  // wires agree on what a date, a mask or a bigint is.
   const readScalar = (node, dst, path) => {
     if (node.writer !== undefined) return readBridged(node, dst, path);
     const t = uid('t');
+    const converted = (raw, unpack) =>
+      `const ${t}=${raw};${truncated(path)}` +
+      (validate
+        ? `${dst}=${slot(node)}.checkedUnpack(${t});` +
+          `if(${dst}===undefined)F(${str(node.code)},${path},${str(node.expected)});`
+        : `${dst}=${unpack};`);
     if (node.decimals !== undefined) {
-      return `${dst}=r.svar()/${10 ** node.decimals};${truncated(path)}`;
+      const scale = 10 ** node.decimals;
+      return `const ${t}=r.svar();${truncated(path)}${safe(t, path, node.expected)}${dst}=${t}/${scale};`;
     }
     switch (node.type) {
       case 'number':
-        return `${check('r.pos+8>r.end', 'structure', path, 'length')}${dst}=r.f64();`;
+        return `${structure('r.pos+8>r.end', path, 'length')}${dst}=r.f64();`;
       case 'integer':
-        return `${dst}=r.svar();${truncated(path)}`;
+        return `const ${t}=r.svar();${truncated(path)}${safe(t, path, 'integer')}${dst}=${t};`;
       case 'date':
-        return (
-          `const ${t}=r.svar();${truncated(path)}` +
-          `${check(`${t}>8.64e15||${t}<-8.64e15`, 'type', path, 'date')}${dst}=new Date(${t});`
-        );
+        return converted('r.svar()', `new Date(${t})`);
       case 'boolean':
-        return `const ${t}=r.u8();${check(`!(${t}<2)`, 'type', path, 'boolean')}${dst}=${t}===1;`;
+        return (
+          `const ${t}=r.u8();${truncated(path)}` +
+          `${check(`!(${t}<2)`, 'type', path, 'boolean')}${dst}=${t}===1;`
+        );
       case 'string':
-        return `${dst}=r.string();${check(`${dst}===undefined`, 'structure', path, 'length')}`;
+        return `${dst}=r.string();${structure(`${dst}===undefined`, path, 'length')}`;
       case 'enum':
         return (
-          `const ${t}=${byteTag(node) ? 'r.u8()' : `r.uvar();${truncated(path)}`};` +
+          `const ${t}=${byteTag(node) ? 'r.u8()' : 'r.uvar()'};${truncated(path)}` +
           `${check(`!(${t}<${node.values.length})`, 'enum', path, node.expected)}` +
           `${dst}=${slot(node.values)}[${t}];`
         );
       case 'flags': {
         const words = wordsOf(node);
-        const read = words === 1 ? 'r.uvar()' : `r.words(${words})`;
-        return `${dst}=${slot(node)}.unpack(${read});${truncated(path)}`;
+        const raw = words === 1 ? 'r.uvar()' : `r.words(${words})`;
+        return converted(raw, `${slot(node)}.unpack(${t})`);
       }
       case 'bytes':
-        return `${dst}=r.raw();${check(`${dst}===undefined`, 'structure', path, 'length')}`;
+        return `${dst}=r.raw();${structure(`${dst}===undefined`, path, 'length')}`;
       case 'bigint':
         return (
-          `const ${t}=r.string();` +
-          `${check(`${t}===undefined||!/^-?\\d+$/.test(${t})`, 'type', path, 'bigint')}` +
-          `${dst}=BigInt(${t});`
+          `const ${t}=r.string();${structure(`${t}===undefined`, path, 'length')}` +
+          (validate
+            ? `${dst}=${slot(node)}.checkedUnpack(${t});` +
+              `if(${dst}===undefined)F('type',${path},'bigint');`
+            : `try{${dst}=BigInt(${t});}catch{F('type',${path},'bigint');}`)
         );
       case 'json':
         return (
-          `const ${t}=r.string();${check(`${t}===undefined`, 'structure', path, 'length')}` +
-          `${dst}=JSON.parse(${t});`
+          `const ${t}=r.string();${structure(`${t}===undefined`, path, 'length')}` +
+          `try{${dst}=JSON.parse(${t});}catch{F('json',${path});}`
         );
       default:
         return `${dst}=null;`;
@@ -324,12 +336,13 @@ const generate = (plan, context) => {
   // the bitmap (a nullable item), so no count allocates past the message.
   const readCount = (c, path, perByte) => {
     const left = perByte === 1 ? 'r.end-r.pos' : `(r.end-r.pos)*${perByte}`;
-    return `const ${c}=r.uvar();${check(`r.pos>r.end||${c}>${left}`, 'structure', path, 'length')}`;
+    return `const ${c}=r.uvar();${structure(`r.pos>r.end||${c}>${left}`, path, 'length')}`;
   };
 
   // A bitmap of `count` bits at `s`, which the count's bound made fit; `b` is
   // the bytes.
-  const readBitmap = (b, s, count) => `const ${b}=r.bytes,${s}=r.pos;r.pos=${s}+((${count}+7)>>3);`;
+  const readBitmap = (b, s, count) =>
+    `const ${b}=r.bytes,${s}=r.pos;r.pos=${s}+Math.ceil(${count}/8);`;
   const bit = (b, s, i) => `(${b}[${s}+(${i}>>3)]&(1<<(${i}&7)))!==0`;
 
   // Statements that set `dst` from a present value of any kind.
@@ -366,8 +379,8 @@ const generate = (plan, context) => {
       const at = `${path}+"["+${i}+"]"`;
       const key =
         node.key.type === 'string'
-          ? `const ${k}=r.string();${check(`${k}===undefined`, 'structure', at, 'length')}`
-          : `${check('r.pos+8>r.end', 'structure', at, 'length')}const ${k}=r.f64();`;
+          ? `const ${k}=r.string();${structure(`${k}===undefined`, at, 'length')}`
+          : `${structure('r.pos+8>r.end', at, 'length')}const ${k}=r.f64();`;
       const value = readValue(node.value, wireOf(node).valueRequired, node.valueRequired, y, at);
       return (
         `${readCount(c, path, 1)}const ${o}=new Map();` +
@@ -382,7 +395,7 @@ const generate = (plan, context) => {
       return (
         `${readCount(c, path, 1)}const ${o}={};` +
         `for(let ${i}=0;${i}<${c};${i}++){const ${k}=r.string();` +
-        `${check(`${k}===undefined`, 'structure', path, 'length')}let ${y}=null;${value}` +
+        `${structure(`${k}===undefined`, path, 'length')}let ${y}=null;${value}` +
         `if(${k}==='__proto__')${slot(put)}(${o},${k},${y});else ${o}[${k}]=${y};}${dst}=${o};`
       );
     }
@@ -414,7 +427,7 @@ const generate = (plan, context) => {
     const f = uid('f');
     const refused = required ? absent(at, expectedOf(node)) : '';
     return (
-      `const ${f}=r.u8();${check(`!(${f}<2)`, 'structure', at, 'length')}` +
+      `const ${f}=r.u8();${truncated(at)}${structure(`!(${f}<2)`, at, 'presence')}` +
       `if(${f}===1){${readInto(node, y, at)}}${refused}`
     );
   };
@@ -474,7 +487,7 @@ const generate = (plan, context) => {
     const head = (i) => `(h${i >> 3}&${1 << (i & 7)})!==0`;
     if (bytes > 0) {
       dec.push(
-        `const b=r.bytes,p=r.pos;${check(`p+${bytes}>r.end`, 'structure', '""', 'length')}` +
+        `const b=r.bytes,p=r.pos;${structure(`p+${bytes}>r.end`, '""', 'length')}` +
           `const ${heads.map((h, i) => `${h}=b[p+${i}]`).join(',')};r.pos=p+${bytes};`,
       );
     }
@@ -548,7 +561,7 @@ const generate = (plan, context) => {
         `E('union',${where},${expected});}`,
     );
     functions.push(
-      `function ${fns.d}(r){const t=r.${wide ? `uvar();${truncated(where)}` : 'u8();'}switch(t){` +
+      `function ${fns.d}(r){const t=r.${wide ? 'uvar' : 'u8'}();${truncated(where)}switch(t){` +
         `${cases((f) => `return ${f.d}(r,t);`)}}F('union',${where},${expected});}`,
     );
     return fns;
@@ -568,7 +581,7 @@ const generate = (plan, context) => {
     encodeBody = `${pre}if(${x}==null)w.u8(0);else{w.u8(1);${writeScalar(plan, x, '""')}}`;
     const missing = plan.required && validate ? `else{F('required',"");}` : '';
     decodeBody =
-      `let x=null;const f=r.u8();${check('!(f<2)', 'structure', '""', 'length')}` +
+      `let x=null;const f=r.u8();${truncated('""')}${structure('!(f<2)', '""', 'presence')}` +
       `if(f===1){${readScalar(plan, 'x', '""')}}${missing}return x;`;
   } else {
     encodeBody = `if(v==null)E('required','');${emit(plan, 'v', '""')}`;

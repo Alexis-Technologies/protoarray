@@ -2,14 +2,29 @@
 // ../binary.js and ../standalone.js (which writes binary codecs into modules
 // without the backends): `inspect` refuses what the wire has no form for and
 // collects the nodes a resolved plan compiles for its inner recursions,
-// `readsNumbers` says whether a codec reads a float64.
+// `readsNumbers` says whether a codec reads a float64, and the shape of the
+// wire's nodes is read by both backends (./generate.js, ./closures.js) from
+// the helpers below, so they cannot disagree on it.
 
-const { SchemaDefinitionError, step } = require('../errors.js');
+const { SchemaDefinitionError, step, join } = require('../errors.js');
 const { PLAN, children } = require('../plan.js');
+const { WORD } = require('../types.js');
 
-// A field's key under its record's path, as the errors and the options spell it.
-const at = (path, segment) =>
-  path === '' ? segment : segment[0] === '[' ? path + segment : `${path}.${segment}`;
+// An enum index or a union tag over this many values takes a varint.
+const BYTE = 256;
+const byteTag = (node) => node.values.length <= BYTE;
+const wordsOf = (node) => Math.ceil(node.names.length / WORD);
+
+// A boolean field of a struct travels in the struct's header.
+const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
+
+// The node whose form a value has on the wire: the writer's for a resolved
+// node that carries one (Schema.resolve), its own otherwise.
+const wireOf = (node) => (node.writer === undefined ? node : node.writer);
+
+// A boolean of the writer that the reader drops (Schema.resolve): a bit of
+// the header that reads as null.
+const droppedBit = (node) => node.writer !== undefined && inHeader(node.writer);
 
 // A node without the slot it was placed with: the plan of a codec of its own.
 const detached = (node) => {
@@ -47,7 +62,7 @@ const inspect = (plan, name) => {
       inner.set(node.slot, detached(node));
     }
     if (node.kind === 'struct') {
-      for (const field of node.fields) walk(field.node, at(path, step(field.key)));
+      for (const field of node.fields) walk(field.node, join(path, step(field.key)));
     } else if (node.kind === 'union') {
       node.branches.forEach((branch, i) => walk(branch.node, `${path}[${i}]`));
     } else if (node.kind === 'tuple') {
@@ -83,4 +98,4 @@ const readsNumbers = (schema) => {
   return walk(schema[PLAN]);
 };
 
-module.exports = { inspect, readsNumbers };
+module.exports = { inspect, readsNumbers, byteTag, wordsOf, inHeader, wireOf, droppedBit };

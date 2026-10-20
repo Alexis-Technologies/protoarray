@@ -95,9 +95,11 @@ throws only for what has no wire at all.
 
 `@alexify/protoarray/binary` ([The Binary Wire](/guide/binary)) carries the same schema as bytes,
 little-endian. A varint is unsigned LEB128; a zigzag varint interleaves negatives (the sign in the
-low bit), exact over the safe integers. Both sides need the same schema: positions, header bits
-and tags are the schema's, nothing is trimmed and nothing beyond the schema is tolerated. A schema
-from `resolve` reads and writes its writer's wire.
+low bit), exact over the safe integers and eight bytes long at most (more is a `DecodeError`
+`structure`). Both sides need the same schema: positions, header bits and tags are the schema's,
+nothing is trimmed, a message is read whole and a byte past it is a `DecodeError` `extra`. A
+schema from `resolve` reads and writes its writer's wire. The bytes are a contract:
+`tests/fixtures/golden-binary.json` holds them, and a change to them is a new major version.
 
 | Construct | On the wire |
 | --- | --- |
@@ -114,7 +116,7 @@ from `resolve` reads and writes its writer's wire.
 | `boolean` | a bit of the header as a struct's field; a byte (0 or 1) anywhere else |
 | `{ enum: [...] }` | the index as a byte; a varint past 256 values |
 | `{ flags: [...] }` | one varint per 31 names, the words of the text wire's mask |
-| `string` | its byte length doubled plus its form, as a varint, then the bytes: form 0 is UTF-8, form 1 UTF-16LE; this implementation writes UTF-8 up to 21 characters and UTF-16 past them or for a lone surrogate, and reads either form at any length |
+| `string` | its byte length doubled plus its form, as a varint, then the bytes: form 0 is UTF-8, form 1 UTF-16LE (an odd length is a `DecodeError` `structure`); this implementation writes UTF-8 up to 21 characters and UTF-16 past them or for a lone surrogate, and reads either form at any length |
 | `bytes` | the length as a varint, then the bytes |
 | `bigint` | its decimal digits as a string |
 | `json`, `any`, `unknown` | its JSON text as a string (`null` for a value JSON has no text for) |
@@ -125,10 +127,13 @@ from `resolve` reads and writes its writer's wire.
 | A schema from `resolve` | the writer's wire: a field or a tuple element only the writer has is read and dropped, and absent when written; a bridged scalar travels in the writer's form; a field only the reader has takes its default; a union tag the reader dropped is a `DecodeError` `union` |
 | An interned string, a `delta` list or column, a `flat` or `columns` collection (of a resolved schema's writer too) | no form: `SchemaDefinitionError` `ERR_NO_BINARY_FORM` |
 
-Decode checks the bounds of every read, the range of an enum index, the fit of a bitmap, a string
-and a count, a required field's presence and a date's range, with validation; a union's tag is
-checked always. Encode trusts its values, checks the shapes the wire is built from as the text
-wire does, and refuses a string slot without a string and a `bytes` slot without a `Uint8Array`.
+Decode checks the structure on every message, whatever `validate` says: the bounds of every read,
+the fit of a count, a bitmap and a string, a presence byte, a union's tag, the text of a `json`
+or a `bigint` slot; with validation, the values: the range of an enum index, a date, a boolean,
+an integer within the safe range, a flags word, a required field's presence. Encode trusts its
+values, checks the shapes the wire is built from as the text wire does, and refuses a string slot
+without a string, a `bytes` slot without a `Uint8Array` and an `integer` slot without a safe
+integer.
 
 ## Canonical form
 

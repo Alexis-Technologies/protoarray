@@ -89,6 +89,136 @@ By default, elements beyond the schema are ignored. If a payload must match the 
 pass `{ strict: true }` to `decode` or `parse`: extra elements, values or columns throw
 `DecodeError` with code `extra`.
 
+## Checking it in CI
+
+The rules above are kept by hand, and a definition that breaks one still builds: a version that
+moves a position decodes the payloads of the other into the wrong keys without a word.
+`compatible`, from the `@alexify/protoarray/evolve` subpath, reads two versions the way a
+reviewer would, position by position, and names every rule a change breaks. It is a tool for
+development and CI, kept out of the core and apart from [`resolve`](/guide/resolve), which reads
+one version as another at runtime:
+
+```js
+const { compatible } = require('@alexify/protoarray/evolve');
+
+const V3 = Schema.from(
+  {
+    id: 'number',
+    name: 'string',
+    email: '?string',
+    score: { type: 'number', default: 0 },
+    'role?': { enum: ['admin', 'user'] },
+  },
+  { metaschema },
+);
+compatible(V2, V3); // { ok: true, problems: [] } — an optional field appended
+
+const V4 = Schema.from(
+  {
+    id: 'integer',
+    fullName: 'string',
+    org: 'string',
+    email: '?string',
+    score: { type: 'number', default: 0 },
+    'role?': { enum: ['admin', 'user', 'guest'] },
+  },
+  { metaschema },
+);
+compatible(V3, V4);
+// {
+//   ok: false,
+//   problems: [
+//     { path: 'id', rule: 'type', severity: 'error', message: 'Type changed: number → integer', previous: 'number', next: 'integer' },
+//     { path: 'fullName', rule: 'renamed', severity: 'info', message: 'Field "name" is now "fullName"', previous: 'string', next: 'string' },
+//     { path: 'org', rule: 'inserted', severity: 'error', message: 'Field "org" inserted at position 2: "email", "score" and "role" move further', next: 'string' },
+//     { path: 'role', rule: 'appended', severity: 'warning', message: 'Enum value "guest" appended: deploy decoders before encoders', previous: 'enum(admin|user)', next: 'enum(admin|user|guest)' },
+//   ],
+// }
+compatible(V3, V4, { strict: true }).ok; // false on a warning too
+```
+
+`ok` is false when a problem is an error, and with `{ strict: true }` when one is a warning. Each
+problem names its place as the errors do (`address.city`, `orders[].sku`, `scores{}`, `pair[1]`,
+`''` for the root), the rule it breaks, how bad it is, and the canonical forms of the two nodes
+where there are two. What changes nothing on the wire is reported for information, so a review
+sees it. `register()` from the same subpath installs it as `Schema.compatible(previous, next)`.
+
+| `rule` | Severity | When | Rule above |
+| --- | --- | --- | --- |
+| `inserted` | error | a field, a tuple element, an enum value, a flag name or a union value inserted before one that keeps its place, which moves | 1, Unions |
+| `moved` | error | one that is elsewhere in the new version, not further (a swap, a reorder) | 1 |
+| `removed` | error | one the new version does not have, or fewer positions | 1, 3 |
+| `renamed` | info | a key, a value or an entity under another name at the same place, the old one nowhere else | 1 |
+| `required` | error | a field or an element appended as required without a default; an optional one now required | 2 |
+| `retired` | info | a slot that now takes anything (`?any`, `json`); **warning** when it takes only `null`, which a validating decoder holds older writers to | 3 |
+| `type` | error | another type or form: `integer` for `number`, an enum for a string, `decimals` changed, a record for an id, a Set for an array, a map keyed otherwise, a union on another discriminator | 4, 7 |
+| `optional` | info | a required slot now optional | 4 |
+| `appended` | warning | an enum value, a flag name or a union value appended: deploy decoders before encoders | 4, 5 |
+| `wire` | error | `sparse`, a `layout`, `delta` or `intern` switched at a place | 6 |
+| `flat` | error | the record of a `flat` collection has another number of fields, optional or not | Nested records |
+| `default` | warning | a default added, removed or changed: an empty slot in older payloads decodes differently | 2 |
+
+Fields, tuple elements, enum values, flag names and a union's values compare by position, and
+references by the entity they reach, once per pair of entities (a recursion included). A stored
+kind's id that moves because a field was appended to the definition (rule 8) is an `inserted`
+problem whose message says where to declare it. The telling of a rename from a shift is
+conservative: a key that changes at a position where neither the old nor the new key is anywhere
+else is a rename; any other shift of a key is an error, since the wire cannot say which one it
+was.
+
+### A baseline
+
+A CI job needs the version that shipped. `baseline` writes schemas as JSON: each one's snapshot
+(once, however many schemas share it), the entity it is of, the options that shape its wire
+(`sparse`, `layout`, `intern`, `delta`, `references`, `types`, the options of the entities it
+reaches, and the name of a built-in fingerprint; a function of your own cannot travel, so it is
+written as `null` and the id is recorded, not checked), and its canonical form and id as
+checksums. `restore` builds them again and refuses a baseline that does not rebuild to the
+canonical form it was written with (`ERR_INVALID_SNAPSHOT`: write it again):
+
+```js
+const { baseline, restore } = require('@alexify/protoarray/evolve');
+
+fs.writeFileSync('schemas.baseline.json', JSON.stringify(baseline({ User: V3 }), null, 2));
+// later, in another process
+const shipped = restore(JSON.parse(fs.readFileSync('schemas.baseline.json', 'utf8')));
+compatible(shipped.User, V4);
+```
+
+The `protoarray` command does both over the schemas a module exports (a protoarray or a
+metaschema `Schema`, the entities of a `Model`, as [`protoarray compile`](/guide/standalone#protoarray-compile)
+takes them), paired by export name:
+
+```sh
+protoarray snapshot src/schemas.js --out schemas.baseline.json   # when a version ships
+protoarray check src/schemas.js --against schemas.baseline.json  # on every change
+```
+
+`check` prints one line per problem and a summary, and exits with 1 when any schema is
+incompatible, or when the module or the baseline cannot be used (a baseline that does not
+rebuild fails the job too), with 2 for a wrong command line:
+
+```
+error    User.id: Type changed: number → integer (type)
+info     User.fullName: Field "name" is now "fullName" (renamed)
+error    User.org: Field "org" inserted at position 2: "email", "score" and "role" move further (inserted)
+warning  User.role: Enum value "guest" appended: deploy decoders before encoders (appended)
+1 schema checked: 2 errors, 1 warning, 1 info; incompatible
+```
+
+A schema the baseline has and the module no longer exports is a `removed` warning; one the
+module exports and the baseline lacks is noted (`appended`, info). `--only A,B` names the pairs
+to check, `--strict` fails on warnings too and `--json` writes `{ ok, schemas: { Name: { ok,
+problems } } }` instead of the lines. A workflow step holds every pull request to the rules:
+
+```yaml
+- run: npx protoarray check src/schemas.js --against schemas.baseline.json --strict
+```
+
+Write the baseline again with `protoarray snapshot` when a version ships, and commit it with the
+code: a change that has to break the rules then shows as a diff of the baseline in the same pull
+request, alongside the [`resolve`](/guide/resolve) that bridges it.
+
 ## Telling versions apart
 
 `schema.id` is a 32-bit FNV-1a fingerprint of the schema's signature: its canonical form

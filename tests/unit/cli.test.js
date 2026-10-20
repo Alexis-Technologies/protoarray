@@ -122,7 +122,21 @@ test('CLI: what it refuses', () => {
   // The module it reads is never written over.
   const over = cli('compile', 'tests/fixtures/schemas.js', '--out', 'tests/fixtures/schemas.js');
   assert.strictEqual(over.status, 2);
-  assert.match(over.stderr, /^--out names the module it compiles/);
+  assert.match(over.stderr, /^--out names the module it reads/);
+  // Without a command, the usage of every command; with one, its own.
+  const all = cli();
+  assert.match(all.stderr, /^ {7}protoarray snapshot <module>/m);
+  assert.match(all.stderr, /^ {7}protoarray check <module> --against/m);
+  const one = cli('snapshot');
+  assert.match(
+    one.stderr,
+    /^Usage: protoarray snapshot <module> \[--only <A,B>\] \[--out <file>\]$/m,
+  );
+  assert.doesNotMatch(one.stderr, /compile/);
+  // A flag of one command is no option of another.
+  const flag = cli('snapshot', 'tests/fixtures/schemas.js', '--strict');
+  assert.strictEqual(flag.status, 2);
+  assert.match(flag.stderr, /^Unknown or incomplete option --strict/);
 });
 
 test('CLI: a Model as the whole module, names with spaces, --out in a new directory', () => {
@@ -202,4 +216,155 @@ test('CLI: a module of one schema, one that waits at its top, one that throws a 
   const thrown = cli('compile', throwing);
   assert.strictEqual(thrown.status, 1);
   assert.strictEqual(thrown.stderr, 'not an error\n');
+});
+
+test('CLI: snapshot writes a baseline and check compares a module with it', () => {
+  const dir = path.join(ROOT, 'tests', '.generated', 'evolution');
+  fs.rmSync(dir, { recursive: true, force: true });
+  const fixture = (version) => path.join('tests', 'fixtures', 'evolution', `${version}.js`);
+  const v1 = path.join(dir, 'v1.json');
+  const written = cli('snapshot', fixture('v1'), '--out', v1);
+  assert.strictEqual(written.status, 0, written.stderr);
+  assert.strictEqual(written.stdout, '');
+  const { baseline } = require('../../evolve.js');
+  const { Schema: Definition } = require('@alexify/metaschema');
+  const User = require('../fixtures/evolution/v1.js').User;
+  assert.deepStrictEqual(
+    JSON.parse(fs.readFileSync(v1, 'utf8')),
+    JSON.parse(JSON.stringify(baseline({ User: Schema.from(User) }))),
+  );
+  assert.ok(User instanceof Definition);
+  // Without --out, the baseline goes to stdout; --only keeps the named schemas.
+  const printed = cli('snapshot', fixture('v4'), '--only', 'User,Address');
+  assert.strictEqual(printed.status, 0, printed.stderr);
+  assert.deepStrictEqual(Object.keys(JSON.parse(printed.stdout).schemas), ['User', 'Address']);
+  // V2 keeps every position; V3 appends an enum value, a warning --strict fails on.
+  const two = cli('check', fixture('v2'), '--against', v1);
+  assert.strictEqual(two.status, 0, two.stderr);
+  assert.strictEqual(two.stdout, '1 schema checked: no problems; compatible\n');
+  const three = cli('check', fixture('v3'), '--against', v1);
+  assert.strictEqual(three.status, 0, three.stderr);
+  assert.strictEqual(
+    three.stdout,
+    'warning  User.role: Enum value "guest" appended: deploy decoders before encoders (appended)\n' +
+      '1 schema checked: 1 warning; compatible\n',
+  );
+  const strict = cli('check', fixture('v3'), '--against', v1, '--strict');
+  assert.strictEqual(strict.status, 1);
+  assert.match(strict.stdout, /1 warning; incompatible\n$/);
+  // V4 breaks the rules, and brings two schemas the baseline does not have.
+  const four = cli('check', fixture('v4'), '--against', v1);
+  assert.strictEqual(four.status, 1);
+  assert.strictEqual(
+    four.stdout,
+    [
+      'error    User.id: Type changed: integer → number (type)',
+      'info     User.name: Field "fullName" is now "name" (renamed)',
+      'error    User.role: Enum value "guest" inserted before "admin", which moves (inserted)',
+      'error    User.role: Enum value "admin" moved from position 0 to 2 (moved)',
+      'info     Address: "Address" is not in the baseline: nothing to compare (appended)',
+      'info     Contact: "Contact" is not in the baseline: nothing to compare (appended)',
+      '3 schemas checked: 3 errors, 3 info; incompatible',
+      '',
+    ].join('\n'),
+  );
+  const json = cli('check', fixture('v4'), '--against', v1, '--json');
+  assert.strictEqual(json.status, 1);
+  const result = JSON.parse(json.stdout);
+  assert.strictEqual(result.ok, false);
+  assert.deepStrictEqual(Object.keys(result.schemas), ['User', 'Address', 'Contact']);
+  assert.strictEqual(result.schemas.User.ok, false);
+  assert.strictEqual(result.schemas.User.problems.length, 4);
+  assert.deepStrictEqual(result.schemas.Address, {
+    ok: true,
+    problems: [
+      {
+        path: '',
+        rule: 'appended',
+        severity: 'info',
+        message: '"Address" is not in the baseline: nothing to compare',
+      },
+    ],
+  });
+  // --only names the pairs to check.
+  const only = cli('check', fixture('v4'), '--against', v1, '--only', 'Address', '--json');
+  assert.strictEqual(only.status, 0, only.stderr);
+  assert.deepStrictEqual(Object.keys(JSON.parse(only.stdout).schemas), ['Address']);
+  // A schema the module no longer exports is a warning, which --strict fails on.
+  const v4 = path.join(dir, 'v4.json');
+  assert.strictEqual(cli('snapshot', fixture('v4'), '--out', v4).status, 0);
+  const gone = cli('check', fixture('v2'), '--against', v4, '--only', 'Address,Contact');
+  assert.strictEqual(gone.status, 0, gone.stderr);
+  assert.strictEqual(
+    gone.stdout,
+    'warning  Address: The module no longer exports "Address" (removed)\n' +
+      'warning  Contact: The module no longer exports "Contact" (removed)\n' +
+      '2 schemas checked: 2 warnings; compatible\n',
+  );
+  const goneStrict = cli('check', fixture('v2'), '--against', v4, '--strict', '--json');
+  assert.strictEqual(goneStrict.status, 1);
+  assert.strictEqual(JSON.parse(goneStrict.stdout).schemas.Address.ok, false);
+  const nowhere = cli('check', fixture('v2'), '--against', v4, '--only', 'User, Nope');
+  assert.strictEqual(nowhere.status, 1);
+  assert.strictEqual(nowhere.stderr, 'Neither the module nor the baseline has a schema "Nope"\n');
+  // A path with brackets follows the name without a dot.
+  const list = path.join(dir, 'list.js');
+  fs.writeFileSync(
+    list,
+    [
+      "const ms = require('@alexify/metaschema');",
+      "module.exports = ms.Schema.from({ array: { v: 'string' } });",
+      '',
+    ].join('\n'),
+  );
+  const listed = path.join(dir, 'list.json');
+  assert.strictEqual(cli('snapshot', list, '--out', listed).status, 0);
+  fs.writeFileSync(
+    list,
+    [
+      "const ms = require('@alexify/metaschema');",
+      "module.exports = ms.Schema.from({ array: { v: 'integer' } });",
+      '',
+    ].join('\n'),
+  );
+  const items = cli('check', list, '--against', listed);
+  assert.strictEqual(items.status, 1);
+  assert.match(items.stdout, /^error {4}default\[\]\.v: Type changed: string → integer \(type\)$/m);
+});
+
+test('CLI: what check refuses', () => {
+  const dir = path.join(ROOT, 'tests', '.generated', 'evolution');
+  fs.mkdirSync(dir, { recursive: true });
+  const fixture = path.join('tests', 'fixtures', 'evolution', 'v1.js');
+  const usage = /^Usage: protoarray check <module> --against <baseline\.json>/m;
+  // No baseline named: the command line is wrong.
+  const missing = cli('check', fixture);
+  assert.strictEqual(missing.status, 2);
+  assert.match(missing.stderr, /^check needs --against <baseline\.json>$/m);
+  assert.match(missing.stderr, usage);
+  // A baseline that cannot be read, is not JSON, or does not rebuild: exit 1.
+  const absent = cli('check', fixture, '--against', path.join(dir, 'absent.json'));
+  assert.strictEqual(absent.status, 1);
+  assert.match(absent.stderr, /^Cannot read the baseline .*absent\.json: ENOENT/);
+  const text = path.join(dir, 'text.json');
+  fs.writeFileSync(text, 'not json');
+  const invalid = cli('check', fixture, '--against', text);
+  assert.strictEqual(invalid.status, 1);
+  assert.match(invalid.stderr, /^The baseline .*text\.json is not JSON: /);
+  const v1 = path.join(dir, 'forged.json');
+  assert.strictEqual(cli('snapshot', fixture, '--out', v1).status, 0);
+  const forged = JSON.parse(fs.readFileSync(v1, 'utf8'));
+  forged.schemas.User.canonical = '{}';
+  fs.writeFileSync(v1, JSON.stringify(forged));
+  const stale = cli('check', fixture, '--against', v1);
+  assert.strictEqual(stale.status, 1);
+  assert.strictEqual(
+    stale.stderr,
+    'SchemaDefinitionError ERR_INVALID_SNAPSHOT: The baseline does not rebuild to its canonical ' +
+      'form: write it again (schema "User")\n',
+  );
+  // The module is checked before the baseline is read.
+  const none = cli('check', 'tests/fixtures/empty.js', '--against', v1);
+  assert.strictEqual(none.status, 1);
+  assert.strictEqual(none.stderr, 'The module exports no schema\n');
 });

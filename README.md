@@ -77,7 +77,8 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   validates the values with it, protoarray carries them, and both read a reference, an optional
   field or a stored entity's id the same way.
 - **Evolves safely.** Append fields at the end and old and new versions keep understanding each
-  other; a fingerprint (`schema.id`) tells versions apart in a handshake. For changes that break
+  other; a fingerprint (`schema.id`) tells versions apart in a handshake, and `protoarray check`
+  holds a module to the rules in CI, against the baseline that shipped. For changes that break
   the rules, `resolve` reads and writes another version by name, Avro-style, and a registry
   wraps payloads as `[id, payload]`.
 - **Typed.** A schema takes its TypeScript types from the metaschema schema it is built from;
@@ -86,7 +87,7 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
   imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve,
-  streaming and standalone extras are subpaths of 1.8–2.5 KB each. Generated code where the
+  streaming, standalone and evolve extras are subpaths of 1.8–3 KB each. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
   standalone module generated at build time.
 
@@ -122,7 +123,7 @@ protoarray alone.
 | Streaming | `encodeEach`/`decodeEach`; NDJSON, `TransformStream`s and the items of a large array read as they arrive (`@alexify/protoarray/stream`) |
 | Standalone modules | `protoarray compile` writes the generated code of your schemas into a module, for a strict CSP and edge runtimes, with no metaschema at runtime (`@alexify/protoarray/standalone`) |
 | Validation | the wire on decode by default: `DecodeError` with codes, paths like `orders[1].sku` and the schema name; the values before encode with metaschema's `check` and `parse` |
-| Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart |
+| Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart; `compatible(previous, next)` and `protoarray check` hold a module to the rules in CI (`@alexify/protoarray/evolve`) |
 
 See the [guide](https://protoarray.vercel.app/guide/schema) for every form, and
 [Migrating from 1.x](https://protoarray.vercel.app/guide/migrating-from-1) for the upgrade: the
@@ -524,6 +525,7 @@ const { resolve } = require('@alexify/protoarray/resolve');
 const { SchemaRegistry } = require('@alexify/protoarray/registry');
 const { parseLines, parseItems /* … */ } = require('@alexify/protoarray/stream');
 const { toSource } = require('@alexify/protoarray/standalone');
+const { compatible, baseline, restore } = require('@alexify/protoarray/evolve');
 ```
 
 ```ts

@@ -44,54 +44,54 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="808"/>
 <line class="ref" x1="437.04695241816836" y1="88" x2="437.04695241816836" y2="808"/>
 <g><title>protoarray · binary wire
-1,020,460 ops/s
-980 ns per payload
+1,022,441 ops/s
+978 ns per payload
 ×1.42 the speed of JSON
-@alexify/protoarray@2.0.0 (5a482c5), writes bytes</title>
+@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
 <text class="label secondary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">binary wire</text>
-<path class="bar secondary" d="M217,101H525.2608611435402A4,4 0 0 1 529.2608611435402,105V111A4,4 0 0 1 525.2608611435402,115H217Z"/>
-<text class="value" x="535.2608611435402" y="114">1.02M</text>
+<path class="bar secondary" d="M217,101H525.8669308414969A4,4 0 0 1 529.8669308414969,105V111A4,4 0 0 1 525.8669308414969,115H217Z"/>
+<text class="value" x="535.8669308414969" y="114">1.02M</text>
 </g>
 <g><title>protoarray · codegen
-890,053 ops/s
-1.12 µs per payload
-×1.24 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+882,846 ops/s
+1.13 µs per payload
+×1.23 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label primary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">codegen</text>
-<path class="bar primary" d="M217,141H485.35628236927323A4,4 0 0 1 489.35628236927323,145V151A4,4 0 0 1 485.35628236927323,155H217Z"/>
-<text class="value" x="495.35628236927323" y="154">890k</text>
+<path class="bar primary" d="M217,141H483.1509472907704A4,4 0 0 1 487.1509472907704,145V151A4,4 0 0 1 483.1509472907704,155H217Z"/>
+<text class="value" x="493.1509472907704" y="154">883k</text>
 </g>
 <g><title>protoarray · standalone module, no eval
-857,520 ops/s
-1.17 µs per payload
-×1.19 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+867,309 ops/s
+1.15 µs per payload
+×1.21 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="185">protoarray</text>
 <text class="sublabel" x="20" y="200">standalone module, no eval</text>
-<path class="bar secondary" d="M217,181H475.40119478896236A4,4 0 0 1 479.40119478896236,185V191A4,4 0 0 1 475.40119478896236,195H217Z"/>
-<text class="value" x="485.40119478896236" y="194">858k</text>
+<path class="bar secondary" d="M217,181H478.39650232753695A4,4 0 0 1 482.39650232753695,185V191A4,4 0 0 1 478.39650232753695,195H217Z"/>
+<text class="value" x="488.39650232753695" y="194">867k</text>
 </g>
 <g><title>protoarray · closures, no eval
-835,813 ops/s
-1.2 µs per payload
-×1.16 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+818,241 ops/s
+1.22 µs per payload
+×1.14 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="225">protoarray</text>
 <text class="sublabel" x="20" y="240">closures, no eval</text>
-<path class="bar secondary" d="M217,221H468.75871080421325A4,4 0 0 1 472.75871080421325,225V231A4,4 0 0 1 468.75871080421325,235H217Z"/>
-<text class="value" x="478.75871080421325" y="234">836k</text>
+<path class="bar secondary" d="M217,221H463.3816879208395A4,4 0 0 1 467.3816879208395,225V231A4,4 0 0 1 463.3816879208395,235H217Z"/>
+<text class="value" x="473.3816879208395" y="234">818k</text>
 </g>
 <g><title>protoarray · codegen + metaschema check
-808,910 ops/s
-1.24 µs per payload
-×1.12 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+816,608 ops/s
+1.22 µs per payload
+×1.14 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="265">protoarray</text>
 <text class="sublabel" x="20" y="280">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,261H460.52657513988174A4,4 0 0 1 464.52657513988174,265V271A4,4 0 0 1 460.52657513988174,275H217Z"/>
-<text class="value" x="470.52657513988174" y="274">809k</text>
+<path class="bar secondary" d="M217,261H462.88202436488234A4,4 0 0 1 466.88202436488234,265V271A4,4 0 0 1 462.88202436488234,275H217Z"/>
+<text class="value" x="472.88202436488234" y="274">817k</text>
 </g>
 <g><title>JSON · stringify · parse
 719,108 ops/s

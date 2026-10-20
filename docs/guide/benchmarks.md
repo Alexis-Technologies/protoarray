@@ -49,11 +49,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,393,246 (×1.00) | 970,015 (×1.00) | 266 | 212 | 178 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 2,075,360 (×1.49) | 1,714,176 (×1.77) | 135 | 134 | 110 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,552,418 (×1.11) | 1,065,721 (×1.10) | 135 | 134 | 110 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 2,038,604 (×1.46) | 1,606,745 (×1.66) | 135 | 134 | 110 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,148,641 (×0.82) | 1,723,478 (×1.78) | 135 | 134 | 110 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 2,250,702 (×1.62) | 1,975,521 (×2.04) | 125 | 128 | 120 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 2,056,757 (×1.48) | 1,724,546 (×1.78) | 135 | 134 | 110 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 1,546,083 (×1.11) | 1,051,706 (×1.08) | 135 | 134 | 110 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 2,029,812 (×1.46) | 1,592,427 (×1.64) | 135 | 134 | 110 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,146,010 (×0.82) | 1,701,545 (×1.75) | 135 | 134 | 110 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,172,984 (×1.56) | 2,000,626 (×2.06) | 125 | 128 | 120 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 1,398,695 (×1.00) | 1,472,331 (×1.52) | 115 | 127 | 117 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 487,218 (×0.35) | 560,158 (×0.58) | 115 | 127 | 117 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,626,234 (×1.17) | 1,738,513 (×1.79) | 97 | 111 | 101 |
@@ -72,13 +72,13 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,466 (×1.00) | 891 (×1.00) | 271,215 | 33,793 | 29,133 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 2,002 (×1.37) | 1,463 (×1.64) | 140,738 | 30,666 | 26,946 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,432 (×0.98) | 974 (×1.09) | 140,738 | 30,666 | 26,946 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1,992 (×1.36) | 1,471 (×1.65) | 140,738 | 30,666 | 26,946 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,090 (×0.74) | 1,462 (×1.64) | 140,738 | 30,666 | 26,946 |
-| **protoarray**<br><sub>columns layout · v2.0.0</sub> | 2,059 (×1.40) | 1,535 (×1.72) | 138,758 | 27,412 | 21,053 |
-| **protoarray**<br><sub>columns, delta + intern · v2.0.0</sub> | 2,245 (×1.53) | 1,670 (×1.87) | 114,965 | 24,574 | 19,799 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 3,152 (×2.15) | 2,215 (×2.49) | 129,625 | 30,995 | 28,457 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 1,971 (×1.34) | 1,491 (×1.67) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 1,425 (×0.97) | 962 (×1.08) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 1,995 (×1.36) | 1,527 (×1.71) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,090 (×0.74) | 1,471 (×1.65) | 140,738 | 30,666 | 26,946 |
+| **protoarray**<br><sub>columns layout · v2.1.0</sub> | 2,030 (×1.38) | 1,519 (×1.70) | 138,758 | 27,412 | 21,053 |
+| **protoarray**<br><sub>columns, delta + intern · v2.1.0</sub> | 2,284 (×1.56) | 1,676 (×1.88) | 114,965 | 24,574 | 19,799 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 3,101 (×2.12) | 2,286 (×2.57) | 129,625 | 30,995 | 28,457 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 1,301 (×0.89) | 1,403 (×1.57) | 120,459 | 31,414 | 28,985 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 617 (×0.42) | 587 (×0.66) | 120,459 | 31,414 | 28,985 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,399 (×0.95) | 1,793 (×2.01) | 101,839 | 29,895 | 27,334 |
@@ -97,11 +97,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 6,800,381 (×1.00) | 4,562,955 (×1.00) | 33 | 53 | 36 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 7,293,917 (×1.07) | 7,592,074 (×1.66) | 23 | 43 | 27 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,363,686 (×0.49) | 4,230,746 (×0.93) | 23 | 43 | 27 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 6,712,097 (×0.99) | 7,171,599 (×1.57) | 23 | 43 | 27 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 2,089,158 (×0.31) | 7,340,173 (×1.61) | 23 | 43 | 27 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 12,291,110 (×1.81) | 7,879,352 (×1.73) | 18 | 34 | 22 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 7,381,875 (×1.09) | 7,599,479 (×1.67) | 23 | 43 | 27 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 3,275,840 (×0.48) | 4,253,526 (×0.93) | 23 | 43 | 27 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 6,873,553 (×1.01) | 7,218,956 (×1.58) | 23 | 43 | 27 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 2,191,117 (×0.32) | 7,574,256 (×1.66) | 23 | 43 | 27 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 12,378,023 (×1.82) | 7,800,073 (×1.71) | 18 | 34 | 22 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 5,568,923 (×0.82) | 9,670,688 (×2.12) | 11 | 31 | 15 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 966,102 (×0.14) | 2,827,757 (×0.62) | 11 | 31 | 15 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,457,467 (×0.21) | 3,623,007 (×0.79) | 28 | 35 | 23 |
@@ -120,11 +120,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 821,191 (×1.00) | 2,898,740 (×1.00) | 123 | 120 | 94 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 4,754,490 (×5.79) | 4,833,543 (×1.67) | 36 | 46 | 36 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 3,594,105 (×4.38) | 3,173,728 (×1.09) | 36 | 46 | 36 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 4,666,737 (×5.68) | 4,696,261 (×1.62) | 36 | 46 | 36 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 2,803,310 (×3.41) | 4,851,985 (×1.67) | 36 | 46 | 36 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 6,636,444 (×8.08) | 6,594,808 (×2.28) | 26 | 38 | 30 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 4,779,381 (×5.82) | 4,829,956 (×1.67) | 36 | 46 | 36 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 3,567,485 (×4.34) | 3,132,542 (×1.08) | 36 | 46 | 36 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 4,674,331 (×5.69) | 4,761,469 (×1.64) | 36 | 46 | 36 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 2,799,070 (×3.41) | 4,858,565 (×1.68) | 36 | 46 | 36 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 6,533,464 (×7.96) | 6,275,456 (×2.16) | 26 | 38 | 30 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 3,837,319 (×4.67) | 12,143,747 (×4.19) | 13 | 33 | 17 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 1,272,891 (×1.55) | 2,952,236 (×1.02) | 13 | 33 | 17 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 2,135,877 (×2.60) | 7,911,258 (×2.73) | 12 | 32 | 16 |
@@ -143,11 +143,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 1,557,669 (×1.00) | 1,335,778 (×1.00) | 816 | 266 | 229 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 1,841,409 (×1.18) | 1,722,754 (×1.29) | 785 | 230 | 207 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 1,753,548 (×1.13) | 1,597,016 (×1.20) | 785 | 230 | 207 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1,758,113 (×1.13) | 1,674,028 (×1.25) | 785 | 230 | 207 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 1,548,540 (×0.99) | 1,693,591 (×1.27) | 785 | 230 | 207 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 1,849,724 (×1.19) | 2,276,200 (×1.70) | 821 | 265 | 247 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 1,820,363 (×1.17) | 1,714,210 (×1.28) | 785 | 230 | 207 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 1,717,264 (×1.10) | 1,562,958 (×1.17) | 785 | 230 | 207 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 1,784,109 (×1.15) | 1,687,798 (×1.26) | 785 | 230 | 207 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,561,889 (×1.00) | 1,711,369 (×1.28) | 785 | 230 | 207 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,894,969 (×1.22) | 2,220,552 (×1.66) | 821 | 265 | 247 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 575,285 (×0.37) | 507,626 (×0.38) | 777 | 233 | 211 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 407,763 (×0.26) | 427,814 (×0.32) | 777 | 233 | 211 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 491,511 (×0.32) | 769,652 (×0.58) | 774 | 231 | 210 |
@@ -166,11 +166,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 51,915 (×1.00) | 24,070 (×1.00) | 8,834 | 852 | 630 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 67,758 (×1.31) | 49,394 (×2.05) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 48,225 (×0.93) | 25,649 (×1.07) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 65,648 (×1.26) | 47,442 (×1.97) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 33,902 (×0.65) | 49,890 (×2.07) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 110,336 (×2.13) | 68,447 (×2.84) | 3,064 | 656 | 540 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 67,245 (×1.30) | 50,941 (×2.12) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 47,385 (×0.91) | 25,937 (×1.08) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 67,030 (×1.29) | 48,073 (×2.00) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 34,188 (×0.66) | 48,879 (×2.03) | 4,332 | 685 | 501 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 109,238 (×2.10) | 69,037 (×2.87) | 3,064 | 656 | 540 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 24,172 (×0.47) | 37,015 (×1.54) | 3,691 | 778 | 609 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 10,961 (×0.21) | 15,383 (×0.64) | 3,691 | 778 | 609 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 20,632 (×0.40) | 46,294 (×1.92) | 2,833 | 633 | 521 |
@@ -188,11 +188,11 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | Library | encode ops/s | decode ops/s | bytes | gzip | brotli |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 323,242 (×1.00) | 483,381 (×1.00) | 764 | 406 | 392 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 432,744 (×1.34) | 742,205 (×1.54) | 582 | 309 | 295 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 375,124 (×1.16) | 578,897 (×1.20) | 582 | 309 | 295 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 404,218 (×1.25) | 731,900 (×1.51) | 582 | 309 | 295 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 336,196 (×1.04) | 737,943 (×1.53) | 582 | 309 | 295 |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 2,492,508 (×7.71) | 5,009,602 (×10.36) | 260 | 283 | 262 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 406,422 (×1.26) | 739,873 (×1.53) | 582 | 309 | 295 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 355,885 (×1.10) | 577,193 (×1.19) | 582 | 309 | 295 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 434,404 (×1.34) | 735,706 (×1.52) | 582 | 309 | 295 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 344,294 (×1.07) | 743,449 (×1.54) | 582 | 309 | 295 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,452,022 (×7.59) | 4,899,904 (×10.14) | 260 | 283 | 262 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 709,089 (×2.19) | 1,944,328 (×4.02) | 305 | 328 | 304 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 252,782 (×0.78) | 455,256 (×0.94) | 305 | 328 | 304 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,937,808 (×5.99) | 3,115,855 (×6.45) | 256 | 279 | 260 |
@@ -269,19 +269,19 @@ process, loading itself, building the schema of one record, encoding it and deco
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 0.00 ms | 0.02 ms | 0.02 ms | 0.01 ms | 0.06 ms |
 | v8.serialize<br><sub>structured clone, Node only · Node 24.14.1</sub> | 0.27 ms | 0.01 ms | 0.04 ms | 0.04 ms | 0.36 ms |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1.2 ms | 0.02 ms | 0.15 ms | 0.16 ms | 1.6 ms |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 1.2 ms | 0.01 ms | 0.15 ms | 0.15 ms | 1.5 ms |
 | @msgpack/msgpack<br><sub>Encoder · Decoder · v3.1.3</sub> | 2.9 ms | 0.10 ms | 0.37 ms | 0.57 ms | 3.9 ms |
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 5.1 ms | 0.01 ms | 0.49 ms | 0.26 ms | 5.9 ms |
 | msgpackr<br><sub>records, shared structures · v2.1.0</sub> | 5.3 ms | 0.03 ms | 0.63 ms | 0.43 ms | 6.4 ms |
 | superjson<br><sub>stringify · parse · v2.2.6</sub> | 5.8 ms | 0.01 ms | 0.58 ms | 0.04 ms | 6.4 ms |
 | cbor-x<br><sub>records · v1.6.6</sub> | 5.3 ms | 0.03 ms | 0.64 ms | 0.47 ms | 6.5 ms |
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 5.4 ms | 0.02 ms | 0.51 ms | 0.60 ms | 6.5 ms |
-| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 3.9 ms | 3.0 ms | 0.14 ms | 0.15 ms | 7.3 ms |
+| **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 4.4 ms | 2.8 ms | 0.13 ms | 0.15 ms | 7.6 ms |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 8.2 ms | 0.59 ms | 0.18 ms | 0.17 ms | 9.1 ms |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 11.6 ms | 3.8 ms | 0.11 ms | 0.17 ms | 15.7 ms |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 11.1 ms | 1.5 ms | 3.1 ms | 0.35 ms | 16.2 ms |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 11.7 ms | 4.5 ms | 0.14 ms | 0.16 ms | 16.5 ms |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 13.9 ms | 4.5 ms | 1.4 ms | 0.24 ms | 20.0 ms |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 11.9 ms | 4.3 ms | 0.13 ms | 0.15 ms | 16.5 ms |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 12.5 ms | 3.9 ms | 0.12 ms | 0.17 ms | 16.7 ms |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.8 ms | 4.2 ms | 1.6 ms | 0.27 ms | 19.9 ms |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 21.0 ms | 4.5 ms | 0.26 ms | 0.01 ms | 25.7 ms |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 24.5 ms | 0.38 ms | 0.80 ms | 0.06 ms | 25.9 ms |
 
@@ -308,16 +308,16 @@ by esbuild for the browser (minified, tree-shaken) and checked to give the recor
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 10.7 KB | 4.0 KB |  |
 | superjson<br><sub>stringify · parse · v2.2.6</sub> | 11.1 KB | 4.0 KB |  |
 | @msgpack/msgpack<br><sub>Encoder · Decoder · v3.1.3</sub> | 20.7 KB | 5.8 KB |  |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 18.7 KB | 7.1 KB | the module protoarray compile writes for this schema, with its inline runtime |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 19.0 KB | 7.2 KB | the module protoarray compile writes for this schema, with its inline runtime |
 | msgpackr<br><sub>records, shared structures · v2.1.0</sub> | 27.4 KB | 10.3 KB |  |
 | cbor-x<br><sub>records · v1.6.6</sub> | 28.6 KB | 10.6 KB |  |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 66.6 KB | 18.2 KB | the runtime and the descriptor generated code embeds |
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 74.8 KB | 22.2 KB |  |
-| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 61.5 KB | 22.3 KB | the schema built from its snapshot: a client without metaschema |
+| **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 63.2 KB | 23.0 KB | the schema built from its snapshot: a client without metaschema |
 | protobufjs<br><sub>protobufjs/light, Root.fromJSON · v8.8.1</sub> | 105.7 KB | 29.2 KB | reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code |
-| **protoarray**<br><sub>binary wire, from a snapshot · v2.0.0</sub> | 84.3 KB | 30.2 KB | the core and the ./binary subpath, the schema built from its snapshot |
+| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.5 KB | 32.3 KB | the core and the ./binary subpath, the schema built from its snapshot |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 115.4 KB | 34.3 KB | avsc's browser build of types, with the buffer and util polyfills it requires |
-| **protoarray**<br><sub>codegen, metaschema definition · v2.0.0</sub> | 120.6 KB | 42.9 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
+| **protoarray**<br><sub>codegen, metaschema definition · v2.1.0</sub> | 122.3 KB | 43.6 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 217.4 KB | 62.9 KB | encode only; JSON.parse decodes |
 
 <!-- bench:size:end -->
@@ -343,11 +343,13 @@ slower.
 | 1.0.0<br><sub>codegen</sub> | 2,030,000 / 1,650,000 | 1,960 / 1,500 | 7,200,000 / 7,340,000 | 3,850,000 / 4,770,000 | 1,790,000 / 1,660,000 | — | 403,000 / 734,000 | 36,200 |
 | 1.1.0<br><sub>codegen</sub> | 2,030,000 / 1,640,000 | 1,970 / 1,500 | 7,210,000 / 7,180,000 | 4,880,000 / 4,790,000 | 1,750,000 / 1,670,000 | 66,800 / 47,400 | 409,000 / 731,000 | 31,600 |
 | 2.0.0<br><sub>codegen</sub> | 2,040,000 / 1,690,000 | 1,970 / 1,480 | 7,020,000 / 7,460,000 | 4,670,000 / 4,780,000 | 1,800,000 / 1,700,000 | 67,600 / 50,600 | 427,000 / 731,000 | 14,600 |
+| 2.1.0<br><sub>codegen</sub> | 2,070,000 / 1,690,000 | 1,990 / 1,500 | 7,400,000 / 7,620,000 | 4,700,000 / 4,870,000 | 1,820,000 / 1,700,000 | 67,400 / 50,900 | 428,000 / 725,000 | 14,700 |
 | 1.0.0<br><sub>closures</sub> | 1,550,000 / 971,000 | 1,420 / 937 | 3,180,000 / 2,590,000 | 2,950,000 / 2,850,000 | 1,670,000 / 1,540,000 | — | 360,000 / 573,000 | 172,000 |
 | 1.1.0<br><sub>closures</sub> | 1,470,000 / 1,040,000 | 1,380 / 976 | 2,930,000 / 2,460,000 | 3,540,000 / 3,110,000 | 1,680,000 / 1,550,000 | 47,800 / 26,000 | 364,000 / 568,000 | 98,400 |
 | 2.0.0<br><sub>closures</sub> | 1,470,000 / 1,060,000 | 1,390 / 978 | 2,950,000 / 2,360,000 | 3,450,000 / 3,090,000 | 1,690,000 / 1,560,000 | 48,100 / 26,800 | 359,000 / 567,000 | 24,000 |
+| 2.1.0<br><sub>closures</sub> | 1,530,000 / 1,050,000 | 1,420 / 971 | 3,190,000 / 4,180,000 | 3,520,000 / 3,100,000 | 1,710,000 / 1,600,000 | 47,600 / 26,100 | 378,000 / 574,000 | 23,300 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-16. ops/s of stringify / parse, medians; — where the release has no union._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-20. ops/s of stringify / parse, medians; — where the release has no union._
 
 <!-- bench:releases:end -->
 

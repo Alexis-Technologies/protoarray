@@ -72,14 +72,14 @@ superjson@2.2.6</title>
 <text class="value" x="261.758447265625" y="194">5.8 KB</text>
 </g>
 <g><title>protoarray · standalone module, no eval
-7.1 KB min+gzip
-18.7 KB minified
-@alexify/protoarray@2.0.0
+7.2 KB min+gzip
+19.0 KB minified
+@alexify/protoarray@2.1.0
 the module protoarray compile writes for this schema, with its inline runtime</title>
 <text class="label secondary" x="20" y="225">protoarray</text>
 <text class="sublabel" x="20" y="240">standalone module, no eval</text>
-<path class="bar secondary" d="M223,221H259.168359375A4,4 0 0 1 263.168359375,225V231A4,4 0 0 1 259.168359375,235H223Z"/>
-<text class="value" x="269.168359375" y="234">7.1 KB</text>
+<path class="bar secondary" d="M223,221H260.00335693359375A4,4 0 0 1 264.00335693359375,225V231A4,4 0 0 1 260.00335693359375,235H223Z"/>
+<text class="value" x="270.00335693359375" y="234">7.2 KB</text>
 </g>
 <g><title>msgpackr · records, shared structures
 10.3 KB min+gzip
@@ -119,14 +119,14 @@ bson@7.3.3</title>
 <text class="value" x="354.7970825195313" y="394">22.2 KB</text>
 </g>
 <g><title>protoarray · codegen, from a snapshot
-22.3 KB min+gzip
-61.5 KB minified
-@alexify/protoarray@2.0.0
+23.0 KB min+gzip
+63.2 KB minified
+@alexify/protoarray@2.1.0
 the schema built from its snapshot: a client without metaschema</title>
 <text class="label primary" x="20" y="425">protoarray</text>
 <text class="sublabel" x="20" y="440">codegen, from a snapshot</text>
-<path class="bar primary" d="M223,421H345.09016113281245A4,4 0 0 1 349.09016113281245,425V431A4,4 0 0 1 345.09016113281245,435H223Z"/>
-<text class="value" x="355.09016113281245" y="434">22.3 KB</text>
+<path class="bar primary" d="M223,421H349.3757446289062A4,4 0 0 1 353.3757446289062,425V431A4,4 0 0 1 349.3757446289062,435H223Z"/>
+<text class="value" x="359.3757446289062" y="434">23.0 KB</text>
 </g>
 <g><title>protobufjs · protobufjs/light, Root.fromJSON
 29.2 KB min+gzip
@@ -139,14 +139,14 @@ reflection; static code from pbjs with protobufjs/minimal is smaller, plus the g
 <text class="value" x="394.6225952148437" y="474">29.2 KB</text>
 </g>
 <g><title>protoarray · binary wire, from a snapshot
-30.2 KB min+gzip
-84.3 KB minified
-@alexify/protoarray@2.0.0
+32.3 KB min+gzip
+90.5 KB minified
+@alexify/protoarray@2.1.0
 the core and the ./binary subpath, the schema built from its snapshot</title>
 <text class="label secondary" x="20" y="505">protoarray</text>
 <text class="sublabel" x="20" y="520">binary wire, from a snapshot</text>
-<path class="bar secondary" d="M223,501H389.73211669921875A4,4 0 0 1 393.73211669921875,505V511A4,4 0 0 1 389.73211669921875,515H223Z"/>
-<text class="value" x="399.73211669921875" y="514">30.2 KB</text>
+<path class="bar secondary" d="M223,501H402.08012695312505A4,4 0 0 1 406.08012695312505,505V511A4,4 0 0 1 402.08012695312505,515H223Z"/>
+<text class="value" x="412.08012695312505" y="514">32.3 KB</text>
 </g>
 <g><title>avsc · Type.forSchema
 34.3 KB min+gzip
@@ -159,14 +159,14 @@ avsc's browser build of types, with the buffer and util polyfills it requires</t
 <text class="value" x="423.3000610351562" y="554">34.3 KB</text>
 </g>
 <g><title>protoarray · codegen, metaschema definition
-42.9 KB min+gzip
-120.6 KB minified
-@alexify/protoarray@2.0.0
+43.6 KB min+gzip
+122.3 KB minified
+@alexify/protoarray@2.1.0
 protoarray and @alexify/metaschema, which reads the definition and validates values</title>
 <text class="label secondary" x="20" y="585">protoarray</text>
 <text class="sublabel" x="20" y="600">codegen, metaschema definition</text>
-<path class="bar secondary" d="M223,581H461.68015136718753A4,4 0 0 1 465.68015136718753,585V591A4,4 0 0 1 461.68015136718753,595H223Z"/>
-<text class="value" x="471.68015136718753" y="594">42.9 KB</text>
+<path class="bar secondary" d="M223,581H465.8330200195312A4,4 0 0 1 469.8330200195312,585V591A4,4 0 0 1 465.8330200195312,595H223Z"/>
+<text class="value" x="475.8330200195312" y="594">43.6 KB</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 62.9 KB min+gzip

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-21
+
+2.1 puts the same schema on a binary wire (`@alexify/protoarray/binary`), checks the versions of a
+schema against the evolution rules in CI (`@alexify/protoarray/evolve`, `protoarray snapshot` and
+`protoarray check`), widens the fingerprint to 64 bits on request, and makes the closures backend
+decode wide and sparse records several times faster. The text wire, the canonical form and the
+ids of 2.0 do not change; a standalone module written by 2.0 still loads.
+
 ### Added
 
 - **A built-in 64-bit fingerprint.** The `fingerprint` option names the hash `id` is of the
@@ -566,7 +574,8 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 - **CI** on GitHub Actions and a VitePress documentation site at
   [protoarray.vercel.app](https://protoarray.vercel.app/).
 
-[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v2.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v0.0.1...v1.0.0

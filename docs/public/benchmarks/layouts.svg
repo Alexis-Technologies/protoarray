@@ -46,54 +46,54 @@
 <text class="tick" x="676" y="309" text-anchor="middle">3,000</text>
 <line class="axis" x1="300" y1="93" x2="300" y2="293"/>
 <g><title>JSON · keyed objects
-encode 1,665 lists/s · 601 µs
-decode 1,255 lists/s · 797 µs</title>
+encode 1,698 lists/s · 589 µs
+decode 1,258 lists/s · 795 µs</title>
 <text class="label" x="20" y="110">JSON</text>
 <text class="sublabel" x="20" y="125">keyed objects</text>
-<path class="bar" d="M300,103H504.68A4,4 0 0 1 508.68,107V108A4,4 0 0 1 504.68,112H300Z"/>
-<text class="value small" x="514.6800000000001" y="111">1,665</text>
-<path class="bar" d="M300,114H453.2933333333333A4,4 0 0 1 457.2933333333333,118V119A4,4 0 0 1 453.2933333333333,123H300Z"/>
-<text class="value small" x="463.2933333333333" y="122">1,255</text>
+<path class="bar" d="M300,103H508.81600000000003A4,4 0 0 1 512.816,107V108A4,4 0 0 1 508.81600000000003,112H300Z"/>
+<text class="value small" x="518.816" y="111">1,698</text>
+<path class="bar" d="M300,114H453.6693333333333A4,4 0 0 1 457.6693333333333,118V119A4,4 0 0 1 453.6693333333333,123H300Z"/>
+<text class="value small" x="463.6693333333333" y="122">1,258</text>
 </g>
 <g><title>rows · an array of arrays, the default
-encode 2,229 lists/s · 449 µs
-decode 1,939 lists/s · 516 µs</title>
+encode 2,256 lists/s · 443 µs
+decode 1,964 lists/s · 509 µs</title>
 <text class="label primary" x="20" y="150">rows</text>
 <text class="sublabel" x="20" y="165">an array of arrays, the default</text>
-<path class="bar primary" d="M300,143H575.3679999999999A4,4 0 0 1 579.3679999999999,147V148A4,4 0 0 1 575.3679999999999,152H300Z"/>
-<text class="value small" x="585.3679999999999" y="151">2,229</text>
-<path class="bar secondary" d="M300,154H539.0213333333334A4,4 0 0 1 543.0213333333334,158V159A4,4 0 0 1 539.0213333333334,163H300Z"/>
-<text class="value small" x="549.0213333333334" y="162">1,939</text>
+<path class="bar primary" d="M300,143H578.752A4,4 0 0 1 582.752,147V148A4,4 0 0 1 578.752,152H300Z"/>
+<text class="value small" x="588.752" y="151">2,256</text>
+<path class="bar secondary" d="M300,154H542.1546666666667A4,4 0 0 1 546.1546666666667,158V159A4,4 0 0 1 542.1546666666667,163H300Z"/>
+<text class="value small" x="552.1546666666667" y="162">1,964</text>
 </g>
 <g><title>flat · one array, a fixed stride
-encode 2,073 lists/s · 482 µs
-decode 1,978 lists/s · 506 µs</title>
+encode 2,113 lists/s · 473 µs
+decode 1,997 lists/s · 501 µs</title>
 <text class="label primary" x="20" y="190">flat</text>
 <text class="sublabel" x="20" y="205">one array, a fixed stride</text>
-<path class="bar primary" d="M300,183H555.816A4,4 0 0 1 559.816,187V188A4,4 0 0 1 555.816,192H300Z"/>
-<text class="value small" x="565.816" y="191">2,073</text>
-<path class="bar secondary" d="M300,194H543.9093333333333A4,4 0 0 1 547.9093333333333,198V199A4,4 0 0 1 543.9093333333333,203H300Z"/>
-<text class="value small" x="553.9093333333333" y="202">1,978</text>
+<path class="bar primary" d="M300,183H560.8293333333334A4,4 0 0 1 564.8293333333334,187V188A4,4 0 0 1 560.8293333333334,192H300Z"/>
+<text class="value small" x="570.8293333333334" y="191">2,113</text>
+<path class="bar secondary" d="M300,194H546.2906666666667A4,4 0 0 1 550.2906666666667,198V199A4,4 0 0 1 546.2906666666667,203H300Z"/>
+<text class="value small" x="556.2906666666667" y="202">1,997</text>
 </g>
 <g><title>columns · an array per field
-encode 2,187 lists/s · 457 µs
-decode 1,964 lists/s · 509 µs</title>
+encode 2,215 lists/s · 451 µs
+decode 1,978 lists/s · 506 µs</title>
 <text class="label primary" x="20" y="230">columns</text>
 <text class="sublabel" x="20" y="245">an array per field</text>
-<path class="bar primary" d="M300,223H570.104A4,4 0 0 1 574.104,227V228A4,4 0 0 1 570.104,232H300Z"/>
-<text class="value small" x="580.104" y="231">2,187</text>
-<path class="bar secondary" d="M300,234H542.1546666666667A4,4 0 0 1 546.1546666666667,238V239A4,4 0 0 1 542.1546666666667,243H300Z"/>
-<text class="value small" x="552.1546666666667" y="242">1,964</text>
+<path class="bar primary" d="M300,223H573.6133333333333A4,4 0 0 1 577.6133333333333,227V228A4,4 0 0 1 573.6133333333333,232H300Z"/>
+<text class="value small" x="583.6133333333333" y="231">2,215</text>
+<path class="bar secondary" d="M300,234H543.9093333333333A4,4 0 0 1 547.9093333333333,238V239A4,4 0 0 1 543.9093333333333,243H300Z"/>
+<text class="value small" x="553.9093333333333" y="242">1,978</text>
 </g>
 <g><title>columns, delta + intern · ids as differences, cities and tags interned
-encode 2,350 lists/s · 426 µs
-decode 2,075 lists/s · 482 µs</title>
+encode 2,361 lists/s · 424 µs
+decode 2,072 lists/s · 483 µs</title>
 <text class="label primary" x="20" y="270">columns, delta + intern</text>
 <text class="sublabel" x="20" y="285">ids as differences, cities and tags interned</text>
-<path class="bar primary" d="M300,263H590.5333333333333A4,4 0 0 1 594.5333333333333,267V268A4,4 0 0 1 590.5333333333333,272H300Z"/>
-<text class="value small" x="600.5333333333333" y="271">2,350</text>
-<path class="bar secondary" d="M300,274H556.0666666666666A4,4 0 0 1 560.0666666666666,278V279A4,4 0 0 1 556.0666666666666,283H300Z"/>
-<text class="value small" x="566.0666666666666" y="282">2,075</text>
+<path class="bar primary" d="M300,263H591.912A4,4 0 0 1 595.912,267V268A4,4 0 0 1 591.912,272H300Z"/>
+<text class="value small" x="601.912" y="271">2,361</text>
+<path class="bar secondary" d="M300,274H555.6906666666666A4,4 0 0 1 559.6906666666666,278V279A4,4 0 0 1 555.6906666666666,283H300Z"/>
+<text class="value small" x="565.6906666666666" y="282">2,072</text>
 </g>
-<text class="caption" x="20" y="334">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-18</text>
+<text class="caption" x="20" y="334">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-20</text>
 </svg>

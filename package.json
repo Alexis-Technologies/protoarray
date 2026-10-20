@@ -1,6 +1,6 @@
 {
   "name": "@alexify/protoarray",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Fast, zero-dependency schema-based compact serialization for Node.js and browsers: objects travel as positional JSON arrays, a shared @alexify/metaschema schema maps every position back to its key. A lightweight alternative to Protocol Buffers",
   "license": "MIT",
   "author": "Alex Dolid <dolid.sasha@gmail.com>",

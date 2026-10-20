@@ -44,14 +44,14 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="808"/>
 <line class="ref" x1="425.89835389606606" y1="88" x2="425.89835389606606" y2="808"/>
 <g><title>protoarray · binary wire
-4,801,376 ops/s
-208 ns per payload
-×1.76 the speed of JSON
-@alexify/protoarray@2.0.0 (5a482c5), writes bytes</title>
+4,784,866 ops/s
+209 ns per payload
+×1.75 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
 <text class="label secondary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">binary wire</text>
-<path class="bar secondary" d="M217,101H580.3053019457402A4,4 0 0 1 584.3053019457402,105V111A4,4 0 0 1 580.3053019457402,115H217Z"/>
-<text class="value" x="590.3053019457402" y="114">4.8M</text>
+<path class="bar secondary" d="M217,101H579.0422395239593A4,4 0 0 1 583.0422395239593,105V111A4,4 0 0 1 579.0422395239593,115H217Z"/>
+<text class="value" x="589.0422395239593" y="114">4.78M</text>
 </g>
 <g><title>msgpackr · records, shared structures
 4,000,954 ops/s
@@ -64,14 +64,14 @@ msgpackr@2.1.0, writes bytes</title>
 <text class="value" x="529.0729548258812" y="154">4M</text>
 </g>
 <g><title>protoarray · codegen
-3,720,005 ops/s
-269 ns per payload
-×1.36 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+3,744,548 ops/s
+267 ns per payload
+×1.37 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label primary" x="20" y="185">protoarray</text>
 <text class="sublabel" x="20" y="200">codegen</text>
-<path class="bar primary" d="M217,181H497.58036535559756A4,4 0 0 1 501.58036535559756,185V191A4,4 0 0 1 497.58036535559756,195H217Z"/>
-<text class="value" x="507.58036535559756" y="194">3.72M</text>
+<path class="bar primary" d="M217,181H499.45794694518685A4,4 0 0 1 503.45794694518685,185V191A4,4 0 0 1 499.45794694518685,195H217Z"/>
+<text class="value" x="509.45794694518685" y="194">3.74M</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 3,556,803 ops/s
@@ -94,14 +94,14 @@ protobufjs@8.8.1, writes bytes</title>
 <text class="value" x="493.34362868057036" y="274">3.53M</text>
 </g>
 <g><title>protoarray · standalone module, no eval
-3,467,122 ops/s
-288 ns per payload
-×1.27 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+3,521,011 ops/s
+284 ns per payload
+×1.29 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="305">protoarray</text>
 <text class="sublabel" x="20" y="320">standalone module, no eval</text>
-<path class="bar secondary" d="M217,301H478.2348345989699A4,4 0 0 1 482.2348345989699,305V311A4,4 0 0 1 478.2348345989699,315H217Z"/>
-<text class="value" x="488.2348345989699" y="314">3.47M</text>
+<path class="bar secondary" d="M217,301H482.35732773391186A4,4 0 0 1 486.35732773391186,305V311A4,4 0 0 1 482.35732773391186,315H217Z"/>
+<text class="value" x="492.35732773391186" y="314">3.52M</text>
 </g>
 <g><title>msgpackr · pack · unpack
 3,210,576 ops/s
@@ -133,14 +133,14 @@ JSON (built in), Node 24.14.1, writes JSON text</title>
 <text class="value" x="380.6681701149223" y="434">2.06M</text>
 </g>
 <g><title>protoarray · closures, no eval
-1,873,860 ops/s
-534 ns per payload
-×0.69 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+1,850,603 ops/s
+540 ns per payload
+×0.68 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="465">protoarray</text>
 <text class="sublabel" x="20" y="480">closures, no eval</text>
-<path class="bar secondary" d="M217,461H356.3502773303302A4,4 0 0 1 360.3502773303302,465V471A4,4 0 0 1 356.3502773303302,475H217Z"/>
-<text class="value" x="366.3502773303302" y="474">1.87M</text>
+<path class="bar secondary" d="M217,461H354.57116307080304A4,4 0 0 1 358.57116307080304,465V471A4,4 0 0 1 354.57116307080304,475H217Z"/>
+<text class="value" x="364.57116307080304" y="474">1.85M</text>
 </g>
 <g><title>BSON · serialize · deserialize
 1,819,950 ops/s
@@ -152,25 +152,25 @@ bson@7.3.3, writes bytes</title>
 <path class="bar" d="M217,501H352.2261595706545A4,4 0 0 1 356.2261595706545,505V511A4,4 0 0 1 352.2261595706545,515H217Z"/>
 <text class="value" x="362.2261595706545" y="514">1.82M</text>
 </g>
+<g><title>protoarray · codegen + metaschema check
+1,699,483 ops/s
+588 ns per payload
+×0.62 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label secondary" x="20" y="545">protoarray</text>
+<text class="sublabel" x="20" y="560">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,541H343.0104156720207A4,4 0 0 1 347.0104156720207,545V551A4,4 0 0 1 343.0104156720207,555H217Z"/>
+<text class="value" x="353.0104156720207" y="554">1.7M</text>
+</g>
 <g><title>cbor-x · records
 1,651,536 ops/s
 605 ns per payload
 ×0.60 the speed of JSON
 cbor-x@1.6.6, writes bytes</title>
-<text class="label" x="20" y="545">cbor-x</text>
-<text class="sublabel" x="20" y="560">records</text>
-<path class="bar" d="M217,541H339.34249543030086A4,4 0 0 1 343.34249543030086,545V551A4,4 0 0 1 339.34249543030086,555H217Z"/>
-<text class="value" x="349.34249543030086" y="554">1.65M</text>
-</g>
-<g><title>protoarray · codegen + metaschema check
-1,626,285 ops/s
-615 ns per payload
-×0.60 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="585">protoarray</text>
-<text class="sublabel" x="20" y="600">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,581H337.4108153103917A4,4 0 0 1 341.4108153103917,585V591A4,4 0 0 1 337.4108153103917,595H217Z"/>
-<text class="value" x="347.4108153103917" y="594">1.63M</text>
+<text class="label" x="20" y="585">cbor-x</text>
+<text class="sublabel" x="20" y="600">records</text>
+<path class="bar" d="M217,581H339.34249543030086A4,4 0 0 1 343.34249543030086,585V591A4,4 0 0 1 339.34249543030086,595H217Z"/>
+<text class="value" x="349.34249543030086" y="594">1.65M</text>
 </g>
 <g><title>avsc · Type.forSchema
 1,039,354 ops/s

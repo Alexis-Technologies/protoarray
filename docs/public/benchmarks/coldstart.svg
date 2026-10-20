@@ -63,14 +63,14 @@ node:v8, Node 24.14.1</title>
 <text class="value" x="228.5692" y="154">0.4 ms</text>
 </g>
 <g><title>protoarray · standalone module, no eval
-1.6 ms in total
-load 1.2 ms · build 0.02 ms
-first encode 0.15 ms · first decode 0.16 ms
-@alexify/protoarray@2.0.0 (72941bf)</title>
+1.5 ms in total
+load 1.2 ms · build 0.01 ms
+first encode 0.15 ms · first decode 0.15 ms
+@alexify/protoarray@2.1.0 (7811039)</title>
 <text class="label secondary" x="20" y="185">protoarray</text>
 <text class="sublabel" x="20" y="200">standalone module, no eval</text>
-<path class="bar secondary" d="M217,181H237.2964A4,4 0 0 1 241.2964,185V191A4,4 0 0 1 237.2964,195H217Z"/>
-<text class="value" x="247.2964" y="194">1.6 ms</text>
+<path class="bar secondary" d="M217,181H236.1948A4,4 0 0 1 240.1948,185V191A4,4 0 0 1 236.1948,195H217Z"/>
+<text class="value" x="246.1948" y="194">1.5 ms</text>
 </g>
 <g><title>@msgpack/msgpack · Encoder · Decoder
 3.9 ms in total
@@ -133,14 +133,14 @@ bson@7.3.3</title>
 <text class="value" x="322.4959" y="434">6.5 ms</text>
 </g>
 <g><title>protoarray · codegen, from a snapshot
-7.3 ms in total
-load 3.9 ms · build 3.0 ms
-first encode 0.14 ms · first decode 0.15 ms
-@alexify/protoarray@2.0.0 (72941bf)</title>
+7.6 ms in total
+load 4.4 ms · build 2.8 ms
+first encode 0.13 ms · first decode 0.15 ms
+@alexify/protoarray@2.1.0 (7811039)</title>
 <text class="label primary" x="20" y="465">protoarray</text>
 <text class="sublabel" x="20" y="480">codegen, from a snapshot</text>
-<path class="bar primary" d="M217,461H324.1086A4,4 0 0 1 328.1086,465V471A4,4 0 0 1 324.1086,475H217Z"/>
-<text class="value" x="334.1086" y="474">7.3 ms</text>
+<path class="bar primary" d="M217,461H328.6221A4,4 0 0 1 332.6221,465V471A4,4 0 0 1 328.6221,475H217Z"/>
+<text class="value" x="338.6221" y="474">7.6 ms</text>
 </g>
 <g><title>avsc · Type.forSchema
 9.1 ms in total
@@ -152,45 +152,45 @@ avsc@5.7.9</title>
 <path class="bar" d="M217,501H352.4136A4,4 0 0 1 356.4136,505V511A4,4 0 0 1 352.4136,515H217Z"/>
 <text class="value" x="362.4136" y="514">9.1 ms</text>
 </g>
-<g><title>protoarray · closures, no eval
-15.7 ms in total
-load 11.6 ms · build 3.8 ms
-first encode 0.11 ms · first decode 0.17 ms
-@alexify/protoarray@2.0.0 (2ad6ede)</title>
-<text class="label secondary" x="20" y="545">protoarray</text>
-<text class="sublabel" x="20" y="560">closures, no eval</text>
-<path class="bar secondary" d="M217,541H452.73569999999995A4,4 0 0 1 456.73569999999995,545V551A4,4 0 0 1 452.73569999999995,555H217Z"/>
-<text class="value" x="462.73569999999995" y="554">16 ms</text>
-</g>
 <g><title>protobufjs · reflection, Root.fromJSON
 16.2 ms in total
 load 11.1 ms · build 1.5 ms
 first encode 3.1 ms · first decode 0.35 ms
 protobufjs@8.8.1</title>
-<text class="label" x="20" y="585">protobufjs</text>
-<text class="sublabel" x="20" y="600">reflection, Root.fromJSON</text>
-<path class="bar" d="M217,581H460.9059A4,4 0 0 1 464.9059,585V591A4,4 0 0 1 460.9059,595H217Z"/>
-<text class="value" x="470.9059" y="594">16 ms</text>
+<text class="label" x="20" y="545">protobufjs</text>
+<text class="sublabel" x="20" y="560">reflection, Root.fromJSON</text>
+<path class="bar" d="M217,541H460.9059A4,4 0 0 1 464.9059,545V551A4,4 0 0 1 460.9059,555H217Z"/>
+<text class="value" x="470.9059" y="554">16 ms</text>
 </g>
 <g><title>protoarray · codegen
 16.5 ms in total
-load 11.7 ms · build 4.5 ms
-first encode 0.14 ms · first decode 0.16 ms
-@alexify/protoarray@2.0.0 (2ad6ede)</title>
+load 11.9 ms · build 4.3 ms
+first encode 0.13 ms · first decode 0.15 ms
+@alexify/protoarray@2.1.0 (7811039)</title>
+<text class="label secondary" x="20" y="585">protoarray</text>
+<text class="sublabel" x="20" y="600">codegen</text>
+<path class="bar secondary" d="M217,581H465.144A4,4 0 0 1 469.144,585V591A4,4 0 0 1 465.144,595H217Z"/>
+<text class="value" x="475.144" y="594">16 ms</text>
+</g>
+<g><title>protoarray · closures, no eval
+16.7 ms in total
+load 12.5 ms · build 3.9 ms
+first encode 0.12 ms · first decode 0.17 ms
+@alexify/protoarray@2.1.0 (7811039)</title>
 <text class="label secondary" x="20" y="625">protoarray</text>
-<text class="sublabel" x="20" y="640">codegen</text>
-<path class="bar secondary" d="M217,621H464.71560000000005A4,4 0 0 1 468.71560000000005,625V631A4,4 0 0 1 464.71560000000005,635H217Z"/>
-<text class="value" x="474.71560000000005" y="634">16 ms</text>
+<text class="sublabel" x="20" y="640">closures, no eval</text>
+<path class="bar secondary" d="M217,621H467.97450000000003A4,4 0 0 1 471.97450000000003,625V631A4,4 0 0 1 467.97450000000003,635H217Z"/>
+<text class="value" x="477.97450000000003" y="634">17 ms</text>
 </g>
 <g><title>protoarray · binary wire
-20.0 ms in total
-load 13.9 ms · build 4.5 ms
-first encode 1.4 ms · first decode 0.24 ms
-@alexify/protoarray@2.0.0 (5a482c5)</title>
+19.9 ms in total
+load 13.8 ms · build 4.2 ms
+first encode 1.6 ms · first decode 0.27 ms
+@alexify/protoarray@2.1.0 (7811039)</title>
 <text class="label secondary" x="20" y="665">protoarray</text>
 <text class="sublabel" x="20" y="680">binary wire</text>
-<path class="bar secondary" d="M217,661H519.0306A4,4 0 0 1 523.0306,665V671A4,4 0 0 1 519.0306,675H217Z"/>
-<text class="value" x="529.0306" y="674">20 ms</text>
+<path class="bar secondary" d="M217,661H517.3629000000001A4,4 0 0 1 521.3629000000001,665V671A4,4 0 0 1 517.3629000000001,675H217Z"/>
+<text class="value" x="527.3629000000001" y="674">20 ms</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 25.7 ms in total

@@ -184,13 +184,13 @@ text or bytes and back.
 | Library | One record<br><sub>round trips/s</sub> | 1,000 records<br><sub>round trips/s</sub> | Sparse record<br><sub>round trips/s</sub> | Typed record<br><sub>round trips/s</sub> | Long strings<br><sub>round trips/s</sub> | 100 wrpc packets<br><sub>round trips/s</sub> | 32 doubles<br><sub>round trips/s</sub> |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 572,000 | 554 | 2,730,000 | 640,000 | 719,000 | 16,400 | 194,000 |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 939,000 | 845 | 3,720,000 | 2,400,000 | 890,000 | 28,600 | 273,000 |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 632,000 | 580 | 1,870,000 | 1,690,000 | 836,000 | 16,700 | 228,000 |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 899,000 | 846 | 3,470,000 | 2,340,000 | 858,000 | 27,500 | 260,000 |
-| **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 689,000 | 624 | 1,630,000 | 1,780,000 | 809,000 | 20,200 | 231,000 |
-| **protoarray**<br><sub>columns layout · v2.0.0</sub> | — | 879 | — | — | — | — | — |
-| **protoarray**<br><sub>columns, delta + intern · v2.0.0</sub> | — | 958 | — | — | — | — | — |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 1,050,000 | 1,300 | 4,800,000 | 3,310,000 | 1,020,000 | 42,200 | 1,660,000 |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 938,000 | 849 | 3,740,000 | 2,400,000 | 883,000 | 29,000 | 262,000 |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 626,000 | 574 | 1,850,000 | 1,670,000 | 818,000 | 16,800 | 220,000 |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 892,000 | 865 | 3,520,000 | 2,360,000 | 867,000 | 28,000 | 273,000 |
+| **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 685,000 | 626 | 1,700,000 | 1,780,000 | 817,000 | 20,100 | 235,000 |
+| **protoarray**<br><sub>columns layout · v2.1.0</sub> | — | 869 | — | — | — | — | — |
+| **protoarray**<br><sub>columns, delta + intern · v2.1.0</sub> | — | 967 | — | — | — | — | — |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,040,000 | 1,320 | 4,780,000 | 3,200,000 | 1,020,000 | 42,300 | 1,630,000 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 717,000 | 675 | 3,530,000 | 2,920,000 | 270,000 | 14,600 | 520,000 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 261,000 | 301 | 720,000 | 889,000 | 209,000 | 6,400 | 163,000 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 840,000 | 786 | 1,040,000 | 1,680,000 | 300,000 | 14,300 | 1,190,000 |
@@ -226,19 +226,19 @@ module has its codec written already.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | JSON<br><sub>stringify · parse · Node 24.14.1</sub> | 0.00 ms | 0.02 ms | 0.02 ms | 0.01 ms | 0.06 ms |
 | v8.serialize<br><sub>structured clone, Node only · Node 24.14.1</sub> | 0.27 ms | 0.01 ms | 0.04 ms | 0.04 ms | 0.36 ms |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 1.2 ms | 0.02 ms | 0.15 ms | 0.16 ms | 1.6 ms |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 1.2 ms | 0.01 ms | 0.15 ms | 0.15 ms | 1.5 ms |
 | @msgpack/msgpack<br><sub>Encoder · Decoder · v3.1.3</sub> | 2.9 ms | 0.10 ms | 0.37 ms | 0.57 ms | 3.9 ms |
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 5.1 ms | 0.01 ms | 0.49 ms | 0.26 ms | 5.9 ms |
 | msgpackr<br><sub>records, shared structures · v2.1.0</sub> | 5.3 ms | 0.03 ms | 0.63 ms | 0.43 ms | 6.4 ms |
 | superjson<br><sub>stringify · parse · v2.2.6</sub> | 5.8 ms | 0.01 ms | 0.58 ms | 0.04 ms | 6.4 ms |
 | cbor-x<br><sub>records · v1.6.6</sub> | 5.3 ms | 0.03 ms | 0.64 ms | 0.47 ms | 6.5 ms |
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 5.4 ms | 0.02 ms | 0.51 ms | 0.60 ms | 6.5 ms |
-| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 3.9 ms | 3.0 ms | 0.14 ms | 0.15 ms | 7.3 ms |
+| **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 4.4 ms | 2.8 ms | 0.13 ms | 0.15 ms | 7.6 ms |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 8.2 ms | 0.59 ms | 0.18 ms | 0.17 ms | 9.1 ms |
-| **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 11.6 ms | 3.8 ms | 0.11 ms | 0.17 ms | 15.7 ms |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 11.1 ms | 1.5 ms | 3.1 ms | 0.35 ms | 16.2 ms |
-| **protoarray**<br><sub>codegen · v2.0.0</sub> | 11.7 ms | 4.5 ms | 0.14 ms | 0.16 ms | 16.5 ms |
-| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 13.9 ms | 4.5 ms | 1.4 ms | 0.24 ms | 20.0 ms |
+| **protoarray**<br><sub>codegen · v2.1.0</sub> | 11.9 ms | 4.3 ms | 0.13 ms | 0.15 ms | 16.5 ms |
+| **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 12.5 ms | 3.9 ms | 0.12 ms | 0.17 ms | 16.7 ms |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.8 ms | 4.2 ms | 1.6 ms | 0.27 ms | 19.9 ms |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 21.0 ms | 4.5 ms | 0.26 ms | 0.01 ms | 25.7 ms |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 24.5 ms | 0.38 ms | 0.80 ms | 0.06 ms | 25.9 ms |
 
@@ -259,16 +259,16 @@ tree-shaken; `pnpm size:compare`).
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 10.7 KB | 4.0 KB |  |
 | superjson<br><sub>stringify · parse · v2.2.6</sub> | 11.1 KB | 4.0 KB |  |
 | @msgpack/msgpack<br><sub>Encoder · Decoder · v3.1.3</sub> | 20.7 KB | 5.8 KB |  |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 18.7 KB | 7.1 KB | the module protoarray compile writes for this schema, with its inline runtime |
+| **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 19.0 KB | 7.2 KB | the module protoarray compile writes for this schema, with its inline runtime |
 | msgpackr<br><sub>records, shared structures · v2.1.0</sub> | 27.4 KB | 10.3 KB |  |
 | cbor-x<br><sub>records · v1.6.6</sub> | 28.6 KB | 10.6 KB |  |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 66.6 KB | 18.2 KB | the runtime and the descriptor generated code embeds |
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 74.8 KB | 22.2 KB |  |
-| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 61.5 KB | 22.3 KB | the schema built from its snapshot: a client without metaschema |
+| **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 63.2 KB | 23.0 KB | the schema built from its snapshot: a client without metaschema |
 | protobufjs<br><sub>protobufjs/light, Root.fromJSON · v8.8.1</sub> | 105.7 KB | 29.2 KB | reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code |
-| **protoarray**<br><sub>binary wire, from a snapshot · v2.0.0</sub> | 84.3 KB | 30.2 KB | the core and the ./binary subpath, the schema built from its snapshot |
+| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.5 KB | 32.3 KB | the core and the ./binary subpath, the schema built from its snapshot |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 115.4 KB | 34.3 KB | avsc's browser build of types, with the buffer and util polyfills it requires |
-| **protoarray**<br><sub>codegen, metaschema definition · v2.0.0</sub> | 120.6 KB | 42.9 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
+| **protoarray**<br><sub>codegen, metaschema definition · v2.1.0</sub> | 122.3 KB | 43.6 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 217.4 KB | 62.9 KB | encode only; JSON.parse decodes |
 
 <!-- bench:size:end -->
@@ -281,7 +281,7 @@ Every release on the scenarios of the comparison, on both backends, with today's
 <!-- bench:releases:start -->
 <!-- generated by `pnpm bench:report` from bench/results — edit the results, not this block -->
 
-<img src="https://protoarray.vercel.app/benchmarks/speedup.svg" alt="protoarray 2.0.0 against its first releases: How many times as fast, scenario by scenario, against the oldest release that has it (1 = as fast; unions came in 1.1). Higher is better." width="760" />
+<img src="https://protoarray.vercel.app/benchmarks/speedup.svg" alt="protoarray 2.1.0 against its first releases: How many times as fast, scenario by scenario, against the oldest release that has it (1 = as fast; unions came in 1.1). Higher is better." width="760" />
 
 <details>
 <summary>Every release, scenario by scenario</summary>
@@ -309,11 +309,13 @@ Every release on the scenarios of the comparison, on both backends, with today's
 | 1.0.0<br><sub>codegen</sub> | 2,030,000 / 1,650,000 | 1,960 / 1,500 | 7,200,000 / 7,340,000 | 3,850,000 / 4,770,000 | 1,790,000 / 1,660,000 | — | 403,000 / 734,000 | 36,200 |
 | 1.1.0<br><sub>codegen</sub> | 2,030,000 / 1,640,000 | 1,970 / 1,500 | 7,210,000 / 7,180,000 | 4,880,000 / 4,790,000 | 1,750,000 / 1,670,000 | 66,800 / 47,400 | 409,000 / 731,000 | 31,600 |
 | 2.0.0<br><sub>codegen</sub> | 2,040,000 / 1,690,000 | 1,970 / 1,480 | 7,020,000 / 7,460,000 | 4,670,000 / 4,780,000 | 1,800,000 / 1,700,000 | 67,600 / 50,600 | 427,000 / 731,000 | 14,600 |
+| 2.1.0<br><sub>codegen</sub> | 2,070,000 / 1,690,000 | 1,990 / 1,500 | 7,400,000 / 7,620,000 | 4,700,000 / 4,870,000 | 1,820,000 / 1,700,000 | 67,400 / 50,900 | 428,000 / 725,000 | 14,700 |
 | 1.0.0<br><sub>closures</sub> | 1,550,000 / 971,000 | 1,420 / 937 | 3,180,000 / 2,590,000 | 2,950,000 / 2,850,000 | 1,670,000 / 1,540,000 | — | 360,000 / 573,000 | 172,000 |
 | 1.1.0<br><sub>closures</sub> | 1,470,000 / 1,040,000 | 1,380 / 976 | 2,930,000 / 2,460,000 | 3,540,000 / 3,110,000 | 1,680,000 / 1,550,000 | 47,800 / 26,000 | 364,000 / 568,000 | 98,400 |
 | 2.0.0<br><sub>closures</sub> | 1,470,000 / 1,060,000 | 1,390 / 978 | 2,950,000 / 2,360,000 | 3,450,000 / 3,090,000 | 1,690,000 / 1,560,000 | 48,100 / 26,800 | 359,000 / 567,000 | 24,000 |
+| 2.1.0<br><sub>closures</sub> | 1,530,000 / 1,050,000 | 1,420 / 971 | 3,190,000 / 4,180,000 | 3,520,000 / 3,100,000 | 1,710,000 / 1,600,000 | 47,600 / 26,100 | 378,000 / 574,000 | 23,300 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-16. ops/s of stringify / parse, medians; — where the release has no union._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-20. ops/s of stringify / parse, medians; — where the release has no union._
 
 <!-- bench:releases:end -->
 

@@ -53,7 +53,7 @@ avsc@5.7.9, writes bytes</title>
 <g><title>protoarray · binary wire
 260 bytes
 34% of the JSON bytes
-@alexify/protoarray@2.0.0 (5a482c5), writes bytes</title>
+@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
 <text class="label secondary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">binary wire</text>
 <path class="bar secondary" d="M217,141H332.34000000000003A4,4 0 0 1 336.34000000000003,145V151A4,4 0 0 1 332.34000000000003,155H217Z"/>
@@ -134,7 +134,7 @@ node:v8, Node 24.14.1, writes bytes</title>
 <g><title>protoarray · codegen
 582 bytes
 76% of the JSON bytes
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label primary" x="20" y="505">protoarray</text>
 <text class="sublabel" x="20" y="520">codegen</text>
 <path class="bar primary" d="M217,501H480.138A4,4 0 0 1 484.138,505V511A4,4 0 0 1 480.138,515H217Z"/>
@@ -143,7 +143,7 @@ node:v8, Node 24.14.1, writes bytes</title>
 <g><title>protoarray · closures, no eval
 582 bytes
 76% of the JSON bytes
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="545">protoarray</text>
 <text class="sublabel" x="20" y="560">closures, no eval</text>
 <path class="bar secondary" d="M217,541H480.138A4,4 0 0 1 484.138,545V551A4,4 0 0 1 480.138,555H217Z"/>
@@ -152,7 +152,7 @@ node:v8, Node 24.14.1, writes bytes</title>
 <g><title>protoarray · standalone module, no eval
 582 bytes
 76% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="585">protoarray</text>
 <text class="sublabel" x="20" y="600">standalone module, no eval</text>
 <path class="bar secondary" d="M217,581H480.138A4,4 0 0 1 484.138,585V591A4,4 0 0 1 480.138,595H217Z"/>
@@ -161,7 +161,7 @@ node:v8, Node 24.14.1, writes bytes</title>
 <g><title>protoarray · codegen + metaschema check
 582 bytes
 76% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="625">protoarray</text>
 <text class="sublabel" x="20" y="640">codegen + metaschema check</text>
 <path class="bar secondary" d="M217,621H480.138A4,4 0 0 1 484.138,625V631A4,4 0 0 1 480.138,635H217Z"/>

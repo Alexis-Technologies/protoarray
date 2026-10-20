@@ -44,14 +44,14 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="888"/>
 <line class="ref" x1="386.57956554942723" y1="88" x2="386.57956554942723" y2="888"/>
 <g><title>protoarray · binary wire
-1,301 ops/s
-769 µs per payload
-×2.35 the speed of JSON
-@alexify/protoarray@2.0.0 (5a482c5), writes bytes</title>
+1,316 ops/s
+760 µs per payload
+×2.37 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
 <text class="label secondary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">binary wire</text>
-<path class="bar secondary" d="M217,101H611.0611291224147A4,4 0 0 1 615.0611291224147,105V111A4,4 0 0 1 611.0611291224147,115H217Z"/>
-<text class="value" x="621.0611291224147" y="114">1,301</text>
+<path class="bar secondary" d="M217,101H615.6729378132542A4,4 0 0 1 619.6729378132542,105V111A4,4 0 0 1 615.6729378132542,115H217Z"/>
+<text class="value" x="625.6729378132542" y="114">1,316</text>
 </g>
 <g><title>msgpackr · records, shared structures
 1,001 ops/s
@@ -64,24 +64,24 @@ msgpackr@2.1.0, writes bytes</title>
 <text class="value" x="529.3088481271282" y="154">1,001</text>
 </g>
 <g><title>protoarray · columns, delta + intern
-958 ops/s
-1.04 ms per payload
-×1.73 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+967 ops/s
+1.03 ms per payload
+×1.74 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="185">protoarray</text>
 <text class="sublabel" x="20" y="200">columns, delta + intern</text>
-<path class="bar secondary" d="M217,181H506.03701149425285A4,4 0 0 1 510.03701149425285,185V191A4,4 0 0 1 506.03701149425285,195H217Z"/>
-<text class="value" x="516.0370114942529" y="194">958</text>
+<path class="bar secondary" d="M217,181H508.7987636363637A4,4 0 0 1 512.7987636363637,185V191A4,4 0 0 1 508.7987636363637,195H217Z"/>
+<text class="value" x="518.7987636363637" y="194">967</text>
 </g>
 <g><title>protoarray · columns layout
-879 ops/s
-1.14 ms per payload
-×1.59 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+869 ops/s
+1.15 ms per payload
+×1.57 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="225">protoarray</text>
 <text class="sublabel" x="20" y="240">columns layout</text>
-<path class="bar secondary" d="M217,221H482.0965191986644A4,4 0 0 1 486.0965191986644,225V231A4,4 0 0 1 482.0965191986644,235H217Z"/>
-<text class="value" x="492.0965191986644" y="234">879</text>
+<path class="bar secondary" d="M217,221H478.8699408284024A4,4 0 0 1 482.8699408284024,225V231A4,4 0 0 1 478.8699408284024,235H217Z"/>
+<text class="value" x="488.8699408284024" y="234">869</text>
 </g>
 <g><title>cbor-x · records
 865 ops/s
@@ -94,24 +94,24 @@ cbor-x@1.6.6, writes bytes</title>
 <text class="value" x="487.77859412873687" y="274">865</text>
 </g>
 <g><title>protoarray · standalone module, no eval
-846 ops/s
-1.18 ms per payload
-×1.53 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+865 ops/s
+1.16 ms per payload
+×1.56 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="305">protoarray</text>
 <text class="sublabel" x="20" y="320">standalone module, no eval</text>
-<path class="bar secondary" d="M217,301H471.92318567715853A4,4 0 0 1 475.92318567715853,305V311A4,4 0 0 1 471.92318567715853,315H217Z"/>
-<text class="value" x="481.92318567715853" y="314">846</text>
+<path class="bar secondary" d="M217,301H477.67566439522994A4,4 0 0 1 481.67566439522994,305V311A4,4 0 0 1 477.67566439522994,315H217Z"/>
+<text class="value" x="487.67566439522994" y="314">865</text>
 </g>
 <g><title>protoarray · codegen
-845 ops/s
+849 ops/s
 1.18 ms per payload
 ×1.53 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label primary" x="20" y="345">protoarray</text>
 <text class="sublabel" x="20" y="360">codegen</text>
-<path class="bar primary" d="M217,341H471.6584A4,4 0 0 1 475.6584,345V351A4,4 0 0 1 471.6584,355H217Z"/>
-<text class="value" x="481.6584" y="354">845</text>
+<path class="bar primary" d="M217,341H472.7518388214905A4,4 0 0 1 476.7518388214905,345V351A4,4 0 0 1 472.7518388214905,355H217Z"/>
+<text class="value" x="482.7518388214905" y="354">849</text>
 </g>
 <g><title>avsc · Type.forSchema
 786 ops/s
@@ -134,34 +134,34 @@ protobufjs@8.8.1, writes bytes</title>
 <text class="value" x="429.56165606508875" y="434">675</text>
 </g>
 <g><title>protoarray · codegen + metaschema check
-624 ops/s
+626 ops/s
 1.6 ms per payload
 ×1.13 the speed of JSON
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
 <text class="label secondary" x="20" y="465">protoarray</text>
 <text class="sublabel" x="20" y="480">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,461H404.0797335423198A4,4 0 0 1 408.0797335423198,465V471A4,4 0 0 1 404.0797335423198,475H217Z"/>
-<text class="value" x="414.0797335423198" y="474">624</text>
-</g>
-<g><title>protoarray · closures, no eval
-580 ops/s
-1.73 ms per payload
-×1.05 the speed of JSON
-@alexify/protoarray@2.0.0 (2ad6ede), writes JSON text</title>
-<text class="label secondary" x="20" y="505">protoarray</text>
-<text class="sublabel" x="20" y="520">closures, no eval</text>
-<path class="bar secondary" d="M217,501H390.38944638403984A4,4 0 0 1 394.38944638403984,505V511A4,4 0 0 1 390.38944638403984,515H217Z"/>
-<text class="value" x="400.38944638403984" y="514">580</text>
+<path class="bar secondary" d="M217,461H404.58037485357283A4,4 0 0 1 408.58037485357283,465V471A4,4 0 0 1 404.58037485357283,475H217Z"/>
+<text class="value" x="414.58037485357283" y="474">626</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 577 ops/s
 1.73 ms per payload
 ×1.04 the speed of JSON
 fast-json-stringify@7.1.0, writes JSON text</title>
-<text class="label" x="20" y="545">fast-json-stringify</text>
-<text class="sublabel" x="20" y="560">compiled stringify, JSON.parse</text>
-<path class="bar" d="M217,541H389.4711506095163A4,4 0 0 1 393.4711506095163,545V551A4,4 0 0 1 389.4711506095163,555H217Z"/>
-<text class="value" x="399.4711506095163" y="554">577</text>
+<text class="label" x="20" y="505">fast-json-stringify</text>
+<text class="sublabel" x="20" y="520">compiled stringify, JSON.parse</text>
+<path class="bar" d="M217,501H389.4711506095163A4,4 0 0 1 393.4711506095163,505V511A4,4 0 0 1 389.4711506095163,515H217Z"/>
+<text class="value" x="399.4711506095163" y="514">577</text>
+</g>
+<g><title>protoarray · closures, no eval
+574 ops/s
+1.74 ms per payload
+×1.04 the speed of JSON
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label secondary" x="20" y="545">protoarray</text>
+<text class="sublabel" x="20" y="560">closures, no eval</text>
+<path class="bar secondary" d="M217,541H388.7352744030163A4,4 0 0 1 392.7352744030163,545V551A4,4 0 0 1 388.7352744030163,555H217Z"/>
+<text class="value" x="398.7352744030163" y="554">574</text>
 </g>
 <g><title>JSON · stringify · parse
 554 ops/s

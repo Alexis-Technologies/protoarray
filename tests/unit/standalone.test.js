@@ -364,6 +364,33 @@ test('Standalone: an import module runs in this process too', () => {
   agree(outer, Outer, { items: [{ s: 'a' }, { s: 'a', n: 2 }], tag: 'a' }, 'nested');
 });
 
+test('Standalone: a built-in fingerprint travels by name, a function by its id', () => {
+  const { FINGERPRINTS } = require('../../src/plan.js');
+  const entities = {
+    Address: { Struct: {}, city: 'string' },
+    User: { Struct: {}, home: 'Address', 'boss?': 'User' },
+  };
+  const { User } = model(entities, { fingerprint: 'fnv1a64' });
+  assert.match(standalone.toSource({ User }), /fingerprint:"fnv1a64"/);
+  const copy = local({ User }).User;
+  assert.strictEqual(copy.id, User.id);
+  assert.match(copy.id, /^[0-9a-f]{16}$/);
+  // What the module derives at runtime hashes with the same width.
+  assert.strictEqual(copy.list.id, User.list.id);
+  assert.match(copy.list.id, /^[0-9a-f]{16}$/);
+  // The default is not written, by name or not; a function has no source,
+  // so its id travels and what the module derives takes the default.
+  const base = model(entities).User;
+  assert.doesNotMatch(standalone.toSource({ base }), /fingerprint:/);
+  const narrow = model(entities, { fingerprint: 'fnv1a32' }).User;
+  assert.doesNotMatch(standalone.toSource({ narrow }), /fingerprint:/);
+  assert.strictEqual(local({ narrow }).narrow.list.id, base.list.id);
+  const custom = define({ a: 'integer' }, { fingerprint: (text) => `v${text.length}` });
+  const copied = local({ custom }).custom;
+  assert.strictEqual(copied.id, 'v11');
+  assert.strictEqual(copied.list.id, FINGERPRINTS.fnv1a32(copied.list.toString()));
+});
+
 test('Standalone: the inline kernel', () => {
   const { define: build, slot, nested, types: kernelTypes } = kernel();
   const target = { codec: 'codec' };

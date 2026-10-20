@@ -158,7 +158,8 @@ intermediate array (see [Runtimes](/guide/runtimes#how-stringify-writes-the-text
 The plan has a canonical form, a string that describes the wire and is the same for two schemas that
 write the same one: `schema.toString()`. A schema's **signature** is that form followed by the
 canonical form of every other entity it reaches by reference, and `schema.id` is its fingerprint
-(FNV-1a, or your own `fingerprint` function of it), so a changed referenced entity changes the id.
+(FNV-1a, 32 or 64 bits as the `fingerprint` option names, or your own function of it), so a
+changed referenced entity changes the id.
 For a schema without references, these are the strings and ids 1.x computed from its own spelling of
 the definition.
 

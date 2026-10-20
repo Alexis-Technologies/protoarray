@@ -118,6 +118,9 @@ expectError(Schema.from(UserDefinition, { intern: 'tags' }));
 expectError(Schema.from(UserDefinition, { types: { money: 'float' } }));
 expectError(Schema.from(UserDefinition, { schemas: {} }));
 expectError(Schema.from(UserDefinition, { maxDepth: '512' }));
+Schema.from(UserDefinition, { fingerprint: 'fnv1a64' });
+Schema.from(UserDefinition, { fingerprint: 'fnv1a32' });
+expectError(Schema.from(UserDefinition, { fingerprint: 'sha1' }));
 
 // The free functions follow the schema's methods.
 expectType<unknown>(encode(User, decoded));

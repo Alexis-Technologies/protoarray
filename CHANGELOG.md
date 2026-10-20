@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A built-in 64-bit fingerprint.** The `fingerprint` option names the hash `id` is of the
+  signature: `'fnv1a32'`, the default, unchanged (eight hex digits, the same ids as before), or
+  `'fnv1a64'`, the 64-bit FNV-1a over the same UTF-16 code units as sixteen hex digits, for a
+  registry of many schemas, where 32 bits collide (two of 65,536 schemas share an id with
+  probability 39%; one in 10¹⁰ with 64 bits). The name travels where a function cannot:
+  `schema.list`, the entities references reach and a resolved schema hash with it, a standalone
+  module writes it (the `list` of a module's schema hashed with the default before), and
+  `ERR_ID_COLLISION` names it as the remedy. A function of the signature is accepted as before;
+  anything else is `ERR_INVALID_OPTIONS` ("fnv1a32, fnv1a64 or a function").
+
 ## [2.0.0] - 2026-10-16
 
 2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.

@@ -23,7 +23,7 @@ const {
   canonical,
   referenced,
   signature,
-  fingerprint,
+  FINGERPRINTS,
   identify,
 } = require('./plan.js');
 const { SCALARS } = require('./types.js');
@@ -111,7 +111,8 @@ const VALID = Object.assign(Object.create(null), {
   stringify: (value) => STRINGIFY.includes(value),
   compiled: isCompiled,
   layout: isLayouts,
-  fingerprint: (value) => typeof value === 'function',
+  fingerprint: (value) =>
+    typeof value === 'function' || (typeof value === 'string' && FINGERPRINTS[value] !== undefined),
   maxDepth: (value) => value === Infinity || (Number.isSafeInteger(value) && value > 0),
   references: (value) => REFERENCES.includes(value),
   types: isWireTypes,
@@ -133,6 +134,7 @@ const invalidOption = (key, value) => {
     const path = Object.keys(value).find((place) => !isLayouts(value[place]));
     return `Invalid option "layout" at "${path}": rows, flat or columns`;
   }
+  if (key === 'fingerprint') return 'Invalid option "fingerprint": fnv1a32, fnv1a64 or a function';
   return `Invalid option "${key}"`;
 };
 
@@ -145,7 +147,7 @@ const readOptions = (options, name) => {
     delta: [],
     stringify: 'auto',
     layout: 'rows',
-    fingerprint,
+    fingerprint: 'fnv1a32',
     maxDepth: Infinity,
     references: 'kind',
     types: Object.create(null),

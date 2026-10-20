@@ -229,9 +229,11 @@ const planSource = (plan, settings, names) => {
 const codecSource = (schema, names) => planSource(schema[PLAN], schema[SETTINGS], names);
 
 // The options a schema of the module is built with again, without its
-// compiled codecs. A fingerprint function has no source: the id travels
-// instead. A limit of the nesting is written only when there is one, since
-// JSON has no Infinity.
+// compiled codecs. A built-in fingerprint travels by name when it is not the
+// default, so what the module derives at runtime (`list`) has the same id as
+// here; a fingerprint function has no source: the id travels instead. A limit
+// of the nesting is written only when there is one, since JSON has no
+// Infinity.
 const OPTIONS = ['validate', 'sparse', 'layout', 'intern', 'delta', 'stringify', 'references'];
 
 const settingsSource = (schema) => {
@@ -239,6 +241,10 @@ const settingsSource = (schema) => {
   const options = OPTIONS.map((key) => `${key}:${JSON.stringify(settings[key])}`);
   options.push(`types:${JSON.stringify(settings.types)}`);
   if (settings.maxDepth !== Infinity) options.push(`maxDepth:${settings.maxDepth}`);
+  const { fingerprint } = settings;
+  if (typeof fingerprint === 'string' && fingerprint !== 'fnv1a32') {
+    options.push(`fingerprint:${JSON.stringify(fingerprint)}`);
+  }
   return options;
 };
 

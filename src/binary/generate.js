@@ -31,6 +31,15 @@
 // the wire is built from, as the text wire does, which here includes a string
 // slot holding a string and a bytes slot holding a Uint8Array: the text wire
 // carries anything else as it is, the binary one has no form for it.
+//
+// A plan from Schema.resolve (../resolve.js) has the writer's wire under the
+// reader's keys: a field only the writer has is read and dropped, and absent
+// when the reader's object is written, as is a tuple's `skip` element; a
+// record is built in the reader's `order` with its `extras` at their
+// defaults; a bridge between two scalar types, a value the reader drops and a
+// collection of another optionality carry the writer's node as `writer`, the
+// form the wire has, and the node's own `pack`, `unpack` and `checkedUnpack`
+// convert between it and the reader's value, as they do on the text wire.
 
 const { expectedOf, step } = require('../errors.js');
 const { WORD, isBytes, isMap, listOf, put, member } = require('../types.js');
@@ -46,6 +55,14 @@ const wordsOf = (node) => Math.ceil(node.names.length / WORD);
 
 // A boolean field of a struct travels in the struct's header.
 const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
+
+// The node whose form a value has on the wire: the writer's for a resolved
+// node that carries one (Schema.resolve), its own otherwise.
+const wireOf = (node) => (node.writer === undefined ? node : node.writer);
+
+// A boolean of the writer that the reader drops (Schema.resolve): a bit of
+// the header that reads as null.
+const droppedBit = (node) => node.writer !== undefined && inHeader(node.writer);
 
 // The source of a plan's binary codec and the helpers it reads through `H`.
 // `context.validate` says whether decode checks the wire; `context.slot(slot)`
@@ -73,6 +90,9 @@ const generate = (plan, context) => {
   const check = (condition, code, path, detail) =>
     validate ? `if(${condition})F(${str(code)},${path},${str(detail)});` : '';
   const truncated = (path) => check('r.pos>r.end', 'structure', path, 'length');
+  // The else branch of a presence test where the reader requires a value the
+  // writer may omit (Schema.resolve), only with validation.
+  const absent = (path, expected) => (validate ? `else{F('type',${path},${str(expected)});}` : '');
 
   // The value of `src` ready for the wire, or null when nothing travels: a
   // converted scalar is packed first (an enum value not of the enum, an
@@ -81,7 +101,10 @@ const generate = (plan, context) => {
   const ready = (node, src, path) => {
     if (node.kind !== 'scalar' || node.pack === null) return ['', src];
     if (node.type === 'null') return ['', 'null'];
-    if (node.type === 'bigint' || node.type === 'bytes') return ['', src];
+    // A bridge (Schema.resolve) packs the reader's value into the writer's form.
+    if (node.writer === undefined && (node.type === 'bigint' || node.type === 'bytes')) {
+      return ['', src];
+    }
     const x = uid('x');
     let out = `const ${x}=${src}==null?null:${slot(node)}.pack(${src});`;
     if (node.always === true) {
@@ -96,6 +119,8 @@ const generate = (plan, context) => {
 
   // Statements that write a ready, present scalar.
   const writeScalar = (node, x, path) => {
+    // A bridge writes the writer's form; a value the reader drops never travels.
+    if (node.writer !== undefined && node.type !== 'null') return writeScalar(node.writer, x, path);
     if (node.decimals !== undefined) return `w.svar(${x});`;
     switch (node.type) {
       case 'number':
@@ -155,7 +180,8 @@ const generate = (plan, context) => {
         : `if(!Array.isArray(${x}))E('array',${path});const ${l}=${x};`;
     const [pre, y] = ready(item, `${l}[${i}]`, at);
     const count = `const ${n}=${l}.length;w.uvar(${n});`;
-    if (!node.itemRequired) {
+    // The wire's optionality is the writer's (Schema.resolve).
+    if (!wireOf(node).itemRequired) {
       return (
         `${head}${count}const ${s}=w.bitmap(${n});for(let ${i}=0;${i}<${n};${i}++){${pre}` +
         `if(${y}!=null){w.mark(${s},${i});${emit(item, y, at)}}}`
@@ -182,20 +208,21 @@ const generate = (plan, context) => {
     const [i, e] = [uid('i'), uid('e')];
     const at = `${path}+"["+${i}+"]"`;
     const key = node.key.type === 'string' ? writeString(`${e}[0]`, at) : `w.f64(${e}[0]);`;
+    const value = emitValue(node.value, wireOf(node).valueRequired, `${e}[1]`, at);
     return (
       `if(!${slot(isMap)}(${x}))E('map',${path});w.uvar(${x}.size);let ${i}=0;` +
-      `for(const ${e} of ${x}){${key}${emitValue(node.value, node.valueRequired, `${e}[1]`, at)}${i}++;}`
+      `for(const ${e} of ${x}){${key}${value}${i}++;}`
     );
   };
 
   const emitDict = (node, x, path) => {
     const [ks, i, k] = [uid('k'), uid('i'), uid('k')];
     const at = `${slot(member)}(${path},${k})`;
+    const value = emitValue(node.value, wireOf(node).valueRequired, `${x}[${k}]`, at);
     return (
       `if(typeof ${x}!=='object'||Array.isArray(${x}))E('object',${path});` +
       `const ${ks}=Object.keys(${x});w.uvar(${ks}.length);` +
-      `for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];w.string(${k});` +
-      `${emitValue(node.value, node.valueRequired, `${x}[${k}]`, at)}}`
+      `for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];w.string(${k});${value}}`
     );
   };
 
@@ -212,8 +239,38 @@ const generate = (plan, context) => {
     return out.join('');
   };
 
+  // The text wire's form of the writer's scalar, set into `t`, for a bridge
+  // (Schema.resolve) to convert: an enum's index, a flags mask, an integer or
+  // a string, the writer types a bridge reads.
+  const readRaw = (node, t, path) => {
+    if (node.type === 'enum') {
+      return `const ${t}=${byteTag(node) ? 'r.u8();' : `r.uvar();${truncated(path)}`}`;
+    }
+    if (node.type === 'flags') {
+      const words = wordsOf(node);
+      return `const ${t}=${words === 1 ? 'r.uvar()' : `r.words(${words})`};${truncated(path)}`;
+    }
+    if (node.type === 'integer') return `const ${t}=r.svar();${truncated(path)}`;
+    return `const ${t}=r.string();${check(`${t}===undefined`, 'structure', path, 'length')}`;
+  };
+
+  // Statements that set `dst` from a resolved scalar (Schema.resolve): a value
+  // the reader drops is read in the writer's form, whatever it is, and
+  // dropped; a bridge converts the writer's form, checked with validation.
+  const readBridged = (node, dst, path) => {
+    const t = uid('t');
+    if (node.type === 'null') return `let ${t};${readInto(node.writer, t, path)}${dst}=null;`;
+    const raw = readRaw(node.writer, t, path);
+    if (!validate) return `${raw}${dst}=${slot(node)}.unpack(${t});`;
+    return (
+      `${raw}${dst}=${slot(node)}.checkedUnpack(${t});` +
+      `if(${dst}===undefined)F(${str(node.code)},${path},${str(node.expected)});`
+    );
+  };
+
   // Statements that set `dst` from a present scalar on the wire.
   const readScalar = (node, dst, path) => {
+    if (node.writer !== undefined) return readBridged(node, dst, path);
     const t = uid('t');
     if (node.decimals !== undefined) {
       return `${dst}=r.svar()/${10 ** node.decimals};${truncated(path)}`;
@@ -289,11 +346,14 @@ const generate = (plan, context) => {
       const [c, i, b, s, o, y] = [uid('c'), uid('c'), uid('b'), uid('s'), uid('o'), uid('y')];
       const at = `${path}+"["+${i}+"]"`;
       const done = node.container === 'set' ? `${dst}=new Set(${o});` : `${dst}=${o};`;
-      if (!node.itemRequired) {
+      if (!wireOf(node).itemRequired) {
+        // An absent item where the reader requires one (Schema.resolve) is
+        // refused as a null one is on the text wire.
+        const refused = node.itemRequired ? absent(at, expectedOf(item)) : '';
         return (
           `${readCount(c, path, 8)}${readBitmap(b, s, c)}` +
           `const ${o}=new Array(${c});for(let ${i}=0;${i}<${c};${i}++){let ${y}=null;` +
-          `if(${bit(b, s, i)}){${readInto(item, y, at)}}${o}[${i}]=${y};}${done}`
+          `if(${bit(b, s, i)}){${readInto(item, y, at)}}${refused}${o}[${i}]=${y};}${done}`
         );
       }
       return (
@@ -308,43 +368,54 @@ const generate = (plan, context) => {
         node.key.type === 'string'
           ? `const ${k}=r.string();${check(`${k}===undefined`, 'structure', at, 'length')}`
           : `${check('r.pos+8>r.end', 'structure', at, 'length')}const ${k}=r.f64();`;
+      const value = readValue(node.value, wireOf(node).valueRequired, node.valueRequired, y, at);
       return (
         `${readCount(c, path, 1)}const ${o}=new Map();` +
-        `for(let ${i}=0;${i}<${c};${i}++){${key}let ${y}=null;` +
-        `${readValue(node.value, node.valueRequired, y, at)}${o}.set(${k},${y});}${dst}=${o};`
+        `for(let ${i}=0;${i}<${c};${i}++){${key}let ${y}=null;${value}${o}.set(${k},${y});}` +
+        `${dst}=${o};`
       );
     }
     if (node.kind === 'dict') {
       const [c, i, k, o, y] = [uid('c'), uid('c'), uid('k'), uid('o'), uid('y')];
       const at = `${slot(member)}(${path},${k})`;
+      const value = readValue(node.value, wireOf(node).valueRequired, node.valueRequired, y, at);
       return (
         `${readCount(c, path, 1)}const ${o}={};` +
         `for(let ${i}=0;${i}<${c};${i}++){const ${k}=r.string();` +
-        `${check(`${k}===undefined`, 'structure', path, 'length')}let ${y}=null;` +
-        `${readValue(node.value, node.valueRequired, y, at)}` +
+        `${check(`${k}===undefined`, 'structure', path, 'length')}let ${y}=null;${value}` +
         `if(${k}==='__proto__')${slot(put)}(${o},${k},${y});else ${o}[${k}]=${y};}${dst}=${o};`
       );
     }
     const [b, s] = [uid('b'), uid('s')];
     const out = [`${readBitmap(b, s, node.items.length)}${truncated(path)}`];
-    const parts = node.items.map((item, i) => {
+    const parts = [];
+    node.items.forEach((item, i) => {
       const y = uid('y');
       const at = `${path}+${str(`[${i}]`)}`;
+      // An element the reader does not have (Schema.resolve) is read and dropped.
+      if (item.skip === true) {
+        out.push(`if(${bit(b, s, i)}){let ${y};${readInto(item.node, y, at)}}`);
+        return;
+      }
       out.push(slotValue(item.node, item.required, item.def, y, bit(b, s, i), at));
-      return y;
+      parts.push(y);
     });
+    // The reader's elements the writer does not have, at their defaults.
+    if (node.extras !== undefined) for (const extra of node.extras) parts.push(str(extra.def));
     out.push(`${dst}=[${parts}];`);
     return out.join('');
   };
 
-  // A map's or a dictionary's value: behind a presence byte when it may be
-  // null, as it is when required.
-  const readValue = (node, required, y, at) => {
-    if (required) return readInto(node, y, at);
+  // A map's or a dictionary's value: behind a presence byte when the writer
+  // may omit it, as it is when the wire requires it; one the reader requires
+  // (Schema.resolve) is refused when absent.
+  const readValue = (node, onWire, required, y, at) => {
+    if (onWire) return readInto(node, y, at);
     const f = uid('f');
+    const refused = required ? absent(at, expectedOf(node)) : '';
     return (
       `const ${f}=r.u8();${check(`!(${f}<2)`, 'structure', at, 'length')}` +
-      `if(${f}===1){${readInto(node, y, at)}}`
+      `if(${f}===1){${readInto(node, y, at)}}${refused}`
     );
   };
 
@@ -367,7 +438,7 @@ const generate = (plan, context) => {
     const { tag } = node;
     const lead = tag === undefined ? 0 : 1;
     // The header: a presence bit per field, then a bit per boolean field.
-    const flags = node.fields.filter((field) => inHeader(field.node));
+    const flags = node.fields.filter((field) => inHeader(wireOf(field.node)));
     const bits = size + flags.length;
     const bytes = (bits + 7) >> 3;
     const masks = Array.from({ length: bytes }, (_, i) => `m${i}`);
@@ -378,17 +449,19 @@ const generate = (plan, context) => {
     }
     let next = size;
     for (const field of node.fields) {
+      const [m, mask] = at(field.index);
+      const flag = inHeader(wireOf(field.node)) ? at(next++) : null;
+      // A field only the writer has, or one the reader drops (Schema.resolve),
+      // never travels, nor does a null one.
+      if (field.key === null || field.node.type === 'null') continue;
       const key = str(field.key);
       const where = str(step(field.key));
-      const [m, mask] = at(field.index);
       const v = uid('v');
       enc.push(`const ${v}=o[${key}];`);
-      if (inHeader(field.node)) {
-        const [fm, fmask] = at(next++);
-        enc.push(`if(${v}!=null){${m}|=${mask};if(${v})${fm}|=${fmask};}`);
+      if (flag !== null) {
+        enc.push(`if(${v}!=null){${m}|=${mask};if(${v})${flag[0]}|=${flag[1]};}`);
         continue;
       }
-      if (field.node.kind === 'scalar' && field.node.type === 'null') continue;
       const [pre, x] = ready(field.node, v, where);
       enc.push(`${pre}if(${x}!=null){${m}|=${mask};${emit(field.node, x, where)}}`);
     }
@@ -406,18 +479,37 @@ const generate = (plan, context) => {
       );
     }
     const parts = [];
+    const decoded = new Map();
     next = size;
     for (const field of node.fields) {
-      const where = str(step(field.key));
+      // A field only the writer has (Schema.resolve) is read, under the
+      // writer's key on an error, and dropped.
+      const dropped = field.key === null;
+      const where = str(step(dropped ? field.wire : field.key));
       const v = uid('v');
-      if (inHeader(field.node)) {
-        const fallback = field.def === null ? 'null' : str(field.def);
-        const missing = field.required && validate ? `else{F('required',${where});}` : '';
-        dec.push(`let ${v}=${fallback};if(${head(field.index)}){${v}=${head(next++)};}${missing}`);
+      if (inHeader(wireOf(field.node))) {
+        const flag = head(next++);
+        if (dropped) continue;
+        if (droppedBit(field.node)) dec.push(`const ${v}=null;`);
+        else {
+          const fallback = field.def === null ? 'null' : str(field.def);
+          const missing = field.required && validate ? `else{F('required',${where});}` : '';
+          dec.push(`let ${v}=${fallback};if(${head(field.index)}){${v}=${flag};}${missing}`);
+        }
+      } else if (dropped) {
+        dec.push(`if(${head(field.index)}){let ${v};${readInto(field.node, v, where)}}`);
+        continue;
       } else {
         dec.push(slotValue(field.node, field.required, field.def, v, head(field.index), where));
       }
-      parts.push(`${str(field.key)}:${v}`);
+      if (node.order === undefined) parts.push(`${str(field.key)}:${v}`);
+      else decoded.set(field.key, v);
+    }
+    // A resolved record is built in the reader's key order, with the reader's
+    // fields the writer does not have at their defaults.
+    if (node.order !== undefined) {
+      for (const extra of node.extras) decoded.set(extra.key, str(extra.def));
+      for (const key of node.order) parts.push(`${str(key)}:${decoded.get(key)}`);
     }
     if (lead === 1) parts.splice(tag.position, 0, `${str(tag.key)}:${slot(tag.values)}[t]`);
     dec.push(`return {${parts}};`);
@@ -438,9 +530,12 @@ const generate = (plan, context) => {
     const where = str(step(node.key));
     const expected = str(node.tag.expected);
     const wide = !byteTag(node.tag);
+    // A branch the reader has no values of (Schema.resolve) has no case: its
+    // tags fall through to the error.
     const cases = (call) => {
       const out = [];
       for (const branch of node.branches) {
+        if (branch.node === null) continue;
         for (let i = 0; i < branch.count; i++) out.push(`case ${branch.first + i}:`);
         out.push(call(structFns(branch.node)));
       }

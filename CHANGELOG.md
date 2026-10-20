@@ -17,10 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `validate` on decode and the same errors and paths. A record is a header of presence bits (the
   booleans in it) and its fields; integers, dates and decimals are zigzag varints, a `number` a
   float64, an enum index a byte, a string UTF-8 up to 21 characters and UTF-16 past them (copied,
-  not transcoded), the rest as in the wire format page. Both sides need the same schema. Interned
-  strings, lists of differences, the `flat` and `columns` layouts and a schema from `resolve` have
+  not transcoded), the rest as in the wire format page. Both sides need the same schema, or a
+  schema from `resolve`, which reads what another version wrote and writes for it on the binary
+  wire as on the text one: the writer's wire under the reader's keys, order and defaults, a field
+  only the writer has read and dropped, or absent when written, the same bridges and errors, in
+  both backends. Interned strings, lists of differences and the `flat` and `columns` layouts have
   no binary form (`SchemaDefinitionError` `ERR_NO_BINARY_FORM`, naming the place); the registry
-  and streaming stay on the text wire. See The Binary Wire in the guide and the benchmarks.
+  envelope and streaming stay on the text wire. See The Binary Wire in the guide and the
+  benchmarks.
 - **Standalone modules carry the binary wire**: `toSource(schemas, { binary: true })` and
   `protoarray compile --binary` write each schema's generated binary codec next to its text
   codec. An import module's schemas carry it in their `compiled` option (`compiled.binary`), which

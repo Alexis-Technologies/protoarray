@@ -8,10 +8,12 @@
 // ./binary/generate.js and docs/guide/wire-format.md: smaller and faster than
 // the text wire on numbers, booleans, enums and dates, with no text to read;
 // both sides need the same schema, as with Avro, since positions and header
-// bits are the schema's. What the text wire's own options shape (interned
-// strings, lists of differences, the flat and columns layouts) and a resolved
-// schema have no binary form and are refused (./binary/inspect.js). Kept out
-// of the core entry; `register()` installs the functions as methods of Schema.
+// bits are the schema's. A schema from `resolve` (./resolve.js) reads what
+// another version wrote and writes for it, as on the text wire. What the text
+// wire's own options shape (interned strings, lists of differences, the flat
+// and columns layouts) has no binary form and is refused (./binary/inspect.js).
+// Kept out of the core entry; `register()` installs the functions as methods
+// of Schema.
 
 const { SchemaDefinitionError, DecodeError, boundary } = require('./errors.js');
 const { PLAN, isSchema } = require('./plan.js');
@@ -39,7 +41,9 @@ const isBytes = (v) =>
 // unless the schema asked for it. A schema reached through a slot (a
 // reference, an embedded schema, the record of a list) is built the same way,
 // a recursion included: the entry is registered before its code is built. A
-// schema of a standalone module carries its codec, generated from the same
+// recursion inside a resolved plan calls a codec of this schema's own, built
+// by the same backend from the node it stands on and registered the same way.
+// A schema of a standalone module carries its codec, generated from the same
 // plan (the module's canonical form was checked against the snapshot's):
 // nothing is inspected or built.
 const entryOf = (schema) => {
@@ -48,7 +52,7 @@ const entryOf = (schema) => {
   const plan = schema[PLAN];
   const settings = schema[SETTINGS];
   const carried = settings.compiled === undefined ? undefined : settings.compiled.binary;
-  if (carried === undefined) inspect(plan, schema.name);
+  const inner = carried === undefined ? inspect(plan, schema.name) : new Map();
   entry = {
     write: null,
     read: null,
@@ -63,8 +67,22 @@ const entryOf = (schema) => {
     entry.read = carried.read;
     return entry;
   }
-  const context = { validate: settings.validate, slot: (slot) => entryOf(slot.schema) };
-  const backend = schema.backend === 'codegen' ? generated : closures;
+  let backend = schema.backend === 'codegen' ? generated : closures;
+  const own = new Map();
+  const innerOf = (slot) => {
+    let codec = own.get(slot);
+    if (codec !== undefined) return codec;
+    codec = { write: null, read: null };
+    own.set(slot, codec);
+    const fns = backend.build(inner.get(slot), context);
+    codec.write = fns.write;
+    codec.read = fns.read;
+    return codec;
+  };
+  const context = {
+    validate: settings.validate,
+    slot: (slot) => (slot.schema === undefined ? innerOf(slot) : entryOf(slot.schema)),
+  };
   let fns;
   try {
     fns = backend.build(plan, context);
@@ -74,7 +92,9 @@ const entryOf = (schema) => {
       delete schema[BINARY];
       throw error;
     }
-    fns = closures.build(plan, context);
+    backend = closures;
+    own.clear();
+    fns = backend.build(plan, context);
   }
   entry.write = fns.write;
   entry.read = fns.read;

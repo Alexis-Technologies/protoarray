@@ -126,7 +126,8 @@ src/
 tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
   support/          BACKENDS + normalize, define/named/model (metaschema injected), the
-                    wire-format vectors, the random generator and its translate
+                    wire-format vectors, the random generator, its translate and mutate (the
+                    reader versions of the resolved parity suites)
   fixtures/         modules of metaschema schemas for the CLI tests, golden-1x.json
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
@@ -251,17 +252,27 @@ bits left) and bitmap, so no message allocates past its length. Encode trusts va
 a string slot without a string and a `bytes` slot without a `Uint8Array` (`type`): the writer
 measures them, and garbage would corrupt its position. A `null` root is `required`. `inspect`
 refuses, before anything is built, what has no binary form (`ERR_NO_BINARY_FORM`, the place by
-its path: `intern`, `delta`/`deltas`, a layout other than `rows`, a resolved plan); `readsNumbers`
-walks the plan and the schemas its slots reach so the reader makes a DataView only when a float64
-is read. One Writer and one Reader per schema, reset per call; `busy` is saved and restored around
+its path: `intern`, `delta`/`deltas`, a layout other than `rows`, under a resolved node's
+`writer` too); `readsNumbers` walks the plan, the schemas its slots reach and the `writer` nodes
+so the reader makes a DataView only when a float64 is read. A plan from `resolve` compiles like
+any other: the writer's wire under the reader's keys (a `key: null` field and a `skip` element
+read and dropped, absent when written; `order`/`extras` for the object; a union branch with a
+`null` node has no case), and where a resolved node's own form is not the wire's, `resolve.js`
+puts the writer's node on it as `writer` (a bridge, a dropped value from `bridge.ignore`, a
+collection of another optionality): both backends read the wire by `wireOf(node)`, convert
+through the node's own `pack`/`unpack`/`checkedUnpack`, and a dropped boolean of a header is
+`droppedBit`. A recursion inside a resolved plan (resolve.js's `compiled` entries: slots without
+a schema) gets a codec of the resolved schema's own, built from the node `inspect` collected for
+the slot, registered before it is built and rebuilt on the fallback to closures. One Writer and
+one Reader per schema, reset per call; `busy` is saved and restored around
 a call so a re-entrant call (a `toJSON` of a json value) takes fresh ones. The wire: a struct
 header of presence bits (required fields too) then the booleans' values, in whole bytes; zigzag
 LEB128 exact over the safe integers (the sign in the low bit, never forming 2n); enum and tag as
 a byte up to 256 values; a string's length doubled with its form in the low bit, UTF-8 up to 21
 characters (`3 × 21 × 2 < 128`, one length byte), UTF-16 past them or for a lone surrogate,
 read in either form at any length. Both sides need the same schema: nothing is trimmed or
-tolerated. The registry envelope, streams and resolve stay on the text wire; a standalone module
-written with `binary` carries the binary codec too (below).
+tolerated. The registry envelope and streams stay on the text wire; `resolve` works on both, and
+a standalone module written with `binary` carries the binary codec too (below).
 
 **Standalone modules** (`standalone.js`): `errors.js`, `types.js`, `layouts.js` and
 `runtime/browser.js` are closed functions (`kernel`) run once, so their source can be embedded.
@@ -443,9 +454,13 @@ change. **This file wins** if they ever disagree.
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
 - `tests/unit/binary.test.js` is the binary wire's suite: the vectors and the random schemas on
   both backends (identical bytes; corrupted values, corrupted bytes and every truncation give the
-  same outcome; validation on and off), the wire kernel over both runtime twins, the refusals by
-  path, the register and the codegen fallback (`codegen.compile` stubbed through the module
-  object). A count read from the wire is bounded by the bytes (or bits) left: without it a
+  same outcome; validation on and off), a resolved schema against the mutated readers of
+  `tests/support/mutate.js` (shared with `parity.test.js`) with the text wire's round trip as the
+  oracle, and the constructs `resolve` makes, by hand (every bridge, dropped values, collections
+  of another optionality, tuples, unions, roots, inner recursions), the wire kernel over both
+  runtime twins, the refusals by path, the register and the codegen fallback (`codegen.compile`
+  stubbed through the module object, a resolved plan's inner codecs falling back with it). A
+  count read from the wire is bounded by the bytes (or bits) left: without it a
   corrupted count overflowed `(c + 7) >> 3` and looped for minutes, and garbage in a string or
   bytes slot made the writer's position NaN and doubled its buffer until the process was killed,
   which is why encode checks those two slots.

@@ -96,7 +96,8 @@ throws only for what has no wire at all.
 `@alexify/protoarray/binary` ([The Binary Wire](/guide/binary)) carries the same schema as bytes,
 little-endian. A varint is unsigned LEB128; a zigzag varint interleaves negatives (the sign in the
 low bit), exact over the safe integers. Both sides need the same schema: positions, header bits
-and tags are the schema's, nothing is trimmed and nothing beyond the schema is tolerated.
+and tags are the schema's, nothing is trimmed and nothing beyond the schema is tolerated. A schema
+from `resolve` reads and writes its writer's wire.
 
 | Construct | On the wire |
 | --- | --- |
@@ -121,7 +122,8 @@ and tags are the schema's, nothing is trimmed and nothing beyond the schema is t
 | Root struct or union | as above, with no envelope; `null` has no form (`EncodeError`) |
 | Root scalar | a presence byte (0 or 1), then the value |
 | Root collection or tuple | as above |
-| An interned string, a `delta` list or column, a `flat` or `columns` collection, a schema from `resolve` | no form: `SchemaDefinitionError` `ERR_NO_BINARY_FORM` |
+| A schema from `resolve` | the writer's wire: a field or a tuple element only the writer has is read and dropped, and absent when written; a bridged scalar travels in the writer's form; a field only the reader has takes its default; a union tag the reader dropped is a `DecodeError` `union` |
+| An interned string, a `delta` list or column, a `flat` or `columns` collection (of a resolved schema's writer too) | no form: `SchemaDefinitionError` `ERR_NO_BINARY_FORM` |
 
 Decode checks the bounds of every read, the range of an enum index, the fit of a bitmap, a string
 and a count, a required field's presence and a date's range, with validation; a union's tag is

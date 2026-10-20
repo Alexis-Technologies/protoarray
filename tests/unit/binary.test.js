@@ -9,6 +9,7 @@ const { kernel } = require('../../src/binary/wire.js');
 const { BACKENDS, normalize } = require('../support/backends.js');
 const { VECTORS, Address } = require('../support/vectors.js');
 const { generate } = require('../support/generate.js');
+const { mutate } = require('../support/mutate.js');
 const { define, named, model } = require('../support/schema.js');
 
 const RUNTIME = {
@@ -610,6 +611,284 @@ for (const [backend, options] of BACKENDS) {
       expected(Wide, { f0: 'a', f39: 'z' }),
     );
   });
+
+  // A schema from resolve on the binary wire: the writer's bytes read into the
+  // reader's shape as its text twin reads the writer's wire, and the reader's
+  // objects written as the writer's wire, which the writer reads as it reads
+  // what the text twin writes; the text wire is the oracle of both.
+  test(`Binary (${backend}): a resolved schema reads the writer's bytes and writes its wire`, () => {
+    const WIDE = Array.from({ length: 70 }, (_, i) => `n${i}`);
+    const LONG = Array.from({ length: 300 }, (_, i) => `e${i}`);
+    const text = (fn) => {
+      const out = outcome(fn);
+      return out.value === undefined ? out : { value: JSON.stringify(out.value) };
+    };
+    const twin = (resolved, writer, value) => {
+      const label = `${resolved} ${JSON.stringify(normalize(value))}`;
+      const got = text(() => fromBinary(resolved, toBinary(writer, value)));
+      assert.deepStrictEqual(
+        got,
+        text(() => resolved.decode(writer.encode(value))),
+        label,
+      );
+      return got.value === undefined ? undefined : fromBinary(resolved, toBinary(writer, value));
+    };
+    const back = (resolved, writer, decoded) => {
+      assert.deepStrictEqual(
+        text(() => fromBinary(writer, toBinary(resolved, decoded))),
+        text(() => writer.decode(resolved.encode(decoded))),
+        `${resolved} back`,
+      );
+    };
+    for (const validate of [true, false]) {
+      const reads = (definition, extra) => define(definition, { ...options, validate, ...extra });
+      // Every bridge resolve makes, on the writer's form: an integer as a
+      // bigint, an enum by value or as a string, a string as an enum, flags
+      // by name, widened numbers; the reader's own fields at their defaults.
+      const W1 = define(
+        {
+          n: 'integer',
+          e: { enum: ['a', 'b', 'c'] },
+          'f?': { enum: ['a', 'b'] },
+          s: { enum: ['x', 'y'] },
+          c: 'string',
+          'k?': 'string',
+          p: { flags: ['p', 'q', 'r'] },
+          w: { flags: WIDE },
+          big: { enum: LONG },
+          d: { type: 'number', decimals: 2 },
+          i: 'integer',
+          'legacy?': 'string',
+          on: 'boolean',
+        },
+        options,
+      );
+      const R1 = reads({
+        email: { type: 'string', default: '' },
+        big: { enum: LONG.slice(1) },
+        i: 'number',
+        d: 'number',
+        w: { flags: [...WIDE.slice(5), 'extra'] },
+        p: { flags: ['r', 'p', 'z'] },
+        'k?': { enum: ['x'] },
+        c: { enum: ['k', 'c'] },
+        s: 'string',
+        'f?': { enum: ['b'] },
+        e: { enum: ['c', 'a'] },
+        n: 'bigint',
+        on: 'boolean',
+      });
+      const A1 = resolve(W1, R1);
+      assert.strictEqual(A1.backend, backend);
+      const v1 = {
+        n: -5,
+        e: 'a',
+        f: 'a',
+        s: 'y',
+        c: 'k',
+        k: 'x',
+        p: { q: true, r: true },
+        w: { n0: true, n6: true, n69: true },
+        big: 'e299',
+        d: 1.25,
+        i: 3,
+        legacy: 'old',
+        on: true,
+      };
+      const d1 = twin(A1, W1, v1);
+      assert.deepStrictEqual(Object.keys(d1), R1.keys);
+      assert.strictEqual(d1.n, -5n);
+      assert.strictEqual(d1.f, null);
+      back(A1, W1, d1);
+      back(A1, W1, { ...d1, k: 'zz', w: { n5: true, extra: true } });
+      // A value the reader's enum lacks: null when optional, an error when
+      // required; without validation the writer's value passes through.
+      twin(A1, W1, { ...v1, k: 'zz' });
+      twin(A1, W1, { ...v1, e: 'b' });
+      twin(A1, W1, { ...v1, big: 'e0' });
+      twin(A1, W1, { ...v1, c: 'zz' });
+      // A value the reader has no use for is read in the writer's form and
+      // dropped, a boolean of the header and a referenced record included; a
+      // boolean only the writer has is a bit of the header too.
+      const W2 = define(
+        {
+          'a?': { x: 'number' },
+          'b?': 'boolean',
+          'c?': 'string',
+          'd?': 'number',
+          'r?': Address,
+          'l?': { array: 'integer' },
+          'm?': { array: 'integer' },
+          'u?': 'boolean',
+          t: ['?string', 'number'],
+          keep: 'integer',
+        },
+        options,
+      );
+      const R2 = reads({
+        keep: 'integer',
+        t: ['null', 'number'],
+        m: { array: 'null' },
+        l: 'null',
+        r: 'null',
+        d: 'null',
+        c: 'null',
+        b: 'null',
+        a: 'null',
+      });
+      const A2 = resolve(W2, R2);
+      const v2 = {
+        a: { x: 1.5 },
+        b: true,
+        c: 'c',
+        d: 2.5,
+        r: { city: 'K' },
+        l: [1, 2],
+        m: [3],
+        u: false,
+        t: ['s', 3],
+        keep: 1,
+      };
+      const d2 = twin(A2, W2, v2);
+      assert.deepStrictEqual(d2, {
+        keep: 1,
+        t: [null, 3],
+        m: [null],
+        l: null,
+        r: null,
+        d: null,
+        c: null,
+        b: null,
+        a: null,
+      });
+      back(A2, W2, { ...d2, m: [] });
+      // A value in a slot the reader drops travels as nothing, as null does.
+      back(A2, W2, { ...d2, m: [], t: ['gone', 3] });
+      twin(A2, W2, { t: [null, 3], keep: 2 });
+      // A null item of a list the writer requires has no form.
+      assert.throws(() => toBinary(A2, d2), { code: 'type', path: 'm[0]' });
+      // Collections of another optionality: the wire has the writer's, a null
+      // where the reader requires a value is refused as on the text wire.
+      const W3 = define(
+        {
+          a: { array: '?integer' },
+          m: { map: { string: '?string' } },
+          o: { object: { string: '?number' } },
+          s: { set: 'integer' },
+          b: { array: 'integer' },
+          q: { set: '?string' },
+        },
+        options,
+      );
+      const R3 = reads({
+        a: { array: 'integer' },
+        m: { map: { string: 'string' } },
+        o: { object: { string: 'number' } },
+        s: { array: 'integer' },
+        b: { array: '?integer' },
+        q: { array: '?string' },
+      });
+      const A3 = resolve(W3, R3);
+      const v3 = {
+        a: [1, 2],
+        m: new Map([['k', 'v']]),
+        o: { k: 1 },
+        s: new Set([1]),
+        b: [1],
+        q: new Set(['x', null]),
+      };
+      const d3 = twin(A3, W3, v3);
+      assert.deepStrictEqual(normalize(d3), normalize({ ...v3, s: [1], q: ['x', null] }));
+      back(A3, W3, d3);
+      twin(A3, W3, { ...v3, a: [1, null] });
+      twin(A3, W3, { ...v3, m: new Map([['k', null]]) });
+      twin(A3, W3, { ...v3, o: { k: null } });
+      assert.throws(() => toBinary(A3, { ...d3, b: [1, null] }), { code: 'type', path: 'b[1]' });
+      // A tuple: the writer's trailing elements the reader lacks are read and
+      // dropped, the reader's the writer lacks follow at their defaults.
+      const W4 = define({ t: ['number', 'string', '?boolean', 'string'] }, options);
+      const R4 = reads({ t: ['number', '?string'] });
+      const R5 = reads({ t: ['number', 'string', '?boolean', 'string', '?integer', '?string'] });
+      for (const t of [
+        [1, 's', true, 'z'],
+        [1, 's', null, 'z'],
+      ]) {
+        const d4 = twin(resolve(W4, R4), W4, { t });
+        assert.deepStrictEqual(d4, { t: [1, 's'] });
+        back(resolve(W4, R4), W4, d4);
+        const d5 = twin(resolve(W4, R5), W4, { t });
+        assert.deepStrictEqual(d5, { t: [...t, null, null] });
+        back(resolve(W4, R5), W4, d5);
+      }
+      // A union: branches pair up by value, in the reader's shape; a value
+      // the reader dropped, or a writer branch it has no values of, is an
+      // error either way.
+      const branch = (fields) => ({ Struct: {}, ...fields });
+      const W6 = define(
+        {
+          union: [
+            branch({ k: { enum: ['d'] }, w: 'string' }),
+            branch({ k: { enum: ['a', 'b'] }, x: 'number' }),
+            branch({ k: { enum: ['c'] }, y: 'string', on: 'boolean' }),
+          ],
+          discriminator: 'k',
+        },
+        options,
+      );
+      const R6 = reads({
+        union: [
+          branch({ on: 'boolean', 'z?': 'string', y: 'string', k: { enum: ['c'] } }),
+          branch({ x: 'number', k: { enum: ['a'] } }),
+        ],
+        discriminator: 'k',
+      });
+      const A6 = resolve(W6, R6);
+      const d6 = twin(A6, W6, { k: 'a', x: 1 });
+      assert.deepStrictEqual(Object.keys(d6), ['x', 'k']);
+      back(A6, W6, d6);
+      const d7 = twin(A6, W6, { k: 'c', y: 'y', on: true });
+      assert.deepStrictEqual(d7, { on: true, z: null, y: 'y', k: 'c' });
+      back(A6, W6, d7);
+      twin(A6, W6, { k: 'b', x: 2 });
+      twin(A6, W6, { k: 'd', w: 'w' });
+      assert.throws(() => toBinary(A6, { k: 'b', x: 2 }), { code: 'union', path: 'k' });
+      assert.throws(() => toBinary(A6, { k: 'q' }), { code: 'union', path: 'k' });
+      // Root scalars, bridged or dropped.
+      const W7 = define('integer', options);
+      const A7 = resolve(W7, reads('bigint'));
+      assert.strictEqual(twin(A7, W7, 5), 5n);
+      back(A7, W7, 5n);
+      twin(A7, W7, null);
+      const W8 = define('?string', options);
+      const A8 = resolve(W8, reads('?null'));
+      assert.strictEqual(twin(A8, W8, 'gone'), null);
+      back(A8, W8, null);
+      // A recursion inside a resolved plan calls the codec compiled for it,
+      // once however many places reach it; the list of the records too.
+      const entities = (key) => ({
+        Outer: { Struct: {}, a: 'A', b: 'A' },
+        A: { Struct: {}, [key]: 'string', next: '?A', 'n?': 'number' },
+      });
+      const W9 = model(entities('v'), options).Outer;
+      const R9 = model(entities('w'), { ...options, validate }).Outer;
+      const A9 = resolve(W9, R9, { aliases: { 'a.w': 'v' } });
+      const tree = { a: { v: 'x', next: { v: 'y', n: 1.5 } }, b: { v: 'z' } };
+      const d9 = twin(A9, W9, tree);
+      assert.deepStrictEqual(d9, {
+        a: { w: 'x', next: { w: 'y', next: null, n: 1.5 }, n: null },
+        b: { w: 'z', next: null, n: null },
+      });
+      back(A9, W9, d9);
+      assert.deepStrictEqual(toBinary(A9, d9), toBinary(W9, tree));
+      twin(A9.list, W9.list, [tree, tree]);
+      if (!validate) continue;
+      assert.throws(() => fromBinary(A9, toBinary(W9, tree).subarray(0, 3)), {
+        code: 'structure',
+        path: 'a.w',
+        schema: 'Outer',
+      });
+    }
+  });
 }
 
 test('Binary: both backends write the same bytes on random schemas and read what the schema decodes', () => {
@@ -644,6 +923,63 @@ test('Binary: both backends write the same bytes on random schemas and read what
       const bad = corruptBytes(bytes[0], random);
       const outcomes = schemas.map((schema) => outcome(() => fromBinary(schema, bad)));
       assert.deepStrictEqual(outcomes[1], outcomes[0], `seed ${seed}, corrupted bytes ${i}`);
+    }
+  }
+});
+
+// The random schemas against a mutated reader (renamed through aliases,
+// dropped, shuffled, extended), as parity.test.js checks the text wire: both
+// backends read the writer's bytes into what the text twin decodes, in the
+// same key order, write the same bytes for the reader's objects, which the
+// writer reads as it reads the text twin's wire, and agree on corrupted
+// values and bytes.
+test('Binary: both backends agree on resolved schemas, with the text wire as the oracle', () => {
+  for (let seed = 1; seed <= SEEDS; seed++) {
+    const { definition, value, random } = generate(seed);
+    const { reader, aliases } = mutate(definition, random);
+    for (const validate of [true, false]) {
+      const label = `seed ${seed} validate ${validate}`;
+      const sides = BACKENDS.map(([, options]) => {
+        const writer = define(definition, options);
+        const read = define(reader, { ...options, validate });
+        return { writer, resolved: resolve(writer, read, { aliases }) };
+      });
+      const [A, B] = sides.map((side) => side.resolved);
+      const W = sides[0].writer;
+      const bytes = toBinary(W, value);
+      const decoded = fromBinary(A, bytes);
+      const twin = JSON.stringify(normalize(A.decode(W.encode(value))));
+      assert.strictEqual(JSON.stringify(normalize(decoded)), twin, label);
+      assert.strictEqual(JSON.stringify(normalize(fromBinary(B, bytes))), twin, label);
+      assert.deepStrictEqual(Object.keys(decoded), A.keys, label);
+      const back = toBinary(A, decoded);
+      assert.deepStrictEqual(toBinary(B, decoded), back, label);
+      assert.deepStrictEqual(
+        outcome(() => fromBinary(W, back)),
+        outcome(() => W.decode(A.encode(decoded))),
+        label,
+      );
+      for (let i = 0; i < 4; i++) {
+        const bad = corrupt(decoded, random);
+        assert.deepStrictEqual(
+          outcome(() => toBinary(B, bad)),
+          outcome(() => toBinary(A, bad)),
+          `${label}, corrupted value ${i}`,
+        );
+      }
+      // Only a validated schema bounds what corrupted bytes make it read.
+      if (!validate) continue;
+      for (let cut = 0; cut < bytes.length; cut++) {
+        assert.throws(() => fromBinary(A, bytes.subarray(0, cut)), DecodeError, `${label} ${cut}`);
+      }
+      for (let i = 0; i < 8; i++) {
+        const bad = corruptBytes(bytes, random);
+        assert.deepStrictEqual(
+          outcome(() => fromBinary(B, bad)),
+          outcome(() => fromBinary(A, bad)),
+          `${label}, corrupted bytes ${i}`,
+        );
+      }
     }
   }
 });
@@ -712,11 +1048,18 @@ test('Binary: what the text wire shapes with its own options has no binary form'
     );
     assert.throws(() => fromBinary(schema, new Uint8Array(1)), { code: 'ERR_NO_BINARY_FORM' });
   }
-  const writer = define({ id: 'number' });
-  const reader = define({ id: 'number', name: '?string' });
-  assert.throws(() => toBinary(resolve(writer, reader), { id: 1 }), {
+  // A resolved schema reads the writer's wire: what that has no form for is
+  // refused too, a value the reader drops and a collection in a layout of its
+  // own included.
+  const Old = named('Old', { s: 'string', items: { array: { a: 'number' } } }, { intern: ['s'] });
+  const New = define({ s: 'null', items: { array: { a: 'number' } } });
+  assert.throws(() => toBinary(resolve(Old, New), {}), {
     code: 'ERR_NO_BINARY_FORM',
-    message: 'The binary wire has no form for a resolved schema',
+    message: 'The binary wire has no form for an interned string at "s"',
+  });
+  const Laid = define({ items: { array: { a: 'number' } } }, { layout: { items: 'columns' } });
+  assert.throws(() => toBinary(resolve(Laid, New), {}), {
+    message: 'The binary wire has no form for the columns layout at "items"',
   });
   assert.throws(() => toBinary({}, 1), { code: 'ERR_SCHEMA_EXPECTED' });
   assert.throws(() => fromBinary(null, new Uint8Array(1)), { code: 'ERR_SCHEMA_EXPECTED' });
@@ -754,6 +1097,22 @@ test('Binary: generated code falls back to closures where the runtime refuses it
     assert.deepStrictEqual(fromBinary(auto, toBinary(auto, { id: 1 })), { id: 1 });
     const forced = define({ id: 'number' }, { codegen: true });
     assert.throws(() => toBinary(forced, { id: 1 }), EvalError);
+    // The codecs of a resolved plan's inner recursions fall back with it.
+    const entities = (key) => ({
+      Outer: { Struct: {}, a: 'A' },
+      A: { Struct: {}, [key]: 'string', next: '?A' },
+    });
+    const W = model(entities('v')).Outer;
+    const resolved = resolve(W, model(entities('w')).Outer, { aliases: { 'a.w': 'v' } });
+    assert.strictEqual(resolved.backend, 'codegen');
+    const tree = { a: { v: 'x', next: { v: 'y' } } };
+    assert.deepStrictEqual(fromBinary(resolved, toBinary(W, tree)), {
+      a: { w: 'x', next: { w: 'y', next: null } },
+    });
+    const asked = resolve(W, model(entities('w'), { codegen: true }).Outer, {
+      aliases: { 'a.w': 'v' },
+    });
+    assert.throws(() => toBinary(asked, tree), EvalError);
   } finally {
     codegen.compile = compile;
   }

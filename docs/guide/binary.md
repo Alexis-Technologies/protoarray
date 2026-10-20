@@ -48,8 +48,7 @@ keeps is everything that makes it JSON.
 - **Text** when the payload has to be readable (logs, a debugger, a REST client), travels over a
   channel that carries text (a JSON API, a WebSocket text frame, NDJSON, `localStorage`, a
   JSON-RPC envelope), is read by a side that only has JSON and the schema, or streams: the
-  [registry](/guide/resolve#the-registry), [resolve](/guide/resolve) and
-  [streaming](/guide/streaming) are the text wire's.
+  [registry](/guide/resolve#the-registry) and [streaming](/guide/streaming) are the text wire's.
   Through a text channel the bytes would need base64, which costs a third more and the time to
   write and read it, and after gzip or brotli the two wires are close in size (on a list of
   records the text wire is even smaller).
@@ -89,8 +88,26 @@ Avro reader needs the writer's. There is no trimming of trailing optionals and n
 extra elements: a message of another version of the schema is a `DecodeError` (or garbage without
 validation), not a partially understood one. Hand the snapshot to the other side, or agree on it
 through `schema.id` in a handshake (see [Schema Evolution](/guide/evolution#telling-versions-apart)).
-Reading another version through `resolve`, and the `[id, payload]` envelope of the registry, are
-the text wire's in this release.
+
+A message of another version is read through [`resolve`](/guide/resolve), as on the text wire: the
+resolved schema has the writer's wire under the reader's keys, types and defaults, so it reads the
+writer's bytes into the reader's shape and writes a reader's object as the writer's bytes.
+
+```js
+import { resolve } from '@alexify/protoarray/resolve';
+
+const Read = resolve(V1, V2); // what V1 wrote, as V2 objects
+fromBinary(Read, toBinary(V1, v1)); // the reader's keys, order and defaults, conversions applied
+toBinary(Read, v2); // V1's wire, which a V1 peer reads
+```
+
+A field only the writer has is read and dropped, and absent when the reader's object is written
+(a V1 peer that requires it then refuses the message, as it refuses the `null` the text wire
+writes there); a field only the reader has takes its default; an `integer` reads as a `bigint`,
+an enum by value, flags by name, as [the table](/guide/resolve#how-fields-are-matched) says, with
+the same errors; a union value the reader dropped is a `DecodeError` `union`. The bytes carry no
+id, so the side that reads still has to know which version wrote a message: the `[id, payload]`
+envelope of the registry is the text wire's in this release.
 
 ## Validation and errors
 
@@ -112,9 +129,10 @@ travels as `null`, as on the text wire.
 ## What has no binary form
 
 The options that shape the text wire shape text: an interned string (`intern`), a list or a
-column of differences (`delta`), the `flat` and `columns` layouts (a collection nested with a
-layout of its own included) and a schema from `resolve`. `toBinary` and `fromBinary` of such a
-schema throw `SchemaDefinitionError` with code `ERR_NO_BINARY_FORM`, naming the place by its path:
+column of differences (`delta`) and the `flat` and `columns` layouts (a collection nested with a
+layout of its own included). `toBinary` and `fromBinary` of such a schema throw
+`SchemaDefinitionError` with code `ERR_NO_BINARY_FORM`, naming the place by its path, and so do
+those of a schema from `resolve` whose writer has one, since it reads the writer's wire:
 
 ```js
 const Users = Schema.from(definition, { metaschema, layout: 'columns', intern: ['[].city'] });
@@ -134,5 +152,5 @@ schemas, as it does the text backends). Under a strict CSP the closures are what
 generated codec along: an import module's schemas then carry it for `toBinary` and `fromBinary`,
 an inline module's have the two as methods of their own. In Node.js the strings go through
 `Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
-runtime twin that handles base64. The subpath adds about 7.7 KB min+gzip to a bundle that uses
+runtime twin that handles base64. The subpath adds about 8 KB min+gzip to a bundle that uses
 it; the core is unchanged.

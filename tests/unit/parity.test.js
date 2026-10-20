@@ -4,6 +4,7 @@ const { DecodeError, EncodeError } = require('../../index.js');
 const { resolve } = require('../../resolve.js');
 const { normalize } = require('../support/backends.js');
 const { generate } = require('../support/generate.js');
+const { mutate, rename } = require('../support/mutate.js');
 const { define } = require('../support/schema.js');
 
 const SEEDS = 120;
@@ -154,45 +155,8 @@ test('Parity: codegen and closures agree on generated schemas and values', () =>
   }
 });
 
-// A reader version of a generated definition: fields renamed (through the
-// `aliases` option), dropped when optional, shuffled, and a new optional one.
-const mutate = (definition, random) => {
-  const reader = [];
-  const aliases = {};
-  const renamed = {};
-  for (const rawKey of Object.keys(definition)) {
-    const key = rawKey.replace('?', '');
-    const optional = rawKey !== key || String(definition[rawKey]).startsWith('?');
-    const roll = random();
-    if (roll < 0.15 && optional) continue;
-    const name = roll < 0.4 ? `${key}_renamed` : key;
-    if (name !== key) aliases[name] = key;
-    renamed[name] = key;
-    reader.push([rawKey === key ? name : `${name}?`, definition[rawKey]]);
-  }
-  for (let i = reader.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [reader[i], reader[j]] = [reader[j], reader[i]];
-  }
-  reader.push(['added?', 'string']);
-  return { reader: Object.fromEntries(reader), aliases, renamed };
-};
-
-// The writer's options by path for the reader: under the reader's names,
-// without the fields it dropped.
-const rename = (options, renamed) => {
-  const names = new Map(Object.keys(renamed).map((name) => [renamed[name], name]));
-  const out = {};
-  for (const key of Object.keys(options)) {
-    out[key] = [];
-    for (const path of options[key]) {
-      const top = /^[^.[{]+/.exec(path)[0];
-      if (names.has(top)) out[key].push(names.get(top) + path.slice(top.length));
-    }
-  }
-  return out;
-};
-
+// The reader version of each generated definition is mutate.js's: renamed,
+// dropped, shuffled and extended.
 test('Parity: codegen and closures agree on resolved schemas', () => {
   for (let seed = 1; seed <= SEEDS; seed++) {
     const { definition, options, value, random } = generate(seed);

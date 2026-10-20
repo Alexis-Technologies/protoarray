@@ -3,7 +3,8 @@
 // same errors on the same paths. It runs where `new Function` is unavailable
 // and is the reference the generated backend is checked against in the test
 // suite. Paths are formatted only on error: a scalar throws with a path of
-// its own level, and each level that knows its key or index nests it.
+// its own level, and each level that knows its key or index nests it. A plan
+// from Schema.resolve is read and written as ./generate.js describes.
 
 const { expectedOf, fail, nest, refuse, step } = require('../errors.js');
 const { WORD, literal, isBytes, isMap, listOf, put, member } = require('../types.js');
@@ -12,6 +13,14 @@ const BYTE = 256;
 
 const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
 const wordsOf = (node) => Math.ceil(node.names.length / WORD);
+
+// The node whose form a value has on the wire: the writer's for a resolved
+// node that carries one (Schema.resolve), its own otherwise.
+const wireOf = (node) => (node.writer === undefined ? node : node.writer);
+
+// A boolean of the writer that the reader drops (Schema.resolve): a bit of
+// the header that reads as null.
+const droppedBit = (node) => node.writer !== undefined && inHeader(node.writer);
 
 // A call of `fn` whose error gets `path` prepended.
 const nested = (fn, path) => (a, b) => {
@@ -31,6 +40,8 @@ const build = (plan, context) => {
   const packer = (node) => {
     if (node.kind !== 'scalar' || node.pack === null) return null;
     if (node.type === 'null') return () => null;
+    // A bridge (Schema.resolve) packs the reader's value into the writer's form.
+    if (node.writer !== undefined) return node.pack;
     if (node.type === 'bigint' || node.type === 'bytes') return null;
     const { pack } = node;
     if (node.always !== true) return pack;
@@ -54,6 +65,8 @@ const build = (plan, context) => {
   };
 
   const scalarWriter = (node) => {
+    // A bridge writes the writer's form; a value the reader drops never travels.
+    if (node.writer !== undefined && node.type !== 'null') return scalarWriter(node.writer);
     if (node.decimals !== undefined) return (w, v) => w.svar(v);
     switch (node.type) {
       case 'number':
@@ -97,7 +110,56 @@ const build = (plan, context) => {
     if (r.pos > r.end) length();
   };
 
+  // The text wire's form of the writer's scalar, for a bridge (Schema.resolve)
+  // to convert: an enum's index, a flags mask, an integer or a string, the
+  // writer types a bridge reads.
+  const rawReader = (node) => {
+    if (node.type === 'enum') {
+      const wide = node.values.length > BYTE;
+      if (!validate) return wide ? (r) => r.uvar() : (r) => r.u8();
+      return (r) => {
+        const t = wide ? r.uvar() : r.u8();
+        if (wide) truncated(r);
+        return t;
+      };
+    }
+    if (node.type === 'flags') {
+      const words = wordsOf(node);
+      const read = words === 1 ? (r) => r.uvar() : (r) => r.words(words);
+      if (!validate) return read;
+      return (r) => {
+        const v = read(r);
+        truncated(r);
+        return v;
+      };
+    }
+    // An integer and a string read as their own text form.
+    return scalarReader(node);
+  };
+
+  // A resolved scalar (Schema.resolve): a value the reader drops is read in
+  // the writer's form, whatever it is, and dropped; a bridge converts the
+  // writer's form, checked with validation.
+  const bridgedReader = (node) => {
+    if (node.type === 'null') {
+      const read = readerOf(node.writer);
+      return (r) => {
+        read(r);
+        return null;
+      };
+    }
+    const raw = rawReader(node.writer);
+    const { unpack, checkedUnpack } = node;
+    if (!validate) return (r) => unpack(raw(r));
+    return (r) => {
+      const v = checkedUnpack(raw(r));
+      if (v === undefined) fail(node.code, '', node.expected);
+      return v;
+    };
+  };
+
   const scalarReader = (node) => {
+    if (node.writer !== undefined) return bridgedReader(node);
     if (node.decimals !== undefined) {
       const scale = 10 ** node.decimals;
       if (!validate) return (r) => r.svar() / scale;
@@ -239,21 +301,25 @@ const build = (plan, context) => {
   const structWriter = (node) => {
     const keys = node.fields.map((field) => field.key);
     const size = keys.length;
-    const header = node.fields.filter((field) => inHeader(field.node));
+    const header = node.fields.filter((field) => inHeader(wireOf(field.node)));
     const bytes = (size + header.length + 7) >> 3;
     const flagBit = node.fields.map((field) =>
-      inHeader(field.node) ? size + header.indexOf(field) : -1,
+      inHeader(wireOf(field.node)) ? size + header.indexOf(field) : -1,
     );
-    // A boolean field has no writer: its value goes into the header.
-    const writers = node.fields.map((field) =>
-      inHeader(field.node) ? null : slotWriter(field.node, step(field.key)),
-    );
+    // A boolean field has no writer: its value goes into the header. A field
+    // only the writer has, or one the reader drops (Schema.resolve), and a
+    // null field never travel.
+    const writers = node.fields.map((field) => {
+      if (field.key === null || field.node.type === 'null') return undefined;
+      return inHeader(field.node) ? null : slotWriter(field.node, step(field.key));
+    });
     const branch = node.tag !== undefined;
     return (w, object) => {
       if (!branch && (typeof object !== 'object' || Array.isArray(object))) refuse('object', '');
       const start = w.bitmap(bytes * 8);
       for (let i = 0; i < size; i++) {
         const write = writers[i];
+        if (write === undefined) continue;
         if (write === null) {
           const v = object[keys[i]];
           if (v == null) continue;
@@ -277,18 +343,27 @@ const build = (plan, context) => {
   // Objects start as a copy of a literal-shaped template, so every decoded
   // record has one hidden class.
   const structReader = (node) => {
+    // A field only the writer has (Schema.resolve) has no key: it is read,
+    // under the writer's key on an error, and dropped.
     const keys = node.fields.map((field) => field.key);
     const size = keys.length;
-    const header = node.fields.filter((field) => inHeader(field.node));
+    const header = node.fields.filter((field) => inHeader(wireOf(field.node)));
     const bytes = (size + header.length + 7) >> 3;
+    // A boolean the reader drops has its bit in the header and reads as null.
     const flagBit = node.fields.map((field) =>
-      inHeader(field.node) ? size + header.indexOf(field) : -1,
+      inHeader(wireOf(field.node)) && !droppedBit(field.node) ? size + header.indexOf(field) : -1,
     );
-    const readers = node.fields.map((field) =>
-      slotReader(field.node, field.required, field.def, step(field.key)),
-    );
+    const readers = node.fields.map((field) => {
+      if (droppedBit(field.node)) return () => null;
+      const path = step(field.key === null ? field.wire : field.key);
+      return slotReader(field.node, field.required, field.def, path);
+    });
     const { tag } = node;
-    const template = literal(tag === undefined ? keys : tag.keys, 'null');
+    // A resolved record's template has the reader's keys in its order, with
+    // the reader's fields the writer does not have at their defaults.
+    const order = node.order === undefined ? keys : node.order;
+    const template = literal(tag === undefined ? order : tag.keys, 'null');
+    if (node.extras !== undefined) for (const extra of node.extras) template[extra.key] = extra.def;
     return (r, t) => {
       const start = r.pos;
       if (validate && start + bytes > r.end) length();
@@ -298,40 +373,47 @@ const build = (plan, context) => {
       for (let i = 0; i < size; i++) {
         const present = bit(r, start, i);
         const flag = flagBit[i];
-        object[keys[i]] = flag === -1 || !present ? readers[i](r, present) : bit(r, start, flag);
+        const value = flag === -1 || !present ? readers[i](r, present) : bit(r, start, flag);
+        if (keys[i] !== null) object[keys[i]] = value;
       }
       return object;
     };
   };
 
-  // The branch a tag belongs to: tags run through the branches in order.
+  // The branch a tag belongs to: tags run through the branches in order. A
+  // branch the reader has no values of (Schema.resolve) has none: its tags
+  // are errors.
   const branchOf = (node) => {
     const out = [];
     node.branches.forEach((branch, b) => {
-      for (let i = 0; i < branch.count; i++) out.push(b);
+      for (let i = 0; i < branch.count; i++) out.push(branch.node === null ? undefined : b);
     });
     return out;
   };
 
+  const branchCodecs = (node, make) =>
+    node.branches.map((branch) => (branch.node === null ? null : make(branch.node)));
+
   const unionWriter = (node) => {
     const { key, tag } = node;
     const wide = tag.values.length > BYTE;
-    const writers = node.branches.map((branch) => structWriter(branch.node));
+    const writers = branchCodecs(node, structWriter);
     const branches = branchOf(node);
     return (w, object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const t = tag.checkedPack(object[key]);
-      if (t === undefined) refuse('union', step(key), tag.expected);
+      const b = branches[t];
+      if (b === undefined) refuse('union', step(key), tag.expected);
       if (wide) w.uvar(t);
       else w.u8(t);
-      writers[branches[t]](w, object);
+      writers[b](w, object);
     };
   };
 
   const unionReader = (node) => {
     const { key, tag } = node;
     const wide = tag.values.length > BYTE;
-    const readers = node.branches.map((branch) => structReader(branch.node));
+    const readers = branchCodecs(node, structReader);
     const branches = branchOf(node);
     const where = step(key);
     return (r) => {
@@ -358,7 +440,8 @@ const build = (plan, context) => {
     const { item } = node;
     const value = valueOf(item);
     const write = indexed(writerOf(item));
-    const nullable = !node.itemRequired;
+    // The wire's optionality is the writer's (Schema.resolve).
+    const nullable = !wireOf(node).itemRequired;
     const set = node.container === 'set';
     const expected = expectedOf(item);
     return (w, input) => {
@@ -402,16 +485,24 @@ const build = (plan, context) => {
   const arrayReader = (node) => {
     const { item } = node;
     const read = indexed(readerOf(item));
-    const nullable = !node.itemRequired;
+    const nullable = !wireOf(node).itemRequired;
     const count = counter(nullable ? 8 : 1);
     const set = node.container === 'set';
+    // An absent item where the reader requires one (Schema.resolve) is refused
+    // as a null one is on the text wire.
+    const refused = nullable && node.itemRequired && validate;
+    const expected = expectedOf(item);
     return (r) => {
       const n = count(r);
       const out = new Array(n);
       if (nullable) {
         const start = r.pos;
         r.pos = start + ((n + 7) >> 3);
-        for (let i = 0; i < n; i++) out[i] = bit(r, start, i) ? read(r, undefined, i) : null;
+        for (let i = 0; i < n; i++) {
+          if (bit(r, start, i)) out[i] = read(r, undefined, i);
+          else if (refused) fail('type', `[${i}]`, expected);
+          else out[i] = null;
+        }
       } else {
         for (let i = 0; i < n; i++) out[i] = read(r, undefined, i);
       }
@@ -419,8 +510,9 @@ const build = (plan, context) => {
     };
   };
 
-  // A map's or a dictionary's value: behind a presence byte when it may be
-  // null, as it is when required.
+  // A map's or a dictionary's value: behind a presence byte when the writer
+  // may omit it, as it is when the wire requires it (Schema.resolve: the
+  // writer's optionality); one the reader requires is refused when absent.
   const valueWriter = (node, required) => {
     const value = valueOf(node);
     const write = writerOf(node);
@@ -438,13 +530,17 @@ const build = (plan, context) => {
     };
   };
 
-  const valueReader = (node, required) => {
+  const valueReader = (node, onWire, required) => {
     const read = readerOf(node);
-    if (required) return read;
+    if (onWire) return read;
+    const refused = required && validate;
+    const expected = expectedOf(node);
     return (r) => {
       const f = r.u8();
       if (validate && !(f < 2)) length();
-      return f === 1 ? read(r) : null;
+      if (f === 1) return read(r);
+      if (refused) fail('type', '', expected);
+      return null;
     };
   };
 
@@ -456,7 +552,7 @@ const build = (plan, context) => {
       key(w, pair[0]);
       value(w, pair[1]);
     });
-    const value = valueWriter(node.value, node.valueRequired);
+    const value = valueWriter(node.value, wireOf(node).valueRequired);
     return (w, map) => {
       if (!isMap(map)) refuse('map', '');
       w.uvar(map.size);
@@ -483,7 +579,7 @@ const build = (plan, context) => {
       const k = key(r);
       return [k, value(r)];
     });
-    const value = valueReader(node.value, node.valueRequired);
+    const value = valueReader(node.value, wireOf(node).valueRequired, node.valueRequired);
     const count = counter(1);
     return (r) => {
       const n = count(r);
@@ -506,7 +602,7 @@ const build = (plan, context) => {
   };
 
   const dictWriter = (node) => {
-    const value = keyed(valueWriter(node.value, node.valueRequired));
+    const value = keyed(valueWriter(node.value, wireOf(node).valueRequired));
     return (w, object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const keys = Object.keys(object);
@@ -520,7 +616,7 @@ const build = (plan, context) => {
   };
 
   const dictReader = (node) => {
-    const value = keyed(valueReader(node.value, node.valueRequired));
+    const value = keyed(valueReader(node.value, wireOf(node).valueRequired, node.valueRequired));
     const count = counter(1);
     return (r) => {
       const n = count(r);
@@ -544,18 +640,25 @@ const build = (plan, context) => {
     };
   };
 
+  // The writer's trailing elements the reader does not have (Schema.resolve)
+  // are read and dropped; the reader's elements the writer does not have
+  // follow at their defaults.
   const tupleReader = (node) => {
     const size = node.items.length;
     const bytes = (size + 7) >> 3;
     const readers = node.items.map((item, i) =>
       slotReader(item.node, item.required, item.def, `[${i}]`),
     );
+    const read = node.items.filter((item) => item.skip !== true).length;
+    const extras = node.extras === undefined ? [] : node.extras.map((extra) => extra.def);
     return (r) => {
       const start = r.pos;
       r.pos = start + bytes;
       if (validate) truncated(r);
-      const out = new Array(size);
-      for (let i = 0; i < size; i++) out[i] = readers[i](r, bit(r, start, i));
+      const out = new Array(read + extras.length);
+      for (let i = 0; i < read; i++) out[i] = readers[i](r, bit(r, start, i));
+      for (let i = read; i < size; i++) readers[i](r, bit(r, start, i));
+      for (let i = 0; i < extras.length; i++) out[read + i] = extras[i];
       return out;
     };
   };

@@ -662,6 +662,7 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
       delta: [],
       references: 'embed',
       types: {},
+      fingerprint: 'fnv1a32',
       entities: {
         Address: {
           sparse: false,
@@ -670,6 +671,7 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
           delta: [],
           references: 'embed',
           types: {},
+          fingerprint: 'fnv1a32',
         },
       },
     },
@@ -687,6 +689,7 @@ test('Evolve: a baseline writes the schemas as JSON and restore builds them agai
       delta: [],
       references: 'kind',
       types: {},
+      fingerprint: 'fnv1a32',
       entities: {},
     },
     canonical: V1.toString(),
@@ -741,9 +744,9 @@ test('Evolve: a baseline with a fingerprint of its own, and what restore refuses
   const reached = JSON.parse(JSON.stringify(baseline({ User: entities.User })));
   assert.strictEqual(reached.schemas.User.options.entities.Address.fingerprint, null);
   assert.strictEqual(restore(reached).User.toString(), '{home:@Address}');
-  // The default fingerprint names none, and the id is checked.
+  // The default fingerprint is named too, and the id is checked.
   const plain = JSON.parse(JSON.stringify(baseline({ A: define({ a: 'string' }) })));
-  assert.strictEqual(plain.schemas.A.options.fingerprint, undefined);
+  assert.strictEqual(plain.schemas.A.options.fingerprint, 'fnv1a32');
   assert.strictEqual(restore(plain).A.id, define({ a: 'string' }).id);
   const forged = (change) => {
     const copy = JSON.parse(JSON.stringify(plain));
@@ -763,7 +766,7 @@ test('Evolve: a baseline with a fingerprint of its own, and what restore refuses
   // A baseline written by hand may leave the entities out.
   const bare = forged((copy) => delete copy.schemas.A.options.entities);
   assert.strictEqual(restore(bare).A.id, plain.schemas.A.id);
-  // A fingerprint by name is given to the schema (none is built in yet).
+  // A fingerprint by a name protoarray does not know is the schema's refusal.
   assert.throws(() => restore(forged((copy) => (copy.schemas.A.options.fingerprint = 'sha1'))), {
     code: 'ERR_INVALID_OPTIONS',
   });

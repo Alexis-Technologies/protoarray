@@ -32,7 +32,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over every d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench bin
 pnpm run format                    # oxfmt src tests scripts bench bin (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 22 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes of index.js and browser.js, and what each subpath adds; CI gates the core at 23 KB min+gzip
 node bin/protoarray.js compile <module> [--out f] [--format cjs|esm] [--runtime import|inline] [--only A,B]   # the CLI
 pnpm bench [filter] [--json] [--save] [--compare]   # engine ops/sec (median of 5 rounds ± spread), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--scenarios a,b] [--adapters x,y] [--no-cold-start] [--save]   # against JSON and 11 codecs, plus the cold start; --save merges into bench/results/compare.json
@@ -388,7 +388,7 @@ time.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
-- Bundle budget: 22 KB min+gzip for either entry (`pnpm size --max-gzip 22` in CI). Size does not
+- Bundle budget: 23 KB min+gzip for either entry (`pnpm size --max-gzip 23` in CI). Size does not
   limit features: when a change needs more, raise the gate to the next whole KB above the measured
   size, in the same commit. Measure after any change to `src/`.
 

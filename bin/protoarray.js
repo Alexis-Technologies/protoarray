@@ -127,7 +127,10 @@ const write = (args, text) => {
 
 const compile = async (args) => {
   const schemas = schemasOf(await load(args.file), args.only);
-  write(args, toSource(schemas, { runtime: args.runtime, format: args.format, binary: args.binary }));
+  write(
+    args,
+    toSource(schemas, { runtime: args.runtime, format: args.format, binary: args.binary }),
+  );
 };
 
 const snapshot = async (args) => {

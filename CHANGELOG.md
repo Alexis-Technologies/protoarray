@@ -83,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ERR_COMPILED_MISMATCH`, generate it again. The `./standalone` subpath brings the generator of
   the binary wire and the wire kernel, +7.7 KB min+gzip over the core where it was +2.4 KB; an
   inline module without `binary` is unchanged.
+- The core is 22.0 KB min+gzip (the Node.js entry) and 22.3 KB (the browser entry) with the
+  string functions of the binary wire in the runtime twins and the 64-bit fingerprint; the bundle
+  budget is 23 KB (`pnpm size --max-gzip 23` in CI).
 
 ### Fixed
 

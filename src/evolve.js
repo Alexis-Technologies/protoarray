@@ -14,7 +14,7 @@
 // another at runtime, by name. `register()` installs `Schema.compatible`.
 
 const { SchemaDefinitionError, overflowed, join, step } = require('./errors.js');
-const { PLAN, canonical, isSchema, referenced, fingerprint } = require('./plan.js');
+const { PLAN, canonical, isSchema, referenced } = require('./plan.js');
 const { isObject } = require('./snapshot.js');
 const { Schema, SETTINGS, ENTITY, SAME } = require('./schema.js');
 
@@ -425,20 +425,17 @@ const compatible = (previous, next, options) => {
 // `stringify`, `maxDepth`) change neither.
 const WIRE = ['sparse', 'layout', 'intern', 'delta', 'references', 'types'];
 
-// The fingerprint as a baseline carries it: a built-in one by its name, the
-// default one by nothing, and a function of your own, which cannot travel in
-// JSON, as null, so the id is recorded and not checked.
-const named = (settings) => {
-  const hash = settings.fingerprint;
-  const out = hash === fingerprint || typeof hash === 'string' ? hash : null;
-  return typeof out === 'function' ? undefined : out;
-};
+// The fingerprint as a baseline carries it: a built-in one by its name (the
+// default `fnv1a32` too, so a baseline says how its ids were computed), and a
+// function of your own, which cannot travel in JSON, as null, so the id is
+// recorded and not checked.
+const named = (settings) =>
+  typeof settings.fingerprint === 'string' ? settings.fingerprint : null;
 
 const wireOptions = (settings) => {
   const out = {};
   for (const key of WIRE) out[key] = settings[key];
-  const hash = named(settings);
-  if (hash !== undefined) out.fingerprint = hash;
+  out.fingerprint = named(settings);
   return out;
 };
 

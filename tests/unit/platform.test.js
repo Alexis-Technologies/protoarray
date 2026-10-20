@@ -153,6 +153,67 @@ test('Platform: the runtime twins agree on the strings of the binary wire', () =
 
 // Source text is compiled in exactly one place, behind a probe with a
 // closures fallback; nothing else may reach for `Function` or `eval`.
+test('Platform: the version the package writes is its own', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.strictEqual(require('../../src/version.js').VERSION, pkg.version);
+});
+
+// A BigInt literal is ES2020 syntax every consumer's bundler would have to
+// take, for a feature few use: the 64-bit fingerprint runs on two 32-bit
+// halves instead, and `bigint` values are made with `BigInt()`.
+test('Platform: no BigInt literal in src/', () => {
+  const offenders = [];
+  for (const file of listFiles(SRC)) {
+    const code = fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join('\n');
+    if (/\b(?:0x[0-9a-fA-F]+|\d+)n\b/.test(code)) offenders.push(path.relative(SRC, file));
+  }
+  assert.deepStrictEqual(offenders, []);
+});
+
+// Buffer's `utf8Slice`, `ucs2Write` and `ucs2Slice` are Node's own, not in its
+// documentation: a runtime whose Buffer lacks one gets the browser twin's
+// loops, decided when the twin loads.
+test('Platform: the Node runtime falls back to the browser twin where Buffer lacks a method', () => {
+  const file = require.resolve('../../src/runtime/node.js');
+  const browser = require('../../src/runtime/browser.js');
+  const native = require(file);
+  assert.notStrictEqual(native.readUtf8, browser.readUtf8);
+  const { ucs2Write } = Buffer.prototype;
+  delete require.cache[file];
+  Buffer.prototype.ucs2Write = undefined;
+  let loaded;
+  try {
+    loaded = require(file);
+  } finally {
+    Buffer.prototype.ucs2Write = ucs2Write;
+    delete require.cache[file];
+  }
+  assert.strictEqual(loaded.readUtf8, browser.readUtf8);
+  assert.strictEqual(loaded.writeUtf16, browser.writeUtf16);
+  assert.strictEqual(loaded.readUtf16, browser.readUtf16);
+  const bytes = Uint8Array.of(0, 1, 2, 250, 251);
+  assert.strictEqual(loaded.toBase64(bytes), native.toBase64(bytes));
+  assert.deepStrictEqual(loaded.fromBase64(native.toBase64(bytes)), bytes);
+  // Loaded again with Buffer whole, the twin is Buffer's again.
+  assert.notStrictEqual(require(file).readUtf8, browser.readUtf8);
+});
+
+// A byte order mark at the start of a string is a character of it on both
+// twins: the browser's decoder is made to keep it, as Buffer's does.
+test('Platform: the runtime twins keep a byte order mark', () => {
+  const node = require('../../src/runtime/node.js');
+  const browser = require('../../src/runtime/browser.js');
+  for (const text of [`\ufeff${'x'.repeat(70)}`, '\ufeffab', '\ufeff']) {
+    const bytes = new Uint8Array(Buffer.from(text, 'utf8'));
+    assert.strictEqual(node.readUtf8(bytes, 0, bytes.length), text);
+    assert.strictEqual(browser.readUtf8(bytes, 0, bytes.length), text);
+  }
+});
+
 test('Platform: code generation lives in src/codegen.js only', () => {
   const offenders = [];
   for (const file of listFiles(SRC)) {
@@ -187,10 +248,12 @@ test('Platform: no dependency, metaschema included', () => {
     }
   }
   assert.deepStrictEqual(offenders, []);
-  // The typings read metaschema's types by their shape: none imports them.
+  // The typings read metaschema's types by their shape: none imports them,
+  // every d.ts the package ships included (the list is the package's own).
   const imports = /from\s+['"]@alexify\/metaschema|import\(\s*['"]@alexify\/metaschema/;
-  for (const dts of ['index.d.ts', 'registry.d.ts', 'resolve.d.ts', 'stream.d.ts']) {
+  const typings = pkg.files.filter((file) => file.endsWith('.d.ts'));
+  assert.ok(typings.length >= 7, typings.join(', '));
+  for (const dts of typings) {
     assert.ok(!imports.test(fs.readFileSync(path.join(ROOT, dts), 'utf8')), dts);
   }
-  assert.ok(!imports.test(fs.readFileSync(path.join(ROOT, 'standalone.d.ts'), 'utf8')));
 });

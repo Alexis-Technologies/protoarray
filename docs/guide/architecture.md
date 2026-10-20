@@ -41,7 +41,7 @@ flowchart LR
     STA["./standalone · 8.2 KB<br/>toSource · the runtimes · both wires"] --> CORE
     BIN["./binary · 8.6 KB<br/>toBinary · fromBinary"] --> CORE
     CLI["bin/protoarray.js<br/>protoarray compile"] --> STA
-    CORE["@alexify/protoarray · 21.5 KB<br/>Schema · encode · decode · stringify · parse<br/>both backends · every type and layout"]
+    CORE["@alexify/protoarray · 22.6 KB<br/>Schema · encode · decode · stringify · parse<br/>both backends · every type and layout"]
     MS["@alexify/metaschema<br/>(optional, injected)"] -.->|"{ metaschema } reads a definition"| CORE
 ```
 

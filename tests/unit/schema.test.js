@@ -1023,6 +1023,36 @@ test('Schema: the built-in fingerprints', () => {
     assert.strictEqual(FINGERPRINTS.fnv1a32(text), narrow, text);
     assert.strictEqual(FINGERPRINTS.fnv1a64(text), wide, text);
   }
+  // The 64-bit hash runs on two 32-bit halves: a BigInt a code unit, the
+  // reference here, agrees with it on texts of every kind of code unit.
+  const reference = (text) => {
+    let hash = 0xcbf29ce484222325n;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash ^ BigInt(text.charCodeAt(i))) * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+    return hash.toString(16).padStart(16, '0');
+  };
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const ranges = [
+    [0x20, 0x7f],
+    [0x400, 0x4ff],
+    [0x3040, 0x30ff],
+    [0xd800, 0xdfff],
+    [0xff00, 0xffff],
+  ];
+  for (let i = 0; i < 1000; i++) {
+    const length = i < 10 ? i : Math.floor(random() * 300);
+    let text = '';
+    for (let j = 0; j < length; j++) {
+      const [low, high] = ranges[Math.floor(random() * ranges.length)];
+      text += String.fromCharCode(low + Math.floor(random() * (high - low + 1)));
+    }
+    assert.strictEqual(FINGERPRINTS.fnv1a64(text), reference(text), JSON.stringify(text));
+  }
   // A named hash of a signature, piece by piece, is the hash of the text.
   const entities = {
     Address: { Struct: {}, city: 'string' },

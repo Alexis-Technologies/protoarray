@@ -5,6 +5,34 @@ const { BACKENDS, normalize } = require('../support/backends.js');
 const { VECTORS } = require('../support/vectors.js');
 const { define, named, model } = require('../support/schema.js');
 
+// The closures backend decides what to do with a slot by its kind, and a
+// converted type checks and converts in one call under validation: every type
+// with an `unpack` has a `checkedUnpack`, or the two backends would check in
+// another order.
+test('Types: every converted type checks and converts in one call', () => {
+  const types = require('../../src/types.js');
+  const flags = types.flags(['a', 'b']);
+  const enumeration = types.enumeration(['x', 'y']);
+  const nodes = [
+    ...Object.keys(types.SCALARS).map((name) => types.SCALARS[name]()),
+    enumeration,
+    flags,
+    types.decimal(2),
+    types.interned(),
+    types.deltas(types.SCALARS.integer(), true),
+    types.bridge.bigint(),
+    types.bridge.enumeration(enumeration, types.enumeration(['x']), null),
+    types.bridge.choice(enumeration, null),
+    types.bridge.flags(flags, types.flags(['a'])),
+    types.bridge.ignore(),
+  ];
+  for (const node of nodes) {
+    assert.strictEqual(node.kind, 'scalar');
+    assert.ok(node.unpack === null || typeof node.checkedUnpack === 'function', node.type);
+    assert.ok(node.pack === null || node.unpack !== null, node.type);
+  }
+});
+
 for (const [backend, options] of BACKENDS) {
   for (const vector of VECTORS) {
     test(`Codec (${backend}): ${vector.name}`, () => {

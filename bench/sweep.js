@@ -1,6 +1,7 @@
 /**
- * How the cost of a record grows with its width, per backend: the protocol of
- * the article's e5 stand. Each (backend, width) point runs in a fresh process:
+ * How the cost of a record grows with its width, per backend, the measurement
+ * behind the table of docs/guide/runtimes.md (`pnpm bench:report` renders it
+ * from the saved results). Each (backend, width) point runs in a fresh process:
  * 128 records of `n` fields (string, integer, boolean and number in turn) are
  * encoded and decoded in rotation, and the number is the median of five rounds
  * after a warm-up, so one object staying hot in the caches is not what is
@@ -154,14 +155,15 @@ const fit = (points) => {
 const ns = (ops) => 1e9 / ops;
 const cell = (text, width = 26) => String(text).padStart(width);
 
-const report = (widths, backends, points) => {
+// The tables on the console (none with `quiet`, for `--json`), and the fits,
+// which the saved results carry either way.
+const report = (widths, backends, points, quiet) => {
+  const log = quiet ? () => {} : console.log;
   const at = (backend, n) => points.find((p) => p.backend === backend && p.n === n);
   const fits = {};
   for (const op of ['decode', 'encode']) {
-    console.log(`\n${op}: ns per operation (ns per field)`);
-    console.log(
-      cell('fields', 8) + backends.map((b) => cell(b)).join('') + cell('closures/codegen', 18),
-    );
+    log(`\n${op}: ns per operation (ns per field)`);
+    log(cell('fields', 8) + backends.map((b) => cell(b)).join('') + cell('closures/codegen', 18));
     fits[op] = {};
     for (const n of widths) {
       const row = backends.map((backend) => {
@@ -169,21 +171,21 @@ const report = (widths, backends, points) => {
         return cell(`${ns(p[op]).toFixed(0)} (${(ns(p[op]) / n).toFixed(1)})`);
       });
       const ratio = ns(at('closures', n)[op]) / ns(at('codegen', n)[op]);
-      console.log(cell(n, 8) + row.join('') + cell(`×${ratio.toFixed(2)}`, 18));
+      log(cell(n, 8) + row.join('') + cell(`×${ratio.toFixed(2)}`, 18));
     }
     const line = backends.map((backend) => {
       const f = fit(widths.map((n) => [n, ns(at(backend, n)[op])]));
       fits[op][backend] = f;
       return cell(`${f.a.toFixed(0)} + ${f.b.toFixed(1)}·n  R²=${f.r2.toFixed(3)}`, 26);
     });
-    console.log(`\n${cell('fit', 8)}${line.join('')}`);
+    log(`\n${cell('fit', 8)}${line.join('')}`);
     for (let i = 1; i < widths.length; i++) {
       if (widths[i] !== widths[i - 1] + 1) continue;
       const steps = backends.map((backend) => {
         const ratio = ns(at(backend, widths[i])[op]) / ns(at(backend, widths[i - 1])[op]);
         return cell(`×${ratio.toFixed(2)}`);
       });
-      console.log(cell(`${widths[i - 1]}→${widths[i]}`, 8) + steps.join(''));
+      log(cell(`${widths[i - 1]}→${widths[i]}`, 8) + steps.join(''));
     }
   }
   return fits;
@@ -198,6 +200,11 @@ const main = () => {
     .split(',')
     .map(Number)
     .filter((n) => Number.isInteger(n) && n > 0);
+  if (widths.length === 0) {
+    console.error('Usage: pnpm bench:sweep [--widths 4,8,16] [--standalone] [--json] [--save]');
+    process.exitCode = 2;
+    return;
+  }
   const backends = args.includes('--standalone') ? [...BACKENDS, 'standalone'] : BACKENDS;
   const json = args.includes('--json');
   const points = [];
@@ -213,7 +220,7 @@ const main = () => {
       }
     }
   }
-  const fits = json ? null : report(widths, backends, points);
+  const fits = report(widths, backends, points, json);
   const snapshot = {
     node: process.version,
     date: new Date().toISOString(),
@@ -221,7 +228,7 @@ const main = () => {
     widths,
     backends,
     points,
-    fits: fits ?? undefined,
+    fits,
   };
   if (json) console.log(JSON.stringify(snapshot, null, 2));
   if (args.includes('--save')) {

@@ -41,12 +41,14 @@ const kernel = () => {
 
   // The strings of the binary wire. `start` has room for two bytes a
   // character; a write gives the bytes written. The decoder is made on first
-  // use, not at load. The platform has no UTF-16 encoder, and its decoder
-  // replaces a lone surrogate, which the wire keeps: loops do both, the read
-  // in chunks below any engine's argument limit.
+  // use, not at load, and keeps a byte order mark, as Buffer's decoder does:
+  // the two twins read the same bytes as the same string. The platform has
+  // no UTF-16 encoder, and its decoder replaces a lone surrogate, which the
+  // wire keeps: loops do both, the read in chunks below any engine's
+  // argument limit.
   let decoder = null;
   const readUtf8 = (bytes, start, end) => {
-    if (decoder === null) decoder = new TextDecoder();
+    if (decoder === null) decoder = new TextDecoder('utf-8', { ignoreBOM: true });
     return decoder.decode(bytes.subarray(start, end));
   };
   const writeUtf16 = (bytes, text, start) => {

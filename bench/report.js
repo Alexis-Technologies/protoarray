@@ -4,8 +4,9 @@
  *   embedded by the README, where no script can render the interactive
  *   charts of the docs);
  * - the tables between `<!-- bench:<name>:start -->` and `:end -->` markers
- *   in README.md and docs/guide/benchmarks.md (the docs pages render the same
- *   models interactively above them).
+ *   in README.md, docs/guide/benchmarks.md (the docs pages render the same
+ *   models interactively above them) and docs/guide/runtimes.md (the cost of
+ *   a record by its width, from bench/results/sweep.json).
  * Both come from bench/report/model.mjs, so a chart and its table cannot
  * disagree. Text outside the markers is never touched.
  *
@@ -13,8 +14,8 @@
  * bench/results/size.json (pnpm size:compare --save),
  * bench/results/releases.json (pnpm bench:releases),
  * bench/results/binary.json (the run of the binary-wire spike that decided
- * the ./binary subpath, kept as it was, docs only) and bench/baseline.json
- * (pnpm bench --save).
+ * the ./binary subpath, kept as it was, docs only), bench/results/sweep.json
+ * (pnpm bench:sweep --save) and bench/baseline.json (pnpm bench --save).
  *
  * Run: pnpm bench:report
  */
@@ -28,6 +29,7 @@ const IMAGE_BASE = 'https://protoarray.vercel.app/benchmarks';
 const TARGETS = {
   readme: path.join(ROOT, 'README.md'),
   docs: path.join(ROOT, 'docs', 'guide', 'benchmarks.md'),
+  runtimes: path.join(ROOT, 'docs', 'guide', 'runtimes.md'),
 };
 const HEADLINE = 'single';
 const GENERATED =
@@ -74,6 +76,7 @@ const main = async () => {
   const size = readJson(path.join(RESULTS, 'size.json'));
   const releases = readJson(path.join(RESULTS, 'releases.json'));
   const binary = readJson(path.join(RESULTS, 'binary.json'));
+  const sweep = readJson(path.join(RESULTS, 'sweep.json'));
   const baseline = readJson(path.join(__dirname, 'baseline.json'));
 
   fs.rmSync(SVG_DIR, { recursive: true, force: true });
@@ -272,6 +275,40 @@ const main = async () => {
           scenarioNote(binary, caption, 'binary.json'),
         ]),
       ].join('\n\n'),
+    };
+  }
+
+  // The cost of a record by its width (sweep.json): the table of the runtimes
+  // guide, a few of the widths measured, in the time of one operation.
+  if (sweep) {
+    const at = (backend, n) => sweep.points.find((p) => p.backend === backend && p.n === n);
+    const time = (ops) => {
+      const ns = 1e9 / ops;
+      return ns < 1000 ? `${Math.round(ns)} ns` : `${(ns / 1000).toFixed(1)} µs`;
+    };
+    const widths = [4, 16, 64, 128, 256].filter((n) => sweep.widths.includes(n));
+    const columns = ['decode', 'encode'].flatMap((op) =>
+      ['json', 'codegen', 'closures'].map((backend) => [backend, op]),
+    );
+    const rows = widths.map((n) => [
+      String(n),
+      ...columns.map(([backend, op]) => time(at(backend, n)[op])),
+    ]);
+    const header = [
+      'Fields',
+      '`JSON.parse`, keyed',
+      'parse, codegen',
+      'parse, closures',
+      '`JSON.stringify`, keyed',
+      'stringify, codegen',
+      'stringify, closures',
+    ];
+    regions.sweep = {
+      runtimes: table(
+        header,
+        header.map((title) => `${'-'.repeat(title.length - 1)}:`),
+        rows,
+      ),
     };
   }
 

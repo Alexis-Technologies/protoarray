@@ -4,6 +4,7 @@
 // one file under src/ that may require a builtin.
 
 const { Buffer } = require('node:buffer');
+const browser = require('./browser.js');
 
 const toBase64 = (bytes) =>
   Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
@@ -19,11 +20,20 @@ const fromBase64 = (text) => {
 // Buffer's string methods take any Uint8Array as `this`, so the wire's
 // buffers stay plain and nothing is wrapped per call. A write has room for two
 // bytes a character and gives the bytes written; a read gives the string of
-// the bytes between two positions.
+// the bytes between two positions. The methods are Node's own, not in its
+// documentation: a runtime whose Buffer lacks one gets the browser twin's
+// loops instead, decided once here, so the first long string is no surprise.
 const { utf8Slice, ucs2Write, ucs2Slice } = Buffer.prototype;
+const native = [utf8Slice, ucs2Write, ucs2Slice].every((method) => typeof method === 'function');
 
-const readUtf8 = (bytes, start, end) => utf8Slice.call(bytes, start, end);
-const writeUtf16 = (bytes, text, start) => ucs2Write.call(bytes, text, start);
-const readUtf16 = (bytes, start, end) => ucs2Slice.call(bytes, start, end);
+const readUtf8 = native
+  ? (bytes, start, end) => utf8Slice.call(bytes, start, end)
+  : browser.readUtf8;
+const writeUtf16 = native
+  ? (bytes, text, start) => ucs2Write.call(bytes, text, start)
+  : browser.writeUtf16;
+const readUtf16 = native
+  ? (bytes, start, end) => ucs2Slice.call(bytes, start, end)
+  : browser.readUtf16;
 
 module.exports = { toBase64, fromBase64, readUtf8, writeUtf16, readUtf16 };

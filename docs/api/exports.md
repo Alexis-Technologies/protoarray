@@ -85,7 +85,7 @@ interface SchemaOptions {
   entity?: string;                                    // the entity of a snapshot to build
   entities?: Readonly<Record<string, SchemaOptions>>; // options of the entities references reach, by name
   metaschema?: MetaschemaModule;                      // require('@alexify/metaschema') or its ./definition
-  compiled?: { canonical: string; id?: string; codec: object };  // from a standalone module
+  compiled?: { canonical: string; id?: string; codec: object; binary?: object };  // from a standalone module
 }
 
 type ModelOptions = Omit<SchemaOptions, 'sparse' | 'layout' | 'intern' | 'delta' | 'entity' | 'compiled' | 'metaschema'>;

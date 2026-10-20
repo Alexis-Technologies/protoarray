@@ -113,12 +113,16 @@ src/
   errors.js         SchemaDefinitionError, EncodeError, DecodeError, fail/nest helpers (a closed kernel)
   registry.js       SchemaRegistry and the [id, payload] envelope (./registry)
   stream.js         NDJSON, TransformStreams, stringifyItems/parseItems (./stream)
-  standalone.js     toSource, the import runtime, the inline kernel, register (./standalone)
+  standalone.js     toSource (both wires), the import runtime, the inline kernel, register
+                    (./standalone)
   binary.js         toBinary/fromBinary/register: the same schema on the binary wire (./binary);
-                    the codec kept on the schema, the backend the schema runs, refusals
+                    the codec kept on the schema (or carried by a standalone module), the backend
+                    the schema runs
   binary/           wire.js (Writer/Reader kernel over the runtime twin: varints, header bitsets,
                     strings), generate.js (generated backend through codegen.compile),
-                    closures.js (the no-eval twin and reference, same bytes and errors)
+                    closures.js (the no-eval twin and reference, same bytes and errors),
+                    inspect.js (what has no binary form, whether a plan reads float64s; shared
+                    with standalone.js, which must not pull closures.js)
 tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
   support/          BACKENDS + normalize, define/named/model (metaschema injected), the
@@ -256,7 +260,8 @@ LEB128 exact over the safe integers (the sign in the low bit, never forming 2n);
 a byte up to 256 values; a string's length doubled with its form in the low bit, UTF-8 up to 21
 characters (`3 × 21 × 2 < 128`, one length byte), UTF-16 past them or for a lone surrogate,
 read in either form at any length. Both sides need the same schema: nothing is trimmed or
-tolerated. The registry envelope, streams, resolve and standalone modules stay on the text wire.
+tolerated. The registry envelope, streams and resolve stay on the text wire; a standalone module
+written with `binary` carries the binary codec too (below).
 
 **Standalone modules** (`standalone.js`): `errors.js`, `types.js`, `layouts.js` and
 `runtime/browser.js` are closed functions (`kernel`) run once, so their source can be embedded.
@@ -271,8 +276,19 @@ reaches (`trimmed`, as `JSON.parse` of its text), an entity built again with oth
 its members' codecs (`R.compiled`), a rows collection carries its record's codec (`compiled.items`)
 and a nested layout's own codec is built only if called (`compileNested`); a collection inside a
 record with a layout of its own is written in place (`R.nested`). An import module checks the
-runtime it was written against (`R.check(ABI)`). The `inline` runtime embeds the kernels and the `inline` kernel of
-`standalone.js`, which does Schema's work around a codec. Neither needs metaschema.
+runtime it was written against (`R.check(ABI)`; bump `ABI` when the recipes, the slots or the
+module's shape change, and the check refuses any other number). The `inline` runtime embeds the
+kernels and the `inline` kernel of `standalone.js`, which does Schema's work around a codec.
+Neither needs metaschema. With `binary: true` (`--binary`) `toSource` runs
+`binary/generate.generate` on each schema's plan (after `binary/inspect.inspect` refused what has
+no binary form, a reached entity included) and writes the codec next to the text one: in an
+import module as `compiled.binary`, which `binary.js`'s `entryOf` takes instead of building
+(`isCompiled` in `schema.js` validates it, `R.compiled` hands it to the members of an entity built
+again), with `R.slot`'s `write`/`read` reading the carried codec of the referenced schema; in an
+inline module with the embedded wire kernel (`(wire.kernel)(base64)`, the browser runtime twin)
+and `numbers`, the inline kernel wrapping `toBinary`/`fromBinary` as `binary.js` does (one
+writer and reader, `busy` for a re-entrant call; no `finally`, whose throw branch c8 cannot
+cover). Without the option nothing of the binary wire is written.
 
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
 on `EncodeError`/`DecodeError`, writes their path and message once from the trail `nest` added
@@ -405,7 +421,11 @@ change. **This file wins** if they ever disagree.
 - `standalone.test.js` runs generated modules (both runtimes) in a `vm` context created with
   `codeGeneration: { strings: false }`, the package bundled into it, and compares them with the
   schemas on the vectors and random definitions; it also runs the `inline` kernel in process,
-  since c8 attributes code run from embedded source to the `vm` script, not to `src/`.
+  since c8 attributes code run from embedded source to the `vm` script, not to `src/`. Modules
+  written with `binary` are held to `toBinary`/`fromBinary` of the schemas the same way (bytes,
+  values, errors on cut and flipped messages), the random definitions without their `delta`/
+  `intern` options, which have no binary form; `inlineOf(schema, true)` builds the inline
+  kernel's binary codec in process, its slots reaching inline copies through a cache.
   `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/` (modules of metaschema schemas);
   generated files go to the gitignored `tests/.generated/`. `stream.test.js` splits payloads at
   every byte and character for the scanner.

@@ -48,8 +48,8 @@ keeps is everything that makes it JSON.
 - **Text** when the payload has to be readable (logs, a debugger, a REST client), travels over a
   channel that carries text (a JSON API, a WebSocket text frame, NDJSON, `localStorage`, a
   JSON-RPC envelope), is read by a side that only has JSON and the schema, or streams: the
-  [registry](/guide/resolve#the-registry), [resolve](/guide/resolve),
-  [streaming](/guide/streaming) and [standalone modules](/guide/standalone) are the text wire's.
+  [registry](/guide/resolve#the-registry), [resolve](/guide/resolve) and
+  [streaming](/guide/streaming) are the text wire's.
   Through a text channel the bytes would need base64, which costs a third more and the time to
   write and read it, and after gzip or brotli the two wires are close in size (on a list of
   records the text wire is even smaller).
@@ -129,8 +129,10 @@ Numbers need no `delta` on this wire, booleans and small enums are already bits 
 
 The binary codec follows `schema.backend`: generated code where the schema has it, closures
 elsewhere, both writing the same bytes (the test suite holds them to each other on random
-schemas, as it does the text backends). Under a strict CSP the closures are what runs; the
-binary wire is not written into [standalone modules](/guide/standalone) in this release. In
-Node.js the strings go through `Buffer`'s own UTF-8 and UTF-16, in a browser through
-`TextDecoder` and a loop, by the same runtime twin that handles base64. The subpath adds about
-7.7 KB min+gzip to a bundle that uses it; the core is unchanged.
+schemas, as it does the text backends). Under a strict CSP the closures are what runs, unless a
+[standalone module](/guide/standalone#the-binary-wire) written with `--binary` brings the
+generated codec along: an import module's schemas then carry it for `toBinary` and `fromBinary`,
+an inline module's have the two as methods of their own. In Node.js the strings go through
+`Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
+runtime twin that handles base64. The subpath adds about 7.7 KB min+gzip to a bundle that uses
+it; the core is unchanged.

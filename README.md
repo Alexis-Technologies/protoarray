@@ -86,11 +86,11 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
 - **Zero dependencies, about 22 KB min+gzip.** protoarray requires nothing, metaschema included:
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
-  imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve,
-  streaming and standalone extras are subpaths of 1.8–2.5 KB each, the binary wire one of
-  7.7 KB. Generated code where the
+  imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve and
+  streaming extras are subpaths of 1.8–2.5 KB each, the binary wire and the standalone
+  generator ones of 7.7 KB. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
-  standalone module generated at build time.
+  standalone module generated at build time, carrying both wires.
 
 ## Installation
 
@@ -122,7 +122,7 @@ protoarray alone.
 | Delta and interning | `{ delta: ['ids'] }` writes integers as differences (a column, or a list); `{ intern: ['city'] }` writes strings of few values as indexes into one table per message |
 | Migrations | `resolve(writer, reader)` (`@alexify/protoarray/resolve`) reads and writes another version by name, with `aliases`; `SchemaRegistry` keeps versions by id and wraps payloads as `[id, payload]` |
 | Streaming | `encodeEach`/`decodeEach`; NDJSON, `TransformStream`s and the items of a large array read as they arrive (`@alexify/protoarray/stream`) |
-| Standalone modules | `protoarray compile` writes the generated code of your schemas into a module, for a strict CSP and edge runtimes, with no metaschema at runtime (`@alexify/protoarray/standalone`) |
+| Standalone modules | `protoarray compile` writes the generated code of your schemas into a module, for a strict CSP and edge runtimes, with no metaschema at runtime, the binary wire too with `--binary` (`@alexify/protoarray/standalone`) |
 | Binary wire | `toBinary(schema, value)` and `fromBinary(schema, bytes)` put the same schema on bytes: a header of presence bits, varints, float64s, UTF-16 for long strings; for channels that carry bytes and numeric payloads (`@alexify/protoarray/binary`) |
 | Validation | the wire on decode by default: `DecodeError` with codes, paths like `orders[1].sku` and the schema name; the values before encode with metaschema's `check` and `parse` |
 | Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart |

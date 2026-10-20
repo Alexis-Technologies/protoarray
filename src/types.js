@@ -420,6 +420,7 @@ const kernel = (base64) => {
   };
 
   // The functions generated code calls, by the names standalone.js finds them.
+  made(isBytes, 'T.isBytes');
   made(isMap, 'T.isMap');
   made(listOf, 'T.listOf');
   made(put, 'T.put');

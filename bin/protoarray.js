@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * protoarray compile <module> [--out <file>] [--format cjs|esm] [--runtime import|inline]
- *                              [--only <A,B>]
+ *                              [--only <A,B>] [--binary]
  *
  * Loads a module (CommonJS or ES), takes the schemas it exports and writes
  * the module @alexify/protoarray/standalone's toSource makes of them: their
@@ -10,9 +10,10 @@
  * metaschema Model stands for its entities, each under its name. A module
  * whose export is one schema gives a module with that one as its default
  * export; otherwise the schemas keep their export names. `--only` keeps the
- * named ones. Without `--out` the source goes to stdout; `--out` makes the
- * directory it names and never writes over the module it reads. The generated
- * module needs no metaschema.
+ * named ones. `--binary` writes each schema's codec of the binary wire next to
+ * its text codec (a module without it carries no bytes). Without `--out` the
+ * source goes to stdout; `--out` makes the directory it names and never writes
+ * over the module it reads. The generated module needs no metaschema.
  *
  * Exit codes: 0 done (`--help` included), 1 the module or its schemas could
  * not be compiled, 2 the command line is wrong.
@@ -26,7 +27,7 @@ const { toSource } = require('../standalone.js');
 
 const USAGE =
   'Usage: protoarray compile <module> [--out <file>] [--format cjs|esm] ' +
-  '[--runtime import|inline] [--only <A,B>]';
+  '[--runtime import|inline] [--only <A,B>] [--binary]';
 
 const BRAND = Symbol.for('alexify.protoarray.brand');
 const FOREIGN = Symbol.for('alexify.metaschema.brand');
@@ -35,6 +36,7 @@ const isSchema = (value) => isObject(value) && value[BRAND] === true;
 const isForeign = (value, brand) => isObject(value) && value[FOREIGN] === brand;
 
 const VALUED = new Set(['--out', '--format', '--runtime', '--only']);
+const FLAGS = new Set(['--binary']);
 
 // A mistake on the command line, and what the CLI itself refuses of a module
 // that loads: told from an error inside the module, whose stack is reported.
@@ -50,6 +52,7 @@ const parseArgs = (argv) => {
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (!arg.startsWith('--')) files.push(arg);
+    else if (FLAGS.has(arg)) options[arg.slice(2)] = true;
     else if (VALUED.has(arg) && i + 1 < rest.length) options[arg.slice(2)] = rest[++i];
     else throw new UsageError(`Unknown or incomplete option ${arg}\n${USAGE}`);
   }
@@ -127,7 +130,8 @@ const main = async () => {
     throw new UsageError(`--out names the module it compiles: ${args.out}`);
   }
   const schemas = schemasOf(await load(args.file), args.only);
-  const source = toSource(schemas, { runtime: args.runtime, format: args.format });
+  const options = { runtime: args.runtime, format: args.format, binary: args.binary };
+  const source = toSource(schemas, options);
   if (args.out === undefined) process.stdout.write(source);
   else {
     fs.mkdirSync(path.dirname(path.resolve(args.out)), { recursive: true });

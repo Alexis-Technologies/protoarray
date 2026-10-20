@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const { Schema } = require('../../index.js');
+const { toBinary, fromBinary } = require('../../binary.js');
 const { define } = require('../support/schema.js');
 
 const ROOT = path.join(__dirname, '../..');
@@ -99,6 +100,10 @@ test('CLI: what it refuses', () => {
   const unknown = cli('compile', 'tests/fixtures/schemas.js', '--fast');
   assert.strictEqual(unknown.status, 2);
   assert.match(unknown.stderr, /^Unknown or incomplete option --fast/);
+  // A flag takes no value: one given is another file.
+  const valued = cli('compile', 'tests/fixtures/schemas.js', '--binary', 'true');
+  assert.strictEqual(valued.status, 2);
+  assert.match(valued.stderr, usage);
   const incomplete = cli('compile', 'tests/fixtures/schemas.js', '--out');
   assert.match(incomplete.stderr, /^Unknown or incomplete option --out/);
   const missing = cli('compile', 'tests/fixtures/schemas.js', '--only', 'Nope');
@@ -202,4 +207,55 @@ test('CLI: a module of one schema, one that waits at its top, one that throws a 
   const thrown = cli('compile', throwing);
   assert.strictEqual(thrown.status, 1);
   assert.strictEqual(thrown.stderr, 'not an error\n');
+});
+
+test('CLI: --binary writes the binary wire next to the text codec', () => {
+  const { Address, User } = require('../fixtures/schemas.js');
+  const reference = { Address: Schema.from(Address), User: Schema.from(User) };
+  const user = { id: 1, name: 'A', home: { city: 'K' }, role: 'user' };
+  const inline = cli('compile', 'tests/fixtures/schemas.js', '--runtime', 'inline', '--binary');
+  assert.strictEqual(inline.status, 0, inline.stderr);
+  const copies = runInline(inline.stdout);
+  const bytes = copies.User.toBinary(user);
+  assert.deepStrictEqual(Array.from(bytes), Array.from(toBinary(reference.User, user)));
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(copies.User.fromBinary(bytes))),
+    JSON.parse(JSON.stringify(fromBinary(reference.User, bytes))),
+  );
+  assert.deepStrictEqual(
+    Array.from(copies.Address.toBinary({ city: 'K' })),
+    Array.from(toBinary(reference.Address, { city: 'K' })),
+  );
+  // The text wire is still there.
+  assert.strictEqual(copies.User.stringify(user), '[1,"A",["K"],null,1]');
+  // Without the flag a module carries no bytes.
+  const text = cli('compile', 'tests/fixtures/schemas.js', '--runtime', 'inline');
+  assert.strictEqual(text.status, 0, text.stderr);
+  assert.strictEqual(runInline(text.stdout).User.toBinary, undefined);
+  // An import module carries it in the compiled option, the ES format too.
+  const imported = cli('compile', 'tests/fixtures/schemas.js', '--binary', '--format', 'esm');
+  assert.strictEqual(imported.status, 0, imported.stderr);
+  assert.strictEqual(imported.stdout.match(/binary:\(function/g).length, 2);
+  assert.match(imported.stdout, /^R\.check\(2\);$/m);
+  // A schema with no binary form is refused, named with its field.
+  const dir = path.join(ROOT, 'tests', '.generated');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'interned.js');
+  fs.writeFileSync(
+    file,
+    [
+      "const ms = require('@alexify/metaschema');",
+      "const { Schema } = require('../../index.js');",
+      "const Tag = new Schema('Tag', { name: 'string' }, { metaschema: ms, intern: true });",
+      'module.exports = { Tag };\n',
+    ].join('\n'),
+  );
+  const refused = cli('compile', file, '--binary');
+  assert.strictEqual(refused.status, 1);
+  assert.strictEqual(
+    refused.stderr,
+    'SchemaDefinitionError ERR_NO_BINARY_FORM: The binary wire has no form for an interned ' +
+      'string at "name" (schema "Tag", field "name")\n',
+  );
+  assert.strictEqual(cli('compile', file).status, 0);
 });

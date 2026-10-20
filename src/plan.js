@@ -23,6 +23,9 @@
  * @property {true} [delta] A column of a `columns` collection written as differences.
  * @property {boolean} [required] Only on a root scalar.
  * @property {boolean} [nullable] A slot that holds null as a value (json, null): never required.
+ * @property {Node} [writer] On a node from Schema.resolve whose own form is not the writer's
+ *   wire (a bridge, a value the reader drops, a collection of another optionality): the
+ *   writer's node, which the binary wire reads by.
  *
  * @typedef {object} Field
  * @property {string} key

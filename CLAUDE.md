@@ -53,7 +53,7 @@ pre-merge gate. There is no build step.
   `import`/`export`, no `'use strict'`.
 - The root `index.js` is a one-line shim over `src/index.js`. `browser.js` intentionally mirrors
   it. Do not deduplicate the two (see "Platform"). The subpaths `registry.js`, `resolve.js`,
-  `stream.js` and `standalone.js` are one-line shims over `src/` modules of the same names, each
+  `stream.js`, `standalone.js` and `binary.js` are one-line shims over `src/` modules of the same names, each
   with its own d.ts; they hold what the core does not need, as free functions with the schema
   first, and `register()` installs the methods (`Schema.prototype`, or `Schema.resolve`,
   non-enumerable). Their d.ts declare those methods by module augmentation of `Schema`.
@@ -93,7 +93,7 @@ devDependencies are fine (metaschema for the tests, the comparative benchmark's 
 
 ```
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
-registry.js resolve.js stream.js standalone.js (+ .d.ts)   subpath shims + types
+registry.js resolve.js stream.js standalone.js binary.js (+ .d.ts)   subpath shims + types
 bin/protoarray.js   the CLI: `protoarray compile` (Node, outside src/)
 src/
   index.js          public barrel (explicit named exports)
@@ -105,7 +105,8 @@ src/
   resolve.js        writer plan × reader plan → resolved plan; resolve()/register() (./resolve)
   types.js          scalar type table (a closed kernel): checks, conversions, bridges, interned
                     strings, delta lists, recipes; shared by both backends
-  runtime/          base64 twin for `bytes`: node.js (Buffer) and browser.js (a closed kernel)
+  runtime/          platform twin: base64 for `bytes` and the strings of the binary wire (UTF-8
+                    read, UTF-16 both ways); node.js (Buffer) and browser.js (a closed kernel)
   codegen.js        new Function backend (the only file that may compile source text), the builder
   closures.js       no-eval backend, same semantics, used as the fallback and as the reference
   layouts.js        flat/columns layouts, delta columns, the interned root (a closed kernel)
@@ -113,11 +114,21 @@ src/
   errors.js         SchemaDefinitionError, EncodeError, DecodeError, fail/nest helpers (a closed kernel)
   registry.js       SchemaRegistry and the [id, payload] envelope (./registry)
   stream.js         NDJSON, TransformStreams, stringifyItems/parseItems (./stream)
-  standalone.js     toSource, the import runtime, the inline kernel, register (./standalone)
+  standalone.js     toSource (both wires), the import runtime, the inline kernel, register
+                    (./standalone)
+  binary.js         toBinary/fromBinary/register: the same schema on the binary wire (./binary);
+                    the codec kept on the schema (or carried by a standalone module), the backend
+                    the schema runs
+  binary/           wire.js (Writer/Reader kernel over the runtime twin: varints, header bitsets,
+                    strings), generate.js (generated backend through codegen.compile),
+                    closures.js (the no-eval twin and reference, same bytes and errors),
+                    inspect.js (what has no binary form, whether a plan reads float64s; shared
+                    with standalone.js, which must not pull closures.js)
 tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
   support/          BACKENDS + normalize, define/named/model (metaschema injected), the
-                    wire-format vectors, the random generator and its translate
+                    wire-format vectors, the random generator, its translate and mutate (the
+                    reader versions of the resolved parity suites)
   fixtures/         modules of metaschema schemas for the CLI tests, golden-1x.json
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
@@ -125,7 +136,8 @@ scripts/size-compare.js   cross-library bundle sizes; scripts/comparison.js rend
 bench/              engine harness (bench.js), the width sweep (sweep.js), comparison (compare.js +
                     compare/: adapters, scenarios, measure, releases-worker), releases.js, report.js
                     + report/ (model.mjs: the chart models, svg.mjs: README images); baseline.json
-                    and results/*.json are snapshots
+                    and results/*.json are snapshots (results/binary.json is the run of the spike
+                    that decided ./binary, kept as it was for the docs)
 docs/               VitePress site (protoarray.vercel.app), not published; comparison.json is the
                     data of the feature matrix, .vitepress/theme/components/Bench*.vue the charts
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
@@ -229,6 +241,44 @@ records take `JSON.stringify`. `schema.js` sets `builder` for `stringify: 'build
 `'auto'` only on records of converted types (`converted`), the only shape that wins against the
 native path on every engine measured. Parity tests force it on random schemas.
 
+**The binary wire** (`binary.js`, the `./binary` subpath; `register()` installs `toBinary` and
+`fromBinary` on `Schema.prototype`): the same plan compiled a second time, into a writer and a
+reader of bytes, on first use, kept on the schema under `Symbol.for('alexify.protoarray.binary')`
+as `{ write, read, numbers, writer, reader, busy }`. The backend follows `schema.backend`:
+`binary/generate.js` mirrors `codegen.js` (one `eN(w,o)`/`dN(r)` per struct, an object literal
+on decode, a union as a switch, a slot as `H[k].write`/`.read` of the referenced schema's own
+entry, registered before it is built so a recursion resolves) and compiles through
+`codegen.compile`, the one primitive that turns source text into a function (the platform test's
+count of `new Function(` stays two); `binary/closures.js` is the no-eval twin and the reference
+`binary.test.js` holds it to on random schemas: same bytes, same errors and paths, with and
+without validation, on corrupted values and bytes and every truncation. `validate` comes from the
+schema; a union's tag is checked in every mode; decode bounds every read, count (by the bytes or
+bits left) and bitmap, so no message allocates past its length. Encode trusts values but refuses
+a string slot without a string and a `bytes` slot without a `Uint8Array` (`type`): the writer
+measures them, and garbage would corrupt its position. A `null` root is `required`. `inspect`
+refuses, before anything is built, what has no binary form (`ERR_NO_BINARY_FORM`, the place by
+its path: `intern`, `delta`/`deltas`, a layout other than `rows`, under a resolved node's
+`writer` too); `readsNumbers` walks the plan, the schemas its slots reach and the `writer` nodes
+so the reader makes a DataView only when a float64 is read. A plan from `resolve` compiles like
+any other: the writer's wire under the reader's keys (a `key: null` field and a `skip` element
+read and dropped, absent when written; `order`/`extras` for the object; a union branch with a
+`null` node has no case), and where a resolved node's own form is not the wire's, `resolve.js`
+puts the writer's node on it as `writer` (a bridge, a dropped value from `bridge.ignore`, a
+collection of another optionality): both backends read the wire by `wireOf(node)`, convert
+through the node's own `pack`/`unpack`/`checkedUnpack`, and a dropped boolean of a header is
+`droppedBit`. A recursion inside a resolved plan (resolve.js's `compiled` entries: slots without
+a schema) gets a codec of the resolved schema's own, built from the node `inspect` collected for
+the slot, registered before it is built and rebuilt on the fallback to closures. One Writer and
+one Reader per schema, reset per call; `busy` is saved and restored around
+a call so a re-entrant call (a `toJSON` of a json value) takes fresh ones. The wire: a struct
+header of presence bits (required fields too) then the booleans' values, in whole bytes; zigzag
+LEB128 exact over the safe integers (the sign in the low bit, never forming 2n); enum and tag as
+a byte up to 256 values; a string's length doubled with its form in the low bit, UTF-8 up to 21
+characters (`3 × 21 × 2 < 128`, one length byte), UTF-16 past them or for a lone surrogate,
+read in either form at any length. Both sides need the same schema: nothing is trimmed or
+tolerated. The registry envelope and streams stay on the text wire; `resolve` works on both, and
+a standalone module written with `binary` carries the binary codec too (below).
+
 **Standalone modules** (`standalone.js`): `errors.js`, `types.js`, `layouts.js` and
 `runtime/browser.js` are closed functions (`kernel`) run once, so their source can be embedded.
 Every scalar node and helper function of `types.js` carries a `recipe`, the expression that makes
@@ -242,8 +292,19 @@ reaches (`trimmed`, as `JSON.parse` of its text), an entity built again with oth
 its members' codecs (`R.compiled`), a rows collection carries its record's codec (`compiled.items`)
 and a nested layout's own codec is built only if called (`compileNested`); a collection inside a
 record with a layout of its own is written in place (`R.nested`). An import module checks the
-runtime it was written against (`R.check(ABI)`). The `inline` runtime embeds the kernels and the `inline` kernel of
-`standalone.js`, which does Schema's work around a codec. Neither needs metaschema.
+runtime it was written against (`R.check(ABI)`; bump `ABI` when the recipes, the slots or the
+module's shape change, and the check refuses any other number). The `inline` runtime embeds the
+kernels and the `inline` kernel of `standalone.js`, which does Schema's work around a codec.
+Neither needs metaschema. With `binary: true` (`--binary`) `toSource` runs
+`binary/generate.generate` on each schema's plan (after `binary/inspect.inspect` refused what has
+no binary form, a reached entity included) and writes the codec next to the text one: in an
+import module as `compiled.binary`, which `binary.js`'s `entryOf` takes instead of building
+(`isCompiled` in `schema.js` validates it, `R.compiled` hands it to the members of an entity built
+again), with `R.slot`'s `write`/`read` reading the carried codec of the referenced schema; in an
+inline module with the embedded wire kernel (`(wire.kernel)(base64)`, the browser runtime twin)
+and `numbers`, the inline kernel wrapping `toBinary`/`fromBinary` as `binary.js` does (one
+writer and reader, `busy` for a re-entrant call; no `finally`, whose throw branch c8 cannot
+cover). Without the option nothing of the binary wire is written.
 
 `Schema.encode`/`decode` run the codec inside `boundary()` (`errors.js`): it puts the schema name
 on `EncodeError`/`DecodeError`, writes their path and message once from the trail `nest` added
@@ -294,7 +355,10 @@ checks they agree with and without the native methods. `pnpm size` bundles `brow
 `platform: 'browser'`, so a leaked builtin fails CI.
 
 The subpaths follow the same rule: `stream.js` uses only the globals `TextDecoder`,
-`TransformStream` and `ReadableStream` (all in Node.js 18), `standalone.js` requires the browser
+`TransformStream` and `ReadableStream` (all in Node.js 18), `binary/wire.js` is a closed kernel
+over the runtime twin (whose Node half reaches Buffer's `utf8Slice`, `ucs2Write` and `ucs2Slice`
+through `.call` on a plain Uint8Array, and whose browser half uses `TextDecoder` and loops, a
+lone surrogate kept), `standalone.js` requires the browser
 half of the base64 twin directly for its kernel, and only `bin/` (outside `src/`) uses Node
 builtins. A kernel must stay closed: nothing but its parameters and standard globals, since its
 source runs on its own in an inline module (`standalone.test.js` and `bundle.test.js` run such
@@ -373,7 +437,11 @@ change. **This file wins** if they ever disagree.
 - `standalone.test.js` runs generated modules (both runtimes) in a `vm` context created with
   `codeGeneration: { strings: false }`, the package bundled into it, and compares them with the
   schemas on the vectors and random definitions; it also runs the `inline` kernel in process,
-  since c8 attributes code run from embedded source to the `vm` script, not to `src/`.
+  since c8 attributes code run from embedded source to the `vm` script, not to `src/`. Modules
+  written with `binary` are held to `toBinary`/`fromBinary` of the schemas the same way (bytes,
+  values, errors on cut and flipped messages), the random definitions without their `delta`/
+  `intern` options, which have no binary form; `inlineOf(schema, true)` builds the inline
+  kernel's binary codec in process, its slots reaching inline copies through a cache.
   `cli.test.js` runs `bin/protoarray.js` on `tests/fixtures/` (modules of metaschema schemas);
   generated files go to the gitignored `tests/.generated/`. `stream.test.js` splits payloads at
   every byte and character for the scanner.
@@ -389,6 +457,18 @@ change. **This file wins** if they ever disagree.
   the raw line separator.
 - `pnpm test` passes the glob unquoted (`tests/unit/*.test.js`) so the shell expands it on Node
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
+- `tests/unit/binary.test.js` is the binary wire's suite: the vectors and the random schemas on
+  both backends (identical bytes; corrupted values, corrupted bytes and every truncation give the
+  same outcome; validation on and off), a resolved schema against the mutated readers of
+  `tests/support/mutate.js` (shared with `parity.test.js`) with the text wire's round trip as the
+  oracle, and the constructs `resolve` makes, by hand (every bridge, dropped values, collections
+  of another optionality, tuples, unions, roots, inner recursions), the wire kernel over both
+  runtime twins, the refusals by path, the register and the codegen fallback (`codegen.compile`
+  stubbed through the module object, a resolved plan's inner codecs falling back with it). A
+  count read from the wire is bounded by the bytes (or bits) left: without it a
+  corrupted count overflowed `(c + 7) >> 3` and looped for minutes, and garbage in a string or
+  bytes slot made the writer's position NaN and doubled its buffer until the process was killed,
+  which is why encode checks those two slots.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
   and not) and round-trips a schema through both backends, comparing as JSON because the browser
   bundle runs in another realm. That realm is a `vm` context, which has no `btoa`/`atob` unless
@@ -418,8 +498,9 @@ published to npm, and lint/format do not cover it.
   the docs true to the code: the examples come from `tests/support/vectors.js`. Examples define
   schemas in metaschema (`import { Schema as Definition } from '@alexify/metaschema'`).
 - The benchmark tables in README and `docs/guide/benchmarks.md` sit between
-  `<!-- bench:<name>:start -->` markers (`compare`, `coldstart`, `size`, `releases`, `engine`)
-  and are generated by `pnpm bench:report` from `bench/results/*.json` and `bench/baseline.json`,
+  `<!-- bench:<name>:start -->` markers (`compare`, `coldstart`, `size`, `releases`, `engine`;
+  `binary` in the docs only) and are generated by `pnpm bench:report` from
+  `bench/results/*.json` and `bench/baseline.json`,
   with the SVG charts in `docs/public/benchmarks/` that the README embeds; do not edit them by
   hand. The docs render the same models (`bench/report/model.mjs`) interactively through the
   `Bench*.vue` components, so a chart and its table cannot disagree. Every adapter of the

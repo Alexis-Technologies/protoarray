@@ -1,6 +1,7 @@
-// Base64 for the bytes type through Node's Buffer. The browser twin
-// (./browser.js) has the same interface and is mapped in by the package.json
-// `browser` field; this is the one file under src/ that may require a builtin.
+// Base64 for the bytes type, and the strings of the binary wire (UTF-16 both
+// ways, UTF-8 read), through Node's Buffer. The browser twin (./browser.js) has the same
+// interface and is mapped in by the package.json `browser` field; this is the
+// one file under src/ that may require a builtin.
 
 const { Buffer } = require('node:buffer');
 
@@ -15,4 +16,14 @@ const fromBase64 = (text) => {
   return buffer.toString('base64') === text ? new Uint8Array(buffer) : null;
 };
 
-module.exports = { toBase64, fromBase64 };
+// Buffer's string methods take any Uint8Array as `this`, so the wire's
+// buffers stay plain and nothing is wrapped per call. A write has room for two
+// bytes a character and gives the bytes written; a read gives the string of
+// the bytes between two positions.
+const { utf8Slice, ucs2Write, ucs2Slice } = Buffer.prototype;
+
+const readUtf8 = (bytes, start, end) => utf8Slice.call(bytes, start, end);
+const writeUtf16 = (bytes, text, start) => ucs2Write.call(bytes, text, start);
+const readUtf16 = (bytes, start, end) => ucs2Slice.call(bytes, start, end);
+
+module.exports = { toBase64, fromBase64, readUtf8, writeUtf16, readUtf16 };

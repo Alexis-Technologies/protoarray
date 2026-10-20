@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * protoarray compile <module> [--out <file>] [--format cjs|esm] [--runtime import|inline]
- *                              [--only <A,B>]
+ *                              [--only <A,B>] [--binary]
  * protoarray snapshot <module> [--only <A,B>] [--out <file>]
  * protoarray check <module> --against <baseline.json> [--only <A,B>] [--strict] [--json]
  *
@@ -16,7 +16,9 @@
  *
  * `compile` writes the module @alexify/protoarray/standalone's toSource makes
  * of the schemas: their generated code, for runtimes that forbid compiling
- * source text. The generated module needs no metaschema.
+ * source text; `--binary` writes each schema's codec of the binary wire next to
+ * its text codec (a module without it carries no bytes). The generated module
+ * needs no metaschema.
  *
  * `snapshot` writes the baseline of @alexify/protoarray/evolve: the schemas as
  * JSON, to keep with the code. `check` compares the schemas of the module with
@@ -125,7 +127,7 @@ const write = (args, text) => {
 
 const compile = async (args) => {
   const schemas = schemasOf(await load(args.file), args.only);
-  write(args, toSource(schemas, { runtime: args.runtime, format: args.format }));
+  write(args, toSource(schemas, { runtime: args.runtime, format: args.format, binary: args.binary }));
 };
 
 const snapshot = async (args) => {
@@ -213,9 +215,9 @@ const COMMANDS = {
   compile: {
     usage:
       'protoarray compile <module> [--out <file>] [--format cjs|esm] ' +
-      '[--runtime import|inline] [--only <A,B>]',
+      '[--runtime import|inline] [--only <A,B>] [--binary]',
     valued: ['out', 'format', 'runtime', 'only'],
-    flags: [],
+    flags: ['binary'],
     run: compile,
   },
   snapshot: {

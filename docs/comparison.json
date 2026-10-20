@@ -311,7 +311,7 @@
         },
         "wire": {
           "mark": "",
-          "text": "JSON text (positional arrays)"
+          "text": "JSON text (positional arrays); bytes through `./binary`"
         },
         "readable": {
           "mark": "✅",

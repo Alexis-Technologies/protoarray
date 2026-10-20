@@ -18,6 +18,7 @@ bundle them:
 | `@alexify/protoarray/stream` | `stringifyLines`, `parseLines`, `stringifyStream`, `parseStream`, `stringifyItems`, `parseItems`, `register` | [Streaming](/guide/streaming) |
 | `@alexify/protoarray/standalone` | `toSource`, `runtime`, `register` | [Standalone Modules](/guide/standalone) |
 | `@alexify/protoarray/evolve` | `compatible`, `baseline`, `restore`, `register` | [Schema Evolution](/guide/evolution#checking-it-in-ci) |
+| `@alexify/protoarray/binary` | `toBinary`, `fromBinary`, `register` | [The Binary Wire](/guide/binary) |
 
 The package also installs a `protoarray` command: `protoarray compile <module>` (see
 [Standalone Modules](/guide/standalone#protoarray-compile)), `protoarray snapshot <module>` and
@@ -87,7 +88,7 @@ interface SchemaOptions {
   entity?: string;                                    // the entity of a snapshot to build
   entities?: Readonly<Record<string, SchemaOptions>>; // options of the entities references reach, by name
   metaschema?: MetaschemaModule;                      // require('@alexify/metaschema') or its ./definition
-  compiled?: { canonical: string; id?: string; codec: object };  // from a standalone module
+  compiled?: { canonical: string; id?: string; codec: object; binary?: object };  // from a standalone module
 }
 
 type ModelOptions = Omit<SchemaOptions, 'sparse' | 'layout' | 'intern' | 'delta' | 'entity' | 'compiled' | 'metaschema'>;
@@ -210,3 +211,24 @@ See [TypeScript](/guide/typescript) for how a schema takes its types from metasc
 | `Infer`, `Input`, `Encoded`, `Definition` and the other definition types | `Schema<Output, Input>`, `Decoded`, `InputOf`, `OutputOf` |
 
 See [Migrating from 1.x](/guide/migrating-from-1).
+
+## `toBinary(schema, value)`, `fromBinary(schema, bytes)`
+
+```ts
+import { toBinary, fromBinary, register } from '@alexify/protoarray/binary';
+
+function toBinary<S extends AnySchema>(schema: S, value: Parameters<S['encode']>[0]): Uint8Array;
+function fromBinary<S extends AnySchema>(schema: S, bytes: Uint8Array): ReturnType<S['decode']>;
+function register(): void;   // installs schema.toBinary(value) and schema.fromBinary(bytes)
+```
+
+The same schema on the [binary wire](/guide/binary): `toBinary` gives a `Uint8Array` of the value,
+`fromBinary` the value back, for a schema or a collection (`schema.list`). The codec is compiled
+from the schema's plan on first use and kept on the schema, by the backend the schema runs, and
+checks the wire on decode as the schema's `validate` says. Throws `EncodeError` for a value with
+no form (`null` at the root, the wrong shape, a union value outside the union, a decimal past the
+safe integers, a string or `bytes` slot of another type), `DecodeError` for a message that is not
+of the schema (truncated, an index out of range, a required field missing; anything but a
+`Uint8Array` is `structure`), and `SchemaDefinitionError` `ERR_NO_BINARY_FORM` for a schema with
+interned strings, lists of differences, a `flat` or `columns` layout, or one from `resolve`. Both
+sides need the same schema.

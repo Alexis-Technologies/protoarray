@@ -119,6 +119,12 @@ export interface Codec {
   stringify?(value: unknown): string;
 }
 
+/** A codec of the binary wire (see `@alexify/protoarray/binary`), generated or composed. */
+export interface BinaryCodec {
+  write(writer: object, value: unknown): void;
+  read(reader: object): unknown;
+}
+
 /** A schema's codec as a generated module passes it (see `@alexify/protoarray/standalone`). */
 export interface CompiledCodec {
   readonly canonical: string;
@@ -126,6 +132,8 @@ export interface CompiledCodec {
   readonly codec: Codec;
   /** The codec of one record of a rows collection, for the stream helpers. */
   readonly items?: Codec;
+  /** The codec of the binary wire, where the module carries one (`binary: true`). */
+  readonly binary?: BinaryCodec;
 }
 
 /**

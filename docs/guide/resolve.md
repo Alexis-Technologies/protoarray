@@ -57,7 +57,11 @@ objects:
   `stringify`; it has no `snapshot` or `source` of its own, and is no version of its own:
   `resolve` and a registry refuse it (`ERR_SCHEMA_EXPECTED`), take its writer or its reader;
 - it is compiled by the same backends, recursion and referenced entities included, so it runs at
-  the speed of a schema of its own; `list`, `stringify` and `parse` work as on any schema.
+  the speed of a schema of its own; `list`, `stringify` and `parse` work as on any schema;
+- it reads and writes the [binary wire](/guide/binary#both-sides-need-the-schema) too:
+  `fromBinary(resolved, bytes)` reads what the writer's `toBinary` wrote into the reader's shape
+  and `toBinary(resolved, value)` writes the writer's bytes, by the same table and with the same
+  errors, a field only the writer has being read and dropped, and absent when written.
 
 When the two signatures are the same (the canonical forms and the entities they reference, as
 `id` reads them) there is nothing to resolve, and `resolve` returns the reader itself.

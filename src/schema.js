@@ -74,15 +74,25 @@ const isCodec = (value) =>
   typeof value.encode === 'function' &&
   typeof value.decode === 'function';
 
+// The binary codec of a plan (./binary), as a generated module passes it:
+// `write(w, v)` into a writer, `read(r)` from a reader.
+const isBinaryCodec = (value) =>
+  value !== null &&
+  typeof value === 'object' &&
+  typeof value.write === 'function' &&
+  typeof value.read === 'function';
+
 // What a generated module passes as `compiled`: the codec of the plan, the
-// canonical form it was generated from, and the codec of one record of a rows
-// collection, for the stream helpers.
+// canonical form it was generated from, the codec of one record of a rows
+// collection, for the stream helpers, and the binary codec where the module
+// carries one.
 const isCompiled = (value) =>
   value !== null &&
   typeof value === 'object' &&
   typeof value.canonical === 'string' &&
   isCodec(value.codec) &&
-  (value.items === undefined || isCodec(value.items));
+  (value.items === undefined || isCodec(value.items)) &&
+  (value.binary === undefined || isBinaryCodec(value.binary));
 const STRINGIFY = ['auto', 'builder', 'native'];
 const REFERENCES = ['kind', 'embed', 'id'];
 const isBoolean = (value) => typeof value === 'boolean';

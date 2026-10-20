@@ -433,6 +433,7 @@ const kernel = (base64) => {
   };
 
   // The functions generated code calls, by the names standalone.js finds them.
+  made(isBytes, 'T.isBytes');
   made(isMap, 'T.isMap');
   made(listOf, 'T.listOf');
   made(put, 'T.put');
@@ -530,6 +531,7 @@ const kernel = (base64) => {
     flags,
     decimal,
     literal,
+    isBytes,
     isMap,
     listOf,
     put,
@@ -552,6 +554,7 @@ module.exports = {
   flags: types.flags,
   decimal: types.decimal,
   literal: types.literal,
+  isBytes: types.isBytes,
   isMap: types.isMap,
   listOf: types.listOf,
   put: types.put,

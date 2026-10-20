@@ -10,6 +10,7 @@ import {
   parse,
   stringify,
   type Backend,
+  type Codec,
   type Decoded,
   type DecodeErrorCode,
   type EncodeErrorCode,
@@ -151,5 +152,9 @@ expectError(Schema.from({ format: 1, entities: {} }, { entities: { A: { entities
 expectType<Schema<unknown>>(
   Schema.from({ format: 1, entities: {} }, { entities: { A: { sparse: true } } }),
 );
-// A compiled codec is one with encode and decode.
+// A compiled codec is one with encode and decode, its binary one with write and read.
 expectError(Schema.from({ format: 1, entities: {} }, { compiled: { canonical: '', codec: {} } }));
+declare const codec: Codec;
+expectError(
+  Schema.from({ format: 1, entities: {} }, { compiled: { canonical: '', codec, binary: {} } }),
+);

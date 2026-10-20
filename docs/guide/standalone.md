@@ -43,6 +43,7 @@ Options:
 | `--format cjs \| esm` | the module format, `cjs` by default |
 | `--runtime import \| inline` | what the module needs at runtime, `import` by default (below) |
 | `--only A,B` | the named exports only |
+| `--binary` | the codec of the [binary wire](/guide/binary) next to the text codec of each schema (below) |
 
 A module whose export is one schema gives a module with that schema as its default export;
 otherwise the schemas keep their export names. The generated module needs no metaschema.
@@ -67,14 +68,15 @@ The options a schema was built with travel with it (`sparse`, `layout`, `delta`,
 built-in hash).
 
 `toSource(schema)` writes one schema as the default export, `toSource({ A, B })` named exports.
-`register()` from the same subpath adds `schema.toSource(options)`.
+The options are `runtime` and `format` as the command takes them, and `binary: true` for the
+binary wire. `register()` from the same subpath adds `schema.toSource(options)`.
 
 ## The two runtimes
 
 | `runtime` | The module | Exports |
 | --- | --- | --- |
 | `'import'` (default) | imports `@alexify/protoarray` and `@alexify/protoarray/standalone` | real `Schema` instances: the whole API, `instanceof` the package's errors |
-| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `backend`, `encode`, `decode`, `stringify`, `parse`, `toString` |
+| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `backend`, `encode`, `decode`, `stringify`, `parse`, `toString`, and `toBinary`, `fromBinary` with `--binary` |
 
 With `import`, the module embeds the snapshots its schemas were read from, cut to the entities its
 schemas reach (an entity nothing reaches is not read again), and builds each one from its
@@ -92,6 +94,31 @@ generation where it is allowed.
 
 `inline` suits a runtime where even the package itself is unwelcome. Its errors are classes of the
 module's own, so tell them by `name` and `code`, not by `instanceof`.
+
+## The binary wire
+
+By default a module carries the text wire alone, and `toBinary` and `fromBinary` of a schema it
+exports fall back to the closures backend where code generation is blocked, like any schema
+there. With `--binary` (`toSource(…, { binary: true })`) the module carries the generated codec
+of the [binary wire](/guide/binary) next to the text codec of every schema, so both wires run at
+the speed of generated code:
+
+```sh
+protoarray compile src/schemas.js --out src/schemas.compiled.js --binary
+```
+
+- With `import`, each schema carries it in its `compiled` option (`compiled.binary`), and
+  `toBinary` and `fromBinary` of `@alexify/protoarray/binary` run it as they are: nothing is
+  built, under a strict CSP or anywhere else. The module itself imports nothing more.
+- With `inline`, the module embeds the wire kernel too, and each schema has `toBinary(value)` and
+  `fromBinary(bytes)` of its own, with the binary wire's checks and errors.
+
+A schema with no binary form (`intern`, `delta`, a `flat` or `columns` layout, see
+[What has no binary form](/guide/binary#what-has-no-binary-form)) is refused when the module is
+written, `SchemaDefinitionError` `ERR_NO_BINARY_FORM` naming it, an entity it reaches by a
+reference included: write such schemas into a module of their own, without the flag. A module
+without the flag does not grow: the inline module of a record of five fields is 6.5 KB min+gzip
+without it and 8.2 KB with it.
 
 Either way the module compiles no source text to load, and its schemas run at the speed of the codegen
 backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.8 faster to `parse`

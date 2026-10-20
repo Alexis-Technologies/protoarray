@@ -11,7 +11,11 @@
 // decode. `order` is the reader's key order for the decoded object and
 // `extras` the reader's fields the writer does not have, decoded as their
 // default; a tuple's `skip` items and `extras` play the part of a struct's
-// skipped fields and extras.
+// skipped fields and extras. A resolved node whose own form is not the
+// writer's wire (a bridge between two scalar types, a value the reader drops,
+// a collection of another optionality) keeps the writer's node as `writer`:
+// the text wire needs none of it, the binary wire (./binary.js), whose shape
+// is the writer's, reads by it.
 //
 // The `@alexify/protoarray/resolve` subpath: kept out of the core, which does
 // not need it; `register()` installs `Schema.resolve`.
@@ -25,6 +29,9 @@ const { Schema, SETTINGS, SAME, INTERNAL, inherited } = require('./schema.js');
 // enum value the reader dropped): its default, null for an optional slot,
 // undefined (an error) for a required one.
 const fallbackOf = (required, def) => (def !== null ? def : required ? undefined : null);
+
+// A resolved node with the writer's node it reads the wire by (see above).
+const over = (node, writer) => ({ ...node, writer });
 
 const resolvePlan = (writerPlan, readerPlan, context) => {
   const error = (text, path) => {
@@ -66,15 +73,15 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
       if (r.decimals === undefined || integer) return w;
       if (w.decimals !== undefined && w.decimals <= r.decimals) return w;
     }
-    if (w.type === 'integer' && r.type === 'bigint') return bridge.bigint();
-    if (w.type === 'enum' && r.type === 'enum') return bridge.enumeration(w, r, fallback);
+    if (w.type === 'integer' && r.type === 'bigint') return over(bridge.bigint(), w);
+    if (w.type === 'enum' && r.type === 'enum') return over(bridge.enumeration(w, r, fallback), w);
     if (w.type === 'enum' && r.type === 'string') {
       if (w.values.every((value) => typeof value === 'string')) {
-        return bridge.enumeration(w, r, fallback);
+        return over(bridge.enumeration(w, r, fallback), w);
       }
     }
-    if (w.type === 'string' && r.type === 'enum') return bridge.choice(r, fallback);
-    if (w.type === 'flags' && r.type === 'flags') return bridge.flags(w, r);
+    if (w.type === 'string' && r.type === 'enum') return over(bridge.choice(r, fallback), w);
+    if (w.type === 'flags' && r.type === 'flags') return over(bridge.flags(w, r), w);
     throw error(`Cannot read ${from} as ${to}`, path);
   };
 
@@ -91,7 +98,7 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
       }
       return w;
     }
-    if (isNull(r)) return bridge.ignore();
+    if (isNull(r)) return over(bridge.ignore(), w0);
     // A list written as differences reads as a plain one, and a plain one as
     // a list the reader writes as differences.
     if (canonical(w) === `~${canonical(r)}` || `~${canonical(w)}` === canonical(r)) return w;
@@ -138,7 +145,7 @@ const resolvePlan = (writerPlan, readerPlan, context) => {
       throw error(`Cannot read ${canonical(w)} as ${canonical(r)}`, path);
     }
     const at = w.kind === 'array' ? `${path}[]` : `${path}{}`;
-    const node = { ...r, [item]: slot(w[item], r[item], at, r[required], null) };
+    const node = { ...r, [item]: slot(w[item], r[item], at, r[required], null), writer: w };
     if (w.kind === 'array') node.layout = w.layout;
     return node;
   };

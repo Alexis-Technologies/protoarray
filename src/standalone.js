@@ -3,10 +3,10 @@
 // Workers, Vercel Edge), where the generated code of a schema is otherwise
 // replaced by the closures backend.
 //
-// `toSource(schemas, { runtime, format })` writes a CommonJS or ES module
-// with the code codegen.js generates for each schema and every schema they
-// reach, the functions it calls written as the expressions that make them
-// (`recipe`s from types.js):
+// `toSource(schemas, { runtime, format, binary })` writes a CommonJS or ES
+// module with the code codegen.js generates for each schema and every schema
+// they reach, the functions it calls written as the expressions that make
+// them (`recipe`s from types.js):
 //
 // - `runtime: 'import'` (the default) imports this package and builds real
 //   Schema instances from the snapshots they were read from with `{ compiled
@@ -19,6 +19,13 @@
 //   `stringify` and `parse`. Nothing to import; errors are told by their
 //   `name` and `code`.
 //
+// With `binary: true` each schema's codec of the binary wire (./binary) is
+// written next to its text codec, as binary/generate.js generates it: an
+// import module carries it as `compiled.binary`, which `toBinary` and
+// `fromBinary` of `./binary` run instead of building one; an inline module
+// embeds the wire kernel (binary/wire.js) too and its schemas get `toBinary`
+// and `fromBinary`. A schema with no binary form is refused.
+//
 // `runtime` is what modules of the first kind import.
 
 const { Schema, SETTINGS, ENTITY, SHAPE, RECURSIVE, codecOptions } = require('./schema.js');
@@ -27,6 +34,9 @@ const errors = require('./errors.js');
 const types = require('./types.js');
 const layouts = require('./layouts.js');
 const base64 = require('./runtime/browser.js');
+const binaryCodegen = require('./binary/generate.js');
+const wire = require('./binary/wire.js');
+const { inspect, readsNumbers } = require('./binary/inspect.js');
 const { SchemaDefinitionError } = errors;
 const { PLAN, CODEC, children, isSchema } = require('./plan.js');
 
@@ -42,8 +52,10 @@ const nesting = (kernelLayouts) => (spec) => {
 
 // What an import module is written against: the helpers of generated code,
 // the recipes of types.js, the runtime below. A module of another version
-// refuses to load rather than run against helpers it does not know.
-const ABI = 1;
+// refuses to load rather than run against helpers it does not know. 2: the
+// binary codec next to the text one (`compiled.binary`, the slots' `write`
+// and `read`, the recipe `T.isBytes`).
+const ABI = 2;
 
 const runtime = {
   types,
@@ -51,10 +63,18 @@ const runtime = {
   nest: errors.nest,
   refuse: errors.refuse,
   // A slot over a schema of the module, read when the codec is called: a
-  // schema may reach one defined after it, itself included.
+  // schema may reach one defined after it, itself included. The binary codec
+  // reads the one the schema carries: every schema of a module written with
+  // `binary` has one.
   slot: (target) => ({
     get codec() {
       return target()[CODEC];
+    },
+    get write() {
+      return target()[SETTINGS].compiled.binary.write;
+    },
+    get read() {
+      return target()[SETTINGS].compiled.binary.read;
     },
   }),
   nested: nesting(layouts),
@@ -70,10 +90,56 @@ const runtime = {
 
 // What an inline module defines its schemas with: Schema's work around a
 // codec (the layouts, the string table, the shape of the value, the schema's
-// name on its errors), no more. Closed, like the kernels it runs on, and given
-// `nesting` from outside, since its source is written into the module apart.
-const inline = (kernelErrors, kernelTypes, kernelLayouts, nested) => {
+// name on its errors), and ./binary's around a binary codec where the module
+// carries one (`kernelWire` is then the wire kernel), no more. Closed, like
+// the kernels it runs on, and given `nesting` from outside, since its source
+// is written into the module apart.
+const inline = (kernelErrors, kernelTypes, kernelLayouts, nested, kernelWire) => {
   const { EncodeError, DecodeError, boundary } = kernelErrors;
+  // The binary wire's `toBinary` and `fromBinary` of a schema: one writer and
+  // one reader, reset on each message; a call made while the schema is
+  // encoding (from a toJSON of a json value) takes ones of its own, and
+  // `busy` is restored, not cleared, so the outer call keeps its claim.
+  const binary = (spec, schema) => {
+    const { write, read } = spec.binary;
+    const writer = new kernelWire.Writer();
+    const reader = new kernelWire.Reader();
+    let busy = false;
+    schema.toBinary = (value) => {
+      const w = busy ? new kernelWire.Writer() : writer;
+      const was = busy;
+      busy = true;
+      let bytes;
+      try {
+        w.reset();
+        write(w, value);
+        bytes = w.finish();
+      } catch (error) {
+        busy = was;
+        throw boundary(error, spec.name, false);
+      }
+      busy = was;
+      return bytes;
+    };
+    schema.fromBinary = (bytes) => {
+      if (!kernelTypes.isBytes(bytes)) {
+        throw boundary(new DecodeError('structure', '', 'bytes'), spec.name, true);
+      }
+      const r = busy ? new kernelWire.Reader() : reader;
+      const was = busy;
+      busy = true;
+      let value;
+      try {
+        value = read(r.reset(bytes, spec.numbers));
+      } catch (error) {
+        busy = was;
+        throw boundary(error, spec.name, true);
+      }
+      busy = was;
+      return value;
+    };
+    Object.defineProperty(schema, 'binary', { value: spec.binary });
+  };
   const define = (spec) => {
     let codec = spec.codec;
     const { validate } = spec;
@@ -125,11 +191,18 @@ const inline = (kernelErrors, kernelTypes, kernelLayouts, nested) => {
       toString: () => spec.canonical,
     };
     Object.defineProperty(schema, 'codec', { value: codec });
+    if (spec.binary !== undefined) binary(spec, schema);
     return schema;
   };
   const slot = (target) => ({
     get codec() {
       return target().codec;
+    },
+    get write() {
+      return target().binary.write;
+    },
+    get read() {
+      return target().binary.read;
     },
   });
   return { define, slot, nested: nested(kernelLayouts), types: kernelTypes };
@@ -139,16 +212,19 @@ const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 const RUNTIMES = ['import', 'inline'];
 const FORMATS = ['cjs', 'esm'];
 
+const OPTION_KEYS = ['runtime', 'format', 'binary'];
+
 const optionsOf = (options) => {
   const source = options == null ? {} : options;
   if (typeof source !== 'object') throw invalid('Invalid options: expected an object');
   for (const key of Object.keys(source)) {
-    if (key !== 'runtime' && key !== 'format') throw invalid(`Invalid option "${key}"`);
+    if (!OPTION_KEYS.includes(key)) throw invalid(`Invalid option "${key}"`);
   }
-  const { runtime: kind = 'import', format = 'cjs' } = source;
+  const { runtime: kind = 'import', format = 'cjs', binary = false } = source;
   if (!RUNTIMES.includes(kind)) throw invalid('Invalid option "runtime": import or inline');
   if (!FORMATS.includes(format)) throw invalid('Invalid option "format": cjs or esm');
-  return { kind, format };
+  if (typeof binary !== 'boolean') throw invalid('Invalid option "binary": true or false');
+  return { kind, format, binary };
 };
 
 // The schemas to write: one as the module's default export, or several by
@@ -228,6 +304,16 @@ const planSource = (plan, settings, names) => {
 
 const codecSource = (schema, names) => planSource(schema[PLAN], schema[SETTINGS], names);
 
+// The binary codec of a schema as an expression, as binary/generate.js
+// generates it: its slots are the plan's, written as the schemas of the
+// module they call (`R.slot`, whose `write` and `read` are the binary wire's).
+const binarySource = (schema, names) => {
+  const context = { validate: schema[SETTINGS].validate, slot: (slot) => slot };
+  const { body, helpers } = binaryCodegen.generate(schema[PLAN], context);
+  const recipes = helpers.map((helper) => recipeOf(helper, names)).join(',');
+  return `(function(H,F,N,E){${body}})([${recipes}],F,N,E)`;
+};
+
 // The options a schema of the module is built with again, without its
 // compiled codecs. A built-in fingerprint travels by name when it is not the
 // default, so what the module derives at runtime (`list`) has the same id as
@@ -260,8 +346,8 @@ const itemsOf = (schema) => {
 };
 
 // The options a schema of the module is built with, its compiled codecs
-// among them.
-const optionsSource = (schema, names) => {
+// among them, the binary one where the module carries it.
+const optionsSource = (schema, names, binary) => {
   const options = settingsSource(schema);
   const compiled = [
     `canonical:${JSON.stringify(schema.toString())}`,
@@ -271,6 +357,7 @@ const optionsSource = (schema, names) => {
   if (itemsOf(schema)) {
     compiled.push(`items:${planSource(schema[PLAN].item, schema[SETTINGS], names)}`);
   }
+  if (binary) compiled.push(`binary:${binarySource(schema, names)}`);
   options.push(`compiled:{${compiled.join(',')}}`);
   return `{${options.join(',')}}`;
 };
@@ -305,7 +392,7 @@ const membersOf = (schema) => {
   return out;
 };
 
-const inlineDefinition = (schema, names) => {
+const inlineDefinition = (schema, names, binary) => {
   const plan = schema[PLAN];
   const settings = schema[SETTINGS];
   const { interned, options } = codecOptions(plan, settings);
@@ -326,11 +413,14 @@ const inlineDefinition = (schema, names) => {
   if (schema[RECURSIVE] && settings.maxDepth !== Infinity) {
     spec.push(`maxDepth:${settings.maxDepth}`);
   }
+  if (binary) {
+    spec.push(`binary:${binarySource(schema, names)}`, `numbers:${readsNumbers(schema)}`);
+  }
   return `R.define({${spec.join(',')}})`;
 };
 
 const toSource = (input, options) => {
-  const { kind, format } = optionsOf(options);
+  const { kind, format, binary } = optionsOf(options);
   const entries = exportsOf(input);
   // Every schema reached, the ones it depends on before it.
   const names = new Map();
@@ -347,6 +437,9 @@ const toSource = (input, options) => {
     if (schema.snapshot === null) {
       throw invalid(`${named}The list of a schema is built at runtime: write the schema instead`);
     }
+    // A schema reached by a reference has no binary form either: the module
+    // would carry a codec that calls one it cannot have.
+    if (binary) inspect(plan, schema.name);
     names.set(schema, `S${names.size}`);
     const deps = new Set();
     reached(plan, deps);
@@ -399,7 +492,7 @@ const toSource = (input, options) => {
       lines.push(`const ${model}$ = JSON.parse(${text});`);
       const entities = [];
       for (const [entity, schema] of group) {
-        entities.push(`${JSON.stringify(entity)}:${optionsSource(schema, names)}`);
+        entities.push(`${JSON.stringify(entity)}:${optionsSource(schema, names, binary)}`);
       }
       lines.push(
         `const ${model} = Schema.fromModel(${model}$,{entities:{${entities.join(',')}}});`,
@@ -409,7 +502,7 @@ const toSource = (input, options) => {
       }
     }
     for (const schema of alone) {
-      const own = optionsSource(schema, names).slice(0, -1);
+      const own = optionsSource(schema, names, binary).slice(0, -1);
       const model = snapshots.get(schema.snapshot);
       const entity = `entity:${JSON.stringify(schema[ENTITY])}`;
       // The entities it reaches, from their own schemas of the module.
@@ -429,10 +522,13 @@ const toSource = (input, options) => {
     lines.push(`const base64 = (${base64.kernel})();`);
     lines.push(`const T = (${types.kernel})(base64);`);
     lines.push(`const layouts = (${layouts.kernel})(errors, T);`);
-    lines.push(`const R = (${inline})(errors, T, layouts, ${nesting});`);
+    // The wire kernel runs over the runtime twin, for its strings.
+    if (binary) lines.push(`const wire = (${wire.kernel})(base64);`);
+    const kernels = `errors, T, layouts, ${nesting}${binary ? ', wire' : ''}`;
+    lines.push(`const R = (${inline})(${kernels});`);
     lines.push('const F = errors.fail;', 'const N = errors.nest;', 'const E = errors.refuse;');
     for (const schema of order) {
-      lines.push(`const ${names.get(schema)} = ${inlineDefinition(schema, names)};`);
+      lines.push(`const ${names.get(schema)} = ${inlineDefinition(schema, names, binary)};`);
     }
   }
   if (entries.length === 1 && entries[0][0] === null) {

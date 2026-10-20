@@ -56,7 +56,7 @@ pre-merge gate. There is no build step.
   `stream.js`, `standalone.js` and `binary.js` are one-line shims over `src/` modules of the same names, each
   with its own d.ts; they hold what the core does not need, as free functions with the schema
   first, and `register()` installs the methods (`Schema.prototype`, or `Schema.resolve`,
-  non-enumerable). Their d.ts declare those methods by module augmentation of `Schema`.
+  non-enumerable) through `registrar` of `schema.js`, once per process. Their d.ts declare those methods by module augmentation of `Schema`.
 - `src/index.js` lists every export **by name** (`module.exports = { Schema, encode, … }`), never by
   spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/protoarray'` depends on it.
@@ -128,8 +128,10 @@ tests/
   unit/*.test.js    node:test suites, one per area, every behavioural suite runs per backend
   support/          BACKENDS + normalize, define/named/model (metaschema injected), the
                     wire-format vectors, the random generator, its translate and mutate (the
-                    reader versions of the resolved parity suites)
-  fixtures/         modules of metaschema schemas for the CLI tests, golden-1x.json
+                    reader versions of the resolved parity suites), binary-cases.js (the edges
+                    of the binary wire held to golden-binary.json)
+  fixtures/         modules of metaschema schemas for the CLI tests, golden-1x.json,
+                    golden-binary.json, standalone-abi1.js (an import module written by 2.0.0)
   types/*.test-d.ts tsd assertions
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 scripts/size-compare.js   cross-library bundle sizes; scripts/comparison.js renders the feature matrix
@@ -251,11 +253,18 @@ entry, registered before it is built so a recursion resolves) and compiles throu
 `codegen.compile`, the one primitive that turns source text into a function (the platform test's
 count of `new Function(` stays two); `binary/closures.js` is the no-eval twin and the reference
 `binary.test.js` holds it to on random schemas: same bytes, same errors and paths, with and
-without validation, on corrupted values and bytes and every truncation. `validate` comes from the
-schema; a union's tag is checked in every mode; decode bounds every read, count (by the bytes or
-bits left) and bitmap, so no message allocates past its length. Encode trusts values but refuses
-a string slot without a string and a `bytes` slot without a `Uint8Array` (`type`): the writer
-measures them, and garbage would corrupt its position. A `null` root is `required`. `inspect`
+without validation, on corrupted values and bytes and every truncation. Decode checks the
+structure of the wire on every message whatever `validate` says (the bounds of every read, a
+count by the bytes or bits left, a bitmap, a string's length, a presence byte, a union's tag,
+the text of a json or bigint slot; a varint is eight bytes at most, since past 2^56 the
+arithmetic reaches Infinity and NaN, which no comparison refuses) and the values behind
+`validate` (an enum's range, a date, a boolean, a safe integer, the words of a flags mask,
+`required`), so no message allocates past its length or throws anything but `DecodeError`; a
+message is read whole (`extra` past it), and a `DecodeError` carries `offset`, the reader's
+position. Encode trusts values but refuses a string slot without a string, a `bytes` slot
+without a `Uint8Array` and an `integer` slot without a safe integer (`type`): the writer
+measures the first two, garbage would corrupt its position, and an infinity would never end a
+varint (the writer's loops stop after ten bytes regardless). A `null` root is `required`. `inspect`
 refuses, before anything is built, what has no binary form (`ERR_NO_BINARY_FORM`, the place by
 its path: `intern`, `delta`/`deltas`, a layout other than `rows`, under a resolved node's
 `writer` too); `readsNumbers` walks the plan, the schemas its slots reach and the `writer` nodes
@@ -268,9 +277,16 @@ collection of another optionality): both backends read the wire by `wireOf(node)
 through the node's own `pack`/`unpack`/`checkedUnpack`, and a dropped boolean of a header is
 `droppedBit`. A recursion inside a resolved plan (resolve.js's `compiled` entries: slots without
 a schema) gets a codec of the resolved schema's own, built from the node `inspect` collected for
-the slot, registered before it is built and rebuilt on the fallback to closures. One Writer and
-one Reader per schema, reset per call; `busy` is saved and restored around
-a call so a re-entrant call (a `toJSON` of a json value) takes fresh ones. The wire: a struct
+the slot, registered before it is built and rebuilt on the fallback to closures; a `SchemaDefinitionError` (a reached schema with no binary
+form) never falls back, and a failed build keeps its entry with `error`, thrown again on every
+call, since a codec built meanwhile may hold the entry (`fallback` keeps what made generated code
+fall back; `source` gives the generated text again). `maxDepth` wraps `write`/`read` of a
+recursive schema, and of a resolved plan's inner recursions, in `layouts.guardedBinary`, the
+text wire's own counter; a standalone module guards its own (`R.depth`). One Writer and one
+Reader per schema, made on its first call of its own (a schema reached through a slot uses the
+root's), reset per call, the reader released after it, a writer grown past 1 MiB replaced after
+the message (`RETAIN`); `busy` is saved and restored around a call so a re-entrant call (a
+`toJSON` of a json value) takes fresh ones. The wire: a struct
 header of presence bits (required fields too) then the booleans' values, in whole bytes; zigzag
 LEB128 exact over the safe integers (the sign in the low bit, never forming 2n); enum and tag as
 a byte up to 256 values; a string's length doubled with its form in the low bit, UTF-8 up to 21
@@ -292,8 +308,10 @@ reaches (`trimmed`, as `JSON.parse` of its text), an entity built again with oth
 its members' codecs (`R.compiled`), a rows collection carries its record's codec (`compiled.items`)
 and a nested layout's own codec is built only if called (`compileNested`); a collection inside a
 record with a layout of its own is written in place (`R.nested`). An import module checks the
-runtime it was written against (`R.check(ABI)`; bump `ABI` when the recipes, the slots or the
-module's shape change, and the check refuses any other number). The `inline` runtime embeds the
+runtime it was written against (`R.check(ABI)`: the check takes 1 to `ABI`; bump `ABI` only when
+something is removed or changes shape, which is a new major, since an addition leaves what older
+modules call as it was, and `tests/fixtures/standalone-abi1.js`, a module written by 2.0.0, is
+held to loading). The `inline` runtime embeds the
 kernels and the `inline` kernel of `standalone.js`, which does Schema's work around a codec.
 Neither needs metaschema. With `binary: true` (`--binary`) `toSource` runs
 `binary/generate.generate` on each schema's plan (after `binary/inspect.inspect` refused what has
@@ -465,10 +483,14 @@ change. **This file wins** if they ever disagree.
   of another optionality, tuples, unions, roots, inner recursions), the wire kernel over both
   runtime twins, the refusals by path, the register and the codegen fallback (`codegen.compile`
   stubbed through the module object, a resolved plan's inner codecs falling back with it). A
-  count read from the wire is bounded by the bytes (or bits) left: without it a
-  corrupted count overflowed `(c + 7) >> 3` and looped for minutes, and garbage in a string or
-  bytes slot made the writer's position NaN and doubled its buffer until the process was killed,
-  which is why encode checks those two slots.
+  count read from the wire is bounded by the bytes (or bits) left in every mode, and a varint by
+  eight bytes: without them a corrupted count overflowed `(c + 7) >> 3` and looped for minutes,
+  a 150-byte varint read as NaN and passed every comparison, and garbage in a string, bytes or
+  integer slot made the writer's position NaN (or its loop endless, on an infinity) and doubled
+  its buffer until the process was killed, which is why encode checks those three slots.
+  `tests/fixtures/golden-binary.json` holds the bytes of the vectors and of
+  `tests/support/binary-cases.js` on both backends: do not regenerate it, a change to the bytes
+  is a new major with a new fixture.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
   and not) and round-trips a schema through both backends, comparing as JSON because the browser
   bundle runs in another realm. That realm is a `vm` context, which has no `btoa`/`atob` unless
@@ -520,7 +542,7 @@ published to npm, and lint/format do not cover it.
 
 Manual, as in the sibling repositories. The `npm-publish` skill walks through it step by step:
 
-1. Bump `version` in `package.json`.
+1. Bump `version` in `package.json` and `VERSION` in `src/version.js` (a test holds them together).
 2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD` and add its link
    reference.
 3. Commit, then tag `vX.Y.Z`.

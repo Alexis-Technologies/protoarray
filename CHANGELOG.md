@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The binary wire**, `@alexify/protoarray/binary`: `toBinary(schema, value)` gives the bytes of
+  a value as a `Uint8Array`, `fromBinary(schema, bytes)` the value back, `register()` installs
+  them as `schema.toBinary` and `schema.fromBinary`, for a schema or its `list`. The same plan is
+  compiled a second time, by the backend the schema runs (generated code through the one compile
+  primitive of `codegen.js`, closures elsewhere; both write the same bytes), with the schema's
+  `validate` on decode and the same errors and paths. A record is a header of presence bits (the
+  booleans in it) and its fields; integers, dates and decimals are zigzag varints, a `number` a
+  float64, an enum index a byte, a string UTF-8 up to 21 characters and UTF-16 past them (copied,
+  not transcoded), the rest as in the wire format page. Both sides need the same schema. Interned
+  strings, lists of differences, the `flat` and `columns` layouts and a schema from `resolve` have
+  no binary form (`SchemaDefinitionError` `ERR_NO_BINARY_FORM`, naming the place); the registry,
+  streaming and standalone modules stay on the text wire. See The Binary Wire in the guide and the
+  benchmarks.
+
+### Changed
+
+- The runtime twins (`src/runtime/node.js`, `browser.js`) carry the string functions of the
+  binary wire next to base64 (Buffer's in Node.js, `TextDecoder` and loops in a browser), and
+  `DecodeError` `structure` has a `bytes` detail ("is not a Uint8Array").
+
 ## [2.0.0] - 2026-10-16
 
 2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.

@@ -68,7 +68,8 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   messages it encodes faster than protobufjs, protobuf-es, avsc, msgpackr and cbor-x, and it has
   the fastest round trip of one record; msgpackr with shared structures decodes faster (and avsc,
   cbor-x or protobufjs on some shapes), and the binary codecs win on mostly numeric payloads (see
-  [benchmarks](#benchmarks)).
+  [benchmarks](#benchmarks)). Where a channel carries bytes, `@alexify/protoarray/binary` puts
+  the same schema on a [binary wire](https://protoarray.vercel.app/guide/binary) of its own.
 - **Still JSON.** The payload is a plain JSON array, so it goes through any transport and storage
   that already handle JSON, compresses with gzip, brotli and zstd like JSON, and stays readable in
   logs.
@@ -86,7 +87,8 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
   imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve,
-  streaming and standalone extras are subpaths of 1.8–2.5 KB each. Generated code where the
+  streaming and standalone extras are subpaths of 1.8–2.5 KB each, the binary wire one of
+  7.7 KB. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
   standalone module generated at build time.
 
@@ -121,6 +123,7 @@ protoarray alone.
 | Migrations | `resolve(writer, reader)` (`@alexify/protoarray/resolve`) reads and writes another version by name, with `aliases`; `SchemaRegistry` keeps versions by id and wraps payloads as `[id, payload]` |
 | Streaming | `encodeEach`/`decodeEach`; NDJSON, `TransformStream`s and the items of a large array read as they arrive (`@alexify/protoarray/stream`) |
 | Standalone modules | `protoarray compile` writes the generated code of your schemas into a module, for a strict CSP and edge runtimes, with no metaschema at runtime (`@alexify/protoarray/standalone`) |
+| Binary wire | `toBinary(schema, value)` and `fromBinary(schema, bytes)` put the same schema on bytes: a header of presence bits, varints, float64s, UTF-16 for long strings; for channels that carry bytes and numeric payloads (`@alexify/protoarray/binary`) |
 | Validation | the wire on decode by default: `DecodeError` with codes, paths like `orders[1].sku` and the schema name; the values before encode with metaschema's `check` and `parse` |
 | Evolution | append-only positions; `{ strict: true }` rejects elements beyond the schema; `schema.id` or your own `fingerprint` tells versions apart |
 
@@ -186,6 +189,7 @@ text or bytes and back.
 | **protoarray**<br><sub>codegen + metaschema check · v2.0.0</sub> | 689,000 | 624 | 1,630,000 | 1,780,000 | 809,000 | 20,200 | 231,000 |
 | **protoarray**<br><sub>columns layout · v2.0.0</sub> | — | 879 | — | — | — | — | — |
 | **protoarray**<br><sub>columns, delta + intern · v2.0.0</sub> | — | 958 | — | — | — | — | — |
+| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 1,050,000 | 1,300 | 4,800,000 | 3,310,000 | 1,020,000 | 42,200 | 1,660,000 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 717,000 | 675 | 3,530,000 | 2,920,000 | 270,000 | 14,600 | 520,000 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 261,000 | 301 | 720,000 | 889,000 | 209,000 | 6,400 | 163,000 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 840,000 | 786 | 1,040,000 | 1,680,000 | 300,000 | 14,300 | 1,190,000 |
@@ -199,7 +203,7 @@ text or bytes and back.
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 184,000 | 171 | 1,010,000 | 383,000 | 344,000 | 5,960 | 123,000 |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 615,000 | 577 | 3,560,000 | 1,820,000 | 664,000 | — | 395,000 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-16. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-18. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
 
 <!-- bench:compare:end -->
 
@@ -233,6 +237,7 @@ module has its codec written already.
 | **protoarray**<br><sub>closures, no eval · v2.0.0</sub> | 11.6 ms | 3.8 ms | 0.11 ms | 0.17 ms | 15.7 ms |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 11.1 ms | 1.5 ms | 3.1 ms | 0.35 ms | 16.2 ms |
 | **protoarray**<br><sub>codegen · v2.0.0</sub> | 11.7 ms | 4.5 ms | 0.14 ms | 0.16 ms | 16.5 ms |
+| **protoarray**<br><sub>binary wire · v2.0.0</sub> | 13.9 ms | 4.5 ms | 1.4 ms | 0.24 ms | 20.0 ms |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 21.0 ms | 4.5 ms | 0.26 ms | 0.01 ms | 25.7 ms |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 24.5 ms | 0.38 ms | 0.80 ms | 0.06 ms | 25.9 ms |
 
@@ -253,15 +258,16 @@ tree-shaken; `pnpm size:compare`).
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 10.7 KB | 4.0 KB |  |
 | superjson<br><sub>stringify · parse · v2.2.6</sub> | 11.1 KB | 4.0 KB |  |
 | @msgpack/msgpack<br><sub>Encoder · Decoder · v3.1.3</sub> | 20.7 KB | 5.8 KB |  |
-| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 18.3 KB | 6.9 KB | the module protoarray compile writes for this schema, with its inline runtime |
+| **protoarray**<br><sub>standalone module, no eval · v2.0.0</sub> | 18.7 KB | 7.1 KB | the module protoarray compile writes for this schema, with its inline runtime |
 | msgpackr<br><sub>records, shared structures · v2.1.0</sub> | 27.4 KB | 10.3 KB |  |
 | cbor-x<br><sub>records · v1.6.6</sub> | 28.6 KB | 10.6 KB |  |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 66.6 KB | 18.2 KB | the runtime and the descriptor generated code embeds |
-| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 60.9 KB | 22.0 KB | the schema built from its snapshot: a client without metaschema |
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 74.8 KB | 22.2 KB |  |
+| **protoarray**<br><sub>codegen, from a snapshot · v2.0.0</sub> | 61.5 KB | 22.3 KB | the schema built from its snapshot: a client without metaschema |
 | protobufjs<br><sub>protobufjs/light, Root.fromJSON · v8.8.1</sub> | 105.7 KB | 29.2 KB | reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code |
+| **protoarray**<br><sub>binary wire, from a snapshot · v2.0.0</sub> | 84.3 KB | 30.2 KB | the core and the ./binary subpath, the schema built from its snapshot |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 115.4 KB | 34.3 KB | avsc's browser build of types, with the buffer and util polyfills it requires |
-| **protoarray**<br><sub>codegen, metaschema definition · v2.0.0</sub> | 120.0 KB | 42.6 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
+| **protoarray**<br><sub>codegen, metaschema definition · v2.0.0</sub> | 120.6 KB | 42.9 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 217.4 KB | 62.9 KB | encode only; JSON.parse decodes |
 
 <!-- bench:size:end -->
@@ -388,7 +394,7 @@ table shows.
 <tr><td>Static type from the schema</td><td>✅ from the metaschema schema (Standard Schema types)</td><td>— schemaless</td><td>⚠️ third-party: TypeBox, json-schema-to-ts</td><td>— schemaless</td><td>— schemaless; <code>parse</code> returns <code>any</code></td><td>— schemaless</td><td>— schemaless; <code>decompress&lt;T&gt;</code> is a cast</td><td>✅ generated by <code>pbts</code> from static code</td><td>✅ generated by <code>protoc-gen-es</code></td><td>✅ generated interfaces</td><td>⚠️ third-party <code>@ovotech/avro-ts</code> codegen</td><td>✅ generated d.ts (<code>js:ts</code>)</td><td>✅ generated by <code>flatc --ts</code></td><td>✅ generated by <code>capnp-es -ots</code></td><td>✅ generated by <code>bebopc</code></td><td>✅ the TS type is the schema</td><td>❌ none</td><td>— no schema</td><td>— no schema</td><td>— no schema</td><td>— no schema</td><td>— schemaless</td><td>— schemaless</td></tr>
 <tr><td>Values checked before encode</td><td>✅ metaschema <code>check</code> of the same definition<sup>12</sup></td><td>— schemaless</td><td>❌ coerces: <code>'12'</code> → 12, <code>null</code> → 0<sup>13</sup></td><td>— schemaless</td><td>— schemaless</td><td>— schemaless</td><td>— schemaless</td><td>✅ <code>Type.verify</code>; <code>encode</code> coerces silently</td><td>⚠️ <code>toBinary</code> range-checks numbers; strings coerced<sup>14</sup></td><td>⚠️ writer range-checks numbers; no <code>verify</code><sup>15</sup></td><td>✅ <code>type.isValid(v, { errorHook })</code>; <code>toBuffer</code> throws</td><td>❌ string in <code>i32</code> → 0, 2^40 → 0<sup>16</sup></td><td>❌ coerces: string in int → 0, overflow wraps<sup>17</sup></td><td>❌ coerces: string in UInt32 → 0<sup>18</sup></td><td>❌ trusts: string in uint32 → 0<sup>19</sup></td><td>✅ <code>assertEncode</code>, <code>assertStringify</code>, <code>typia.assert</code></td><td>⚠️ typeof and range checks, on by default<sup>20</sup></td><td>— no schema</td><td>— no schema</td><td>— no schema</td><td>— no schema</td><td>— schemaless</td><td>— schemaless</td></tr>
 <tr class="pa-matrix-group"><td colspan="24"><strong>Wire format</strong></td></tr>
-<tr><td>Wire format</td><td>JSON text (positional arrays)</td><td>JSON text</td><td>JSON text</td><td>JSON text + metadata (<code>{ json, meta }</code>)</td><td>JSON text (flat value table, index refs)<sup>21</sup></td><td>JSON text (<code>[n, …keys, …values]</code>)</td><td>JSON array (<code>[values[], rootKey]</code>, encoded strings)</td><td>binary (Protobuf); ProtoJSON via <code>ext/protojson</code></td><td>binary (Protobuf); ProtoJSON <code>toJson</code>/<code>fromJson</code></td><td>binary (Protobuf); JSON via <code>toJSON</code>/<code>fromJSON</code></td><td>binary (Avro); Avro JSON via <code>toString</code></td><td>binary (Binary/Compact) or JSON (<code>TJSONProtocol</code>)</td><td>binary (FlatBuffers: vtables + offsets)</td><td>binary (Cap'n Proto, optional packing)</td><td>binary (Bebop)</td><td>JSON text (<code>json.*</code>) or binary Protobuf (<code>protobuf.*</code>)</td><td>binary (custom, big-endian, varints)</td><td>binary (MessagePack + record extension)</td><td>binary (MessagePack)</td><td>binary (CBOR + record tags)</td><td>binary (BSON)</td><td>binary (V8 structured clone)</td><td>Ion text or Ion binary</td></tr>
+<tr><td>Wire format</td><td>JSON text (positional arrays); bytes through <code>./binary</code></td><td>JSON text</td><td>JSON text</td><td>JSON text + metadata (<code>{ json, meta }</code>)</td><td>JSON text (flat value table, index refs)<sup>21</sup></td><td>JSON text (<code>[n, …keys, …values]</code>)</td><td>JSON array (<code>[values[], rootKey]</code>, encoded strings)</td><td>binary (Protobuf); ProtoJSON via <code>ext/protojson</code></td><td>binary (Protobuf); ProtoJSON <code>toJson</code>/<code>fromJson</code></td><td>binary (Protobuf); JSON via <code>toJSON</code>/<code>fromJSON</code></td><td>binary (Avro); Avro JSON via <code>toString</code></td><td>binary (Binary/Compact) or JSON (<code>TJSONProtocol</code>)</td><td>binary (FlatBuffers: vtables + offsets)</td><td>binary (Cap'n Proto, optional packing)</td><td>binary (Bebop)</td><td>JSON text (<code>json.*</code>) or binary Protobuf (<code>protobuf.*</code>)</td><td>binary (custom, big-endian, varints)</td><td>binary (MessagePack + record extension)</td><td>binary (MessagePack)</td><td>binary (CBOR + record tags)</td><td>binary (BSON)</td><td>binary (V8 structured clone)</td><td>Ion text or Ion binary</td></tr>
 <tr><td>Human-readable payload</td><td>✅ JSON arrays</td><td>✅ JSON</td><td>✅ JSON</td><td>✅ JSON</td><td>✅ JSON, values referenced by index<sup>22</sup></td><td>✅ JSON</td><td>⚠️ JSON, but base62 numbers and refs</td><td>❌ binary</td><td>❌ binary</td><td>❌ binary</td><td>⚠️ binary; Avro JSON via <code>type.toString()</code></td><td>⚠️ binary; <code>TJSONProtocol</code> is JSON</td><td>❌ binary</td><td>❌ binary</td><td>❌ binary</td><td>✅ JSON path; protobuf path is binary</td><td>❌ binary</td><td>❌ binary</td><td>❌ binary</td><td>❌ binary</td><td>❌ binary (<code>EJSON</code> for text)</td><td>❌ binary</td><td>⚠️ Ion text (JSON superset, not JSON)</td></tr>
 <tr><td>Travels over a JSON or text channel as is</td><td>✅ plain JSON</td><td>✅ it is JSON</td><td>✅ it is JSON</td><td>✅ it is JSON</td><td>✅ JSON string</td><td>✅ JSON string</td><td>✅ <code>JSON.stringify(compress(x))</code></td><td>❌ binary; base64 to travel as text</td><td>❌ binary; base64 to travel as text</td><td>❌ binary; base64 to travel as text</td><td>✅ only as Avro JSON (<code>toString</code>/<code>fromString</code>)</td><td>✅ only with <code>TJSONProtocol</code></td><td>❌ needs base64</td><td>❌ needs base64</td><td>❌ needs base64</td><td>✅ JSON path; protobuf needs base64</td><td>❌ Buffer; base64 needed</td><td>❌ binary, needs base64</td><td>❌ binary, needs base64</td><td>❌ binary, needs base64</td><td>❌ binary; <code>EJSON</code> is a separate JSON form</td><td>❌ needs base64</td><td>✅ Ion text is a string</td></tr>
 <tr><td>Field names on the wire</td><td>❌ positional</td><td>✅ every message</td><td>✅ every message</td><td>✅ every message (and in <code>meta</code> paths)</td><td>✅ every object</td><td>⚠️ once per collection (header)</td><td>⚠️ once per distinct key set</td><td>❌ tag numbers</td><td>❌ tag numbers</td><td>❌ tag numbers</td><td>❌ positional (schema order)</td><td>❌ tag numbers (field ids)</td><td>❌ vtable slots (field ids)</td><td>❌ fixed offsets</td><td>❌ positional structs; 1-byte tags in messages</td><td>✅ JSON: every message; protobuf: tag numbers</td><td>❌ positional (sorted key order)</td><td>⚠️ once per structure (<code>new Packr()</code> records)</td><td>✅ every object</td><td>⚠️ once per structure (<code>new Encoder()</code> records)</td><td>✅ every document</td><td>✅ every object, repeated</td><td>✅ text: each time; binary: once (symbol table)</td></tr>
@@ -524,6 +530,7 @@ const { resolve } = require('@alexify/protoarray/resolve');
 const { SchemaRegistry } = require('@alexify/protoarray/registry');
 const { parseLines, parseItems /* … */ } = require('@alexify/protoarray/stream');
 const { toSource } = require('@alexify/protoarray/standalone');
+const { toBinary, fromBinary } = require('@alexify/protoarray/binary');
 ```
 
 ```ts

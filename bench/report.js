@@ -11,8 +11,10 @@
  *
  * The inputs: bench/results/compare.json (pnpm bench:compare --save),
  * bench/results/size.json (pnpm size:compare --save),
- * bench/results/releases.json (pnpm bench:releases) and
- * bench/baseline.json (pnpm bench --save).
+ * bench/results/releases.json (pnpm bench:releases),
+ * bench/results/binary.json (the run of the binary-wire spike that decided
+ * the ./binary subpath, kept as it was, docs only) and bench/baseline.json
+ * (pnpm bench --save).
  *
  * Run: pnpm bench:report
  */
@@ -71,6 +73,7 @@ const main = async () => {
   const compare = readJson(path.join(RESULTS, 'compare.json'));
   const size = readJson(path.join(RESULTS, 'size.json'));
   const releases = readJson(path.join(RESULTS, 'releases.json'));
+  const binary = readJson(path.join(RESULTS, 'binary.json'));
   const baseline = readJson(path.join(__dirname, 'baseline.json'));
 
   fs.rmSync(SVG_DIR, { recursive: true, force: true });
@@ -87,26 +90,18 @@ const main = async () => {
   // name → { readme, docs } markdown
   const regions = {};
 
-  if (compare) {
-    const caption = model.compareCaption(compare);
-    let headline = '';
-    const more = [];
-    const sizes = [];
-    for (const scenario of model.compareScenarios(compare)) {
-      const speed = model.compareModel(compare, scenario.id, 'roundtrip');
-      const img = chartImage(`compare-${scenario.id}.svg`, speed, caption);
-      if (scenario.id === HEADLINE) headline = img;
-      else more.push(img);
-      const bytes = model.compareModel(compare, scenario.id, 'bytes');
-      sizes.push(chartImage(`compare-${scenario.id}-bytes.svg`, bytes, caption));
-    }
-    const scenarios = compare.scenarios;
-    const ok = (result) => result !== undefined && result.error === undefined;
-    const roundTrip = (result) => 1 / (1 / result.encode.median + 1 / result.decode.median);
-    const summary = table(
+  const ok = (result) => result !== undefined && result.error === undefined;
+  const roundTrip = (result) => 1 / (1 / result.encode.median + 1 / result.decode.median);
+
+  // The tables of a comparison (compare.json, or the binary prototype's
+  // binary.json of the same shape): the round trips of every library on every
+  // scenario, and per scenario, encode, decode and the sizes.
+  const summaryTable = (report) => {
+    const scenarios = report.scenarios;
+    return table(
       ['Library', ...scenarios.map((scenario) => `${scenario.title}<br><sub>round trips/s</sub>`)],
       ['---', ...scenarios.map(() => '---:')],
-      compare.libraries
+      report.libraries
         .filter((library) => scenarios.some((scenario) => ok(scenario.results[library.id])))
         .map((library) => [
           libraryCell(library),
@@ -116,13 +111,15 @@ const main = async () => {
           }),
         ]),
     );
-    const note =
-      `_${caption}. A round trip is one encode and one decode of the payload; medians, ` +
-      'rounded to three significant figures; — where the scenario does not apply._';
-    const full = scenarios.map((scenario) => {
+  };
+  const summaryNote = (caption) =>
+    `_${caption}. A round trip is one encode and one decode of the payload; medians, ` +
+    'rounded to three significant figures; — where the scenario does not apply._';
+  const scenarioTables = (report) =>
+    report.scenarios.map((scenario) => {
       const json = scenario.results.json;
       const relative = (value, base) => (ok(json) ? ` (×${(value / base).toFixed(2)})` : '');
-      const rows = compare.libraries
+      const rows = report.libraries
         .filter((library) => ok(scenario.results[library.id]))
         .map((library) => {
           const result = scenario.results[library.id];
@@ -144,11 +141,29 @@ const main = async () => {
         ),
       ].join('\n\n');
     });
-    const fullNote =
-      `_${caption}. Medians; (×n) against JSON; bytes are the wire size of one payload ` +
-      `(binary formats before any text encoding), gzip at level ${compare.method.gzipLevel}, ` +
-      `brotli at quality ${compare.method.brotliQuality}. The spread of the rounds is in ` +
-      'bench/results/compare.json._';
+  const scenarioNote = (report, caption, file) =>
+    `_${caption}. Medians; (×n) against JSON; bytes are the wire size of one payload ` +
+    `(binary formats before any text encoding), gzip at level ${report.method.gzipLevel}, ` +
+    `brotli at quality ${report.method.brotliQuality}. The spread of the rounds is in ` +
+    `bench/results/${file}._`;
+
+  if (compare) {
+    const caption = model.compareCaption(compare);
+    let headline = '';
+    const more = [];
+    const sizes = [];
+    for (const scenario of model.compareScenarios(compare)) {
+      const speed = model.compareModel(compare, scenario.id, 'roundtrip');
+      const img = chartImage(`compare-${scenario.id}.svg`, speed, caption);
+      if (scenario.id === HEADLINE) headline = img;
+      else more.push(img);
+      const bytes = model.compareModel(compare, scenario.id, 'bytes');
+      sizes.push(chartImage(`compare-${scenario.id}-bytes.svg`, bytes, caption));
+    }
+    const summary = summaryTable(compare);
+    const note = summaryNote(caption);
+    const full = scenarioTables(compare);
+    const fullNote = scenarioNote(compare, caption, 'compare.json');
     regions.compare = {
       readme: [
         headline,
@@ -241,6 +256,22 @@ const main = async () => {
         note,
       ].join('\n\n'),
       docs: [releaseTable, note].join('\n\n'),
+    };
+  }
+
+  // The binary-wire spike that decided the ./binary subpath, as it ran: its
+  // tables go to the docs only, under the criteria written there before it.
+  if (binary) {
+    const caption = model.compareCaption(binary);
+    regions.binary = {
+      docs: [
+        summaryTable(binary),
+        summaryNote(caption),
+        details('Every scenario: encode, decode and the payload sizes', [
+          ...scenarioTables(binary),
+          scenarioNote(binary, caption, 'binary.json'),
+        ]),
+      ].join('\n\n'),
     };
   }
 

@@ -117,6 +117,40 @@ test('Platform: the runtime twins agree on base64', () => {
   }
 });
 
+// The strings of the binary wire: the same bytes from both twins, the same
+// strings back, a lone surrogate kept by UTF-16, and the chunked read past
+// an engine's argument limit.
+test('Platform: the runtime twins agree on the strings of the binary wire', () => {
+  const lone = String.fromCharCode(0xd800);
+  const samples = [
+    '',
+    'a',
+    'Привіт',
+    'x'.repeat(100),
+    '😀 pair',
+    `${lone}lone`,
+    `tail${String.fromCharCode(0xdfff)}`,
+    String.fromCharCode(0x2028),
+    'ы'.repeat(40000),
+  ];
+  for (const text of samples) {
+    const node = new Uint8Array(text.length * 3 + 16);
+    const browser = new Uint8Array(text.length * 3 + 16);
+    const utf8 = Buffer.from(text, 'utf8');
+    node.set(utf8, 5);
+    browser.set(utf8, 5);
+    const read = utf8.toString('utf8');
+    assert.strictEqual(RUNTIME.node.readUtf8(node, 5, 5 + utf8.length), read);
+    assert.strictEqual(RUNTIME.browser.readUtf8(browser, 5, 5 + utf8.length), read);
+    const m = RUNTIME.node.writeUtf16(node, text, 3);
+    assert.strictEqual(RUNTIME.browser.writeUtf16(browser, text, 3), m);
+    assert.strictEqual(m, text.length * 2);
+    assert.deepStrictEqual(browser, node);
+    assert.strictEqual(RUNTIME.node.readUtf16(node, 3, 3 + m), text);
+    assert.strictEqual(RUNTIME.browser.readUtf16(browser, 3, 3 + m), text);
+  }
+});
+
 // Source text is compiled in exactly one place, behind a probe with a
 // closures fallback; nothing else may reach for `Function` or `eval`.
 test('Platform: code generation lives in src/codegen.js only', () => {

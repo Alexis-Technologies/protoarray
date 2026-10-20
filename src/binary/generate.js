@@ -1,0 +1,499 @@
+// The generated backend of the binary wire: every struct of the plan becomes
+// one write function and one read function, compiled through codegen.js's
+// `compile` (the one place source text becomes a function), as codegen.js
+// compiles the text wire. The source has the same shape: one `eN(w,o)` and
+// one `dN(r)` per struct, a decoded record built as one object literal, a
+// union as a switch over its tag, a referenced schema called through a slot.
+// `H` holds the helpers (type nodes and slots), `F` throws a DecodeError, `E`
+// an EncodeError and `N` re-throws one with a key or an index prepended. A
+// `path` below is a source expression that is only evaluated on an error
+// branch. The closures backend (./closures.js) writes and reads the same
+// bytes and is the reference this one is checked against.
+//
+// The wire (see docs/guide/wire-format.md), little-endian: a struct is a
+// header bitset (a presence bit per field, required ones too, then the value
+// of every boolean field) in whole bytes, and its present fields in
+// declaration order; a union its tag (a byte up to 256 values, a varint past
+// them) and the branch's struct without the discriminator; a collection its
+// count, a presence bitmap when its items may be null, and its items; a map
+// its entries (key, a presence byte when a value may be null, value); a
+// dictionary its keys and values; a tuple a bitmap and its elements. A
+// `number` is a float64; an integer, a date (ms) and a scaled decimal are
+// zigzag varints; an enum index a byte (a varint past 256 values); a flags
+// mask a varint per 31 names; a boolean outside a struct a byte; a string its
+// bytes behind its length (wire.js); bytes behind their length; a bigint its
+// decimal digits as a string; json its text as a string; null nothing.
+//
+// Decode checks the wire behind `validate`: the bounds of every read (a
+// truncated message is a DecodeError), the range of an enum index, the fit of
+// a bitmap and of a string, a required field's presence; a union's tag is
+// checked in every mode. Encode trusts its values and checks only the shapes
+// the wire is built from, as the text wire does, which here includes a string
+// slot holding a string and a bytes slot holding a Uint8Array: the text wire
+// carries anything else as it is, the binary one has no form for it.
+
+const { expectedOf, step } = require('../errors.js');
+const { WORD, isBytes, isMap, listOf, put, member } = require('../types.js');
+const codegen = require('../codegen.js');
+
+const str = JSON.stringify;
+
+// An enum index or a union tag over this many values takes a varint.
+const BYTE = 256;
+
+const byteTag = (node) => node.values.length <= BYTE;
+const wordsOf = (node) => Math.ceil(node.names.length / WORD);
+
+// A boolean field of a struct travels in the struct's header.
+const inHeader = (node) => node.kind === 'scalar' && node.type === 'boolean';
+
+// The source of a plan's binary codec and the helpers it reads through `H`.
+// `context.validate` says whether decode checks the wire; `context.slot(slot)`
+// gives the `{ write, read }` of the schema a slot calls.
+const generate = (plan, context) => {
+  const { validate } = context;
+  const helpers = [];
+  const slots = new Map();
+  const functions = [];
+  const structs = new Map();
+  let counter = 0;
+  const uid = (prefix) => `${prefix}${counter++}`;
+
+  const slot = (value) => {
+    let index = slots.get(value);
+    if (index === undefined) {
+      index = helpers.length;
+      helpers.push(value);
+      slots.set(value, index);
+    }
+    return `H[${index}]`;
+  };
+
+  // A decode check, only with validation; `path` is a source expression.
+  const check = (condition, code, path, detail) =>
+    validate ? `if(${condition})F(${str(code)},${path},${str(detail)});` : '';
+  const truncated = (path) => check('r.pos>r.end', 'structure', path, 'length');
+
+  // The value of `src` ready for the wire, or null when nothing travels: a
+  // converted scalar is packed first (an enum value not of the enum, an
+  // invalid date travel as null, as on the text wire; a decimal past the safe
+  // integers is refused, `always`). Gives the statements and the expression.
+  const ready = (node, src, path) => {
+    if (node.kind !== 'scalar' || node.pack === null) return ['', src];
+    if (node.type === 'null') return ['', 'null'];
+    if (node.type === 'bigint' || node.type === 'bytes') return ['', src];
+    const x = uid('x');
+    let out = `const ${x}=${src}==null?null:${slot(node)}.pack(${src});`;
+    if (node.always === true) {
+      out += `if(${x}===undefined)E(${str(node.code)},${path},${str(expectedOf(node))});`;
+    }
+    return [out, x];
+  };
+
+  // Statements that write a string, which must be one: the writer measures it.
+  const writeString = (x, path) =>
+    `if(typeof ${x}!=='string')E('type',${path},'string');w.string(${x});`;
+
+  // Statements that write a ready, present scalar.
+  const writeScalar = (node, x, path) => {
+    if (node.decimals !== undefined) return `w.svar(${x});`;
+    switch (node.type) {
+      case 'number':
+        return `w.f64(${x});`;
+      case 'integer':
+      case 'date':
+        return `w.svar(${x});`;
+      case 'boolean':
+        return `w.u8(${x}?1:0);`;
+      case 'string':
+        return writeString(x, path);
+      case 'enum':
+        return byteTag(node) ? `w.u8(${x});` : `w.uvar(${x});`;
+      case 'flags':
+        return wordsOf(node) === 1 ? `w.uvar(${x});` : `w.words(${x},${wordsOf(node)});`;
+      case 'bytes':
+        return `if(!${slot(isBytes)}(${x}))E('type',${path},'bytes');w.raw(${x});`;
+      case 'bigint':
+        return `w.string(String(${x}));`;
+      case 'json': {
+        // A value JSON has no text for (a function) travels as null, as on
+        // the text wire.
+        const t = uid('t');
+        return `const ${t}=JSON.stringify(${x});w.string(${t}===undefined?'null':${t});`;
+      }
+      default:
+        return '';
+    }
+  };
+
+  // Statements that write a present `x` of any kind. A slot (a reference by
+  // name or an embedded schema) is called as it is.
+  const emit = (node, x, path) => {
+    if (node.kind === 'scalar') return writeScalar(node, x, path);
+    if (node.slot !== undefined) {
+      return `try{${slot(context.slot(node.slot))}.write(w,${x});}catch(error){throw N(error,${path});}`;
+    }
+    if (node.kind === 'struct' || node.kind === 'union') {
+      return `try{${record(node).e}(w,${x});}catch(error){throw N(error,${path});}`;
+    }
+    if (node.kind === 'array') return emitArray(node, x, path);
+    if (node.kind === 'map') return emitMap(node, x, path);
+    if (node.kind === 'dict') return emitDict(node, x, path);
+    return emitTuple(node, x, path);
+  };
+
+  // The count, a bitmap when an item may be null, the items. A Set travels as
+  // its elements. A null item of a list of required items has no form.
+  const emitArray = (node, x, path) => {
+    const { item } = node;
+    const [l, n, i, s] = [uid('l'), uid('n'), uid('i'), uid('s')];
+    const at = `${path}+"["+${i}+"]"`;
+    const head =
+      node.container === 'set'
+        ? `const ${l}=Array.isArray(${x})?${x}:${slot(listOf)}(${x});` +
+          `if(${l}===undefined)E('set',${path});`
+        : `if(!Array.isArray(${x}))E('array',${path});const ${l}=${x};`;
+    const [pre, y] = ready(item, `${l}[${i}]`, at);
+    const count = `const ${n}=${l}.length;w.uvar(${n});`;
+    if (!node.itemRequired) {
+      return (
+        `${head}${count}const ${s}=w.bitmap(${n});for(let ${i}=0;${i}<${n};${i}++){${pre}` +
+        `if(${y}!=null){w.mark(${s},${i});${emit(item, y, at)}}}`
+      );
+    }
+    return (
+      `${head}${count}for(let ${i}=0;${i}<${n};${i}++){${pre}` +
+      `if(${y}==null)E('type',${at},${str(expectedOf(item))});${emit(item, y, at)}}`
+    );
+  };
+
+  // A nullable value behind a presence byte, a required one as it is.
+  const emitValue = (node, required, src, at) => {
+    const [pre, y] = ready(node, src, at);
+    if (required) {
+      return `${pre}if(${y}==null)E('type',${at},${str(expectedOf(node))});${emit(node, y, at)}`;
+    }
+    return `${pre}if(${y}==null)w.u8(0);else{w.u8(1);${emit(node, y, at)}}`;
+  };
+
+  // The count, then each entry: its key (a string or a number) and its value.
+  // An entry's path is its index: a key may be anything.
+  const emitMap = (node, x, path) => {
+    const [i, e] = [uid('i'), uid('e')];
+    const at = `${path}+"["+${i}+"]"`;
+    const key = node.key.type === 'string' ? writeString(`${e}[0]`, at) : `w.f64(${e}[0]);`;
+    return (
+      `if(!${slot(isMap)}(${x}))E('map',${path});w.uvar(${x}.size);let ${i}=0;` +
+      `for(const ${e} of ${x}){${key}${emitValue(node.value, node.valueRequired, `${e}[1]`, at)}${i}++;}`
+    );
+  };
+
+  const emitDict = (node, x, path) => {
+    const [ks, i, k] = [uid('k'), uid('i'), uid('k')];
+    const at = `${slot(member)}(${path},${k})`;
+    return (
+      `if(typeof ${x}!=='object'||Array.isArray(${x}))E('object',${path});` +
+      `const ${ks}=Object.keys(${x});w.uvar(${ks}.length);` +
+      `for(let ${i}=0;${i}<${ks}.length;${i}++){const ${k}=${ks}[${i}];w.string(${k});` +
+      `${emitValue(node.value, node.valueRequired, `${x}[${k}]`, at)}}`
+    );
+  };
+
+  const emitTuple = (node, x, path) => {
+    const s = uid('s');
+    const out = [
+      `if(!Array.isArray(${x}))E('array',${path});const ${s}=w.bitmap(${node.items.length});`,
+    ];
+    node.items.forEach((item, i) => {
+      const at = `${path}+${str(`[${i}]`)}`;
+      const [pre, y] = ready(item.node, `${x}[${i}]`, at);
+      out.push(`${pre}if(${y}!=null){w.mark(${s},${i});${emit(item.node, y, at)}}`);
+    });
+    return out.join('');
+  };
+
+  // Statements that set `dst` from a present scalar on the wire.
+  const readScalar = (node, dst, path) => {
+    const t = uid('t');
+    if (node.decimals !== undefined) {
+      return `${dst}=r.svar()/${10 ** node.decimals};${truncated(path)}`;
+    }
+    switch (node.type) {
+      case 'number':
+        return `${check('r.pos+8>r.end', 'structure', path, 'length')}${dst}=r.f64();`;
+      case 'integer':
+        return `${dst}=r.svar();${truncated(path)}`;
+      case 'date':
+        return (
+          `const ${t}=r.svar();${truncated(path)}` +
+          `${check(`${t}>8.64e15||${t}<-8.64e15`, 'type', path, 'date')}${dst}=new Date(${t});`
+        );
+      case 'boolean':
+        return `const ${t}=r.u8();${check(`!(${t}<2)`, 'type', path, 'boolean')}${dst}=${t}===1;`;
+      case 'string':
+        return `${dst}=r.string();${check(`${dst}===undefined`, 'structure', path, 'length')}`;
+      case 'enum':
+        return (
+          `const ${t}=${byteTag(node) ? 'r.u8()' : `r.uvar();${truncated(path)}`};` +
+          `${check(`!(${t}<${node.values.length})`, 'enum', path, node.expected)}` +
+          `${dst}=${slot(node.values)}[${t}];`
+        );
+      case 'flags': {
+        const words = wordsOf(node);
+        const read = words === 1 ? 'r.uvar()' : `r.words(${words})`;
+        return `${dst}=${slot(node)}.unpack(${read});${truncated(path)}`;
+      }
+      case 'bytes':
+        return `${dst}=r.raw();${check(`${dst}===undefined`, 'structure', path, 'length')}`;
+      case 'bigint':
+        return (
+          `const ${t}=r.string();` +
+          `${check(`${t}===undefined||!/^-?\\d+$/.test(${t})`, 'type', path, 'bigint')}` +
+          `${dst}=BigInt(${t});`
+        );
+      case 'json':
+        return (
+          `const ${t}=r.string();${check(`${t}===undefined`, 'structure', path, 'length')}` +
+          `${dst}=JSON.parse(${t});`
+        );
+      default:
+        return `${dst}=null;`;
+    }
+  };
+
+  // A collection's count: read, then bounded by the bytes left, of which
+  // every item takes at least one (a required item does, since a `null` is
+  // never required; a map's or a dictionary's key takes a byte) or a bit of
+  // the bitmap (a nullable item), so no count allocates past the message.
+  const readCount = (c, path, perByte) => {
+    const left = perByte === 1 ? 'r.end-r.pos' : `(r.end-r.pos)*${perByte}`;
+    return `const ${c}=r.uvar();${check(`r.pos>r.end||${c}>${left}`, 'structure', path, 'length')}`;
+  };
+
+  // A bitmap of `count` bits at `s`, which the count's bound made fit; `b` is
+  // the bytes.
+  const readBitmap = (b, s, count) => `const ${b}=r.bytes,${s}=r.pos;r.pos=${s}+((${count}+7)>>3);`;
+  const bit = (b, s, i) => `(${b}[${s}+(${i}>>3)]&(1<<(${i}&7)))!==0`;
+
+  // Statements that set `dst` from a present value of any kind.
+  const readInto = (node, dst, path) => {
+    if (node.kind === 'scalar') return readScalar(node, dst, path);
+    if (node.slot !== undefined) {
+      return `try{${dst}=${slot(context.slot(node.slot))}.read(r);}catch(error){throw N(error,${path});}`;
+    }
+    if (node.kind === 'struct' || node.kind === 'union') {
+      return `try{${dst}=${record(node).d}(r);}catch(error){throw N(error,${path});}`;
+    }
+    if (node.kind === 'array') {
+      const { item } = node;
+      const [c, i, b, s, o, y] = [uid('c'), uid('c'), uid('b'), uid('s'), uid('o'), uid('y')];
+      const at = `${path}+"["+${i}+"]"`;
+      const done = node.container === 'set' ? `${dst}=new Set(${o});` : `${dst}=${o};`;
+      if (!node.itemRequired) {
+        return (
+          `${readCount(c, path, 8)}${readBitmap(b, s, c)}` +
+          `const ${o}=new Array(${c});for(let ${i}=0;${i}<${c};${i}++){let ${y}=null;` +
+          `if(${bit(b, s, i)}){${readInto(item, y, at)}}${o}[${i}]=${y};}${done}`
+        );
+      }
+      return (
+        `${readCount(c, path, 1)}const ${o}=new Array(${c});` +
+        `for(let ${i}=0;${i}<${c};${i}++){let ${y};${readInto(item, y, at)}${o}[${i}]=${y};}${done}`
+      );
+    }
+    if (node.kind === 'map') {
+      const [c, i, k, o, y] = [uid('c'), uid('c'), uid('k'), uid('o'), uid('y')];
+      const at = `${path}+"["+${i}+"]"`;
+      const key =
+        node.key.type === 'string'
+          ? `const ${k}=r.string();${check(`${k}===undefined`, 'structure', at, 'length')}`
+          : `${check('r.pos+8>r.end', 'structure', at, 'length')}const ${k}=r.f64();`;
+      return (
+        `${readCount(c, path, 1)}const ${o}=new Map();` +
+        `for(let ${i}=0;${i}<${c};${i}++){${key}let ${y}=null;` +
+        `${readValue(node.value, node.valueRequired, y, at)}${o}.set(${k},${y});}${dst}=${o};`
+      );
+    }
+    if (node.kind === 'dict') {
+      const [c, i, k, o, y] = [uid('c'), uid('c'), uid('k'), uid('o'), uid('y')];
+      const at = `${slot(member)}(${path},${k})`;
+      return (
+        `${readCount(c, path, 1)}const ${o}={};` +
+        `for(let ${i}=0;${i}<${c};${i}++){const ${k}=r.string();` +
+        `${check(`${k}===undefined`, 'structure', path, 'length')}let ${y}=null;` +
+        `${readValue(node.value, node.valueRequired, y, at)}` +
+        `if(${k}==='__proto__')${slot(put)}(${o},${k},${y});else ${o}[${k}]=${y};}${dst}=${o};`
+      );
+    }
+    const [b, s] = [uid('b'), uid('s')];
+    const out = [`${readBitmap(b, s, node.items.length)}${truncated(path)}`];
+    const parts = node.items.map((item, i) => {
+      const y = uid('y');
+      const at = `${path}+${str(`[${i}]`)}`;
+      out.push(slotValue(item.node, item.required, item.def, y, bit(b, s, i), at));
+      return y;
+    });
+    out.push(`${dst}=[${parts}];`);
+    return out.join('');
+  };
+
+  // A map's or a dictionary's value: behind a presence byte when it may be
+  // null, as it is when required.
+  const readValue = (node, required, y, at) => {
+    if (required) return readInto(node, y, at);
+    const f = uid('f');
+    return (
+      `const ${f}=r.u8();${check(`!(${f}<2)`, 'structure', at, 'length')}` +
+      `if(${f}===1){${readInto(node, y, at)}}`
+    );
+  };
+
+  // One slot (a field or a tuple element) whose presence `test` says: the
+  // value, the default or, for a required one under validation, an error.
+  const slotValue = (node, required, def, y, test, path) => {
+    const fallback = def === null ? 'null' : str(def);
+    const missing = required && validate ? `else{F('required',${path});}` : '';
+    return `let ${y}=${fallback};if(${test}){${readInto(node, y, path)}}${missing}`;
+  };
+
+  const structFns = (node) => {
+    let fns = structs.get(node);
+    if (fns !== undefined) return fns;
+    fns = { e: uid('e'), d: uid('d') };
+    structs.set(node, fns);
+    const size = node.fields.length;
+    // A branch of a union: its tag `t` fills the discriminator; the union
+    // function has checked the value and written the tag already.
+    const { tag } = node;
+    const lead = tag === undefined ? 0 : 1;
+    // The header: a presence bit per field, then a bit per boolean field.
+    const flags = node.fields.filter((field) => inHeader(field.node));
+    const bits = size + flags.length;
+    const bytes = (bits + 7) >> 3;
+    const masks = Array.from({ length: bytes }, (_, i) => `m${i}`);
+    const at = (i) => [`m${i >> 3}`, 1 << (i & 7)];
+    const enc = lead === 0 ? [`if(typeof o!=='object'||Array.isArray(o))E('object','');`] : [];
+    if (bytes > 0) {
+      enc.push(`w.ensure(${bytes});const s=w.pos;w.pos=s+${bytes};let ${masks.join('=0,')}=0;`);
+    }
+    let next = size;
+    for (const field of node.fields) {
+      const key = str(field.key);
+      const where = str(step(field.key));
+      const [m, mask] = at(field.index);
+      const v = uid('v');
+      enc.push(`const ${v}=o[${key}];`);
+      if (inHeader(field.node)) {
+        const [fm, fmask] = at(next++);
+        enc.push(`if(${v}!=null){${m}|=${mask};if(${v})${fm}|=${fmask};}`);
+        continue;
+      }
+      if (field.node.kind === 'scalar' && field.node.type === 'null') continue;
+      const [pre, x] = ready(field.node, v, where);
+      enc.push(`${pre}if(${x}!=null){${m}|=${mask};${emit(field.node, x, where)}}`);
+    }
+    if (bytes > 0) {
+      enc.push(`const b=w.bytes;${masks.map((m, i) => `b[s+${i}]=${m};`).join('')}`);
+    }
+    functions.push(`function ${fns.e}(w,o){${enc.join('')}}`);
+    const dec = [];
+    const heads = Array.from({ length: bytes }, (_, i) => `h${i}`);
+    const head = (i) => `(h${i >> 3}&${1 << (i & 7)})!==0`;
+    if (bytes > 0) {
+      dec.push(
+        `const b=r.bytes,p=r.pos;${check(`p+${bytes}>r.end`, 'structure', '""', 'length')}` +
+          `const ${heads.map((h, i) => `${h}=b[p+${i}]`).join(',')};r.pos=p+${bytes};`,
+      );
+    }
+    const parts = [];
+    next = size;
+    for (const field of node.fields) {
+      const where = str(step(field.key));
+      const v = uid('v');
+      if (inHeader(field.node)) {
+        const fallback = field.def === null ? 'null' : str(field.def);
+        const missing = field.required && validate ? `else{F('required',${where});}` : '';
+        dec.push(`let ${v}=${fallback};if(${head(field.index)}){${v}=${head(next++)};}${missing}`);
+      } else {
+        dec.push(slotValue(field.node, field.required, field.def, v, head(field.index), where));
+      }
+      parts.push(`${str(field.key)}:${v}`);
+    }
+    if (lead === 1) parts.splice(tag.position, 0, `${str(tag.key)}:${slot(tag.values)}[t]`);
+    dec.push(`return {${parts}};`);
+    functions.push(`function ${fns.d}(r${lead === 0 ? '' : ',t'}){${dec.join('')}}`);
+    return fns;
+  };
+
+  // A union picks its branch by the discriminator on encode and by the tag on
+  // decode; either one outside the union is an error even without validation,
+  // since there is no branch to fall back to.
+  const unionFns = (node) => {
+    let fns = structs.get(node);
+    if (fns !== undefined) return fns;
+    fns = { e: uid('e'), d: uid('d') };
+    structs.set(node, fns);
+    const tag = slot(node.tag);
+    const key = str(node.key);
+    const where = str(step(node.key));
+    const expected = str(node.tag.expected);
+    const wide = !byteTag(node.tag);
+    const cases = (call) => {
+      const out = [];
+      for (const branch of node.branches) {
+        for (let i = 0; i < branch.count; i++) out.push(`case ${branch.first + i}:`);
+        out.push(call(structFns(branch.node)));
+      }
+      return out.join('');
+    };
+    functions.push(
+      `function ${fns.e}(w,o){if(typeof o!=='object'||Array.isArray(o))E('object','');` +
+        `const t=${tag}.checkedPack(o[${key}]);switch(t){` +
+        `${cases((f) => `w.${wide ? 'uvar' : 'u8'}(t);return ${f.e}(w,o);`)}}` +
+        `E('union',${where},${expected});}`,
+    );
+    functions.push(
+      `function ${fns.d}(r){const t=r.${wide ? `uvar();${truncated(where)}` : 'u8();'}switch(t){` +
+        `${cases((f) => `return ${f.d}(r,t);`)}}F('union',${where},${expected});}`,
+    );
+    return fns;
+  };
+
+  const record = (node) => (node.kind === 'union' ? unionFns(node) : structFns(node));
+
+  let encodeBody;
+  let decodeBody;
+  if (plan.kind === 'struct' || plan.kind === 'union') {
+    const fns = record(plan);
+    encodeBody = `if(v==null)E('required','');${fns.e}(w,v);`;
+    decodeBody = `return ${fns.d}(r);`;
+  } else if (plan.kind === 'scalar') {
+    // A root scalar travels behind a presence byte.
+    const [pre, x] = ready(plan, 'v', '""');
+    encodeBody = `${pre}if(${x}==null)w.u8(0);else{w.u8(1);${writeScalar(plan, x, '""')}}`;
+    const missing = plan.required && validate ? `else{F('required',"");}` : '';
+    decodeBody =
+      `let x=null;const f=r.u8();${check('!(f<2)', 'structure', '""', 'length')}` +
+      `if(f===1){${readScalar(plan, 'x', '""')}}${missing}return x;`;
+  } else {
+    encodeBody = `if(v==null)E('required','');${emit(plan, 'v', '""')}`;
+    decodeBody = `let x;${readInto(plan, 'x', '""')}return x;`;
+  }
+  const body = [
+    '"use strict";',
+    ...functions,
+    `function write(w,v){${encodeBody}}`,
+    `function read(r){${decodeBody}}`,
+    'return {write,read};',
+  ].join('\n');
+  return { body, helpers };
+};
+
+// The `{ write, read }` of a plan: `write(w, v)` into a Writer, `read(r)` from
+// a Reader (wire.js).
+const build = (plan, context) => {
+  const { body, helpers } = generate(plan, context);
+  return codegen.compile(body)(helpers);
+};
+
+module.exports = { build, generate };

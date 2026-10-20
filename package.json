@@ -47,6 +47,10 @@
       "types": "./standalone.d.ts",
       "default": "./standalone.js"
     },
+    "./binary": {
+      "types": "./binary.d.ts",
+      "default": "./binary.js"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -65,6 +69,8 @@
     "stream.d.ts",
     "standalone.js",
     "standalone.d.ts",
+    "binary.js",
+    "binary.d.ts",
     "bin",
     "src",
     "README.md",
@@ -79,7 +85,7 @@
     "test": "node --test tests/unit/*.test.js",
     "test:coverage": "c8 --all --include 'src/**' --include 'bin/**' --100 --per-file --reporter text --reporter lcov node --test tests/unit/*.test.js",
     "test:types": "tsd",
-    "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts registry.d.ts resolve.d.ts stream.d.ts standalone.d.ts",
+    "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts registry.d.ts resolve.d.ts stream.d.ts standalone.d.ts binary.d.ts",
     "lint": "oxlint src tests scripts bench bin",
     "format": "oxfmt src tests scripts bench bin",
     "format:check": "oxfmt --check src tests scripts bench bin",

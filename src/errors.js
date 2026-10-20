@@ -19,6 +19,7 @@ const kernel = () => {
     iterable: 'is not iterable',
     depth: 'is nested too deeply',
     size: 'is longer than maxLength allows',
+    bytes: 'is not a Uint8Array',
   });
 
   const TEXT = Object.assign(Object.create(null), {

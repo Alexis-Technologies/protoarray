@@ -145,6 +145,7 @@ export default withMermaid(
               { text: 'TypeScript', link: '/guide/typescript' },
               { text: 'Runtimes and CSP', link: '/guide/runtimes' },
               { text: 'Standalone Modules', link: '/guide/standalone' },
+              { text: 'The Binary Wire', link: '/guide/binary' },
               { text: 'Compression', link: '/guide/compression' },
               { text: 'With wrpc', link: '/guide/wrpc' },
               { text: 'Benchmarks', link: '/guide/benchmarks' },

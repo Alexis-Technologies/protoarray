@@ -70,7 +70,9 @@ small. The payload is still plain JSON.
   cbor-x, and decodes faster than every one of them on long strings. Two honest exceptions:
   payloads that are mostly numbers (a double prints as up to 17 characters, binary stores 8
   bytes), and msgpackr with shared record structures, which decodes records faster than
-  `JSON.parse` can read them (avsc, cbor-x and protobufjs do too on some shapes).
+  `JSON.parse` can read them (avsc, cbor-x and protobufjs do too on some shapes). Where a
+  channel carries bytes, [the binary wire](/guide/binary) (`@alexify/protoarray/binary`) puts the
+  same schema on bytes and takes the numeric payloads too.
 - **Readable on the wire.** The payload can be logged, inspected and edited as is, and travels
   over channels that only carry text without base64.
 - **Schema evolution with the same discipline.** Positions are append-only, like protobuf field
@@ -91,8 +93,9 @@ serialization libraries, feature by feature.
 
 - The other side is not JavaScript and already speaks protobuf or Avro: protoarray's wire is
   specified, but JavaScript is its only implementation.
-- The payload is dense numeric data (sensor readings, vectors): a typed array in a binary frame is
-  the right tool.
+- The payload is dense numeric data (sensor readings, vectors) and the channel carries text: the
+  [binary wire](/guide/binary) needs a channel that carries bytes, and base64 would eat its gain;
+  a typed array in a binary frame is the right tool there.
 - You need to read one field of a large message without decoding the rest: FlatBuffers and
   Cap'n Proto read in place.
 - The data has no fixed shape at all: `json` fields pass anything through, but a schema with

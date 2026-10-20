@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="844" viewBox="0 0 760 844" role="img" aria-label="32 doubles: round trip. 32 doubles (where binary formats shine). Encode one payload and decode it, payloads a second, linear scale, higher is better. The line marks JSON.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="884" viewBox="0 0 760 884" role="img" aria-label="32 doubles: round trip. 32 doubles (where binary formats shine). Encode one payload and decode it, payloads a second, linear scale, higher is better. The line marks JSON.">
 <style>
   text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
   .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
@@ -33,185 +33,197 @@
 <text class="title" x="20" y="35">32 doubles: round trip</text>
 <text class="subtitle" x="20" y="56">32 doubles (where binary formats shine). Encode one payload and decode it, payloads a second, linear scale,</text>
 <text class="subtitle" x="20" y="73">higher is better. The line marks JSON.</text>
-<line class="grid" x1="217" y1="88" x2="217" y2="768"/>
-<text class="tick" x="217" y="784" text-anchor="middle">0</text>
-<line class="grid" x1="370" y1="88" x2="370" y2="768"/>
-<text class="tick" x="370" y="784" text-anchor="middle">500k</text>
-<line class="grid" x1="523" y1="88" x2="523" y2="768"/>
-<text class="tick" x="523" y="784" text-anchor="middle">1M</text>
-<line class="grid" x1="676" y1="88" x2="676" y2="768"/>
-<text class="tick" x="676" y="784" text-anchor="middle">1.5M</text>
-<line class="axis" x1="217" y1="88" x2="217" y2="768"/>
-<line class="ref" x1="276.27453916862277" y1="88" x2="276.27453916862277" y2="768"/>
+<line class="grid" x1="217" y1="88" x2="217" y2="808"/>
+<text class="tick" x="217" y="824" text-anchor="middle">0</text>
+<line class="grid" x1="331.75" y1="88" x2="331.75" y2="808"/>
+<text class="tick" x="331.75" y="824" text-anchor="middle">500k</text>
+<line class="grid" x1="446.5" y1="88" x2="446.5" y2="808"/>
+<text class="tick" x="446.5" y="824" text-anchor="middle">1M</text>
+<line class="grid" x1="561.25" y1="88" x2="561.25" y2="808"/>
+<text class="tick" x="561.25" y="824" text-anchor="middle">1.5M</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="808"/>
+<text class="tick" x="676" y="824" text-anchor="middle">2M</text>
+<line class="axis" x1="217" y1="88" x2="217" y2="808"/>
+<line class="ref" x1="261.45590437646706" y1="88" x2="261.45590437646706" y2="808"/>
+<g><title>protoarray · binary wire
+1,664,395 ops/s
+601 ns per payload
+×8.59 the speed of JSON
+@alexify/protoarray@2.0.0 (5a482c5), writes bytes</title>
+<text class="label secondary" x="20" y="105">protoarray</text>
+<text class="sublabel" x="20" y="120">binary wire</text>
+<path class="bar secondary" d="M217,101H594.9786123752881A4,4 0 0 1 598.9786123752881,105V111A4,4 0 0 1 594.9786123752881,115H217Z"/>
+<text class="value" x="604.9786123752881" y="114">1.66M</text>
+</g>
 <g><title>avsc · Type.forSchema
 1,194,763 ops/s
 837 ns per payload
 ×6.17 the speed of JSON
 avsc@5.7.9, writes bytes</title>
-<text class="label" x="20" y="105">avsc</text>
-<text class="sublabel" x="20" y="120">Type.forSchema</text>
-<path class="bar" d="M217,101H578.5974282865795A4,4 0 0 1 582.5974282865795,105V111A4,4 0 0 1 578.5974282865795,115H217Z"/>
-<text class="value" x="588.5974282865795" y="114">1.19M</text>
+<text class="label" x="20" y="145">avsc</text>
+<text class="sublabel" x="20" y="160">Type.forSchema</text>
+<path class="bar" d="M217,141H487.1980712149346A4,4 0 0 1 491.1980712149346,145V151A4,4 0 0 1 487.1980712149346,155H217Z"/>
+<text class="value" x="497.1980712149346" y="154">1.19M</text>
 </g>
 <g><title>msgpackr · records, shared structures
 1,008,766 ops/s
 991 ns per payload
 ×5.21 the speed of JSON
 msgpackr@2.1.0, writes bytes</title>
-<text class="label" x="20" y="145">msgpackr</text>
-<text class="sublabel" x="20" y="160">records, shared structures</text>
-<path class="bar" d="M217,141H521.6823390102923A4,4 0 0 1 525.6823390102923,145V151A4,4 0 0 1 521.6823390102923,155H217Z"/>
-<text class="value" x="531.6823390102923" y="154">1.01M</text>
+<text class="label" x="20" y="185">msgpackr</text>
+<text class="sublabel" x="20" y="200">records, shared structures</text>
+<path class="bar" d="M217,181H444.5117542577192A4,4 0 0 1 448.5117542577192,185V191A4,4 0 0 1 444.5117542577192,195H217Z"/>
+<text class="value" x="454.5117542577192" y="194">1.01M</text>
 </g>
 <g><title>protobufjs · reflection, Root.fromJSON
 519,595 ops/s
 1.92 µs per payload
 ×2.68 the speed of JSON
 protobufjs@8.8.1, writes bytes</title>
-<text class="label" x="20" y="185">protobufjs</text>
-<text class="sublabel" x="20" y="200">reflection, Root.fromJSON</text>
-<path class="bar" d="M217,181H371.99599977717486A4,4 0 0 1 375.99599977717486,185V191A4,4 0 0 1 371.99599977717486,195H217Z"/>
-<text class="value" x="381.99599977717486" y="194">520k</text>
+<text class="label" x="20" y="225">protobufjs</text>
+<text class="sublabel" x="20" y="240">reflection, Root.fromJSON</text>
+<path class="bar" d="M217,221H332.24699983288116A4,4 0 0 1 336.24699983288116,225V231A4,4 0 0 1 332.24699983288116,235H217Z"/>
+<text class="value" x="342.24699983288116" y="234">520k</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 395,175 ops/s
 2.53 µs per payload
 ×2.04 the speed of JSON
 fast-json-stringify@7.1.0, writes JSON text</title>
-<text class="label" x="20" y="225">fast-json-stringify</text>
-<text class="sublabel" x="20" y="240">compiled stringify, JSON.parse</text>
-<path class="bar" d="M217,221H333.92363049970083A4,4 0 0 1 337.92363049970083,225V231A4,4 0 0 1 333.92363049970083,235H217Z"/>
-<text class="value" x="343.92363049970083" y="234">395k</text>
+<text class="label" x="20" y="265">fast-json-stringify</text>
+<text class="sublabel" x="20" y="280">compiled stringify, JSON.parse</text>
+<path class="bar" d="M217,261H303.69272287477565A4,4 0 0 1 307.69272287477565,265V271A4,4 0 0 1 303.69272287477565,275H217Z"/>
+<text class="value" x="313.69272287477565" y="274">395k</text>
 </g>
 <g><title>v8.serialize · structured clone, Node only
 309,232 ops/s
 3.23 µs per payload
 ×1.60 the speed of JSON
 node:v8, Node 24.14.1, writes bytes</title>
-<text class="label" x="20" y="265">v8.serialize</text>
-<text class="sublabel" x="20" y="280">structured clone, Node only</text>
-<path class="bar" d="M217,261H307.62499058178395A4,4 0 0 1 311.62499058178395,265V271A4,4 0 0 1 307.62499058178395,275H217Z"/>
-<text class="value" x="317.62499058178395" y="274">309k</text>
+<text class="label" x="20" y="305">v8.serialize</text>
+<text class="sublabel" x="20" y="320">structured clone, Node only</text>
+<path class="bar" d="M217,301H283.96874293633795A4,4 0 0 1 287.96874293633795,305V311A4,4 0 0 1 283.96874293633795,315H217Z"/>
+<text class="value" x="293.96874293633795" y="314">309k</text>
 </g>
 <g><title>msgpackr · pack · unpack
 308,552 ops/s
 3.24 µs per payload
 ×1.59 the speed of JSON
 msgpackr@2.1.0, writes bytes</title>
-<text class="label" x="20" y="305">msgpackr</text>
-<text class="sublabel" x="20" y="320">pack · unpack</text>
-<path class="bar" d="M217,301H307.41681908429194A4,4 0 0 1 311.41681908429194,305V311A4,4 0 0 1 307.41681908429194,315H217Z"/>
-<text class="value" x="317.41681908429194" y="314">309k</text>
+<text class="label" x="20" y="345">msgpackr</text>
+<text class="sublabel" x="20" y="360">pack · unpack</text>
+<path class="bar" d="M217,341H283.81261431321894A4,4 0 0 1 287.81261431321894,345V351A4,4 0 0 1 283.81261431321894,355H217Z"/>
+<text class="value" x="293.81261431321894" y="354">309k</text>
 </g>
 <g><title>BSON · serialize · deserialize
 281,101 ops/s
 3.56 µs per payload
 ×1.45 the speed of JSON
 bson@7.3.3, writes bytes</title>
-<text class="label" x="20" y="345">BSON</text>
-<text class="sublabel" x="20" y="360">serialize · deserialize</text>
-<path class="bar" d="M217,341H299.0170305149561A4,4 0 0 1 303.0170305149561,345V351A4,4 0 0 1 299.0170305149561,355H217Z"/>
-<text class="value" x="309.0170305149561" y="354">281k</text>
+<text class="label" x="20" y="385">BSON</text>
+<text class="sublabel" x="20" y="400">serialize · deserialize</text>
+<path class="bar" d="M217,381H277.5127728862171A4,4 0 0 1 281.5127728862171,385V391A4,4 0 0 1 277.5127728862171,395H217Z"/>
+<text class="value" x="287.5127728862171" y="394">281k</text>
 </g>
 <g><title>cbor-x · records
 269,419 ops/s
 3.71 µs per payload
 ×1.39 the speed of JSON
 cbor-x@1.6.6, writes bytes</title>
-<text class="label" x="20" y="385">cbor-x</text>
-<text class="sublabel" x="20" y="400">records</text>
-<path class="bar" d="M217,381H295.44216931942844A4,4 0 0 1 299.44216931942844,385V391A4,4 0 0 1 295.44216931942844,395H217Z"/>
-<text class="value" x="305.44216931942844" y="394">269k</text>
+<text class="label" x="20" y="425">cbor-x</text>
+<text class="sublabel" x="20" y="440">records</text>
+<path class="bar" d="M217,421H274.83162698957136A4,4 0 0 1 278.83162698957136,425V431A4,4 0 0 1 274.83162698957136,435H217Z"/>
+<text class="value" x="284.83162698957136" y="434">269k</text>
 </g>
 <g><title>protoarray · codegen
 261,365 ops/s
 3.83 µs per payload
 ×1.35 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label primary" x="20" y="425">protoarray</text>
-<text class="sublabel" x="20" y="440">codegen</text>
-<path class="bar primary" d="M217,421H292.9778202039374A4,4 0 0 1 296.9778202039374,425V431A4,4 0 0 1 292.9778202039374,435H217Z"/>
-<text class="value" x="302.9778202039374" y="434">261k</text>
+<text class="label primary" x="20" y="465">protoarray</text>
+<text class="sublabel" x="20" y="480">codegen</text>
+<path class="bar primary" d="M217,461H272.98336515295307A4,4 0 0 1 276.98336515295307,465V471A4,4 0 0 1 272.98336515295307,475H217Z"/>
+<text class="value" x="282.98336515295307" y="474">261k</text>
 </g>
 <g><title>protoarray · standalone module, no eval
 260,402 ops/s
 3.84 µs per payload
 ×1.34 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="465">protoarray</text>
-<text class="sublabel" x="20" y="480">standalone module, no eval</text>
-<path class="bar secondary" d="M217,461H292.68294594857224A4,4 0 0 1 296.68294594857224,465V471A4,4 0 0 1 292.68294594857224,475H217Z"/>
-<text class="value" x="302.68294594857224" y="474">260k</text>
+<text class="label secondary" x="20" y="505">protoarray</text>
+<text class="sublabel" x="20" y="520">standalone module, no eval</text>
+<path class="bar secondary" d="M217,501H272.76220946142917A4,4 0 0 1 276.76220946142917,505V511A4,4 0 0 1 272.76220946142917,515H217Z"/>
+<text class="value" x="282.76220946142917" y="514">260k</text>
 </g>
 <g><title>protoarray · codegen + metaschema check
 230,970 ops/s
 4.33 µs per payload
 ×1.19 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="505">protoarray</text>
-<text class="sublabel" x="20" y="520">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,501H283.67670604769773A4,4 0 0 1 287.67670604769773,505V511A4,4 0 0 1 283.67670604769773,515H217Z"/>
-<text class="value" x="293.67670604769773" y="514">231k</text>
+<text class="label secondary" x="20" y="545">protoarray</text>
+<text class="sublabel" x="20" y="560">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,541H266.0075295357733A4,4 0 0 1 270.0075295357733,545V551A4,4 0 0 1 266.0075295357733,555H217Z"/>
+<text class="value" x="276.0075295357733" y="554">231k</text>
 </g>
 <g><title>protoarray · closures, no eval
 220,478 ops/s
 4.54 µs per payload
 ×1.14 the speed of JSON
 @alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="545">protoarray</text>
-<text class="sublabel" x="20" y="560">closures, no eval</text>
-<path class="bar secondary" d="M217,541H280.4663736108005A4,4 0 0 1 284.4663736108005,545V551A4,4 0 0 1 280.4663736108005,555H217Z"/>
-<text class="value" x="290.4663736108005" y="554">220k</text>
+<text class="label secondary" x="20" y="585">protoarray</text>
+<text class="sublabel" x="20" y="600">closures, no eval</text>
+<path class="bar secondary" d="M217,581H263.59978020810036A4,4 0 0 1 267.59978020810036,585V591A4,4 0 0 1 263.59978020810036,595H217Z"/>
+<text class="value" x="273.59978020810036" y="594">220k</text>
 </g>
 <g><title>JSON · stringify · parse
 193,708 ops/s
 5.16 µs per payload
 JSON (built in), Node 24.14.1, writes JSON text</title>
-<text class="label" x="20" y="585">JSON</text>
-<text class="sublabel" x="20" y="600">stringify · parse</text>
-<path class="bar" d="M217,581H272.27453916862277A4,4 0 0 1 276.27453916862277,585V591A4,4 0 0 1 272.27453916862277,595H217Z"/>
-<text class="value" x="282.27453916862277" y="594">194k</text>
+<text class="label" x="20" y="625">JSON</text>
+<text class="sublabel" x="20" y="640">stringify · parse</text>
+<path class="bar" d="M217,621H257.45590437646706A4,4 0 0 1 261.45590437646706,625V631A4,4 0 0 1 257.45590437646706,635H217Z"/>
+<text class="value" x="267.45590437646706" y="634">194k</text>
 </g>
 <g><title>protobuf-es · create · toBinary · fromBinary
 162,534 ops/s
 6.15 µs per payload
 ×0.84 the speed of JSON
 @bufbuild/protobuf@2.16.0, writes bytes</title>
-<text class="label" x="20" y="625">protobuf-es</text>
-<text class="sublabel" x="20" y="640">create · toBinary · fromBinary</text>
-<path class="bar" d="M217,621H262.73552237415504A4,4 0 0 1 266.73552237415504,625V631A4,4 0 0 1 262.73552237415504,635H217Z"/>
-<text class="value" x="272.73552237415504" y="634">163k</text>
+<text class="label" x="20" y="665">protobuf-es</text>
+<text class="sublabel" x="20" y="680">create · toBinary · fromBinary</text>
+<path class="bar" d="M217,661H250.3016417806163A4,4 0 0 1 254.3016417806163,665V671A4,4 0 0 1 250.3016417806163,675H217Z"/>
+<text class="value" x="260.3016417806163" y="674">163k</text>
 </g>
 <g><title>@msgpack/msgpack · Encoder · Decoder
 148,989 ops/s
 6.71 µs per payload
 ×0.77 the speed of JSON
 @msgpack/msgpack@3.1.3, writes bytes</title>
-<text class="label" x="20" y="665">@msgpack/msgpack</text>
-<text class="sublabel" x="20" y="680">Encoder · Decoder</text>
-<path class="bar" d="M217,661H258.59050791780226A4,4 0 0 1 262.59050791780226,665V671A4,4 0 0 1 258.59050791780226,675H217Z"/>
-<text class="value" x="268.59050791780226" y="674">149k</text>
+<text class="label" x="20" y="705">@msgpack/msgpack</text>
+<text class="sublabel" x="20" y="720">Encoder · Decoder</text>
+<path class="bar" d="M217,701H247.19288093835166A4,4 0 0 1 251.19288093835166,705V711A4,4 0 0 1 247.19288093835166,715H217Z"/>
+<text class="value" x="257.19288093835166" y="714">149k</text>
 </g>
 <g><title>devalue · stringify · parse
 123,357 ops/s
 8.11 µs per payload
 ×0.64 the speed of JSON
 devalue@6.0.3, writes JSON text</title>
-<text class="label" x="20" y="705">devalue</text>
-<text class="sublabel" x="20" y="720">stringify · parse</text>
-<path class="bar" d="M217,701H250.74737987935978A4,4 0 0 1 254.74737987935978,705V711A4,4 0 0 1 250.74737987935978,715H217Z"/>
-<text class="value" x="260.74737987935976" y="714">123k</text>
+<text class="label" x="20" y="745">devalue</text>
+<text class="sublabel" x="20" y="760">stringify · parse</text>
+<path class="bar" d="M217,741H241.31053490951984A4,4 0 0 1 245.31053490951984,745V751A4,4 0 0 1 241.31053490951984,755H217Z"/>
+<text class="value" x="251.31053490951984" y="754">123k</text>
 </g>
 <g><title>superjson · stringify · parse
 73,477 ops/s
 13.6 µs per payload
 ×0.38 the speed of JSON
 superjson@2.2.6, writes JSON text</title>
-<text class="label" x="20" y="745">superjson</text>
-<text class="sublabel" x="20" y="760">stringify · parse</text>
-<path class="bar" d="M217,741H235.48392382655712A4,4 0 0 1 239.48392382655712,745V751A4,4 0 0 1 235.48392382655712,755H217Z"/>
-<text class="value" x="245.48392382655712" y="754">73.5k</text>
+<text class="label" x="20" y="785">superjson</text>
+<text class="sublabel" x="20" y="800">stringify · parse</text>
+<path class="bar" d="M217,781H229.86294286991784A4,4 0 0 1 233.86294286991784,785V791A4,4 0 0 1 229.86294286991784,795H217Z"/>
+<text class="value" x="239.86294286991784" y="794">73.5k</text>
 </g>
-<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="849">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
+<text class="caption" x="20" y="865">2026-10-18</text>
 </svg>

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:34:06.440Z",
+  "generatedAt": "2026-10-18T21:15:18.239Z",
   "machine": {
     "cpu": "Apple M3 Max",
     "cores": 16,
@@ -87,6 +87,15 @@
       "version": "2.0.0",
       "family": "text",
       "commit": "72941bf"
+    },
+    {
+      "id": "protoarray-binary",
+      "name": "protoarray",
+      "variant": "binary wire",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "binary",
+      "commit": "5a482c5"
     },
     {
       "id": "protobufjs",
@@ -513,6 +522,25 @@
             "gzip": 212,
             "brotli": 178
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2250702,
+            "min": 2230346,
+            "max": 2262398,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1975521,
+            "min": 1948973,
+            "max": 2004565,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 125,
+            "gzip": 128,
+            "brotli": 120
+          }
         }
       }
     },
@@ -881,6 +909,25 @@
             "gzip": 33793,
             "brotli": 29133
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 3152,
+            "min": 3085,
+            "max": 3183,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2215,
+            "min": 2182,
+            "max": 2268,
+            "spread": 4
+          },
+          "bytes": {
+            "raw": 129625,
+            "gzip": 30995,
+            "brotli": 28457
+          }
         }
       }
     },
@@ -1210,6 +1257,25 @@
             "raw": 33,
             "gzip": 53,
             "brotli": 36
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 12291110,
+            "min": 12263482,
+            "max": 12615704,
+            "spread": 3
+          },
+          "decode": {
+            "median": 7879352,
+            "min": 7813400,
+            "max": 7920137,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 18,
+            "gzip": 34,
+            "brotli": 22
           }
         }
       }
@@ -1541,6 +1607,25 @@
             "gzip": 107,
             "brotli": 83
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 6636444,
+            "min": 6608522,
+            "max": 6654509,
+            "spread": 1
+          },
+          "decode": {
+            "median": 6594808,
+            "min": 6535206,
+            "max": 6629859,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 26,
+            "gzip": 38,
+            "brotli": 30
+          }
         }
       }
     },
@@ -1871,6 +1956,25 @@
             "gzip": 266,
             "brotli": 229
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 1849724,
+            "min": 1817832,
+            "max": 1874090,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2276200,
+            "min": 2229300,
+            "max": 2283172,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 821,
+            "gzip": 265,
+            "brotli": 247
+          }
         }
       }
     },
@@ -2181,6 +2285,25 @@
             "raw": 8202,
             "gzip": 1721,
             "brotli": 1345
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 110336,
+            "min": 108068,
+            "max": 111133,
+            "spread": 3
+          },
+          "decode": {
+            "median": 68447,
+            "min": 67465,
+            "max": 68867,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 3064,
+            "gzip": 656,
+            "brotli": 540
           }
         }
       }
@@ -2512,6 +2635,25 @@
             "gzip": 406,
             "brotli": 392
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2492508,
+            "min": 2400375,
+            "max": 2498713,
+            "spread": 4
+          },
+          "decode": {
+            "median": 5009602,
+            "min": 4959766,
+            "max": 5025558,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 260,
+            "gzip": 283,
+            "brotli": 262
+          }
         }
       }
     }
@@ -2630,6 +2772,13 @@
         "encode": 0.255,
         "decode": 0.012,
         "total": 25.748
+      },
+      "protoarray-binary": {
+        "load": 13.856,
+        "build": 4.506,
+        "encode": 1.447,
+        "decode": 0.239,
+        "total": 20.002
       }
     }
   }

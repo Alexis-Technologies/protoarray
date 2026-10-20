@@ -91,6 +91,43 @@ throws only for what has no wire at all.
 | A payload nested deeper than the call stack (or than `maxDepth` levels of a recursion) | `DecodeError` `structure` ("nested too deeply"), always; with `maxDepth` at the same depth on either backend |
 | Keys on the decoded object | every key of the schema, in schema order |
 
+## The binary wire
+
+`@alexify/protoarray/binary` ([The Binary Wire](/guide/binary)) carries the same schema as bytes,
+little-endian. A varint is unsigned LEB128; a zigzag varint interleaves negatives (the sign in the
+low bit), exact over the safe integers. Both sides need the same schema: positions, header bits
+and tags are the schema's, nothing is trimmed and nothing beyond the schema is tolerated.
+
+| Construct | On the wire |
+| --- | --- |
+| Struct `{ a, b, c }`, sparse or not | a header, then the present fields in declaration order; the header holds a presence bit per field (bit *i* is field *i*, required ones too), then the value of each boolean field in field order, in whole bytes, low bit first |
+| Missing, `undefined` or `null` field | its presence bit clear, nothing else |
+| Nested struct, a schema used as a field, a reference held as the record | the referenced schema's own form in place |
+| `{ union: [...], discriminator }` | the tag (a byte; a varint past 256 values), then the branch's struct without the discriminator |
+| `{ array: T }`, `{ set: T }` | the count as a varint; a presence bitmap of count bits when the items may be `null`; the present items in order |
+| `{ map: { K: V } }` | the count, then each entry: the key (a string, or a float64 for a `number` key), a presence byte (0 or 1) when the value may be `null`, the value |
+| `{ object: { string: V } }` | the count, then each key as a string and its value, a presence byte before it when it may be `null` |
+| Tuple | a presence bitmap of its elements, then the present elements |
+| `number` | float64 |
+| `integer`, `date` (epoch milliseconds), `{ type: 'number', decimals: n }` (`Math.round(value × 10ⁿ)`) | a zigzag varint |
+| `boolean` | a bit of the header as a struct's field; a byte (0 or 1) anywhere else |
+| `{ enum: [...] }` | the index as a byte; a varint past 256 values |
+| `{ flags: [...] }` | one varint per 31 names, the words of the text wire's mask |
+| `string` | its byte length doubled plus its form, as a varint, then the bytes: form 0 is UTF-8, form 1 UTF-16LE; this implementation writes UTF-8 up to 21 characters and UTF-16 past them or for a lone surrogate, and reads either form at any length |
+| `bytes` | the length as a varint, then the bytes |
+| `bigint` | its decimal digits as a string |
+| `json`, `any`, `unknown` | its JSON text as a string (`null` for a value JSON has no text for) |
+| `null` | nothing; its presence bit is never set |
+| Root struct or union | as above, with no envelope; `null` has no form (`EncodeError`) |
+| Root scalar | a presence byte (0 or 1), then the value |
+| Root collection or tuple | as above |
+| An interned string, a `delta` list or column, a `flat` or `columns` collection, a schema from `resolve` | no form: `SchemaDefinitionError` `ERR_NO_BINARY_FORM` |
+
+Decode checks the bounds of every read, the range of an enum index, the fit of a bitmap, a string
+and a count, a required field's presence and a date's range, with validation; a union's tag is
+checked always. Encode trusts its values, checks the shapes the wire is built from as the text
+wire does, and refuses a string slot without a string and a `bytes` slot without a `Uint8Array`.
+
 ## Canonical form
 
 `schema.toString()` prints the schema as `{key:type,key:?type=default,...}` with `[item]` for

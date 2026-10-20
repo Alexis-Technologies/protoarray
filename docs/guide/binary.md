@@ -152,5 +152,5 @@ schemas, as it does the text backends). Under a strict CSP the closures are what
 generated codec along: an import module's schemas then carry it for `toBinary` and `fromBinary`,
 an inline module's have the two as methods of their own. In Node.js the strings go through
 `Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
-runtime twin that handles base64. The subpath adds about 8 KB min+gzip to a bundle that uses
+runtime twin that handles base64. The subpath adds about 8.6 KB min+gzip to a bundle that uses
 it; the core is unchanged.

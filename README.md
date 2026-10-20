@@ -87,8 +87,8 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   it recognises a metaschema schema by its brand and reads its snapshot, and takes the metaschema
   module as an option (`{ metaschema }`) only to read a raw definition. CommonJS with ESM named
   imports, no build step, one package for Node.js 18+ and browsers; the registry, resolve and
-  streaming extras are subpaths of 1.8–2.5 KB each, the binary wire and the standalone
-  generator ones of 7.7 KB. Generated code where the
+  streaming extras are subpaths of 1.8–2.6 KB each, the binary wire and the standalone
+  generator ones of 8–9 KB. Generated code where the
   runtime allows it, and under a strict CSP or on edge runtimes either a closures fallback or a
   standalone module generated at build time, carrying both wires.
 

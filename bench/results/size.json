@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T22:40:51.835Z",
+  "generatedAt": "2026-10-21T17:48:29.683Z",
   "scenario": "single",
   "libraries": [
     {
@@ -31,8 +31,8 @@
       "package": "@alexify/protoarray",
       "version": "2.1.0",
       "family": "binary",
-      "min": 92681,
-      "gzip": 33108,
+      "min": 92876,
+      "gzip": 33159,
       "note": "the core and the ./binary subpath, the schema built from its snapshot"
     },
     {

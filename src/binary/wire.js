@@ -272,7 +272,14 @@ const kernel = (runtime) => {
     }
   }
 
-  // Reset on each message; the view is made only for a codec that reads
+  // Making a DataView costs about as much as reading sixteen float64s
+  // through one, so a message of up to COPIED bytes (sixteen doubles at
+  // most) is not given a view of its own: it is copied into a buffer of the
+  // reader's, whose view is made once, and read there at the same positions.
+  // A longer message gets a view of its own, made for it.
+  const COPIED = 128;
+
+  // Reset on each message; a view is made only for a codec that reads
   // numbers, so a message without them never pays for one.
   class Reader {
     constructor() {
@@ -280,13 +287,25 @@ const kernel = (runtime) => {
       this.pos = 0;
       this.end = 0;
       this.view = null;
+      this.copy = null;
+      this.copied = null;
     }
 
     reset(bytes, numbers) {
       this.bytes = bytes;
       this.pos = 0;
       this.end = bytes.length;
-      this.view = numbers ? new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null;
+      if (!numbers) this.view = null;
+      else if (bytes.length > COPIED) {
+        this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      } else {
+        if (this.copy === null) {
+          this.copy = new Uint8Array(COPIED);
+          this.copied = new DataView(this.copy.buffer);
+        }
+        this.copy.set(bytes);
+        this.view = this.copied;
+      }
       return this;
     }
 

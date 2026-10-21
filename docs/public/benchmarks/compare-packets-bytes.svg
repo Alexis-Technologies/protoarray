@@ -53,7 +53,7 @@ avsc@5.7.9, writes bytes</title>
 <g><title>protoarray · binary wire
 3,064 bytes
 35% of the JSON bytes
-@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
+@alexify/protoarray@2.1.0 (395129b), writes bytes</title>
 <text class="label secondary" x="20" y="145">protoarray</text>
 <text class="sublabel" x="20" y="160">binary wire</text>
 <path class="bar secondary" d="M217,141H353.6376A4,4 0 0 1 357.6376,145V151A4,4 0 0 1 353.6376,155H217Z"/>
@@ -194,5 +194,5 @@ bson@7.3.3, writes bytes</title>
 <text class="value" x="670.1578" y="754">9.5 KB</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-20</text>
+<text class="caption" x="20" y="825">2026-10-21</text>
 </svg>

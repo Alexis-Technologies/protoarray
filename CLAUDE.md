@@ -268,7 +268,12 @@ varint (the writer's loops stop after ten bytes regardless). A `null` root is `r
 refuses, before anything is built, what has no binary form (`ERR_NO_BINARY_FORM`, the place by
 its path: `intern`, `delta`/`deltas`, a layout other than `rows`, under a resolved node's
 `writer` too); `readsNumbers` walks the plan, the schemas its slots reach and the `writer` nodes
-so the reader makes a DataView only when a float64 is read. A plan from `resolve` compiles like
+so the reader makes a DataView only when a float64 is read, and only for a message longer than
+128 bytes (`COPIED` in `binary/wire.js`): a shorter one is copied into a buffer of the reader's
+whose view is made once, since making a view costs about as much as reading sixteen doubles
+and a small record would pay it on every message. `f64()` stays one `getFloat64`: a branch in
+it stops V8 inlining it into generated code and cost a record of 32 numbers a third of its
+decode. A plan from `resolve` compiles like
 any other: the writer's wire under the reader's keys (a `key: null` field and a `skip` element
 read and dropped, absent when written; `order`/`extras` for the object; a union branch with a
 `null` node has no case), and where a resolved node's own form is not the wire's, `resolve.js`

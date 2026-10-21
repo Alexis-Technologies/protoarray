@@ -70,7 +70,7 @@ const User = Schema.from(await (await fetch('/schemas/user')).json());
   cbor-x or protobufjs on some shapes), and the binary codecs win on mostly numeric payloads (see
   [benchmarks](#benchmarks)). Where a channel carries bytes, `@alexify/protoarray/binary` puts
   the same schema on a [binary wire](https://protoarray.vercel.app/guide/binary) of its own:
-  ×1.6 encode and ×2.1 decode against JSON on that record, and the fastest round trip of every
+  ×1.6 encode and ×2.4 decode against JSON on that record, and the fastest round trip of every
   library on all seven payloads of the comparison, the numeric one included.
 - **Still JSON.** The payload is a plain JSON array, so it goes through any transport and storage
   that already handle JSON, compresses with gzip, brotli and zstd like JSON, and stays readable in
@@ -192,7 +192,7 @@ text or bytes and back.
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 685,000 | 626 | 1,700,000 | 1,780,000 | 817,000 | 20,100 | 235,000 |
 | **protoarray**<br><sub>columns layout · v2.1.0</sub> | — | 869 | — | — | — | — | — |
 | **protoarray**<br><sub>columns, delta + intern · v2.1.0</sub> | — | 967 | — | — | — | — | — |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,040,000 | 1,320 | 4,780,000 | 3,200,000 | 1,020,000 | 42,300 | 1,630,000 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,130,000 | 1,330 | 6,290,000 | 3,790,000 | 1,020,000 | 41,700 | 1,650,000 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 717,000 | 675 | 3,530,000 | 2,920,000 | 270,000 | 14,600 | 520,000 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 261,000 | 301 | 720,000 | 889,000 | 209,000 | 6,400 | 163,000 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 840,000 | 786 | 1,040,000 | 1,680,000 | 300,000 | 14,300 | 1,190,000 |
@@ -206,7 +206,7 @@ text or bytes and back.
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 184,000 | 171 | 1,010,000 | 383,000 | 344,000 | 5,960 | 123,000 |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 615,000 | 577 | 3,560,000 | 1,820,000 | 664,000 | — | 395,000 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-20. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-21. A round trip is one encode and one decode of the payload; medians, rounded to three significant figures; — where the scenario does not apply._
 
 <!-- bench:compare:end -->
 
@@ -240,7 +240,7 @@ module has its codec written already.
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 11.1 ms | 1.5 ms | 3.1 ms | 0.35 ms | 16.2 ms |
 | **protoarray**<br><sub>codegen · v2.1.0</sub> | 11.9 ms | 4.3 ms | 0.13 ms | 0.15 ms | 16.5 ms |
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 12.5 ms | 3.9 ms | 0.12 ms | 0.17 ms | 16.7 ms |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.8 ms | 4.2 ms | 1.6 ms | 0.27 ms | 19.9 ms |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.6 ms | 4.2 ms | 1.6 ms | 0.28 ms | 19.8 ms |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 21.0 ms | 4.5 ms | 0.26 ms | 0.01 ms | 25.7 ms |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 24.5 ms | 0.38 ms | 0.80 ms | 0.06 ms | 25.9 ms |
 
@@ -268,7 +268,7 @@ tree-shaken; `pnpm size:compare`).
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 74.8 KB | 22.2 KB |  |
 | **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 63.2 KB | 23.0 KB | the schema built from its snapshot: a client without metaschema |
 | protobufjs<br><sub>protobufjs/light, Root.fromJSON · v8.8.1</sub> | 105.7 KB | 29.2 KB | reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code |
-| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.5 KB | 32.3 KB | the core and the ./binary subpath, the schema built from its snapshot |
+| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.7 KB | 32.4 KB | the core and the ./binary subpath, the schema built from its snapshot |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 115.4 KB | 34.3 KB | avsc's browser build of types, with the buffer and util polyfills it requires |
 | **protoarray**<br><sub>codegen, metaschema definition · v2.1.0</sub> | 122.3 KB | 43.6 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 217.4 KB | 62.9 KB | encode only; JSON.parse decodes |
@@ -311,12 +311,12 @@ with today's harness (`pnpm bench:releases`).
 | 1.0.0<br><sub>codegen</sub> | 2,030,000 / 1,650,000 | 1,960 / 1,500 | 7,200,000 / 7,340,000 | 3,850,000 / 4,770,000 | 1,790,000 / 1,660,000 | — | 403,000 / 734,000 | 36,200 |
 | 1.1.0<br><sub>codegen</sub> | 2,030,000 / 1,640,000 | 1,970 / 1,500 | 7,210,000 / 7,180,000 | 4,880,000 / 4,790,000 | 1,750,000 / 1,670,000 | 66,800 / 47,400 | 409,000 / 731,000 | 31,600 |
 | 2.0.0<br><sub>codegen</sub> | 2,040,000 / 1,690,000 | 1,970 / 1,480 | 7,020,000 / 7,460,000 | 4,670,000 / 4,780,000 | 1,800,000 / 1,700,000 | 67,600 / 50,600 | 427,000 / 731,000 | 14,600 |
-| 2.1.0<br><sub>codegen</sub> | 2,090,000 / 1,740,000 | 2,000 / 1,480 | 7,360,000 / 7,520,000 | 4,700,000 / 4,820,000 | 1,850,000 / 1,750,000 | 67,900 / 51,000 | 425,000 / 751,000 | 15,000 |
+| 2.1.0<br><sub>codegen</sub> | 2,070,000 / 1,740,000 | 2,000 / 1,510 | 7,360,000 / 7,560,000 | 4,700,000 / 4,860,000 | 1,820,000 / 1,700,000 | 68,400 / 50,600 | 421,000 / 739,000 | 14,900 |
 | 1.0.0<br><sub>closures</sub> | 1,550,000 / 971,000 | 1,420 / 937 | 3,180,000 / 2,590,000 | 2,950,000 / 2,850,000 | 1,670,000 / 1,540,000 | — | 360,000 / 573,000 | 172,000 |
 | 1.1.0<br><sub>closures</sub> | 1,470,000 / 1,040,000 | 1,380 / 976 | 2,930,000 / 2,460,000 | 3,540,000 / 3,110,000 | 1,680,000 / 1,550,000 | 47,800 / 26,000 | 364,000 / 568,000 | 98,400 |
 | 2.0.0<br><sub>closures</sub> | 1,470,000 / 1,060,000 | 1,390 / 978 | 2,950,000 / 2,360,000 | 3,450,000 / 3,090,000 | 1,690,000 / 1,560,000 | 48,100 / 26,800 | 359,000 / 567,000 | 24,000 |
-| 2.1.0<br><sub>closures</sub> | 1,560,000 / 1,060,000 | 1,420 / 969 | 3,210,000 / 4,250,000 | 3,540,000 / 3,140,000 | 1,720,000 / 1,600,000 | 48,000 / 25,900 | 364,000 / 575,000 | 23,900 |
-| 2.1.0<br><sub>binary wire</sub> | 2,120,000 / 2,030,000 | 3,110 / 2,310 | 12,200,000 / 7,980,000 | 6,580,000 / 6,330,000 | 1,890,000 / 2,230,000 | 111,000 / 68,800 | 2,460,000 / 4,990,000 | — |
+| 2.1.0<br><sub>closures</sub> | 1,570,000 / 1,080,000 | 1,440 / 968 | 3,270,000 / 4,280,000 | 3,520,000 / 3,100,000 | 1,730,000 / 1,590,000 | 49,000 / 26,300 | 370,000 / 571,000 | 23,800 |
+| 2.1.0<br><sub>binary wire</sub> | 2,120,000 / 2,260,000 | 3,060 / 2,270 | 11,900,000 / 12,700,000 | 6,490,000 / 8,780,000 | 1,850,000 / 2,240,000 | 111,000 / 69,700 | 2,480,000 / 4,970,000 | — |
 
 _Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-21. ops/s of stringify / parse (toBinary / fromBinary on the binary wire), medians; — where the release has no union, and for the binary wire, which builds the schema the text wire does._
 

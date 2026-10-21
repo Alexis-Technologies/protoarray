@@ -77,14 +77,14 @@ decode 1,477 ops/s · 677 µs</title>
 <text class="value small" x="383.0245" y="247">1,477</text>
 </g>
 <g><title>2.1.0 · this release
-encode 1,999 ops/s · 500 µs
-decode 1,475 ops/s · 678 µs</title>
+encode 2,003 ops/s · 499 µs
+decode 1,512 ops/s · 661 µs</title>
 <text class="label" x="20" y="275">2.1.0</text>
 <text class="sublabel" x="20" y="290">this release</text>
-<path class="bar primary" d="M202,268H434.8815A4,4 0 0 1 438.8815,272V273A4,4 0 0 1 434.8815,277H202Z"/>
-<text class="value small" x="444.8815" y="276">1,999</text>
-<path class="bar secondary" d="M202,279H372.7875A4,4 0 0 1 376.7875,283V284A4,4 0 0 1 372.7875,288H202Z"/>
-<text class="value small" x="382.7875" y="287">1,475</text>
+<path class="bar primary" d="M202,268H435.3555A4,4 0 0 1 439.3555,272V273A4,4 0 0 1 435.3555,277H202Z"/>
+<text class="value small" x="445.3555" y="276">2,003</text>
+<path class="bar secondary" d="M202,279H377.172A4,4 0 0 1 381.172,283V284A4,4 0 0 1 377.172,288H202Z"/>
+<text class="value small" x="387.172" y="287">1,512</text>
 </g>
 <text class="group" x="20" y="316">CLOSURES, NO EVAL</text>
 <g><title>1.0.0
@@ -115,25 +115,25 @@ decode 978 ops/s · 1.02 ms</title>
 <text class="value small" x="323.89300000000003" y="435">978</text>
 </g>
 <g><title>2.1.0 · this release
-encode 1,424 ops/s · 702 µs
-decode 969 ops/s · 1.03 ms</title>
+encode 1,443 ops/s · 693 µs
+decode 968 ops/s · 1.03 ms</title>
 <text class="label" x="20" y="463">2.1.0</text>
 <text class="sublabel" x="20" y="478">this release</text>
-<path class="bar primary" d="M202,456H366.744A4,4 0 0 1 370.744,460V461A4,4 0 0 1 366.744,465H202Z"/>
-<text class="value small" x="376.744" y="464">1,424</text>
-<path class="bar secondary" d="M202,467H312.8265A4,4 0 0 1 316.8265,471V472A4,4 0 0 1 312.8265,476H202Z"/>
-<text class="value small" x="322.8265" y="475">969</text>
+<path class="bar primary" d="M202,456H368.9955A4,4 0 0 1 372.9955,460V461A4,4 0 0 1 368.9955,465H202Z"/>
+<text class="value small" x="378.9955" y="464">1,443</text>
+<path class="bar secondary" d="M202,467H312.70799999999997A4,4 0 0 1 316.70799999999997,471V472A4,4 0 0 1 312.70799999999997,476H202Z"/>
+<text class="value small" x="322.70799999999997" y="475">968</text>
 </g>
 <text class="group" x="20" y="504">BINARY WIRE, GENERATED CODE</text>
 <g><title>2.1.0 · this release
-encode 3,114 ops/s · 321 µs
-decode 2,314 ops/s · 432 µs</title>
+encode 3,060 ops/s · 327 µs
+decode 2,266 ops/s · 441 µs</title>
 <text class="label" x="20" y="531">2.1.0</text>
 <text class="sublabel" x="20" y="546">this release</text>
-<path class="bar primary" d="M202,524H567.009A4,4 0 0 1 571.009,528V529A4,4 0 0 1 567.009,533H202Z"/>
-<text class="value small" x="577.009" y="532">3,114</text>
-<path class="bar secondary" d="M202,535H472.209A4,4 0 0 1 476.209,539V540A4,4 0 0 1 472.209,544H202Z"/>
-<text class="value small" x="482.209" y="543">2,314</text>
+<path class="bar primary" d="M202,524H560.61A4,4 0 0 1 564.61,528V529A4,4 0 0 1 560.61,533H202Z"/>
+<text class="value small" x="570.61" y="532">3,060</text>
+<path class="bar secondary" d="M202,535H466.521A4,4 0 0 1 470.521,539V540A4,4 0 0 1 466.521,544H202Z"/>
+<text class="value small" x="476.521" y="543">2,266</text>
 </g>
 <text class="caption" x="20" y="595">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
 <text class="caption" x="20" y="611">process · 2026-10-21</text>

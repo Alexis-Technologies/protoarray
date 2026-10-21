@@ -139,14 +139,14 @@ reflection; static code from pbjs with protobufjs/minimal is smaller, plus the g
 <text class="value" x="394.6225952148437" y="474">29.2 KB</text>
 </g>
 <g><title>protoarray · binary wire, from a snapshot
-32.3 KB min+gzip
-90.5 KB minified
+32.4 KB min+gzip
+90.7 KB minified
 @alexify/protoarray@2.1.0
 the core and the ./binary subpath, the schema built from its snapshot</title>
 <text class="label secondary" x="20" y="505">protoarray</text>
 <text class="sublabel" x="20" y="520">binary wire, from a snapshot</text>
-<path class="bar secondary" d="M223,501H402.08012695312505A4,4 0 0 1 406.08012695312505,505V511A4,4 0 0 1 402.08012695312505,515H223Z"/>
-<text class="value" x="412.08012695312505" y="514">32.3 KB</text>
+<path class="bar secondary" d="M223,501H402.3621459960938A4,4 0 0 1 406.3621459960938,505V511A4,4 0 0 1 402.3621459960938,515H223Z"/>
+<text class="value" x="412.3621459960938" y="514">32.4 KB</text>
 </g>
 <g><title>avsc · Type.forSchema
 34.3 KB min+gzip

@@ -183,14 +183,14 @@ first encode 0.12 ms · first decode 0.17 ms
 <text class="value" x="477.97450000000003" y="634">17 ms</text>
 </g>
 <g><title>protoarray · binary wire
-19.9 ms in total
-load 13.8 ms · build 4.2 ms
-first encode 1.6 ms · first decode 0.27 ms
-@alexify/protoarray@2.1.0 (7811039)</title>
+19.8 ms in total
+load 13.6 ms · build 4.2 ms
+first encode 1.6 ms · first decode 0.28 ms
+@alexify/protoarray@2.1.0 (395129b)</title>
 <text class="label secondary" x="20" y="665">protoarray</text>
 <text class="sublabel" x="20" y="680">binary wire</text>
-<path class="bar secondary" d="M217,661H517.3629000000001A4,4 0 0 1 521.3629000000001,665V671A4,4 0 0 1 517.3629000000001,675H217Z"/>
-<text class="value" x="527.3629000000001" y="674">20 ms</text>
+<path class="bar secondary" d="M217,661H515.5574999999999A4,4 0 0 1 519.5574999999999,665V671A4,4 0 0 1 515.5574999999999,675H217Z"/>
+<text class="value" x="525.5574999999999" y="674">20 ms</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 25.7 ms in total
@@ -212,5 +212,5 @@ first encode 0.80 ms · first decode 0.06 ms
 <path class="bar" d="M217,741H609.1629A4,4 0 0 1 613.1629,745V751A4,4 0 0 1 609.1629,755H217Z"/>
 <text class="value" x="619.1629" y="754">26 ms</text>
 </g>
-<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · 2026-10-20</text>
+<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · 2026-10-21</text>
 </svg>

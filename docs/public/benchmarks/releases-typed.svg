@@ -39,101 +39,97 @@
 <text class="legend" x="103.4" y="93">decode</text>
 <line class="grid" x1="202" y1="110" x2="202" y2="554"/>
 <text class="tick" x="202" y="570" text-anchor="middle">0</text>
-<line class="grid" x1="320.5" y1="110" x2="320.5" y2="554"/>
-<text class="tick" x="320.5" y="570" text-anchor="middle">2M</text>
 <line class="grid" x1="439" y1="110" x2="439" y2="554"/>
-<text class="tick" x="439" y="570" text-anchor="middle">4M</text>
-<line class="grid" x1="557.5" y1="110" x2="557.5" y2="554"/>
-<text class="tick" x="557.5" y="570" text-anchor="middle">6M</text>
+<text class="tick" x="439" y="570" text-anchor="middle">5M</text>
 <line class="grid" x1="676" y1="110" x2="676" y2="554"/>
-<text class="tick" x="676" y="570" text-anchor="middle">8M</text>
+<text class="tick" x="676" y="570" text-anchor="middle">10M</text>
 <line class="axis" x1="202" y1="110" x2="202" y2="554"/>
 <text class="group" x="20" y="128">GENERATED CODE</text>
 <g><title>1.0.0
 encode 3,849,938 ops/s · 260 ns
 decode 4,768,542 ops/s · 210 ns</title>
 <text class="label" x="20" y="162">1.0.0</text>
-<path class="bar primary" d="M202,148H426.10882649999996A4,4 0 0 1 430.10882649999996,152V153A4,4 0 0 1 426.10882649999996,157H202Z"/>
-<text class="value small" x="436.10882649999996" y="156">3.85M</text>
-<path class="bar secondary" d="M202,159H480.5361135A4,4 0 0 1 484.5361135,163V164A4,4 0 0 1 480.5361135,168H202Z"/>
-<text class="value small" x="490.5361135" y="167">4.77M</text>
+<path class="bar primary" d="M202,148H380.48706119999997A4,4 0 0 1 384.48706119999997,152V153A4,4 0 0 1 380.48706119999997,157H202Z"/>
+<text class="value small" x="390.48706119999997" y="156">3.85M</text>
+<path class="bar secondary" d="M202,159H424.0288908A4,4 0 0 1 428.0288908,163V164A4,4 0 0 1 424.0288908,168H202Z"/>
+<text class="value small" x="434.0288908" y="167">4.77M</text>
 </g>
 <g><title>1.1.0
 encode 4,877,557 ops/s · 205 ns
 decode 4,786,430 ops/s · 209 ns</title>
 <text class="label" x="20" y="202">1.1.0</text>
-<path class="bar primary" d="M202,188H486.99525225A4,4 0 0 1 490.99525225,192V193A4,4 0 0 1 486.99525225,197H202Z"/>
-<text class="value small" x="496.99525225" y="196">4.88M</text>
-<path class="bar secondary" d="M202,199H481.5959775A4,4 0 0 1 485.5959775,203V204A4,4 0 0 1 481.5959775,208H202Z"/>
-<text class="value small" x="491.5959775" y="207">4.79M</text>
+<path class="bar primary" d="M202,188H429.19620180000004A4,4 0 0 1 433.19620180000004,192V193A4,4 0 0 1 429.19620180000004,197H202Z"/>
+<text class="value small" x="439.19620180000004" y="196">4.88M</text>
+<path class="bar secondary" d="M202,199H424.876782A4,4 0 0 1 428.876782,203V204A4,4 0 0 1 424.876782,208H202Z"/>
+<text class="value small" x="434.876782" y="207">4.79M</text>
 </g>
 <g><title>2.0.0
 encode 4,665,467 ops/s · 214 ns
 decode 4,783,900 ops/s · 209 ns</title>
 <text class="label" x="20" y="242">2.0.0</text>
-<path class="bar primary" d="M202,228H474.42891975A4,4 0 0 1 478.42891975,232V233A4,4 0 0 1 474.42891975,237H202Z"/>
-<text class="value small" x="484.42891975" y="236">4.67M</text>
-<path class="bar secondary" d="M202,239H481.446075A4,4 0 0 1 485.446075,243V244A4,4 0 0 1 481.446075,248H202Z"/>
-<text class="value small" x="491.446075" y="247">4.78M</text>
+<path class="bar primary" d="M202,228H419.1431358A4,4 0 0 1 423.1431358,232V233A4,4 0 0 1 419.1431358,237H202Z"/>
+<text class="value small" x="429.1431358" y="236">4.67M</text>
+<path class="bar secondary" d="M202,239H424.75685999999996A4,4 0 0 1 428.75685999999996,243V244A4,4 0 0 1 424.75685999999996,248H202Z"/>
+<text class="value small" x="434.75685999999996" y="247">4.78M</text>
 </g>
 <g><title>2.1.0 · this release
-encode 4,697,869 ops/s · 213 ns
-decode 4,820,004 ops/s · 207 ns</title>
+encode 4,697,126 ops/s · 213 ns
+decode 4,858,042 ops/s · 206 ns</title>
 <text class="label" x="20" y="275">2.1.0</text>
 <text class="sublabel" x="20" y="290">this release</text>
-<path class="bar primary" d="M202,268H476.34873825A4,4 0 0 1 480.34873825,272V273A4,4 0 0 1 476.34873825,277H202Z"/>
-<text class="value small" x="486.34873825" y="276">4.7M</text>
-<path class="bar secondary" d="M202,279H483.585237A4,4 0 0 1 487.585237,283V284A4,4 0 0 1 483.585237,288H202Z"/>
-<text class="value small" x="493.585237" y="287">4.82M</text>
+<path class="bar primary" d="M202,268H420.6437724A4,4 0 0 1 424.6437724,272V273A4,4 0 0 1 420.6437724,277H202Z"/>
+<text class="value small" x="430.6437724" y="276">4.7M</text>
+<path class="bar secondary" d="M202,279H428.2711908A4,4 0 0 1 432.2711908,283V284A4,4 0 0 1 428.2711908,288H202Z"/>
+<text class="value small" x="438.2711908" y="287">4.86M</text>
 </g>
 <text class="group" x="20" y="316">CLOSURES, NO EVAL</text>
 <g><title>1.0.0
 encode 2,951,111 ops/s · 339 ns
 decode 2,848,225 ops/s · 351 ns</title>
 <text class="label" x="20" y="350">1.0.0</text>
-<path class="bar primary" d="M202,336H372.85332675A4,4 0 0 1 376.85332675,340V341A4,4 0 0 1 372.85332675,345H202Z"/>
-<text class="value small" x="382.85332675" y="344">2.95M</text>
-<path class="bar secondary" d="M202,347H366.75733125A4,4 0 0 1 370.75733125,351V352A4,4 0 0 1 366.75733125,356H202Z"/>
-<text class="value small" x="376.75733125" y="355">2.85M</text>
+<path class="bar primary" d="M202,336H337.8826614A4,4 0 0 1 341.8826614,340V341A4,4 0 0 1 337.8826614,345H202Z"/>
+<text class="value small" x="347.8826614" y="344">2.95M</text>
+<path class="bar secondary" d="M202,347H333.005865A4,4 0 0 1 337.005865,351V352A4,4 0 0 1 333.005865,356H202Z"/>
+<text class="value small" x="343.005865" y="355">2.85M</text>
 </g>
 <g><title>1.1.0
 encode 3,535,775 ops/s · 283 ns
 decode 3,108,448 ops/s · 322 ns</title>
 <text class="label" x="20" y="390">1.1.0</text>
-<path class="bar primary" d="M202,376H407.49466875A4,4 0 0 1 411.49466875,380V381A4,4 0 0 1 407.49466875,385H202Z"/>
-<text class="value small" x="417.49466875" y="384">3.54M</text>
-<path class="bar secondary" d="M202,387H382.175544A4,4 0 0 1 386.175544,391V392A4,4 0 0 1 382.175544,396H202Z"/>
-<text class="value small" x="392.175544" y="395">3.11M</text>
+<path class="bar primary" d="M202,376H365.595735A4,4 0 0 1 369.595735,380V381A4,4 0 0 1 365.595735,385H202Z"/>
+<text class="value small" x="375.595735" y="384">3.54M</text>
+<path class="bar secondary" d="M202,387H345.3404352A4,4 0 0 1 349.3404352,391V392A4,4 0 0 1 345.3404352,396H202Z"/>
+<text class="value small" x="355.3404352" y="395">3.11M</text>
 </g>
 <g><title>2.0.0
 encode 3,452,950 ops/s · 290 ns
 decode 3,093,935 ops/s · 323 ns</title>
 <text class="label" x="20" y="430">2.0.0</text>
-<path class="bar primary" d="M202,416H402.5872875A4,4 0 0 1 406.5872875,420V421A4,4 0 0 1 402.5872875,425H202Z"/>
-<text class="value small" x="412.5872875" y="424">3.45M</text>
-<path class="bar secondary" d="M202,427H381.31564875000004A4,4 0 0 1 385.31564875000004,431V432A4,4 0 0 1 381.31564875000004,436H202Z"/>
-<text class="value small" x="391.31564875000004" y="435">3.09M</text>
+<path class="bar primary" d="M202,416H361.66983000000005A4,4 0 0 1 365.66983000000005,420V421A4,4 0 0 1 361.66983000000005,425H202Z"/>
+<text class="value small" x="371.66983000000005" y="424">3.45M</text>
+<path class="bar secondary" d="M202,427H344.652519A4,4 0 0 1 348.652519,431V432A4,4 0 0 1 344.652519,436H202Z"/>
+<text class="value small" x="354.652519" y="435">3.09M</text>
 </g>
 <g><title>2.1.0 · this release
-encode 3,541,822 ops/s · 282 ns
-decode 3,144,110 ops/s · 318 ns</title>
+encode 3,516,942 ops/s · 284 ns
+decode 3,100,604 ops/s · 323 ns</title>
 <text class="label" x="20" y="463">2.1.0</text>
 <text class="sublabel" x="20" y="478">this release</text>
-<path class="bar primary" d="M202,456H407.8529535A4,4 0 0 1 411.8529535,460V461A4,4 0 0 1 407.8529535,465H202Z"/>
-<text class="value small" x="417.8529535" y="464">3.54M</text>
-<path class="bar secondary" d="M202,467H384.2885175A4,4 0 0 1 388.2885175,471V472A4,4 0 0 1 384.2885175,476H202Z"/>
-<text class="value small" x="394.2885175" y="475">3.14M</text>
+<path class="bar primary" d="M202,456H364.7030508A4,4 0 0 1 368.7030508,460V461A4,4 0 0 1 364.7030508,465H202Z"/>
+<text class="value small" x="374.7030508" y="464">3.52M</text>
+<path class="bar secondary" d="M202,467H344.9686296A4,4 0 0 1 348.9686296,471V472A4,4 0 0 1 344.9686296,476H202Z"/>
+<text class="value small" x="354.9686296" y="475">3.1M</text>
 </g>
 <text class="group" x="20" y="504">BINARY WIRE, GENERATED CODE</text>
 <g><title>2.1.0 · this release
-encode 6,579,193 ops/s · 152 ns
-decode 6,334,663 ops/s · 158 ns</title>
+encode 6,489,095 ops/s · 154 ns
+decode 8,775,056 ops/s · 114 ns</title>
 <text class="label" x="20" y="531">2.1.0</text>
 <text class="sublabel" x="20" y="546">this release</text>
-<path class="bar primary" d="M202,524H587.81718525A4,4 0 0 1 591.81718525,528V529A4,4 0 0 1 587.81718525,533H202Z"/>
-<text class="value small" x="597.81718525" y="532">6.58M</text>
-<path class="bar secondary" d="M202,535H573.3287827500001A4,4 0 0 1 577.3287827500001,539V540A4,4 0 0 1 573.3287827500001,544H202Z"/>
-<text class="value small" x="583.3287827500001" y="543">6.33M</text>
+<path class="bar primary" d="M202,524H505.583103A4,4 0 0 1 509.583103,528V529A4,4 0 0 1 505.583103,533H202Z"/>
+<text class="value small" x="515.5831029999999" y="532">6.49M</text>
+<path class="bar secondary" d="M202,535H613.9376543999999A4,4 0 0 1 617.9376543999999,539V540A4,4 0 0 1 613.9376543999999,544H202Z"/>
+<text class="value small" x="623.9376543999999" y="543">8.78M</text>
 </g>
 <text class="caption" x="20" y="595">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
 <text class="caption" x="20" y="611">process · 2026-10-21</text>

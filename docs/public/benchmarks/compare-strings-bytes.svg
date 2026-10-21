@@ -160,7 +160,7 @@ fast-json-stringify@7.1.0, writes JSON text</title>
 <g><title>protoarray · binary wire
 821 bytes
 101% of the JSON bytes
-@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
+@alexify/protoarray@2.1.0 (395129b), writes bytes</title>
 <text class="label secondary" x="20" y="625">protoarray</text>
 <text class="sublabel" x="20" y="640">binary wire</text>
 <path class="bar secondary" d="M217,621H589.8389999999999A4,4 0 0 1 593.8389999999999,625V631A4,4 0 0 1 589.8389999999999,635H217Z"/>
@@ -203,5 +203,5 @@ node:v8, Node 24.14.1, writes bytes</title>
 <text class="value" x="619.117" y="794">863 B</text>
 </g>
 <text class="caption" x="20" y="849">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="865">2026-10-20</text>
+<text class="caption" x="20" y="865">2026-10-21</text>
 </svg>

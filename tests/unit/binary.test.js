@@ -1558,6 +1558,57 @@ test('Binary: maxDepth refuses a payload at the depth the text wire does', () =>
   }
 });
 
+// A short message is copied into a buffer of the reader's, whose DataView is
+// made once, and its float64s read there; a longer one gets a view of its own:
+// making a view costs about as much as reading sixteen doubles through one.
+// Both read every double, at any offset of a buffer, and a message without
+// numbers never gets a view.
+test('Binary: the reader reads a short message through its own buffer, a long one through a view of it', () => {
+  const { Writer, Reader } = kernel(RUNTIME.node);
+  const doubles = [
+    1.5,
+    0,
+    -0,
+    -2.25,
+    NaN,
+    Infinity,
+    -Infinity,
+    5e-324,
+    Number.MAX_VALUE,
+    Math.PI,
+    2 ** 53,
+    -1e-300,
+  ];
+  // At an odd offset of a larger buffer, as a message cut out of a frame is.
+  const message = (count) => {
+    const w = new Writer();
+    for (let i = 0; i < count; i++) w.f64(doubles[i % doubles.length]);
+    const bytes = w.finish();
+    const frame = new Uint8Array(bytes.length + 3);
+    frame.set(bytes, 3);
+    return frame.subarray(3);
+  };
+  const r = new Reader();
+  let copied = null;
+  for (const count of [1, 12, 16, 17, 40, 2]) {
+    const bytes = message(count);
+    r.reset(bytes, true);
+    const own = bytes.length <= 128;
+    assert.strictEqual(r.view.buffer === bytes.buffer, !own, `${count} doubles`);
+    // The reader's buffer and its view are made once.
+    if (own) {
+      if (copied === null) copied = r.view;
+      assert.strictEqual(r.view, copied, `${count} doubles`);
+    }
+    for (let i = 0; i < count; i++) {
+      assert.ok(Object.is(r.f64(), doubles[i % doubles.length]), `${count} doubles: ${i}`);
+    }
+    assert.strictEqual(r.pos, r.end);
+  }
+  assert.strictEqual(new Reader().reset(message(40), false).view, null);
+  assert.strictEqual(new Reader().reset(message(1), false).view, null);
+});
+
 // The writer and reader of each runtime twin write the same bytes and read
 // the same strings; the growth of the buffer and the varint edges are theirs
 // to get right.

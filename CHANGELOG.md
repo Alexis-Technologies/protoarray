@@ -74,7 +74,9 @@ ids of 2.0 do not change; a standalone module written by 2.0 still loads.
   read whole (`extra` past it) and the error says where the reader stood (`DecodeError.offset`).
   Encode refuses, besides what the text wire refuses, a string slot without a string, a `bytes`
   slot without a `Uint8Array` and an `integer` slot without a safe integer (`type`), which the
-  wire has no form for. `maxDepth` counts on the binary wire as on the text one.
+  wire has no form for. A message of up to 128 bytes is decoded without a `DataView` of its own,
+  which would cost about as much as reading sixteen doubles: it is copied into a buffer the reader
+  keeps, whose view is made once. `maxDepth` counts on the binary wire as on the text one.
   `tests/fixtures/golden-binary.json` holds the bytes of every vector: the wire is a contract,
   a change to it a new major. A record is a header of presence bits (the
   booleans in it) and its fields; integers, dates and decimals are zigzag varints, a `number` a

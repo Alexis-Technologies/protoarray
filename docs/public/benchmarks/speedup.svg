@@ -51,145 +51,145 @@
 <line class="ref" x1="439" y1="110" x2="439" y2="726"/>
 <text class="group" x="20" y="128">GENERATED CODE</text>
 <g><title>One record · against 1.0.0
-encode ×1.03: 2,033,109 → 2,094,147 ops/s
-decode ×1.05: 1,653,613 → 1,735,620 ops/s</title>
+encode ×1.02: 2,033,109 → 2,072,291 ops/s
+decode ×1.05: 1,653,613 → 1,740,146 ops/s</title>
 <text class="label" x="20" y="155">One record</text>
 <text class="sublabel" x="20" y="170">against 1.0.0</text>
-<path class="bar primary" d="M202,148H442.1152141867455A4,4 0 0 1 446.1152141867455,152V153A4,4 0 0 1 442.1152141867455,157H202Z"/>
-<text class="value small" x="452.1152141867455" y="156">×1.03</text>
-<path class="bar secondary" d="M202,159H446.753450777177A4,4 0 0 1 450.753450777177,163V164A4,4 0 0 1 446.753450777177,168H202Z"/>
-<text class="value small" x="456.753450777177" y="167">×1.05</text>
+<path class="bar primary" d="M202,148H439.56745506512436A4,4 0 0 1 443.56745506512436,152V153A4,4 0 0 1 439.56745506512436,157H202Z"/>
+<text class="value small" x="449.56745506512436" y="156">×1.02</text>
+<path class="bar secondary" d="M202,159H447.402128551239A4,4 0 0 1 451.402128551239,163V164A4,4 0 0 1 447.402128551239,168H202Z"/>
+<text class="value small" x="457.402128551239" y="167">×1.05</text>
 </g>
 <g><title>1,000 records · against 1.0.0
-encode ×1.02: 1,958 → 1,999 ops/s
-decode ×0.98: 1,501 → 1,475 ops/s</title>
+encode ×1.02: 1,958 → 2,003 ops/s
+decode ×1.01: 1,501 → 1,512 ops/s</title>
 <text class="label" x="20" y="195">1,000 records</text>
 <text class="sublabel" x="20" y="210">against 1.0.0</text>
-<path class="bar primary" d="M202,188H439.96271705822267A4,4 0 0 1 443.96271705822267,192V193A4,4 0 0 1 439.96271705822267,197H202Z"/>
-<text class="value small" x="449.96271705822267" y="196">×1.02</text>
-<path class="bar secondary" d="M202,199H430.89473684210526A4,4 0 0 1 434.89473684210526,203V204A4,4 0 0 1 430.89473684210526,208H202Z"/>
-<text class="value small" x="440.89473684210526" y="207">×0.98</text>
+<path class="bar primary" d="M202,188H440.446884576098A4,4 0 0 1 444.446884576098,192V193A4,4 0 0 1 440.446884576098,197H202Z"/>
+<text class="value small" x="450.446884576098" y="196">×1.02</text>
+<path class="bar secondary" d="M202,199H436.7368421052631A4,4 0 0 1 440.7368421052631,203V204A4,4 0 0 1 436.7368421052631,208H202Z"/>
+<text class="value small" x="446.7368421052631" y="207">×1.01</text>
 </g>
 <g><title>Sparse record · against 1.0.0
-encode ×1.02: 7,196,874 → 7,363,837 ops/s
-decode ×1.02: 7,344,173 → 7,522,134 ops/s</title>
+encode ×1.02: 7,196,874 → 7,363,981 ops/s
+decode ×1.03: 7,344,173 → 7,559,349 ops/s</title>
 <text class="label" x="20" y="235">Sparse record</text>
 <text class="sublabel" x="20" y="250">against 1.0.0</text>
-<path class="bar primary" d="M202,228H440.4982525746595A4,4 0 0 1 444.4982525746595,232V233A4,4 0 0 1 440.4982525746595,237H202Z"/>
-<text class="value small" x="450.4982525746595" y="236">×1.02</text>
-<path class="bar secondary" d="M202,239H440.7428871841663A4,4 0 0 1 444.7428871841663,243V244A4,4 0 0 1 440.7428871841663,248H202Z"/>
-<text class="value small" x="450.7428871841663" y="247">×1.02</text>
+<path class="bar primary" d="M202,228H440.50299463350336A4,4 0 0 1 444.50299463350336,232V233A4,4 0 0 1 440.50299463350336,237H202Z"/>
+<text class="value small" x="450.50299463350336" y="236">×1.02</text>
+<path class="bar secondary" d="M202,239H441.9438331586143A4,4 0 0 1 445.9438331586143,243V244A4,4 0 0 1 441.9438331586143,248H202Z"/>
+<text class="value small" x="451.9438331586143" y="247">×1.03</text>
 </g>
 <g><title>Typed record · against 1.0.0
-encode ×1.22: 3,849,938 → 4,697,869 ops/s
-decode ×1.01: 4,768,542 → 4,820,004 ops/s</title>
+encode ×1.22: 3,849,938 → 4,697,126 ops/s
+decode ×1.02: 4,768,542 → 4,858,042 ops/s</title>
 <text class="label" x="20" y="275">Typed record</text>
 <text class="sublabel" x="20" y="290">against 1.0.0</text>
-<path class="bar primary" d="M202,268H487.19815150269955A4,4 0 0 1 491.19815150269955,272V273A4,4 0 0 1 487.19815150269955,277H202Z"/>
-<text class="value small" x="497.19815150269955" y="276">×1.22</text>
-<path class="bar secondary" d="M202,279H437.55769876830277A4,4 0 0 1 441.55769876830277,283V284A4,4 0 0 1 437.55769876830277,288H202Z"/>
-<text class="value small" x="447.55769876830277" y="287">×1.01</text>
+<path class="bar primary" d="M202,268H487.15241284405096A4,4 0 0 1 491.15241284405096,272V273A4,4 0 0 1 487.15241284405096,277H202Z"/>
+<text class="value small" x="497.15241284405096" y="276">×1.22</text>
+<path class="bar secondary" d="M202,279H439.44821498898403A4,4 0 0 1 443.44821498898403,283V284A4,4 0 0 1 439.44821498898403,288H202Z"/>
+<text class="value small" x="449.44821498898403" y="287">×1.02</text>
 </g>
 <g><title>Long strings · against 1.0.0
-encode ×1.03: 1,787,651 → 1,848,652 ops/s
-decode ×1.05: 1,662,128 → 1,747,250 ops/s</title>
+encode ×1.02: 1,787,651 → 1,821,501 ops/s
+decode ×1.03: 1,662,128 → 1,704,304 ops/s</title>
 <text class="label" x="20" y="315">Long strings</text>
 <text class="sublabel" x="20" y="330">against 1.0.0</text>
-<path class="bar primary" d="M202,308H443.0872815778919A4,4 0 0 1 447.0872815778919,312V313A4,4 0 0 1 443.0872815778919,317H202Z"/>
-<text class="value small" x="453.0872815778919" y="316">×1.03</text>
-<path class="bar secondary" d="M202,319H447.1374009703224A4,4 0 0 1 451.1374009703224,323V324A4,4 0 0 1 447.1374009703224,328H202Z"/>
-<text class="value small" x="457.1374009703224" y="327">×1.05</text>
+<path class="bar primary" d="M202,308H439.487704814866A4,4 0 0 1 443.487704814866,312V313A4,4 0 0 1 439.487704814866,317H202Z"/>
+<text class="value small" x="449.487704814866" y="316">×1.02</text>
+<path class="bar secondary" d="M202,319H441.01380399102834A4,4 0 0 1 445.01380399102834,323V324A4,4 0 0 1 441.01380399102834,328H202Z"/>
+<text class="value small" x="451.01380399102834" y="327">×1.03</text>
 </g>
 <g><title>100 wrpc packets · against 1.1.0
-encode ×1.02: 66,846 → 67,890 ops/s
-decode ×1.08: 47,355 → 50,968 ops/s</title>
+encode ×1.02: 66,846 → 68,359 ops/s
+decode ×1.07: 47,355 → 50,551 ops/s</title>
 <text class="label" x="20" y="355">100 wrpc packets</text>
 <text class="sublabel" x="20" y="370">against 1.1.0</text>
-<path class="bar primary" d="M202,348H438.70146306435686A4,4 0 0 1 442.70146306435686,352V353A4,4 0 0 1 438.70146306435686,357H202Z"/>
-<text class="value small" x="448.70146306435686" y="356">×1.02</text>
-<path class="bar secondary" d="M202,359H453.08216661387394A4,4 0 0 1 457.08216661387394,363V364A4,4 0 0 1 453.08216661387394,368H202Z"/>
-<text class="value small" x="463.08216661387394" y="367">×1.08</text>
+<path class="bar primary" d="M202,348H440.3642850731532A4,4 0 0 1 444.3642850731532,352V353A4,4 0 0 1 440.3642850731532,357H202Z"/>
+<text class="value small" x="450.3642850731532" y="356">×1.02</text>
+<path class="bar secondary" d="M202,359H450.99518530250236A4,4 0 0 1 454.99518530250236,363V364A4,4 0 0 1 450.99518530250236,368H202Z"/>
+<text class="value small" x="460.99518530250236" y="367">×1.07</text>
 </g>
 <g><title>32 doubles · against 1.0.0
-encode ×1.05: 403,409 → 424,823 ops/s
-decode ×1.02: 733,654 → 751,055 ops/s</title>
+encode ×1.04: 403,409 → 421,327 ops/s
+decode ×1.01: 733,654 → 738,755 ops/s</title>
 <text class="label" x="20" y="395">32 doubles</text>
 <text class="sublabel" x="20" y="410">against 1.0.0</text>
-<path class="bar primary" d="M202,388H447.5805770322427A4,4 0 0 1 451.5805770322427,392V393A4,4 0 0 1 447.5805770322427,397H202Z"/>
-<text class="value small" x="457.5805770322427" y="396">×1.05</text>
-<path class="bar secondary" d="M202,399H440.6212288081303A4,4 0 0 1 444.6212288081303,403V404A4,4 0 0 1 440.6212288081303,408H202Z"/>
-<text class="value small" x="450.6212288081303" y="407">×1.02</text>
+<path class="bar primary" d="M202,388H445.5267011891158A4,4 0 0 1 449.5267011891158,392V393A4,4 0 0 1 445.5267011891158,397H202Z"/>
+<text class="value small" x="455.5267011891158" y="396">×1.04</text>
+<path class="bar secondary" d="M202,399H436.6478299034695A4,4 0 0 1 440.6478299034695,403V404A4,4 0 0 1 436.6478299034695,408H202Z"/>
+<text class="value small" x="446.6478299034695" y="407">×1.01</text>
 </g>
 <text class="group" x="20" y="436">CLOSURES, NO EVAL</text>
 <g><title>One record · against 1.0.0
-encode ×1.01: 1,545,698 → 1,556,436 ops/s
-decode ×1.09: 970,526 → 1,057,323 ops/s</title>
+encode ×1.02: 1,545,698 → 1,574,403 ops/s
+decode ×1.11: 970,526 → 1,077,958 ops/s</title>
 <text class="label" x="20" y="463">One record</text>
 <text class="sublabel" x="20" y="478">against 1.0.0</text>
-<path class="bar primary" d="M202,456H436.6464445189164A4,4 0 0 1 440.6464445189164,460V461A4,4 0 0 1 436.6464445189164,465H202Z"/>
-<text class="value small" x="446.6464445189164" y="464">×1.01</text>
-<path class="bar secondary" d="M202,467H456.195608360827A4,4 0 0 1 460.195608360827,471V472A4,4 0 0 1 456.195608360827,476H202Z"/>
-<text class="value small" x="466.195608360827" y="475">×1.09</text>
+<path class="bar primary" d="M202,456H439.40130284182294A4,4 0 0 1 443.40130284182294,460V461A4,4 0 0 1 439.40130284182294,465H202Z"/>
+<text class="value small" x="449.40130284182294" y="464">×1.02</text>
+<path class="bar secondary" d="M202,467H461.2346232867538A4,4 0 0 1 465.2346232867538,471V472A4,4 0 0 1 461.2346232867538,476H202Z"/>
+<text class="value small" x="471.2346232867538" y="475">×1.11</text>
 </g>
 <g><title>1,000 records · against 1.0.0
-encode ×1.00: 1,421 → 1,424 ops/s
-decode ×1.03: 937 → 969 ops/s</title>
+encode ×1.02: 1,421 → 1,443 ops/s
+decode ×1.03: 937 → 968 ops/s</title>
 <text class="label" x="20" y="503">1,000 records</text>
 <text class="sublabel" x="20" y="518">against 1.0.0</text>
-<path class="bar primary" d="M202,496H435.5003518648839A4,4 0 0 1 439.5003518648839,500V501A4,4 0 0 1 435.5003518648839,505H202Z"/>
-<text class="value small" x="445.5003518648839" y="504">×1.00</text>
-<path class="bar secondary" d="M202,507H443.093916755603A4,4 0 0 1 447.093916755603,511V512A4,4 0 0 1 443.093916755603,516H202Z"/>
-<text class="value small" x="453.093916755603" y="515">×1.03</text>
+<path class="bar primary" d="M202,496H438.6692470091485A4,4 0 0 1 442.6692470091485,500V501A4,4 0 0 1 438.6692470091485,505H202Z"/>
+<text class="value small" x="448.6692470091485" y="504">×1.02</text>
+<path class="bar secondary" d="M202,507H442.8409818569904A4,4 0 0 1 446.8409818569904,511V512A4,4 0 0 1 442.8409818569904,516H202Z"/>
+<text class="value small" x="452.8409818569904" y="515">×1.03</text>
 </g>
 <g><title>Sparse record · against 1.0.0
-encode ×1.01: 3,180,710 → 3,213,787 ops/s
-decode ×1.64: 2,593,133 → 4,246,670 ops/s</title>
+encode ×1.03: 3,180,710 → 3,270,653 ops/s
+decode ×1.65: 2,593,133 → 4,280,681 ops/s</title>
 <text class="label" x="20" y="543">Sparse record</text>
 <text class="sublabel" x="20" y="558">against 1.0.0</text>
-<path class="bar primary" d="M202,536H437.46462236418915A4,4 0 0 1 441.46462236418915,540V541A4,4 0 0 1 437.46462236418915,545H202Z"/>
-<text class="value small" x="447.46462236418915" y="544">×1.01</text>
-<path class="bar secondary" d="M202,547H586.1254027464075A4,4 0 0 1 590.1254027464075,551V552A4,4 0 0 1 586.1254027464075,556H202Z"/>
-<text class="value small" x="596.1254027464075" y="555">×1.64</text>
+<path class="bar primary" d="M202,536H441.701802742155A4,4 0 0 1 445.701802742155,540V541A4,4 0 0 1 441.701802742155,545H202Z"/>
+<text class="value small" x="451.701802742155" y="544">×1.03</text>
+<path class="bar secondary" d="M202,547H589.2338460850253A4,4 0 0 1 593.2338460850253,551V552A4,4 0 0 1 589.2338460850253,556H202Z"/>
+<text class="value small" x="599.2338460850253" y="555">×1.65</text>
 </g>
 <g><title>Typed record · against 1.0.0
-encode ×1.20: 2,951,111 → 3,541,822 ops/s
-decode ×1.10: 2,848,225 → 3,144,110 ops/s</title>
+encode ×1.19: 2,951,111 → 3,516,942 ops/s
+decode ×1.09: 2,848,225 → 3,100,604 ops/s</title>
 <text class="label" x="20" y="583">Typed record</text>
 <text class="sublabel" x="20" y="598">against 1.0.0</text>
-<path class="bar primary" d="M202,576H482.4392549111165A4,4 0 0 1 486.4392549111165,580V581A4,4 0 0 1 482.4392549111165,585H202Z"/>
-<text class="value small" x="492.4392549111165" y="584">×1.20</text>
-<path class="bar secondary" d="M202,587H459.62050750906263A4,4 0 0 1 463.62050750906263,591V592A4,4 0 0 1 459.62050750906263,596H202Z"/>
-<text class="value small" x="469.62050750906263" y="595">×1.10</text>
+<path class="bar primary" d="M202,576H480.44117351058634A4,4 0 0 1 484.44117351058634,580V581A4,4 0 0 1 480.44117351058634,585H202Z"/>
+<text class="value small" x="490.44117351058634" y="584">×1.19</text>
+<path class="bar secondary" d="M202,587H456.00038550325206A4,4 0 0 1 460.00038550325206,591V592A4,4 0 0 1 456.00038550325206,596H202Z"/>
+<text class="value small" x="466.00038550325206" y="595">×1.09</text>
 </g>
 <g><title>Long strings · against 1.0.0
-encode ×1.03: 1,665,042 → 1,722,025 ops/s
-decode ×1.03: 1,544,975 → 1,596,387 ops/s</title>
+encode ×1.04: 1,665,042 → 1,727,417 ops/s
+decode ×1.03: 1,544,975 → 1,585,509 ops/s</title>
 <text class="label" x="20" y="623">Long strings</text>
 <text class="sublabel" x="20" y="638">against 1.0.0</text>
-<path class="bar primary" d="M202,616H443.11088909468947A4,4 0 0 1 447.11088909468947,620V621A4,4 0 0 1 443.11088909468947,625H202Z"/>
-<text class="value small" x="453.11088909468947" y="624">×1.03</text>
-<path class="bar secondary" d="M202,627H442.8866285862231A4,4 0 0 1 446.8866285862231,631V632A4,4 0 0 1 442.8866285862231,636H202Z"/>
-<text class="value small" x="452.8866285862231" y="635">×1.03</text>
+<path class="bar primary" d="M202,616H443.87837964447743A4,4 0 0 1 447.87837964447743,620V621A4,4 0 0 1 443.87837964447743,625H202Z"/>
+<text class="value small" x="453.87837964447743" y="624">×1.04</text>
+<path class="bar secondary" d="M202,627H441.2179375070794A4,4 0 0 1 445.2179375070794,631V632A4,4 0 0 1 441.2179375070794,636H202Z"/>
+<text class="value small" x="451.2179375070794" y="635">×1.03</text>
 </g>
 <g><title>100 wrpc packets · against 1.1.0
-encode ×1.00: 47,769 → 47,995 ops/s
-decode ×1.00: 25,973 → 25,947 ops/s</title>
+encode ×1.02: 47,769 → 48,952 ops/s
+decode ×1.01: 25,973 → 26,296 ops/s</title>
 <text class="label" x="20" y="663">100 wrpc packets</text>
 <text class="sublabel" x="20" y="678">against 1.1.0</text>
-<path class="bar primary" d="M202,656H436.1212711172518A4,4 0 0 1 440.1212711172518,660V661A4,4 0 0 1 436.1212711172518,665H202Z"/>
-<text class="value small" x="446.1212711172518" y="664">×1.00</text>
-<path class="bar secondary" d="M202,667H434.76275362876834A4,4 0 0 1 438.76275362876834,671V672A4,4 0 0 1 434.76275362876834,676H202Z"/>
-<text class="value small" x="444.76275362876834" y="675">×1.00</text>
+<path class="bar primary" d="M202,656H440.8693085473843A4,4 0 0 1 444.8693085473843,660V661A4,4 0 0 1 440.8693085473843,665H202Z"/>
+<text class="value small" x="450.8693085473843" y="664">×1.02</text>
+<path class="bar secondary" d="M202,667H437.9473299195318A4,4 0 0 1 441.9473299195318,671V672A4,4 0 0 1 437.9473299195318,676H202Z"/>
+<text class="value small" x="447.9473299195318" y="675">×1.01</text>
 </g>
 <g><title>32 doubles · against 1.0.0
-encode ×1.01: 360,296 → 364,147 ops/s
-decode ×1.00: 572,868 → 574,907 ops/s</title>
+encode ×1.03: 360,296 → 369,670 ops/s
+decode ×1.00: 572,868 → 571,493 ops/s</title>
 <text class="label" x="20" y="703">32 doubles</text>
 <text class="sublabel" x="20" y="718">against 1.0.0</text>
-<path class="bar primary" d="M202,696H437.5331588471701A4,4 0 0 1 441.5331588471701,700V701A4,4 0 0 1 437.5331588471701,705H202Z"/>
-<text class="value small" x="447.5331588471701" y="704">×1.01</text>
-<path class="bar secondary" d="M202,707H435.8435503466767A4,4 0 0 1 439.8435503466767,711V712A4,4 0 0 1 435.8435503466767,716H202Z"/>
-<text class="value small" x="445.8435503466767" y="715">×1.00</text>
+<path class="bar primary" d="M202,696H441.1661467238049A4,4 0 0 1 445.1661467238049,700V701A4,4 0 0 1 441.1661467238049,705H202Z"/>
+<text class="value small" x="451.1661467238049" y="704">×1.03</text>
+<path class="bar secondary" d="M202,707H434.4311516789208A4,4 0 0 1 438.4311516789208,711V712A4,4 0 0 1 434.4311516789208,716H202Z"/>
+<text class="value small" x="444.4311516789208" y="715">×1.00</text>
 </g>
 <text class="caption" x="20" y="767">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
 <text class="caption" x="20" y="783">process · 2026-10-21</text>

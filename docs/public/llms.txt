@@ -70,8 +70,8 @@ Key facts:
   the structure of a message is checked whatever `validate` says and a `DecodeError` carries
   `offset`; `intern`, `delta` and the `flat`/`columns` layouts have no binary form; a standalone
   module written with `--binary` carries the codec; over a round trip ahead of the text wire on
-  every payload of the comparison (×1.1 on one record and long strings to ×6 on 32 doubles),
-  ×1.6 encode and ×2.1 decode against JSON on one record, and fewer bytes on every payload but
+  every payload of the comparison (×1.15 on long strings and ×1.2 on one record to ×6.3 on 32
+  doubles), ×1.6 encode and ×2.4 decode against JSON on one record, and fewer bytes on every payload but
   long strings (https://protoarray.vercel.app/guide/binary)
 - Two backends: generated code (`new Function`) by default, composed closures where code
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge); standalone

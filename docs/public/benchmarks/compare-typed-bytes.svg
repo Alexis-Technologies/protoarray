@@ -84,7 +84,7 @@ msgpackr@2.1.0, writes bytes</title>
 <g><title>protoarray · binary wire
 26 bytes
 21% of the JSON bytes
-@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
+@alexify/protoarray@2.1.0 (395129b), writes bytes</title>
 <text class="label secondary" x="20" y="265">protoarray</text>
 <text class="sublabel" x="20" y="280">binary wire</text>
 <path class="bar secondary" d="M217,261H272.67A4,4 0 0 1 276.67,265V271A4,4 0 0 1 272.67,275H217Z"/>
@@ -207,5 +207,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="633.8050000000001" y="794">179 B</text>
 </g>
 <text class="caption" x="20" y="849">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="865">2026-10-20</text>
+<text class="caption" x="20" y="865">2026-10-21</text>
 </svg>

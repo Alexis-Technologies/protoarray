@@ -53,7 +53,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 1,546,083 (×1.11) | 1,051,706 (×1.08) | 135 | 134 | 110 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 2,029,812 (×1.46) | 1,592,427 (×1.64) | 135 | 134 | 110 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,146,010 (×0.82) | 1,701,545 (×1.75) | 135 | 134 | 110 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,172,984 (×1.56) | 2,000,626 (×2.06) | 125 | 128 | 120 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,233,348 (×1.60) | 2,288,904 (×2.36) | 125 | 128 | 120 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 1,398,695 (×1.00) | 1,472,331 (×1.52) | 115 | 127 | 117 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 487,218 (×0.35) | 560,158 (×0.58) | 115 | 127 | 117 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,626,234 (×1.17) | 1,738,513 (×1.79) | 97 | 111 | 101 |
@@ -78,7 +78,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,090 (×0.74) | 1,471 (×1.65) | 140,738 | 30,666 | 26,946 |
 | **protoarray**<br><sub>columns layout · v2.1.0</sub> | 2,030 (×1.38) | 1,519 (×1.70) | 138,758 | 27,412 | 21,053 |
 | **protoarray**<br><sub>columns, delta + intern · v2.1.0</sub> | 2,284 (×1.56) | 1,676 (×1.88) | 114,965 | 24,574 | 19,799 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 3,101 (×2.12) | 2,286 (×2.57) | 129,625 | 30,995 | 28,457 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 3,129 (×2.13) | 2,303 (×2.58) | 129,625 | 30,995 | 28,457 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 1,301 (×0.89) | 1,403 (×1.57) | 120,459 | 31,414 | 28,985 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 617 (×0.42) | 587 (×0.66) | 120,459 | 31,414 | 28,985 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,399 (×0.95) | 1,793 (×2.01) | 101,839 | 29,895 | 27,334 |
@@ -101,7 +101,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 3,275,840 (×0.48) | 4,253,526 (×0.93) | 23 | 43 | 27 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 6,873,553 (×1.01) | 7,218,956 (×1.58) | 23 | 43 | 27 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 2,191,117 (×0.32) | 7,574,256 (×1.66) | 23 | 43 | 27 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 12,378,023 (×1.82) | 7,800,073 (×1.71) | 18 | 34 | 22 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 12,047,751 (×1.77) | 13,150,567 (×2.88) | 18 | 34 | 22 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 5,568,923 (×0.82) | 9,670,688 (×2.12) | 11 | 31 | 15 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 966,102 (×0.14) | 2,827,757 (×0.62) | 11 | 31 | 15 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,457,467 (×0.21) | 3,623,007 (×0.79) | 28 | 35 | 23 |
@@ -124,7 +124,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 3,567,485 (×4.34) | 3,132,542 (×1.08) | 36 | 46 | 36 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 4,674,331 (×5.69) | 4,761,469 (×1.64) | 36 | 46 | 36 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 2,799,070 (×3.41) | 4,858,565 (×1.68) | 36 | 46 | 36 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 6,533,464 (×7.96) | 6,275,456 (×2.16) | 26 | 38 | 30 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 6,597,400 (×8.03) | 8,905,494 (×3.07) | 26 | 38 | 30 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 3,837,319 (×4.67) | 12,143,747 (×4.19) | 13 | 33 | 17 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 1,272,891 (×1.55) | 2,952,236 (×1.02) | 13 | 33 | 17 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 2,135,877 (×2.60) | 7,911,258 (×2.73) | 12 | 32 | 16 |
@@ -147,7 +147,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 1,717,264 (×1.10) | 1,562,958 (×1.17) | 785 | 230 | 207 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 1,784,109 (×1.15) | 1,687,798 (×1.26) | 785 | 230 | 207 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 1,561,889 (×1.00) | 1,711,369 (×1.28) | 785 | 230 | 207 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,894,969 (×1.22) | 2,220,552 (×1.66) | 821 | 265 | 247 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 1,859,968 (×1.19) | 2,252,598 (×1.69) | 821 | 265 | 247 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 575,285 (×0.37) | 507,626 (×0.38) | 777 | 233 | 211 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 407,763 (×0.26) | 427,814 (×0.32) | 777 | 233 | 211 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 491,511 (×0.32) | 769,652 (×0.58) | 774 | 231 | 210 |
@@ -170,7 +170,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 47,385 (×0.91) | 25,937 (×1.08) | 4,332 | 685 | 501 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 67,030 (×1.29) | 48,073 (×2.00) | 4,332 | 685 | 501 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 34,188 (×0.66) | 48,879 (×2.03) | 4,332 | 685 | 501 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 109,238 (×2.10) | 69,037 (×2.87) | 3,064 | 656 | 540 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 110,720 (×2.13) | 66,837 (×2.78) | 3,064 | 656 | 540 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 24,172 (×0.47) | 37,015 (×1.54) | 3,691 | 778 | 609 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 10,961 (×0.21) | 15,383 (×0.64) | 3,691 | 778 | 609 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 20,632 (×0.40) | 46,294 (×1.92) | 2,833 | 633 | 521 |
@@ -192,7 +192,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 355,885 (×1.10) | 577,193 (×1.19) | 582 | 309 | 295 |
 | **protoarray**<br><sub>standalone module, no eval · v2.1.0</sub> | 434,404 (×1.34) | 735,706 (×1.52) | 582 | 309 | 295 |
 | **protoarray**<br><sub>codegen + metaschema check · v2.1.0</sub> | 344,294 (×1.07) | 743,449 (×1.54) | 582 | 309 | 295 |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,452,022 (×7.59) | 4,899,904 (×10.14) | 260 | 283 | 262 |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 2,477,663 (×7.67) | 4,920,811 (×10.18) | 260 | 283 | 262 |
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 709,089 (×2.19) | 1,944,328 (×4.02) | 305 | 328 | 304 |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 252,782 (×0.78) | 455,256 (×0.94) | 305 | 328 | 304 |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 1,937,808 (×5.99) | 3,115,855 (×6.45) | 256 | 279 | 260 |
@@ -206,7 +206,7 @@ call, the ratio to JSON, the spread of the rounds and the exact version.
 | devalue<br><sub>stringify · parse · v6.0.3</sub> | 230,286 (×0.71) | 265,668 (×0.55) | 853 | 454 | 443 |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 2,243,379 (×6.94) | 479,670 (×0.99) | 764 | 406 | 392 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-20. Medians; (×n) against JSON; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5. The spread of the rounds is in bench/results/compare.json._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process · 2026-10-21. Medians; (×n) against JSON; bytes are the wire size of one payload (binary formats before any text encoding), gzip at level 6, brotli at quality 5. The spread of the rounds is in bench/results/compare.json._
 
 </details>
 
@@ -229,10 +229,11 @@ _Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each
 - **Numbers** are the honest exception of the text wire: a double prints as up to 17 characters
   and parses back through a decimal conversion, where avsc and protobufjs read 8 bytes. The
   `binary wire` rows are [`@alexify/protoarray/binary`](/guide/binary), the same schema on bytes,
-  for channels that carry them: over a round trip ahead of the text wire on every payload (×1.1
-  on one record and on long strings, ×6 on 32 doubles) and the fastest of every library on all
-  seven, the numeric one included; it decodes second or third behind msgpackr's shared structures
-  on lists, sparse and typed records (how it was decided is
+  for channels that carry them: over a round trip ahead of the text wire on every payload (×1.15
+  on long strings, ×1.2 on one record, ×6.3 on 32 doubles) and the fastest of every library on
+  all seven, the numeric one included. It is the fastest encoder of six and decoder of three;
+  msgpackr's shared structures decode one record, lists and tagged messages faster, cbor-x's
+  records lists and protobufjs typed records (how it was decided is
   [recorded below](#the-binary-wire-measured)).
 - **Validation.** The wire is checked on decode and the values given to encode are trusted, so
   protoarray encodes the way protobufjs and msgpackr do, without checks, and decodes with them.
@@ -283,7 +284,7 @@ process, loading itself, building the schema of one record, encoding it and deco
 | protobufjs<br><sub>reflection, Root.fromJSON · v8.8.1</sub> | 11.1 ms | 1.5 ms | 3.1 ms | 0.35 ms | 16.2 ms |
 | **protoarray**<br><sub>codegen · v2.1.0</sub> | 11.9 ms | 4.3 ms | 0.13 ms | 0.15 ms | 16.5 ms |
 | **protoarray**<br><sub>closures, no eval · v2.1.0</sub> | 12.5 ms | 3.9 ms | 0.12 ms | 0.17 ms | 16.7 ms |
-| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.8 ms | 4.2 ms | 1.6 ms | 0.27 ms | 19.9 ms |
+| **protoarray**<br><sub>binary wire · v2.1.0</sub> | 13.6 ms | 4.2 ms | 1.6 ms | 0.28 ms | 19.8 ms |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 21.0 ms | 4.5 ms | 0.26 ms | 0.01 ms | 25.7 ms |
 | protobuf-es<br><sub>create · toBinary · fromBinary · v2.16.0</sub> | 24.5 ms | 0.38 ms | 0.80 ms | 0.06 ms | 25.9 ms |
 
@@ -317,7 +318,7 @@ by esbuild for the browser (minified, tree-shaken) and checked to give the recor
 | BSON<br><sub>serialize · deserialize · v7.3.3</sub> | 74.8 KB | 22.2 KB |  |
 | **protoarray**<br><sub>codegen, from a snapshot · v2.1.0</sub> | 63.2 KB | 23.0 KB | the schema built from its snapshot: a client without metaschema |
 | protobufjs<br><sub>protobufjs/light, Root.fromJSON · v8.8.1</sub> | 105.7 KB | 29.2 KB | reflection; static code from pbjs with protobufjs/minimal is smaller, plus the generated code |
-| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.5 KB | 32.3 KB | the core and the ./binary subpath, the schema built from its snapshot |
+| **protoarray**<br><sub>binary wire, from a snapshot · v2.1.0</sub> | 90.7 KB | 32.4 KB | the core and the ./binary subpath, the schema built from its snapshot |
 | avsc<br><sub>Type.forSchema · v5.7.9</sub> | 115.4 KB | 34.3 KB | avsc's browser build of types, with the buffer and util polyfills it requires |
 | **protoarray**<br><sub>codegen, metaschema definition · v2.1.0</sub> | 122.3 KB | 43.6 KB | protoarray and @alexify/metaschema, which reads the definition and validates values |
 | fast-json-stringify<br><sub>compiled stringify, JSON.parse · v7.1.0</sub> | 217.4 KB | 62.9 KB | encode only; JSON.parse decodes |
@@ -347,12 +348,12 @@ slower.
 | 1.0.0<br><sub>codegen</sub> | 2,030,000 / 1,650,000 | 1,960 / 1,500 | 7,200,000 / 7,340,000 | 3,850,000 / 4,770,000 | 1,790,000 / 1,660,000 | — | 403,000 / 734,000 | 36,200 |
 | 1.1.0<br><sub>codegen</sub> | 2,030,000 / 1,640,000 | 1,970 / 1,500 | 7,210,000 / 7,180,000 | 4,880,000 / 4,790,000 | 1,750,000 / 1,670,000 | 66,800 / 47,400 | 409,000 / 731,000 | 31,600 |
 | 2.0.0<br><sub>codegen</sub> | 2,040,000 / 1,690,000 | 1,970 / 1,480 | 7,020,000 / 7,460,000 | 4,670,000 / 4,780,000 | 1,800,000 / 1,700,000 | 67,600 / 50,600 | 427,000 / 731,000 | 14,600 |
-| 2.1.0<br><sub>codegen</sub> | 2,090,000 / 1,740,000 | 2,000 / 1,480 | 7,360,000 / 7,520,000 | 4,700,000 / 4,820,000 | 1,850,000 / 1,750,000 | 67,900 / 51,000 | 425,000 / 751,000 | 15,000 |
+| 2.1.0<br><sub>codegen</sub> | 2,070,000 / 1,740,000 | 2,000 / 1,510 | 7,360,000 / 7,560,000 | 4,700,000 / 4,860,000 | 1,820,000 / 1,700,000 | 68,400 / 50,600 | 421,000 / 739,000 | 14,900 |
 | 1.0.0<br><sub>closures</sub> | 1,550,000 / 971,000 | 1,420 / 937 | 3,180,000 / 2,590,000 | 2,950,000 / 2,850,000 | 1,670,000 / 1,540,000 | — | 360,000 / 573,000 | 172,000 |
 | 1.1.0<br><sub>closures</sub> | 1,470,000 / 1,040,000 | 1,380 / 976 | 2,930,000 / 2,460,000 | 3,540,000 / 3,110,000 | 1,680,000 / 1,550,000 | 47,800 / 26,000 | 364,000 / 568,000 | 98,400 |
 | 2.0.0<br><sub>closures</sub> | 1,470,000 / 1,060,000 | 1,390 / 978 | 2,950,000 / 2,360,000 | 3,450,000 / 3,090,000 | 1,690,000 / 1,560,000 | 48,100 / 26,800 | 359,000 / 567,000 | 24,000 |
-| 2.1.0<br><sub>closures</sub> | 1,560,000 / 1,060,000 | 1,420 / 969 | 3,210,000 / 4,250,000 | 3,540,000 / 3,140,000 | 1,720,000 / 1,600,000 | 48,000 / 25,900 | 364,000 / 575,000 | 23,900 |
-| 2.1.0<br><sub>binary wire</sub> | 2,120,000 / 2,030,000 | 3,110 / 2,310 | 12,200,000 / 7,980,000 | 6,580,000 / 6,330,000 | 1,890,000 / 2,230,000 | 111,000 / 68,800 | 2,460,000 / 4,990,000 | — |
+| 2.1.0<br><sub>closures</sub> | 1,570,000 / 1,080,000 | 1,440 / 968 | 3,270,000 / 4,280,000 | 3,520,000 / 3,100,000 | 1,730,000 / 1,590,000 | 49,000 / 26,300 | 370,000 / 571,000 | 23,800 |
+| 2.1.0<br><sub>binary wire</sub> | 2,120,000 / 2,260,000 | 3,060 / 2,270 | 11,900,000 / 12,700,000 | 6,490,000 / 8,780,000 | 1,850,000 / 2,240,000 | 111,000 / 69,700 | 2,480,000 / 4,970,000 | — |
 
 _Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-21. ops/s of stringify / parse (toBinary / fromBinary on the binary wire), medians; — where the release has no union, and for the binary wire, which builds the schema the text wire does._
 
@@ -378,15 +379,15 @@ no step at 128 fields; see [Runtimes and CSP](/guide/runtimes#what-the-fallback-
 
 The *Binary wire* switch shows the same shapes through `toBinary` and `fromBinary` of
 [`./binary`](/guide/binary). With generated code it is ahead of JSON on every shape but the two
-sparse records and the 70 flags, and ahead of the text wire where bytes save work: a record of
-128 fields ×2.4 to encode and ×2 to decode, 1 KB of bytes ×2 and ×3.6 (no base64), a nested
-record ×1.3 to decode. It is behind the text wire where they do not. The sparse records here are
-of `any`, which the binary wire carries as JSON text inside the bytes (about half the speed of the
-text wire); and a record of a few fields pays a fixed cost per message, the `Uint8Array` it
-returns and a `DataView` where it reads a float64, against a few nanoseconds of work: the flat
-record of four fields decodes at ×0.6 of the text wire, decimals at ×0.75. This harness runs
-every shape in one process; the comparison above runs each scenario in a fresh one, where the
-binary wire of the flat record decodes at ×0.8 of the text wire and encodes level with it.
+sparse records and, to encode, the 70 flags, and ahead of the text wire where bytes save work: a
+record of 128 fields ×2.4 to encode and ×2 to decode, 1 KB of bytes ×1.8 and ×3.6 (no base64), a
+nested record ×1.5 to decode, a typed one ×1.25, a list of a thousand records ×1.9 and ×1.3. It
+is behind the text wire where they do not. The sparse records here are of `any`, which the binary
+wire carries as JSON text inside the bytes (about half the speed of the text wire), and encoding
+a record of a few fields returns a `Uint8Array` of its own, about 25 ns that the text wire's string
+does not cost: such records encode at ×0.7 to ×0.9 of the text wire, and the flat record of four
+fields decodes at ×0.75 of it here. This harness runs every shape in one process; in a fresh one,
+as the comparison above runs, that record decodes at ×1.1 of the text wire.
 
 <BenchEngine />
 

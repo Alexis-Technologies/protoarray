@@ -41,16 +41,18 @@ Reading.list.toBinary([value, value]); // the rows of a list, through the same c
 
 The choice is the channel's and the payload's, not a question of which wire is "faster": over a
 round trip the binary wire is ahead of the text wire on every payload of the
-[comparison](/guide/benchmarks#compared-with-other-libraries), from ×1.1 on one record and on long
-strings to ×6 on 32 doubles, and it has the fastest round trip of every library measured there on
-all seven payloads, the binary codecs written in JavaScript included. It writes fewer bytes than
-the text wire before compression on every payload but long strings, which past 21 characters
-travel as UTF-16. What it does not speed up: a `json` (`any`) slot travels as its JSON text inside
-the bytes, at about half the speed of the text wire, and a record of a few fields pays a fixed
-cost per message (the `Uint8Array` it returns, a `DataView` where it reads a float64) that the
-text wire, whose result is a string, does not: the flat record of four fields of
-[`pnpm bench`](/guide/benchmarks#protoarray-on-its-two-backends) decodes at ×0.6 to ×0.8 of the
-text wire. What the text wire keeps is everything that makes it JSON.
+[comparison](/guide/benchmarks#compared-with-other-libraries), from ×1.15 on long strings and
+×1.2 on one record to ×6.3 on 32 doubles, and it has the fastest round trip of every library
+measured there on all seven payloads, the binary codecs written in JavaScript included. It writes
+fewer bytes than the text wire before compression on every payload but long strings, which past 21
+characters travel as UTF-16. What it does not speed up: a `json` (`any`) slot travels as its JSON text inside
+the bytes, at about half the speed of the text wire, and encoding a record of a few fields returns
+a `Uint8Array` of its own, about 25 ns that the text wire's string does not cost, so such a record
+encodes at ×0.7 to ×0.9 of the text wire
+([`pnpm bench`](/guide/benchmarks#protoarray-on-its-two-backends)). Decoding one pays no such
+price: a message of up to 128 bytes is copied into a buffer the reader keeps, whose `DataView` is
+made once, rather than given a view of its own, which costs about as much as reading sixteen
+doubles. What the text wire keeps is everything that makes it JSON.
 
 - **Text** when the payload has to be readable (logs, a debugger, a REST client), travels over a
   channel that carries text (a JSON API, a WebSocket text frame, NDJSON, `localStorage`, a

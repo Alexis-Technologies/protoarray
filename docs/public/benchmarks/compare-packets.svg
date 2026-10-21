@@ -44,14 +44,14 @@
 <line class="axis" x1="217" y1="88" x2="217" y2="768"/>
 <line class="ref" x1="342.80633654668685" y1="88" x2="342.80633654668685" y2="768"/>
 <g><title>protoarray · binary wire
-42,302 ops/s
-23.6 µs per payload
-×2.57 the speed of JSON
-@alexify/protoarray@2.1.0 (7811039), writes bytes</title>
+41,678 ops/s
+24 µs per payload
+×2.53 the speed of JSON
+@alexify/protoarray@2.1.0 (395129b), writes bytes</title>
 <text class="label secondary" x="20" y="105">protoarray</text>
 <text class="sublabel" x="20" y="120">binary wire</text>
-<path class="bar secondary" d="M217,101H536.6135078721077A4,4 0 0 1 540.6135078721077,105V111A4,4 0 0 1 536.6135078721077,115H217Z"/>
-<text class="value" x="546.6135078721077" y="114">42.3k</text>
+<path class="bar secondary" d="M217,101H531.8354933683268A4,4 0 0 1 535.8354933683268,105V111A4,4 0 0 1 531.8354933683268,115H217Z"/>
+<text class="value" x="541.8354933683268" y="114">41.7k</text>
 </g>
 <g><title>protoarray · codegen
 28,984 ops/s
@@ -213,5 +213,5 @@ superjson@2.2.6, writes JSON text</title>
 <text class="value" x="250.65612461775845" y="754">3,615</text>
 </g>
 <text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-20</text>
+<text class="caption" x="20" y="825">2026-10-21</text>
 </svg>

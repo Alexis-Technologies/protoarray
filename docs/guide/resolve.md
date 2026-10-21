@@ -57,7 +57,11 @@ objects:
   `stringify`; it has no `snapshot` or `source` of its own, and is no version of its own:
   `resolve` and a registry refuse it (`ERR_SCHEMA_EXPECTED`), take its writer or its reader;
 - it is compiled by the same backends, recursion and referenced entities included, so it runs at
-  the speed of a schema of its own; `list`, `stringify` and `parse` work as on any schema.
+  the speed of a schema of its own; `list`, `stringify` and `parse` work as on any schema;
+- it reads and writes the [binary wire](/guide/binary#both-sides-need-the-schema) too:
+  `fromBinary(resolved, bytes)` reads what the writer's `toBinary` wrote into the reader's shape
+  and `toBinary(resolved, value)` writes the writer's bytes, by the same table and with the same
+  errors, a field only the writer has being read and dropped, and absent when written.
 
 When the two signatures are the same (the canonical forms and the entities they reference, as
 `id` reads them) there is nothing to resolve, and `resolve` returns the reader itself.
@@ -147,6 +151,7 @@ know, or one of a version the reader cannot resolve, a `DecodeError` `schema` wi
 `error.id` (never in the message: the payload gave it) and, for the second, the `ERR_INCOMPATIBLE`
 as `cause`. `decode` and `parse` throw nothing else, and a pair that cannot resolve is tried once.
 Writing `as` an id the registry does not know is `SchemaDefinitionError` `ERR_UNKNOWN_SCHEMA`. Two schemas of different signatures under one id throw
-`ERR_ID_COLLISION` when added: the 32-bit fingerprint is too narrow for that registry, and a wider one is the remedy (see
-[Your own fingerprint](/guide/evolution#your-own-fingerprint)). The registry is a subpath of its
+`ERR_ID_COLLISION` when added: the 32-bit fingerprint is too narrow for that registry, and
+`{ fingerprint: 'fnv1a64' }` on its schemas is the remedy (see
+[A wider fingerprint](/guide/evolution#a-wider-fingerprint)). The registry is a subpath of its
 own, so a program that does not use it does not carry it.

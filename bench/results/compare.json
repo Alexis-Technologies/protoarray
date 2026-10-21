@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:34:06.440Z",
+  "generatedAt": "2026-10-21T17:47:59.610Z",
   "machine": {
     "cpu": "Apple M3 Max",
     "cores": 16,
@@ -30,63 +30,72 @@
       "name": "protoarray",
       "variant": "codegen",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-snapshot",
       "name": "protoarray",
       "variant": "codegen, from a snapshot",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-closures",
       "name": "protoarray",
       "variant": "closures, no eval",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-standalone",
       "name": "protoarray",
       "variant": "standalone module, no eval",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-checked",
       "name": "protoarray",
       "variant": "codegen + metaschema check",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-columns",
       "name": "protoarray",
       "variant": "columns layout",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
     },
     {
       "id": "protoarray-compact",
       "name": "protoarray",
       "variant": "columns, delta + intern",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "commit": "72941bf"
+      "commit": "7811039"
+    },
+    {
+      "id": "protoarray-binary",
+      "name": "protoarray",
+      "variant": "binary wire",
+      "package": "@alexify/protoarray",
+      "version": "2.1.0",
+      "family": "binary",
+      "commit": "395129b"
     },
     {
       "id": "protobufjs",
@@ -212,16 +221,16 @@
         },
         "protoarray": {
           "encode": {
-            "median": 2066250,
-            "min": 2040820,
-            "max": 2150642,
-            "spread": 5
+            "median": 2056757,
+            "min": 2047871,
+            "max": 2082045,
+            "spread": 2
           },
           "decode": {
-            "median": 1723648,
-            "min": 1705544,
-            "max": 1726956,
-            "spread": 1
+            "median": 1724546,
+            "min": 1702623,
+            "max": 1729013,
+            "spread": 2
           },
           "bytes": {
             "raw": 135,
@@ -231,16 +240,16 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 1500853,
-            "min": 1500230,
-            "max": 1507164,
-            "spread": 0
+            "median": 1546083,
+            "min": 1532650,
+            "max": 1561911,
+            "spread": 2
           },
           "decode": {
-            "median": 1065375,
-            "min": 1060196,
-            "max": 1077570,
-            "spread": 2
+            "median": 1051706,
+            "min": 1041830,
+            "max": 1052074,
+            "spread": 1
           },
           "bytes": {
             "raw": 135,
@@ -250,15 +259,15 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 2038604,
-            "min": 2033456,
-            "max": 2060743,
-            "spread": 1
+            "median": 2029812,
+            "min": 2017339,
+            "max": 2073288,
+            "spread": 3
           },
           "decode": {
-            "median": 1606745,
-            "min": 1593044,
-            "max": 1619384,
+            "median": 1592427,
+            "min": 1578958,
+            "max": 1613290,
             "spread": 2
           },
           "bytes": {
@@ -269,16 +278,16 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 1148641,
-            "min": 1118028,
-            "max": 1156302,
+            "median": 1146010,
+            "min": 1113748,
+            "max": 1149834,
             "spread": 3
           },
           "decode": {
-            "median": 1723478,
-            "min": 1716032,
-            "max": 1734404,
-            "spread": 1
+            "median": 1701545,
+            "min": 1666784,
+            "max": 1715755,
+            "spread": 3
           },
           "bytes": {
             "raw": 135,
@@ -513,6 +522,25 @@
             "gzip": 212,
             "brotli": 178
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2233348,
+            "min": 2189424,
+            "max": 2254247,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2288904,
+            "min": 2228351,
+            "max": 2302123,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 125,
+            "gzip": 128,
+            "brotli": 120
+          }
         }
       }
     },
@@ -542,16 +570,16 @@
         },
         "protoarray": {
           "encode": {
-            "median": 1958,
-            "min": 1955,
-            "max": 1974,
-            "spread": 1
+            "median": 1971,
+            "min": 1938,
+            "max": 1980,
+            "spread": 2
           },
           "decode": {
-            "median": 1476,
-            "min": 1457,
-            "max": 1483,
-            "spread": 2
+            "median": 1491,
+            "min": 1458,
+            "max": 1497,
+            "spread": 3
           },
           "bytes": {
             "raw": 140738,
@@ -561,16 +589,16 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 1390,
-            "min": 1359,
-            "max": 1402,
-            "spread": 3
+            "median": 1425,
+            "min": 1423,
+            "max": 1437,
+            "spread": 1
           },
           "decode": {
-            "median": 978,
-            "min": 974,
-            "max": 984,
-            "spread": 1
+            "median": 962,
+            "min": 961,
+            "max": 964,
+            "spread": 0
           },
           "bytes": {
             "raw": 140738,
@@ -580,16 +608,16 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 1992,
-            "min": 1973,
-            "max": 1997,
-            "spread": 1
+            "median": 1995,
+            "min": 1974,
+            "max": 2018,
+            "spread": 2
           },
           "decode": {
-            "median": 1471,
-            "min": 1458,
-            "max": 1479,
-            "spread": 1
+            "median": 1527,
+            "min": 1480,
+            "max": 1529,
+            "spread": 3
           },
           "bytes": {
             "raw": 140738,
@@ -600,15 +628,15 @@
         "protoarray-checked": {
           "encode": {
             "median": 1090,
-            "min": 1076,
-            "max": 1097,
-            "spread": 2
+            "min": 1083,
+            "max": 1095,
+            "spread": 1
           },
           "decode": {
-            "median": 1462,
-            "min": 1458,
-            "max": 1467,
-            "spread": 1
+            "median": 1471,
+            "min": 1453,
+            "max": 1479,
+            "spread": 2
           },
           "bytes": {
             "raw": 140738,
@@ -618,16 +646,16 @@
         },
         "protoarray-columns": {
           "encode": {
-            "median": 2059,
-            "min": 2010,
-            "max": 2069,
-            "spread": 3
+            "median": 2030,
+            "min": 2026,
+            "max": 2061,
+            "spread": 2
           },
           "decode": {
-            "median": 1535,
-            "min": 1524,
-            "max": 1540,
-            "spread": 1
+            "median": 1519,
+            "min": 1494,
+            "max": 1521,
+            "spread": 2
           },
           "bytes": {
             "raw": 138758,
@@ -637,16 +665,16 @@
         },
         "protoarray-compact": {
           "encode": {
-            "median": 2245,
-            "min": 2215,
-            "max": 2263,
-            "spread": 2
+            "median": 2284,
+            "min": 2236,
+            "max": 2310,
+            "spread": 3
           },
           "decode": {
-            "median": 1670,
-            "min": 1659,
-            "max": 1683,
-            "spread": 1
+            "median": 1676,
+            "min": 1654,
+            "max": 1688,
+            "spread": 2
           },
           "bytes": {
             "raw": 114965,
@@ -881,6 +909,25 @@
             "gzip": 33793,
             "brotli": 29133
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 3129,
+            "min": 3073,
+            "max": 3134,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2303,
+            "min": 2270,
+            "max": 2333,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 129625,
+            "gzip": 30995,
+            "brotli": 28457
+          }
         }
       }
     },
@@ -910,15 +957,15 @@
         },
         "protoarray": {
           "encode": {
-            "median": 7466131,
-            "min": 7284012,
-            "max": 7518319,
-            "spread": 3
+            "median": 7381875,
+            "min": 7053149,
+            "max": 7524343,
+            "spread": 6
           },
           "decode": {
-            "median": 7541369,
-            "min": 7491594,
-            "max": 7555459,
+            "median": 7599479,
+            "min": 7547262,
+            "max": 7644448,
             "spread": 1
           },
           "bytes": {
@@ -929,16 +976,16 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 3029115,
-            "min": 2977120,
-            "max": 3038991,
-            "spread": 2
+            "median": 3275840,
+            "min": 3195523,
+            "max": 3318599,
+            "spread": 4
           },
           "decode": {
-            "median": 2382353,
-            "min": 2379411,
-            "max": 2389168,
-            "spread": 0
+            "median": 4253526,
+            "min": 4211108,
+            "max": 4263399,
+            "spread": 1
           },
           "bytes": {
             "raw": 23,
@@ -948,15 +995,15 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 6712097,
-            "min": 6622493,
-            "max": 7056635,
-            "spread": 6
+            "median": 6873553,
+            "min": 6818337,
+            "max": 6998283,
+            "spread": 3
           },
           "decode": {
-            "median": 7171599,
-            "min": 7121065,
-            "max": 7237878,
+            "median": 7218956,
+            "min": 7097401,
+            "max": 7258684,
             "spread": 2
           },
           "bytes": {
@@ -967,16 +1014,16 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 2089158,
-            "min": 2031516,
-            "max": 2106969,
-            "spread": 4
+            "median": 2191117,
+            "min": 2079761,
+            "max": 2211226,
+            "spread": 6
           },
           "decode": {
-            "median": 7340173,
-            "min": 7258607,
-            "max": 7461600,
-            "spread": 3
+            "median": 7574256,
+            "min": 7536941,
+            "max": 7614479,
+            "spread": 1
           },
           "bytes": {
             "raw": 23,
@@ -1211,6 +1258,25 @@
             "gzip": 53,
             "brotli": 36
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 12047751,
+            "min": 11333867,
+            "max": 12124969,
+            "spread": 7
+          },
+          "decode": {
+            "median": 13150567,
+            "min": 12830325,
+            "max": 13173375,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 18,
+            "gzip": 34,
+            "brotli": 22
+          }
         }
       }
     },
@@ -1240,15 +1306,15 @@
         },
         "protoarray": {
           "encode": {
-            "median": 4717208,
-            "min": 4700002,
-            "max": 4802629,
-            "spread": 2
+            "median": 4779381,
+            "min": 4778641,
+            "max": 4791876,
+            "spread": 0
           },
           "decode": {
-            "median": 4844478,
-            "min": 4839329,
-            "max": 4887903,
+            "median": 4829956,
+            "min": 4814243,
+            "max": 4881542,
             "spread": 1
           },
           "bytes": {
@@ -1259,16 +1325,16 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 3514161,
-            "min": 3504240,
-            "max": 3542441,
+            "median": 3567485,
+            "min": 3542495,
+            "max": 3582852,
             "spread": 1
           },
           "decode": {
-            "median": 3118202,
-            "min": 3098851,
-            "max": 3127262,
-            "spread": 1
+            "median": 3132542,
+            "min": 3072485,
+            "max": 3146100,
+            "spread": 2
           },
           "bytes": {
             "raw": 36,
@@ -1278,16 +1344,16 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 4666737,
-            "min": 4621845,
-            "max": 4747256,
-            "spread": 3
+            "median": 4674331,
+            "min": 4583420,
+            "max": 4757675,
+            "spread": 4
           },
           "decode": {
-            "median": 4696261,
-            "min": 4685112,
-            "max": 4724024,
-            "spread": 1
+            "median": 4761469,
+            "min": 4717456,
+            "max": 4792176,
+            "spread": 2
           },
           "bytes": {
             "raw": 36,
@@ -1297,15 +1363,15 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 2803310,
-            "min": 2692379,
-            "max": 2836982,
-            "spread": 5
+            "median": 2799070,
+            "min": 2716685,
+            "max": 2826494,
+            "spread": 4
           },
           "decode": {
-            "median": 4851985,
-            "min": 4769756,
-            "max": 4888344,
+            "median": 4858565,
+            "min": 4789966,
+            "max": 4902224,
             "spread": 2
           },
           "bytes": {
@@ -1541,6 +1607,25 @@
             "gzip": 107,
             "brotli": 83
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 6597400,
+            "min": 6575174,
+            "max": 6680077,
+            "spread": 2
+          },
+          "decode": {
+            "median": 8905494,
+            "min": 8748127,
+            "max": 8961718,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 26,
+            "gzip": 38,
+            "brotli": 30
+          }
         }
       }
     },
@@ -1570,16 +1655,16 @@
         },
         "protoarray": {
           "encode": {
-            "median": 1811907,
-            "min": 1805132,
-            "max": 1817117,
-            "spread": 1
+            "median": 1820363,
+            "min": 1804087,
+            "max": 1852538,
+            "spread": 3
           },
           "decode": {
-            "median": 1695038,
-            "min": 1667854,
-            "max": 1703789,
-            "spread": 2
+            "median": 1714210,
+            "min": 1699944,
+            "max": 1717721,
+            "spread": 1
           },
           "bytes": {
             "raw": 785,
@@ -1589,16 +1674,16 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 1673013,
-            "min": 1668292,
-            "max": 1676170,
-            "spread": 0
+            "median": 1717264,
+            "min": 1712757,
+            "max": 1727980,
+            "spread": 1
           },
           "decode": {
-            "median": 1557716,
-            "min": 1545152,
-            "max": 1578421,
-            "spread": 2
+            "median": 1562958,
+            "min": 1561830,
+            "max": 1568433,
+            "spread": 0
           },
           "bytes": {
             "raw": 785,
@@ -1608,16 +1693,16 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 1758113,
-            "min": 1747414,
-            "max": 1767763,
+            "median": 1784109,
+            "min": 1767374,
+            "max": 1787996,
             "spread": 1
           },
           "decode": {
-            "median": 1674028,
-            "min": 1663119,
-            "max": 1685129,
-            "spread": 1
+            "median": 1687798,
+            "min": 1671739,
+            "max": 1699365,
+            "spread": 2
           },
           "bytes": {
             "raw": 785,
@@ -1627,15 +1712,15 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 1548540,
-            "min": 1536792,
-            "max": 1555266,
-            "spread": 1
+            "median": 1561889,
+            "min": 1544735,
+            "max": 1569345,
+            "spread": 2
           },
           "decode": {
-            "median": 1693591,
-            "min": 1672133,
-            "max": 1712815,
+            "median": 1711369,
+            "min": 1693340,
+            "max": 1729287,
             "spread": 2
           },
           "bytes": {
@@ -1871,6 +1956,25 @@
             "gzip": 266,
             "brotli": 229
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 1859968,
+            "min": 1815672,
+            "max": 1915321,
+            "spread": 5
+          },
+          "decode": {
+            "median": 2252598,
+            "min": 2252038,
+            "max": 2254502,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 821,
+            "gzip": 265,
+            "brotli": 247
+          }
         }
       }
     },
@@ -1900,16 +2004,16 @@
         },
         "protoarray": {
           "encode": {
-            "median": 66308,
-            "min": 65849,
-            "max": 66834,
+            "median": 67245,
+            "min": 66900,
+            "max": 67533,
             "spread": 1
           },
           "decode": {
-            "median": 49455,
-            "min": 48725,
-            "max": 49587,
-            "spread": 2
+            "median": 50941,
+            "min": 50552,
+            "max": 51242,
+            "spread": 1
           },
           "bytes": {
             "raw": 4332,
@@ -1919,15 +2023,15 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 48093,
-            "min": 47942,
-            "max": 48209,
+            "median": 47385,
+            "min": 47143,
+            "max": 47661,
             "spread": 1
           },
           "decode": {
-            "median": 26769,
-            "min": 26446,
-            "max": 26819,
+            "median": 25937,
+            "min": 25767,
+            "max": 26053,
             "spread": 1
           },
           "bytes": {
@@ -1938,15 +2042,15 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 65648,
-            "min": 65438,
-            "max": 65946,
-            "spread": 1
+            "median": 67030,
+            "min": 66608,
+            "max": 67721,
+            "spread": 2
           },
           "decode": {
-            "median": 47442,
-            "min": 47330,
-            "max": 47769,
+            "median": 48073,
+            "min": 47791,
+            "max": 48302,
             "spread": 1
           },
           "bytes": {
@@ -1957,15 +2061,15 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 33902,
-            "min": 33731,
-            "max": 34037,
+            "median": 34188,
+            "min": 33757,
+            "max": 34253,
             "spread": 1
           },
           "decode": {
-            "median": 49890,
-            "min": 49641,
-            "max": 50257,
+            "median": 48879,
+            "min": 48718,
+            "max": 49306,
             "spread": 1
           },
           "bytes": {
@@ -2182,6 +2286,25 @@
             "gzip": 1721,
             "brotli": 1345
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 110720,
+            "min": 106965,
+            "max": 111491,
+            "spread": 4
+          },
+          "decode": {
+            "median": 66837,
+            "min": 66274,
+            "max": 67333,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 3064,
+            "gzip": 656,
+            "brotli": 540
+          }
         }
       }
     },
@@ -2211,16 +2334,16 @@
         },
         "protoarray": {
           "encode": {
-            "median": 406134,
-            "min": 405033,
-            "max": 411158,
+            "median": 406422,
+            "min": 400918,
+            "max": 410936,
             "spread": 2
           },
           "decode": {
-            "median": 733235,
-            "min": 729226,
-            "max": 738020,
-            "spread": 1
+            "median": 739873,
+            "min": 736565,
+            "max": 749611,
+            "spread": 2
           },
           "bytes": {
             "raw": 582,
@@ -2230,15 +2353,15 @@
         },
         "protoarray-closures": {
           "encode": {
-            "median": 360928,
-            "min": 354789,
-            "max": 365179,
+            "median": 355885,
+            "min": 352330,
+            "max": 362975,
             "spread": 3
           },
           "decode": {
-            "median": 566586,
-            "min": 563770,
-            "max": 569043,
+            "median": 577193,
+            "min": 576004,
+            "max": 579421,
             "spread": 1
           },
           "bytes": {
@@ -2249,16 +2372,16 @@
         },
         "protoarray-standalone": {
           "encode": {
-            "median": 404218,
-            "min": 400218,
-            "max": 406989,
-            "spread": 2
+            "median": 434404,
+            "min": 424612,
+            "max": 436205,
+            "spread": 3
           },
           "decode": {
-            "median": 731900,
-            "min": 723264,
-            "max": 733451,
-            "spread": 1
+            "median": 735706,
+            "min": 733156,
+            "max": 745523,
+            "spread": 2
           },
           "bytes": {
             "raw": 582,
@@ -2268,15 +2391,15 @@
         },
         "protoarray-checked": {
           "encode": {
-            "median": 336196,
-            "min": 330408,
-            "max": 337202,
-            "spread": 2
+            "median": 344294,
+            "min": 341081,
+            "max": 344651,
+            "spread": 1
           },
           "decode": {
-            "median": 737943,
-            "min": 731826,
-            "max": 740884,
+            "median": 743449,
+            "min": 739507,
+            "max": 746322,
             "spread": 1
           },
           "bytes": {
@@ -2512,6 +2635,25 @@
             "gzip": 406,
             "brotli": 392
           }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2477663,
+            "min": 2453448,
+            "max": 2484792,
+            "spread": 1
+          },
+          "decode": {
+            "median": 4920811,
+            "min": 4875934,
+            "max": 4959210,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 260,
+            "gzip": 283,
+            "brotli": 262
+          }
         }
       }
     }
@@ -2527,32 +2669,32 @@
         "total": 0.058
       },
       "protoarray": {
-        "load": 11.675,
-        "build": 4.455,
-        "encode": 0.142,
-        "decode": 0.158,
-        "total": 16.452
+        "load": 11.93,
+        "build": 4.257,
+        "encode": 0.131,
+        "decode": 0.152,
+        "total": 16.48
       },
       "protoarray-snapshot": {
-        "load": 3.881,
-        "build": 3,
-        "encode": 0.138,
-        "decode": 0.152,
-        "total": 7.262
+        "load": 4.423,
+        "build": 2.843,
+        "encode": 0.133,
+        "decode": 0.15,
+        "total": 7.557
       },
       "protoarray-closures": {
-        "load": 11.627,
-        "build": 3.77,
-        "encode": 0.111,
-        "decode": 0.171,
-        "total": 15.669
+        "load": 12.507,
+        "build": 3.868,
+        "encode": 0.12,
+        "decode": 0.174,
+        "total": 16.665
       },
       "protoarray-standalone": {
-        "load": 1.223,
-        "build": 0.017,
+        "load": 1.199,
+        "build": 0.015,
         "encode": 0.146,
-        "decode": 0.158,
-        "total": 1.588
+        "decode": 0.155,
+        "total": 1.516
       },
       "protobufjs": {
         "load": 11.119,
@@ -2630,6 +2772,13 @@
         "encode": 0.255,
         "decode": 0.012,
         "total": 25.748
+      },
+      "protoarray-binary": {
+        "load": 13.637,
+        "build": 4.202,
+        "encode": 1.594,
+        "decode": 0.28,
+        "total": 19.775
       }
     }
   }

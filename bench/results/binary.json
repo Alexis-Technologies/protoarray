@@ -1,0 +1,1208 @@
+{
+  "generatedAt": "2026-10-18T18:05:26.134Z",
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 16,
+    "memoryGb": 64,
+    "os": "darwin 25.6.0 (arm64)",
+    "node": "v24.14.1",
+    "v8": "13.6.233.17-node.44"
+  },
+  "method": {
+    "warmup": 500,
+    "rounds": 5,
+    "roundMs": 400,
+    "coldStartRuns": 10,
+    "gzipLevel": 6,
+    "brotliQuality": 5
+  },
+  "libraries": [
+    {
+      "id": "json",
+      "name": "JSON",
+      "variant": "stringify · parse",
+      "package": "JSON (built in)",
+      "version": "24.14.1",
+      "family": "text"
+    },
+    {
+      "id": "protoarray",
+      "name": "protoarray",
+      "variant": "codegen",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "5a482c5"
+    },
+    {
+      "id": "protoarray-closures",
+      "name": "protoarray",
+      "variant": "closures, no eval",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "text",
+      "commit": "5a482c5"
+    },
+    {
+      "id": "protoarray-binary",
+      "name": "protoarray",
+      "variant": "binary wire (prototype)",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "binary",
+      "commit": "5a482c5"
+    },
+    {
+      "id": "protoarray-binary-ucs2",
+      "name": "protoarray",
+      "variant": "binary wire, two-byte long strings (prototype)",
+      "package": "@alexify/protoarray",
+      "version": "2.0.0",
+      "family": "binary",
+      "commit": "5a482c5"
+    },
+    {
+      "id": "protobufjs",
+      "name": "protobufjs",
+      "variant": "reflection, Root.fromJSON",
+      "package": "protobufjs",
+      "version": "8.8.1",
+      "family": "binary"
+    },
+    {
+      "id": "avsc",
+      "name": "avsc",
+      "variant": "Type.forSchema",
+      "package": "avsc",
+      "version": "5.7.9",
+      "family": "binary"
+    },
+    {
+      "id": "msgpackr-records",
+      "name": "msgpackr",
+      "variant": "records, shared structures",
+      "package": "msgpackr",
+      "version": "2.1.0",
+      "family": "binary"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "single",
+      "title": "One record",
+      "description": "one record: 10 fields, nested address, tags, 2 orders",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1406221,
+            "min": 1399177,
+            "max": 1406973,
+            "spread": 1
+          },
+          "decode": {
+            "median": 956607,
+            "min": 944556,
+            "max": 961170,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 266,
+            "gzip": 212,
+            "brotli": 178
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 2070093,
+            "min": 2062372,
+            "max": 2077299,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1730231,
+            "min": 1709211,
+            "max": 1734810,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 135,
+            "gzip": 134,
+            "brotli": 110
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 1496754,
+            "min": 1490058,
+            "max": 1516601,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1055561,
+            "min": 1047187,
+            "max": 1069680,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 135,
+            "gzip": 134,
+            "brotli": 110
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2242292,
+            "min": 2209664,
+            "max": 2248111,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1991344,
+            "min": 1976294,
+            "max": 1999979,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 125,
+            "gzip": 128,
+            "brotli": 121
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 2222749,
+            "min": 2200515,
+            "max": 2230504,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1946489,
+            "min": 1935506,
+            "max": 1957854,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 125,
+            "gzip": 128,
+            "brotli": 120
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 1405798,
+            "min": 1380432,
+            "max": 1407671,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1475189,
+            "min": 1462196,
+            "max": 1479926,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 115,
+            "gzip": 127,
+            "brotli": 117
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1753528,
+            "min": 1750982,
+            "max": 1755379,
+            "spread": 0
+          },
+          "decode": {
+            "median": 1817469,
+            "min": 1804193,
+            "max": 1828832,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 97,
+            "gzip": 111,
+            "brotli": 101
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 1481899,
+            "min": 1433398,
+            "max": 1489820,
+            "spread": 4
+          },
+          "decode": {
+            "median": 2644916,
+            "min": 2623301,
+            "max": 2654217,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 108,
+            "gzip": 124,
+            "brotli": 112
+          }
+        }
+      }
+    },
+    {
+      "id": "records",
+      "title": "1,000 records",
+      "description": "1000 records of the same shape",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1529,
+            "min": 1524,
+            "max": 1556,
+            "spread": 2
+          },
+          "decode": {
+            "median": 902,
+            "min": 886,
+            "max": 907,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 271215,
+            "gzip": 33793,
+            "brotli": 29133
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 1987,
+            "min": 1960,
+            "max": 2001,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1460,
+            "min": 1440,
+            "max": 1463,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 140738,
+            "gzip": 30666,
+            "brotli": 26946
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 1422,
+            "min": 1412,
+            "max": 1430,
+            "spread": 1
+          },
+          "decode": {
+            "median": 979,
+            "min": 977,
+            "max": 980,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 140738,
+            "gzip": 30666,
+            "brotli": 26946
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 3170,
+            "min": 3165,
+            "max": 3179,
+            "spread": 0
+          },
+          "decode": {
+            "median": 2255,
+            "min": 2237,
+            "max": 2288,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 129625,
+            "gzip": 31004,
+            "brotli": 28428
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 3034,
+            "min": 3004,
+            "max": 3048,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2195,
+            "min": 2179,
+            "max": 2199,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 129625,
+            "gzip": 30995,
+            "brotli": 28457
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 1307,
+            "min": 1295,
+            "max": 1315,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1393,
+            "min": 1388,
+            "max": 1403,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 120459,
+            "gzip": 31414,
+            "brotli": 28985
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1416,
+            "min": 1403,
+            "max": 1421,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1805,
+            "min": 1783,
+            "max": 1820,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 101839,
+            "gzip": 29895,
+            "brotli": 27334
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 1548,
+            "min": 1535,
+            "max": 1562,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2857,
+            "min": 2828,
+            "max": 2885,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 112274,
+            "gzip": 30957,
+            "brotli": 28370
+          }
+        }
+      }
+    },
+    {
+      "id": "sparse",
+      "title": "Sparse record",
+      "description": "20 optional fields, 3 present",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 6853739,
+            "min": 6747133,
+            "max": 6886984,
+            "spread": 2
+          },
+          "decode": {
+            "median": 4568304,
+            "min": 4492586,
+            "max": 4601632,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 33,
+            "gzip": 53,
+            "brotli": 36
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 7299108,
+            "min": 7083366,
+            "max": 7367307,
+            "spread": 4
+          },
+          "decode": {
+            "median": 7544052,
+            "min": 7393377,
+            "max": 7649839,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 23,
+            "gzip": 43,
+            "brotli": 27
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 3031008,
+            "min": 2965152,
+            "max": 3072558,
+            "spread": 4
+          },
+          "decode": {
+            "median": 2409518,
+            "min": 2383808,
+            "max": 2426106,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 23,
+            "gzip": 43,
+            "brotli": 27
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 12962469,
+            "min": 12861512,
+            "max": 13094728,
+            "spread": 2
+          },
+          "decode": {
+            "median": 7850196,
+            "min": 7792620,
+            "max": 7869110,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 18,
+            "gzip": 34,
+            "brotli": 22
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 12849384,
+            "min": 12798374,
+            "max": 12905530,
+            "spread": 1
+          },
+          "decode": {
+            "median": 8086091,
+            "min": 8015910,
+            "max": 8103296,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 18,
+            "gzip": 34,
+            "brotli": 22
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 5450409,
+            "min": 5265748,
+            "max": 5520426,
+            "spread": 5
+          },
+          "decode": {
+            "median": 9597120,
+            "min": 9591467,
+            "max": 9621948,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 11,
+            "gzip": 31,
+            "brotli": 15
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1445461,
+            "min": 1432916,
+            "max": 1450473,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3621499,
+            "min": 3594603,
+            "max": 3626941,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 28,
+            "gzip": 35,
+            "brotli": 23
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 6052760,
+            "min": 5946798,
+            "max": 6058131,
+            "spread": 2
+          },
+          "decode": {
+            "median": 12235411,
+            "min": 12160297,
+            "max": 12308771,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 9,
+            "gzip": 29,
+            "brotli": 13
+          }
+        }
+      }
+    },
+    {
+      "id": "typed",
+      "title": "Typed record",
+      "description": "enum, boolean and date heavy record",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 837791,
+            "min": 835992,
+            "max": 842124,
+            "spread": 1
+          },
+          "decode": {
+            "median": 2918908,
+            "min": 2897945,
+            "max": 2952798,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 123,
+            "gzip": 120,
+            "brotli": 94
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 4711181,
+            "min": 4695702,
+            "max": 4761356,
+            "spread": 1
+          },
+          "decode": {
+            "median": 4812177,
+            "min": 4728014,
+            "max": 4828008,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 36,
+            "gzip": 46,
+            "brotli": 36
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 3598327,
+            "min": 3576053,
+            "max": 3612172,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3150768,
+            "min": 3145035,
+            "max": 3171297,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 36,
+            "gzip": 46,
+            "brotli": 36
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 6616242,
+            "min": 6586410,
+            "max": 6623561,
+            "spread": 1
+          },
+          "decode": {
+            "median": 6697672,
+            "min": 6608825,
+            "max": 6712150,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 26,
+            "gzip": 38,
+            "brotli": 30
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 6655370,
+            "min": 6622318,
+            "max": 6684491,
+            "spread": 1
+          },
+          "decode": {
+            "median": 6571614,
+            "min": 6527975,
+            "max": 6628396,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 26,
+            "gzip": 38,
+            "brotli": 30
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 3711548,
+            "min": 3549749,
+            "max": 3749889,
+            "spread": 5
+          },
+          "decode": {
+            "median": 12220629,
+            "min": 11787137,
+            "max": 12251547,
+            "spread": 4
+          },
+          "bytes": {
+            "raw": 13,
+            "gzip": 33,
+            "brotli": 17
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1917877,
+            "min": 1896201,
+            "max": 2005238,
+            "spread": 6
+          },
+          "decode": {
+            "median": 7881899,
+            "min": 7863402,
+            "max": 7899043,
+            "spread": 0
+          },
+          "bytes": {
+            "raw": 12,
+            "gzip": 32,
+            "brotli": 16
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 3477755,
+            "min": 3457508,
+            "max": 3496460,
+            "spread": 1
+          },
+          "decode": {
+            "median": 5190129,
+            "min": 5146188,
+            "max": 5211259,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 24,
+            "gzip": 45,
+            "brotli": 28
+          }
+        }
+      }
+    },
+    {
+      "id": "strings",
+      "title": "Long strings",
+      "description": "long Cyrillic strings",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 1522856,
+            "min": 1504459,
+            "max": 1558508,
+            "spread": 4
+          },
+          "decode": {
+            "median": 1346931,
+            "min": 1342229,
+            "max": 1362474,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 816,
+            "gzip": 266,
+            "brotli": 229
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 1806954,
+            "min": 1786906,
+            "max": 1816899,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1720687,
+            "min": 1711216,
+            "max": 1723601,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 785,
+            "gzip": 230,
+            "brotli": 207
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 1695879,
+            "min": 1677466,
+            "max": 1710626,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1573136,
+            "min": 1558429,
+            "max": 1587353,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 785,
+            "gzip": 230,
+            "brotli": 207
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 907396,
+            "min": 900390,
+            "max": 910579,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1133018,
+            "min": 1129966,
+            "max": 1146427,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 774,
+            "gzip": 228,
+            "brotli": 205
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 1879701,
+            "min": 1843875,
+            "max": 1908632,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2241510,
+            "min": 2229004,
+            "max": 2267624,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 821,
+            "gzip": 265,
+            "brotli": 247
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 571717,
+            "min": 563380,
+            "max": 580623,
+            "spread": 3
+          },
+          "decode": {
+            "median": 508360,
+            "min": 502700,
+            "max": 509096,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 777,
+            "gzip": 233,
+            "brotli": 211
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 500024,
+            "min": 497215,
+            "max": 503655,
+            "spread": 1
+          },
+          "decode": {
+            "median": 778250,
+            "min": 772073,
+            "max": 785690,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 774,
+            "gzip": 231,
+            "brotli": 210
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 881678,
+            "min": 869083,
+            "max": 883749,
+            "spread": 2
+          },
+          "decode": {
+            "median": 241388,
+            "min": 240062,
+            "max": 242458,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 775,
+            "gzip": 230,
+            "brotli": 206
+          }
+        }
+      }
+    },
+    {
+      "id": "packets",
+      "title": "100 wrpc packets",
+      "description": "100 wrpc packets: calls, callbacks and events",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 51772,
+            "min": 51485,
+            "max": 52406,
+            "spread": 2
+          },
+          "decode": {
+            "median": 24043,
+            "min": 23774,
+            "max": 24197,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 8834,
+            "gzip": 852,
+            "brotli": 630
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 67870,
+            "min": 66972,
+            "max": 67950,
+            "spread": 1
+          },
+          "decode": {
+            "median": 50529,
+            "min": 50358,
+            "max": 50847,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 4332,
+            "gzip": 685,
+            "brotli": 501
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 48917,
+            "min": 48126,
+            "max": 49083,
+            "spread": 2
+          },
+          "decode": {
+            "median": 27079,
+            "min": 26924,
+            "max": 27146,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 4332,
+            "gzip": 685,
+            "brotli": 501
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 107251,
+            "min": 103586,
+            "max": 108155,
+            "spread": 4
+          },
+          "decode": {
+            "median": 68197,
+            "min": 67782,
+            "max": 69141,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 3064,
+            "gzip": 653,
+            "brotli": 539
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 107579,
+            "min": 105315,
+            "max": 108344,
+            "spread": 3
+          },
+          "decode": {
+            "median": 68411,
+            "min": 66398,
+            "max": 68746,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 3064,
+            "gzip": 656,
+            "brotli": 540
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 23943,
+            "min": 23800,
+            "max": 24177,
+            "spread": 2
+          },
+          "decode": {
+            "median": 37437,
+            "min": 37187,
+            "max": 37614,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 3691,
+            "gzip": 778,
+            "brotli": 609
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 20736,
+            "min": 20150,
+            "max": 21232,
+            "spread": 5
+          },
+          "decode": {
+            "median": 46589,
+            "min": 46334,
+            "max": 46917,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 2833,
+            "gzip": 633,
+            "brotli": 521
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 29835,
+            "min": 29596,
+            "max": 29932,
+            "spread": 1
+          },
+          "decode": {
+            "median": 91199,
+            "min": 89897,
+            "max": 91864,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 3697,
+            "gzip": 725,
+            "brotli": 566
+          }
+        }
+      }
+    },
+    {
+      "id": "numeric",
+      "title": "32 doubles",
+      "description": "32 doubles (where binary formats shine)",
+      "results": {
+        "json": {
+          "encode": {
+            "median": 320721,
+            "min": 318824,
+            "max": 324195,
+            "spread": 2
+          },
+          "decode": {
+            "median": 485627,
+            "min": 482444,
+            "max": 489712,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 764,
+            "gzip": 406,
+            "brotli": 392
+          }
+        },
+        "protoarray": {
+          "encode": {
+            "median": 424447,
+            "min": 417839,
+            "max": 425849,
+            "spread": 2
+          },
+          "decode": {
+            "median": 738887,
+            "min": 736106,
+            "max": 745242,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 582,
+            "gzip": 309,
+            "brotli": 295
+          }
+        },
+        "protoarray-closures": {
+          "encode": {
+            "median": 367319,
+            "min": 363732,
+            "max": 368473,
+            "spread": 1
+          },
+          "decode": {
+            "median": 572652,
+            "min": 570211,
+            "max": 573987,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 582,
+            "gzip": 309,
+            "brotli": 295
+          }
+        },
+        "protoarray-binary": {
+          "encode": {
+            "median": 2497902,
+            "min": 2432797,
+            "max": 2518236,
+            "spread": 3
+          },
+          "decode": {
+            "median": 5022385,
+            "min": 4897009,
+            "max": 5033477,
+            "spread": 3
+          },
+          "bytes": {
+            "raw": 260,
+            "gzip": 283,
+            "brotli": 262
+          }
+        },
+        "protoarray-binary-ucs2": {
+          "encode": {
+            "median": 2515262,
+            "min": 2500544,
+            "max": 2527607,
+            "spread": 1
+          },
+          "decode": {
+            "median": 5054823,
+            "min": 5014794,
+            "max": 5067420,
+            "spread": 1
+          },
+          "bytes": {
+            "raw": 260,
+            "gzip": 283,
+            "brotli": 262
+          }
+        },
+        "protobufjs": {
+          "encode": {
+            "median": 723688,
+            "min": 714289,
+            "max": 727934,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1944379,
+            "min": 1918989,
+            "max": 1949028,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 305,
+            "gzip": 328,
+            "brotli": 304
+          }
+        },
+        "avsc": {
+          "encode": {
+            "median": 1950178,
+            "min": 1914124,
+            "max": 1967303,
+            "spread": 3
+          },
+          "decode": {
+            "median": 3115226,
+            "min": 3086008,
+            "max": 3141099,
+            "spread": 2
+          },
+          "bytes": {
+            "raw": 256,
+            "gzip": 279,
+            "brotli": 260
+          }
+        },
+        "msgpackr-records": {
+          "encode": {
+            "median": 1419571,
+            "min": 1414265,
+            "max": 1424695,
+            "spread": 1
+          },
+          "decode": {
+            "median": 3426719,
+            "min": 3323529,
+            "max": 3449207,
+            "spread": 4
+          },
+          "bytes": {
+            "raw": 289,
+            "gzip": 312,
+            "brotli": 280
+          }
+        }
+      }
+    }
+  ],
+  "coldStart": {
+    "scenario": "single",
+    "results": {}
+  }
+}

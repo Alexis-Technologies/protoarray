@@ -91,6 +91,50 @@ throws only for what has no wire at all.
 | A payload nested deeper than the call stack (or than `maxDepth` levels of a recursion) | `DecodeError` `structure` ("nested too deeply"), always; with `maxDepth` at the same depth on either backend |
 | Keys on the decoded object | every key of the schema, in schema order |
 
+## The binary wire
+
+`@alexify/protoarray/binary` ([The Binary Wire](/guide/binary)) carries the same schema as bytes,
+little-endian. A varint is unsigned LEB128; a zigzag varint interleaves negatives (the sign in the
+low bit), exact over the safe integers and eight bytes long at most (more is a `DecodeError`
+`structure`). Both sides need the same schema: positions, header bits and tags are the schema's,
+nothing is trimmed, a message is read whole and a byte past it is a `DecodeError` `extra`. A
+schema from `resolve` reads and writes its writer's wire. The bytes are a contract:
+`tests/fixtures/golden-binary.json` holds them, and a change to them is a new major version.
+
+| Construct | On the wire |
+| --- | --- |
+| Struct `{ a, b, c }`, sparse or not | a header, then the present fields in declaration order; the header holds a presence bit per field (bit *i* is field *i*, required ones too), then the value of each boolean field in field order, in whole bytes, low bit first |
+| Missing, `undefined` or `null` field | its presence bit clear, nothing else |
+| Nested struct, a schema used as a field, a reference held as the record | the referenced schema's own form in place |
+| `{ union: [...], discriminator }` | the tag (a byte; a varint past 256 values), then the branch's struct without the discriminator |
+| `{ array: T }`, `{ set: T }` | the count as a varint; a presence bitmap of count bits when the items may be `null`; the present items in order |
+| `{ map: { K: V } }` | the count, then each entry: the key (a string, or a float64 for a `number` key), a presence byte (0 or 1) when the value may be `null`, the value |
+| `{ object: { string: V } }` | the count, then each key as a string and its value, a presence byte before it when it may be `null` |
+| Tuple | a presence bitmap of its elements, then the present elements |
+| `number` | float64 |
+| `integer`, `date` (epoch milliseconds), `{ type: 'number', decimals: n }` (`Math.round(value × 10ⁿ)`) | a zigzag varint |
+| `boolean` | a bit of the header as a struct's field; a byte (0 or 1) anywhere else |
+| `{ enum: [...] }` | the index as a byte; a varint past 256 values |
+| `{ flags: [...] }` | one varint per 31 names, the words of the text wire's mask |
+| `string` | its byte length doubled plus its form, as a varint, then the bytes: form 0 is UTF-8, form 1 UTF-16LE (an odd length is a `DecodeError` `structure`); this implementation writes UTF-8 up to 21 characters and UTF-16 past them or for a lone surrogate, and reads either form at any length |
+| `bytes` | the length as a varint, then the bytes |
+| `bigint` | its decimal digits as a string |
+| `json`, `any`, `unknown` | its JSON text as a string (`null` for a value JSON has no text for) |
+| `null` | nothing; its presence bit is never set |
+| Root struct or union | as above, with no envelope; `null` has no form (`EncodeError`) |
+| Root scalar | a presence byte (0 or 1), then the value |
+| Root collection or tuple | as above |
+| A schema from `resolve` | the writer's wire: a field or a tuple element only the writer has is read and dropped, and absent when written; a bridged scalar travels in the writer's form; a field only the reader has takes its default; a union tag the reader dropped is a `DecodeError` `union` |
+| An interned string, a `delta` list or column, a `flat` or `columns` collection (of a resolved schema's writer too) | no form: `SchemaDefinitionError` `ERR_NO_BINARY_FORM` |
+
+Decode checks the structure on every message, whatever `validate` says: the bounds of every read,
+the fit of a count, a bitmap and a string, a presence byte, a union's tag, the text of a `json`
+or a `bigint` slot; with validation, the values: the range of an enum index, a date, a boolean,
+an integer within the safe range, a flags word, a required field's presence. Encode trusts its
+values, checks the shapes the wire is built from as the text wire does, and refuses a string slot
+without a string, a `bytes` slot without a `Uint8Array` and an `integer` slot without a safe
+integer.
+
 ## Canonical form
 
 `schema.toString()` prints the schema as `{key:type,key:?type=default,...}` with `[item]` for
@@ -110,5 +154,6 @@ as a JSON string (`{"a:b":number}`), and so does a string enum value that reads 
 its UTF-16 code units (not UTF-8 bytes, as most FNV-1a implementations): the canonical form, then
 `;Name=<canonical form>` for every other entity the schema references by name (`@Name`), sorted by
 name as code units (the name printed as in the form); a reference to its own name adds nothing,
-nor does the schema itself as the record of its `list`. The `fingerprint` option supplies another
-function of the signature.
+nor does the schema itself as the record of its `list`. `{ fingerprint: 'fnv1a64' }` is the
+64-bit FNV-1a of the same code units, as sixteen hex digits, and a `fingerprint` function
+computes the id from the signature itself.

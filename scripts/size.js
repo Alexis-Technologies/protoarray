@@ -33,6 +33,8 @@ const SUBPATHS = [
   { label: 'Stream (stream.js)', entry: 'stream.js' },
   { label: 'Resolve (resolve.js)', entry: 'resolve.js' },
   { label: 'Standalone (standalone.js)', entry: 'standalone.js' },
+  { label: 'Evolve (evolve.js)', entry: 'evolve.js' },
+  { label: 'Binary (binary.js)', entry: 'binary.js' },
 ];
 
 const bundle = async (entry, platform, minify) => {

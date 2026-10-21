@@ -48,10 +48,6 @@ const kernel = (base64) => {
     return Number.isFinite(at) ? at : undefined;
   };
 
-  // An object parsed from a literal has the hidden class a literal would have.
-  const literal = (keys, value) =>
-    JSON.parse(`{${keys.map((key) => `${JSON.stringify(key)}:${value}`).join(',')}}`);
-
   // A view from another realm fails instanceof; its tag tells it apart from the
   // other views, and isView from an object that merely claims the tag.
   const isBytes = (v) =>
@@ -97,6 +93,16 @@ const kernel = (base64) => {
       });
     } else object[key] = value;
   };
+
+  // The template a decoded object starts from, every key at `value`: a copy
+  // of it has one hidden class per schema, as an object literal would, as
+  // long as the template keeps fast properties. `Object.fromEntries` does, up
+  // to V8's limit of 1020 descriptors (`__proto__` becomes an own key, as in
+  // JSON.parse); an object parsed from JSON is handed over in dictionary mode
+  // from 128 keys on, and one filled by keyed assignment from about 18, and a
+  // copy of a dictionary-mode object costs a transition per key every time
+  // (17 µs for 128 keys against 0.2 µs).
+  const literal = (keys, value) => Object.fromEntries(keys.map((key) => [key, value]));
 
   // The path of a dictionary's value under `path`, on an error: its key comes
   // from the payload, so it is written as itself only when it is a plain name,
@@ -247,14 +253,21 @@ const kernel = (base64) => {
   // decoder reads either form and ignores the bits it has no name for.
   const flags = (names) => {
     const size = names.length;
-    const template = literal(names, 'false');
+    const template = literal(names, false);
+    // The template holds every name at false: only the set bits are stored.
     const unpack = (v) => {
       const single = typeof v === 'number';
       if (!single && !Array.isArray(v)) return v;
       const object = { ...template };
-      for (let i = 0; i < size; i++) {
-        const word = single ? (i < WORD ? v : 0) : v[(i / WORD) | 0];
-        object[names[i]] = typeof word === 'number' && (word & (1 << (i % WORD))) !== 0;
+      const words = single ? 1 : Math.min(v.length, Math.ceil(size / WORD));
+      for (let w = 0; w < words; w++) {
+        const word = single ? v : v[w];
+        if (typeof word !== 'number' || word === 0) continue;
+        const base = w * WORD;
+        const stop = Math.min(base + WORD, size);
+        for (let i = base; i < stop; i++) {
+          if ((word & (1 << (i - base))) !== 0) object[names[i]] = true;
+        }
       }
       return object;
     };
@@ -420,6 +433,7 @@ const kernel = (base64) => {
   };
 
   // The functions generated code calls, by the names standalone.js finds them.
+  made(isBytes, 'T.isBytes');
   made(isMap, 'T.isMap');
   made(listOf, 'T.listOf');
   made(put, 'T.put');
@@ -479,7 +493,7 @@ const kernel = (base64) => {
     // false, the writer's names the reader lacks are dropped.
     flags: (writer, reader) => {
       const { names } = reader;
-      const template = literal(names, 'false');
+      const template = literal(names, false);
       const own = new Set(writer.names);
       const shared = names.filter((name) => own.has(name));
       const project = (object) => {
@@ -517,6 +531,7 @@ const kernel = (base64) => {
     flags,
     decimal,
     literal,
+    isBytes,
     isMap,
     listOf,
     put,
@@ -539,6 +554,7 @@ module.exports = {
   flags: types.flags,
   decimal: types.decimal,
   literal: types.literal,
+  isBytes: types.isBytes,
   isMap: types.isMap,
   listOf: types.listOf,
   put: types.put,

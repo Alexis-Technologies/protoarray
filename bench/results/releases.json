@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:46:53.344Z",
+  "generatedAt": "2026-10-21T17:50:25.290Z",
   "machine": {
     "cpu": "Apple M3 Max",
     "cores": 16,
@@ -607,7 +607,7 @@
       "id": "2.0.0-codegen",
       "version": "2.0.0",
       "backend": "codegen",
-      "current": true,
+      "current": false,
       "results": {
         "single": {
           "encode": {
@@ -755,7 +755,7 @@
       "id": "2.0.0-closures",
       "version": "2.0.0",
       "backend": "closures",
-      "current": true,
+      "current": false,
       "results": {
         "single": {
           "encode": {
@@ -895,6 +895,408 @@
             "min": 15177,
             "max": 16557,
             "spread": 9
+          }
+        }
+      }
+    },
+    {
+      "id": "2.1.0-codegen",
+      "version": "2.1.0",
+      "backend": "codegen",
+      "current": true,
+      "results": {
+        "single": {
+          "encode": {
+            "median": 2072291,
+            "min": 2060722,
+            "max": 2089563,
+            "spread": 1
+          },
+          "decode": {
+            "median": 1740146,
+            "min": 1730364,
+            "max": 1770679,
+            "spread": 2
+          },
+          "build": {
+            "median": 14932,
+            "min": 13450,
+            "max": 15214,
+            "spread": 12
+          }
+        },
+        "records": {
+          "encode": {
+            "median": 2003,
+            "min": 1987,
+            "max": 2020,
+            "spread": 2
+          },
+          "decode": {
+            "median": 1512,
+            "min": 1478,
+            "max": 1521,
+            "spread": 3
+          },
+          "build": {
+            "median": 14112,
+            "min": 13325,
+            "max": 14426,
+            "spread": 8
+          }
+        },
+        "sparse": {
+          "encode": {
+            "median": 7363981,
+            "min": 7056810,
+            "max": 7505498,
+            "spread": 6
+          },
+          "decode": {
+            "median": 7559349,
+            "min": 7530780,
+            "max": 7590879,
+            "spread": 1
+          },
+          "build": {
+            "median": 14497,
+            "min": 12709,
+            "max": 14832,
+            "spread": 15
+          }
+        },
+        "typed": {
+          "encode": {
+            "median": 4697126,
+            "min": 4642749,
+            "max": 4797058,
+            "spread": 3
+          },
+          "decode": {
+            "median": 4858042,
+            "min": 4759778,
+            "max": 4897011,
+            "spread": 3
+          },
+          "build": {
+            "median": 30889,
+            "min": 26572,
+            "max": 31206,
+            "spread": 15
+          }
+        },
+        "strings": {
+          "encode": {
+            "median": 1821501,
+            "min": 1806685,
+            "max": 1852563,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1704304,
+            "min": 1685482,
+            "max": 1746455,
+            "spread": 4
+          },
+          "build": {
+            "median": 46827,
+            "min": 40647,
+            "max": 47421,
+            "spread": 14
+          }
+        },
+        "packets": {
+          "encode": {
+            "median": 68359,
+            "min": 67648,
+            "max": 68656,
+            "spread": 1
+          },
+          "decode": {
+            "median": 50551,
+            "min": 50465,
+            "max": 50835,
+            "spread": 1
+          },
+          "build": {
+            "median": 11593,
+            "min": 10556,
+            "max": 11926,
+            "spread": 12
+          }
+        },
+        "numeric": {
+          "encode": {
+            "median": 421327,
+            "min": 419223,
+            "max": 421803,
+            "spread": 1
+          },
+          "decode": {
+            "median": 738755,
+            "min": 736841,
+            "max": 749452,
+            "spread": 2
+          },
+          "build": {
+            "median": 10065,
+            "min": 9425,
+            "max": 10455,
+            "spread": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "2.1.0-closures",
+      "version": "2.1.0",
+      "backend": "closures",
+      "current": true,
+      "results": {
+        "single": {
+          "encode": {
+            "median": 1574403,
+            "min": 1537236,
+            "max": 1589550,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1077958,
+            "min": 1067825,
+            "max": 1089631,
+            "spread": 2
+          },
+          "build": {
+            "median": 23788,
+            "min": 21430,
+            "max": 23879,
+            "spread": 10
+          }
+        },
+        "records": {
+          "encode": {
+            "median": 1443,
+            "min": 1422,
+            "max": 1457,
+            "spread": 2
+          },
+          "decode": {
+            "median": 968,
+            "min": 952,
+            "max": 975,
+            "spread": 2
+          },
+          "build": {
+            "median": 23106,
+            "min": 21608,
+            "max": 23339,
+            "spread": 7
+          }
+        },
+        "sparse": {
+          "encode": {
+            "median": 3270653,
+            "min": 3196115,
+            "max": 3312061,
+            "spread": 4
+          },
+          "decode": {
+            "median": 4280681,
+            "min": 4261159,
+            "max": 4292915,
+            "spread": 1
+          },
+          "build": {
+            "median": 24485,
+            "min": 21831,
+            "max": 24745,
+            "spread": 12
+          }
+        },
+        "typed": {
+          "encode": {
+            "median": 3516942,
+            "min": 3483385,
+            "max": 3564702,
+            "spread": 2
+          },
+          "decode": {
+            "median": 3100604,
+            "min": 3095942,
+            "max": 3157245,
+            "spread": 2
+          },
+          "build": {
+            "median": 48711,
+            "min": 42685,
+            "max": 49310,
+            "spread": 14
+          }
+        },
+        "strings": {
+          "encode": {
+            "median": 1727417,
+            "min": 1709802,
+            "max": 1759103,
+            "spread": 3
+          },
+          "decode": {
+            "median": 1585509,
+            "min": 1577440,
+            "max": 1591423,
+            "spread": 1
+          },
+          "build": {
+            "median": 78003,
+            "min": 69347,
+            "max": 78547,
+            "spread": 12
+          }
+        },
+        "packets": {
+          "encode": {
+            "median": 48952,
+            "min": 48679,
+            "max": 49036,
+            "spread": 1
+          },
+          "decode": {
+            "median": 26296,
+            "min": 26097,
+            "max": 26428,
+            "spread": 1
+          },
+          "build": {
+            "median": 17658,
+            "min": 16292,
+            "max": 17947,
+            "spread": 9
+          }
+        },
+        "numeric": {
+          "encode": {
+            "median": 369670,
+            "min": 346091,
+            "max": 370614,
+            "spread": 7
+          },
+          "decode": {
+            "median": 571493,
+            "min": 569278,
+            "max": 575951,
+            "spread": 1
+          },
+          "build": {
+            "median": 16306,
+            "min": 15156,
+            "max": 16646,
+            "spread": 9
+          }
+        }
+      }
+    },
+    {
+      "id": "2.1.0-binary",
+      "version": "2.1.0",
+      "backend": "binary",
+      "current": true,
+      "results": {
+        "single": {
+          "encode": {
+            "median": 2119160,
+            "min": 2081910,
+            "max": 2135849,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2258373,
+            "min": 2223746,
+            "max": 2272432,
+            "spread": 2
+          }
+        },
+        "records": {
+          "encode": {
+            "median": 3060,
+            "min": 3017,
+            "max": 3073,
+            "spread": 2
+          },
+          "decode": {
+            "median": 2266,
+            "min": 2250,
+            "max": 2301,
+            "spread": 2
+          }
+        },
+        "sparse": {
+          "encode": {
+            "median": 11883116,
+            "min": 11687099,
+            "max": 12243666,
+            "spread": 5
+          },
+          "decode": {
+            "median": 12702681,
+            "min": 12628177,
+            "max": 12867515,
+            "spread": 2
+          }
+        },
+        "typed": {
+          "encode": {
+            "median": 6489095,
+            "min": 6409922,
+            "max": 6683251,
+            "spread": 4
+          },
+          "decode": {
+            "median": 8775056,
+            "min": 8669735,
+            "max": 8804845,
+            "spread": 2
+          }
+        },
+        "strings": {
+          "encode": {
+            "median": 1847338,
+            "min": 1833591,
+            "max": 1890437,
+            "spread": 3
+          },
+          "decode": {
+            "median": 2238446,
+            "min": 2211668,
+            "max": 2257236,
+            "spread": 2
+          }
+        },
+        "packets": {
+          "encode": {
+            "median": 110900,
+            "min": 108235,
+            "max": 111670,
+            "spread": 3
+          },
+          "decode": {
+            "median": 69703,
+            "min": 67794,
+            "max": 69944,
+            "spread": 3
+          }
+        },
+        "numeric": {
+          "encode": {
+            "median": 2481359,
+            "min": 2409139,
+            "max": 2520786,
+            "spread": 4
+          },
+          "decode": {
+            "median": 4971476,
+            "min": 4928237,
+            "max": 4988475,
+            "spread": 1
           }
         }
       }

@@ -50,7 +50,7 @@ Compute the new version based on user intent and semver rules:
 - **prerelease**: `1.2.3` → `1.2.4-<label>.0`, or `1.2.4-beta.0` → `1.2.4-beta.1`
 - **Removing prerelease tag**: `4.0.3-prerelease` → `4.0.3` (just strip the suffix)
 
-Update `"version"` in `package.json` with the Edit tool, not `pnpm version`: the bump is a plain edit, and the commit, tag and changelog are handled by hand in the steps below.
+Update `"version"` in `package.json` with the Edit tool, not `pnpm version`: the bump is a plain edit, and the commit, tag and changelog are handled by hand in the steps below. Update `VERSION` in `src/version.js` to the same value (`tests/unit/platform.test.js` holds the two together; it is what a baseline's `generator` names).
 
 ## Step 3: Update CHANGELOG.md
 
@@ -141,7 +141,8 @@ Scan for staleness:
 7. **Benchmarks**: when `src/` changed, `pnpm bench --compare` against `bench/baseline.json`
    (a change inside the spread is noise; more than ±10% needs an explanation or a fix), then
    `pnpm bench --save`, `pnpm bench:compare --save`, `pnpm size:compare --save`,
-   `pnpm bench:releases` (the tree being released) and `pnpm bench:report`, on an otherwise idle
+   `pnpm bench:releases` (the tree being released) and `pnpm bench:report`, after the version bump
+   (the tables label protoarray's rows with `package.json`'s version), on an otherwise idle
    machine, so the charts in `docs/public/benchmarks/` and the tables in README and
    `docs/guide/benchmarks.md` describe the code being released; check the prose around them
    (×N claims, on the home page `docs/index.md` too) against the regenerated numbers. When a
@@ -170,7 +171,7 @@ Check these fields are correct:
 
 ```bash
 pnpm pack --dry-run
-pnpm run size --max-gzip 22
+pnpm run size --max-gzip 23
 ```
 
 Review the file list:

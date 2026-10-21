@@ -50,11 +50,11 @@ pnpm run format
 pnpm run test:coverage
 pnpm run test:types
 pnpm run check:dts
-pnpm size --max-gzip 22
+pnpm size --max-gzip 23
 ```
 
 `prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`; CI adds the bundle-size
-gate (22 KB min+gzip for either entry) and the docs build. Treat that as the merge gate. Coverage
+gate (23 KB min+gzip for either entry) and the docs build. Treat that as the merge gate. Coverage
 of `src/` and `bin/` is 100% with no `c8 ignore` comments: an unreachable branch is removed, not
 ignored.
 Measure with `pnpm size` after any change to `src/`; when a change needs more than the gate, raise

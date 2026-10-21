@@ -7,6 +7,148 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-21
+
+2.1 puts the same schema on a binary wire (`@alexify/protoarray/binary`), checks the versions of a
+schema against the evolution rules in CI (`@alexify/protoarray/evolve`, `protoarray snapshot` and
+`protoarray check`), widens the fingerprint to 64 bits on request, and makes the closures backend
+decode wide and sparse records several times faster. The text wire, the canonical form and the
+ids of 2.0 do not change; a standalone module written by 2.0 still loads.
+
+### Added
+
+- **A built-in 64-bit fingerprint.** The `fingerprint` option names the hash `id` is of the
+  signature: `'fnv1a32'`, the default, unchanged (eight hex digits, the same ids as before), or
+  `'fnv1a64'`, the 64-bit FNV-1a over the same UTF-16 code units as sixteen hex digits, for a
+  registry of many schemas, where 32 bits collide (two of 65,536 schemas share an id with
+  probability 39%; one in 10¹⁰ with 64 bits). The name travels where a function cannot:
+  `schema.list`, the entities references reach and a resolved schema hash with it, a standalone
+  module writes it (the `list` of a module's schema hashed with the default before), and
+  `ERR_ID_COLLISION` names it as the remedy where both schemas are on the default hash (schemas
+  on a wider hash or on one of their own are told to use another). A function of the signature
+  is accepted as before; anything else is `ERR_INVALID_OPTIONS` ("fnv1a32, fnv1a64 or a
+  function"). The 64-bit hash runs on two 32-bit halves: no BigInt a code unit (eight times
+  slower) and no BigInt literal in the core, which every bundler's target would have to take.
+- **`@alexify/protoarray/evolve`**: `compatible(previous, next, { strict? })` checks two versions
+  of a schema by position, the way the evolution rules read, and reports every place where the
+  newer one reads an older payload differently: `{ ok, problems }`, each problem with its `path`,
+  the `rule` it breaks (`inserted`, `moved`, `removed`, `renamed`, `required`, `retired`, `type`,
+  `optional`, `appended`, `wire`, `flat`, `default`, `fingerprint`), its `severity` (`error`,
+  `warning`, `info`) and the canonical forms of the two nodes (once per place for the values of
+  an enum, flags or a union); `ok` is false on an error, with `strict` on a warning too. A slot
+  that becomes optional or retired is a warning (the newer writer may send what an older
+  validating reader refuses: deploy readers first), two versions on different fingerprints are
+  told apart (`fingerprint`, info: their ids are not comparable). Fields, tuple elements, enum
+  values, flag names and a union's values compare by position; references by the entity they
+  reach, once per pair; a record written in place and one reached by a reference are the same
+  wire; a field that moved is compared where it stands too; a key that changes where neither key
+  is anywhere else is a rename, any other shift is an error. A message names five keys or values
+  at most and counts the rest, so a wide enum compares in its time. `baseline(schemas)` writes
+  schemas as JSON, sorted by name (their snapshots, the options that shape their wire, their
+  canonical forms, signatures and ids, and the version of protoarray that wrote the file) and
+  `restore(source)` builds them again, taking only the options of the wire from the file and
+  refusing one that does not rebuild to what it was written with (`ERR_INVALID_SNAPSHOT`, naming
+  what differs with both values); `register()` installs `Schema.compatible`. The core does not
+  carry it.
+- **`protoarray snapshot <module> [--only A,B] [--out <file>]`** writes the baseline of the
+  schemas a module exports, and **`protoarray check <module> --against <baseline.json> [--only
+  A,B] [--strict] [--json]`** compares the module with it, by export name: the ids of the two
+  versions and one line per problem for each schema with problems, then a summary of what was
+  compared, what the module no longer exports (`missing`, a warning) and what the baseline lacks
+  (`new`); `--json` writes `{ ok, schemas: { Name: { ok, problems, previous: { id }, next: { id }
+  } } }`, or `{ ok: false, error: { code, message } }` when the check could not run. Exit codes:
+  0 compatible, 1 incompatible, 2 a wrong command line, 3 the module, its schemas or the baseline
+  could not be used. An option takes its value as the next word or after `=`, never another
+  option. The usage of the command names every command now, and `--out` refuses to write over
+  the module it reads however it was named (`./schemas` for `schemas.js`, a link to it).
+- **The binary wire**, `@alexify/protoarray/binary`: `toBinary(schema, value)` gives the bytes of
+  a value as a `Uint8Array`, `fromBinary(schema, bytes)` the value back, `register()` installs
+  them as `schema.toBinary` and `schema.fromBinary`, for a schema or its `list`. The same plan is
+  compiled a second time, by the backend the schema runs (generated code through the one compile
+  primitive of `codegen.js`, closures elsewhere; both write the same bytes), with the same errors
+  and paths. Decode checks the structure of the wire on every message, whatever `validate` says
+  (the bounds of every read, a count against the bytes left, a bitmap, a string, a presence byte,
+  a union's tag, a varint's eight bytes at most, the text of a `json` or `bigint` slot), and the
+  values behind `validate`: whatever the bytes, `fromBinary` throws `DecodeError` and nothing
+  else, in linear time, allocating no array longer than eight times the message; a message is
+  read whole (`extra` past it) and the error says where the reader stood (`DecodeError.offset`).
+  Encode refuses, besides what the text wire refuses, a string slot without a string, a `bytes`
+  slot without a `Uint8Array` and an `integer` slot without a safe integer (`type`), which the
+  wire has no form for. A message of up to 128 bytes is decoded without a `DataView` of its own,
+  which would cost about as much as reading sixteen doubles: it is copied into a buffer the reader
+  keeps, whose view is made once. `maxDepth` counts on the binary wire as on the text one.
+  `tests/fixtures/golden-binary.json` holds the bytes of every vector: the wire is a contract,
+  a change to it a new major. A record is a header of presence bits (the
+  booleans in it) and its fields; integers, dates and decimals are zigzag varints, a `number` a
+  float64, an enum index a byte, a string UTF-8 up to 21 characters and UTF-16 past them (copied,
+  not transcoded), the rest as in the wire format page. Both sides need the same schema, or a
+  schema from `resolve`, which reads what another version wrote and writes for it on the binary
+  wire as on the text one: the writer's wire under the reader's keys, order and defaults, a field
+  only the writer has read and dropped, or absent when written, the same bridges and errors, in
+  both backends. Interned strings, lists of differences and the `flat` and `columns` layouts have
+  no binary form (`SchemaDefinitionError` `ERR_NO_BINARY_FORM`, naming the place); the registry
+  envelope and streaming stay on the text wire. See The Binary Wire in the guide and the
+  benchmarks.
+- **Standalone modules carry the binary wire**: `toSource(schemas, { binary: true })` and
+  `protoarray compile --binary` write each schema's generated binary codec next to its text
+  codec. An import module's schemas carry it in their `compiled` option (`compiled.binary`), which
+  `toBinary` and `fromBinary` of `./binary` run instead of building one, so a module loaded under
+  a strict CSP serves both wires at the speed of generated code; an inline module embeds the wire
+  kernel and its schemas get `toBinary` and `fromBinary` of their own; a recursive schema's
+  `maxDepth` counts on the module's codec, slots included. A schema with no binary form, one
+  reached by a reference included, is refused when the module is written
+  (`ERR_NO_BINARY_FORM`). Without the option a module carries nothing of the binary wire.
+
+### Changed
+
+- **The closures backend decodes faster.** A decoded object starts as a copy of a template that
+  holds every field at its default, so a field that is missing costs no store: a sparse record of
+  70 fields with three set decodes about four times faster. A nested value is one call instead of
+  two, and the loop reads each field by a kind decided when the schema is built. The same template
+  serves `flags`, where only the set bits are stored now: a record of 70 flags decodes about four
+  and a half times faster on both backends. The wire, the decoded objects and the errors did not
+  change. What remains is structural: the closures store each present field through one keyed
+  store, about 60 ns a field on decode against 30 in generated code (see
+  [Runtimes and CSP](https://protoarray.vercel.app/guide/runtimes)).
+- `pnpm bench` measures a record of 128 fields, and the new `pnpm bench:sweep` prints the cost per
+  field from 4 to 256 fields for JSON and both backends, each point in a fresh process
+  (`bench/results/sweep.json`, which `pnpm bench:report` renders into the table of the runtimes
+  guide).
+- **The benchmarks measure the binary wire next to the text one.** The comparison has a
+  `binary wire` row on every payload (the fastest round trip of every library on all seven), as
+  do the cold start and the bundle size; `pnpm bench` measures `toBinary` and `fromBinary` of
+  every shape on both backends and of the thousand records (the engine chart of the docs has a
+  text and a binary wire, the layouts chart a binary row), and `pnpm bench:releases` the binary
+  wire of a release that has one, on generated code.
+- The runtime twins (`src/runtime/node.js`, `browser.js`) carry the string functions of the
+  binary wire next to base64 (Buffer's in Node.js, `TextDecoder` and loops in a browser; a
+  runtime whose Buffer lacks one of Node's own string methods gets the browser twin's loops,
+  decided when the twin loads, and the browser's decoder keeps a byte order mark as Buffer's
+  does), and
+  `DecodeError` `structure` has a `bytes` detail ("is not a Uint8Array") and a `presence` one
+  ("is not a presence byte").
+- The ABI of standalone modules is 2 (the binary codec next to the text one, `R.depth`, the
+  slots' `write` and `read`, the recipe `T.isBytes`). A module generated by 2.0 (ABI 1) still
+  loads: the ABI moves only when something is added, never when something is removed or changes
+  shape, which would be a new major; a module written for a later ABI is refused with
+  `ERR_COMPILED_MISMATCH`, which names both numbers. The `./standalone` subpath brings the
+  generator of the binary wire and the wire kernel, +8.8 KB min+gzip over the core where it was
+  +2.4 KB; an inline module without `binary` grows by about 0.3 KB min+gzip (the string functions
+  of the runtime and the depth guard, which its kernels carry whole), with it by 2.5 KB.
+- The core is 22.7 KB min+gzip (the Node.js entry, which carries the browser twin's loops as
+  the fallback above) and 22.6 KB (the browser entry) with the string functions of the binary
+  wire in the runtime twins and the 64-bit fingerprint; the bundle budget is 23 KB
+  (`pnpm size --max-gzip 23` in CI).
+
+### Fixed
+
+- **A record of 128 fields or more decoded seven times slower on closures than one of 127** (26 µs
+  against 7 µs): the template was parsed from JSON, which V8 hands over in dictionary mode from 128
+  keys on, and a copy of such an object costs a transition per key. The template is built with
+  `Object.fromEntries` now and keeps fast properties up to the engine's limit; both backends stay
+  linear in the number of fields. The same applied to `flags` of 128 names or more on either
+  backend.
+
 ## [2.0.0] - 2026-10-16
 
 2.0 hands the definition of a schema to `@alexify/metaschema` and keeps the wire to protoarray.
@@ -440,7 +582,8 @@ sides share, so keys never go over the wire and `JSON.parse` has less to do.
 - **CI** on GitHub Actions and a VitePress documentation site at
   [protoarray.vercel.app](https://protoarray.vercel.app/).
 
-[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v2.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/protoarray/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/Alexis-Technologies/protoarray/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Alexis-Technologies/protoarray/compare/v0.0.1...v1.0.0

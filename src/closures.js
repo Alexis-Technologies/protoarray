@@ -143,34 +143,37 @@ const build = (plan, options) => {
     const { tail, sparse } = node;
     // A field only the writer has (Schema.resolve) has no key: it is null on
     // the wire.
-    const keys = node.fields.map((field) => field.key);
-    const paths = keys.map((key) => (key === null ? null : step(key)));
+    const { keys, paths, bits } = shapeOf(node);
     const size = keys.length;
     const lead = node.tag === undefined ? 0 : 1;
     const width = size + lead;
     const end = tail + lead;
+    // Identity fields have no encoder: their value is their wire form.
     const encoders = node.fields.map((field) =>
       field.node.kind === 'scalar' ? scalarEncoder(field.node, '') : encoder(field.node),
     );
-    // The wire form of one field, or null for one that is missing.
-    const wireOf = (object, i) => {
-      const key = keys[i];
-      const value = key === null ? null : object[key];
-      if (value == null) return null;
-      const encode = encoders[i];
-      if (encode === null) return value;
-      try {
-        return encode(value);
-      } catch (error) {
-        throw nest(error, paths[i]);
-      }
-    };
     if (!sparse) {
       return (object, t) => {
         if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
         const out = new Array(width);
         if (lead === 1) out[0] = t;
-        for (let i = 0; i < size; i++) out[i + lead] = wireOf(object, i);
+        for (let i = 0; i < size; i++) {
+          const key = keys[i];
+          const value = key === null ? null : object[key];
+          let wire = null;
+          if (value != null) {
+            const encode = encoders[i];
+            if (encode === null) wire = value;
+            else {
+              try {
+                wire = encode(value);
+              } catch (error) {
+                throw nest(error, paths[i]);
+              }
+            }
+          }
+          out[i + lead] = wire;
+        }
         let length = width;
         while (length > end && out[length - 1] === null) length--;
         if (length < width) out.length = length;
@@ -179,26 +182,39 @@ const build = (plan, options) => {
     }
     // One [mask, ...present values] segment per 31 fields: `start` is where
     // the current mask goes, `keep` where the last segment with something in
-    // it ends (the first one is always kept).
+    // it ends (the first one is always kept), `boundary` the field that opens
+    // the next segment.
     return (object) => {
       if (typeof object !== 'object' || Array.isArray(object)) refuse('object', '');
       const out = [0];
       let mask = 0;
       let start = 0;
       let keep = 0;
+      let boundary = WORD;
       for (let i = 0; i < size; i++) {
-        if (i > 0 && i % WORD === 0) {
+        if (i === boundary) {
           out[start] = mask;
           if (start === 0 || mask !== 0) keep = out.length;
           start = out.length;
           out.push(0);
           mask = 0;
+          boundary += WORD;
         }
-        const wire = wireOf(object, i);
-        if (wire !== null) {
-          mask |= 1 << (i % WORD);
-          out.push(wire);
+        const key = keys[i];
+        const value = key === null ? null : object[key];
+        if (value == null) continue;
+        const encode = encoders[i];
+        let wire = value;
+        if (encode !== null) {
+          try {
+            wire = encode(value);
+          } catch (error) {
+            throw nest(error, paths[i]);
+          }
+          if (wire === null) continue;
         }
+        mask |= bits[i];
+        out.push(wire);
       }
       out[start] = mask;
       if (start === 0 || mask !== 0) keep = out.length;
@@ -269,106 +285,151 @@ const build = (plan, options) => {
     return arrayDecoder(node);
   };
 
-  // A scalar's check and conversion in one call, where the type has one.
-  const converter = (node) =>
-    validate.decode && node.checkedUnpack !== undefined ? node.checkedUnpack : null;
+  // What a decoder does with one wire value: store it as it is, check it
+  // first, check and convert it in one call, convert it unchecked, call the
+  // decoder of a nested value, or skip it (a field only the writer has). The
+  // kind is decided once per slot, not once per value, and is the one source
+  // of the order codegen's `convert` writes out: a converted type checks and
+  // converts in one call under validation (every type with an `unpack` has a
+  // `checkedUnpack`, which a test of types.js holds), an identity type is
+  // checked on its own.
+  const AS_IS = 0;
+  const CHECKED = 1;
+  const CONVERTED = 2;
+  const UNCHECKED = 3;
+  const NESTED = 4;
+  const SKIPPED = 5;
+  const kindOf = (field) => {
+    if (field.key === null) return SKIPPED;
+    const { node } = field;
+    if (node.kind !== 'scalar') return NESTED;
+    if (validate.decode && node.checkedUnpack !== undefined) return CONVERTED;
+    if (node.unpack !== null) return UNCHECKED;
+    return validate.decode && node.check !== null ? CHECKED : AS_IS;
+  };
+  const readerOf = (field, kind) => {
+    const { node } = field;
+    if (kind === NESTED) return decoder(node);
+    if (kind === CHECKED) return node.check;
+    if (kind === CONVERTED) return node.checkedUnpack;
+    return kind === UNCHECKED ? node.unpack : null;
+  };
 
-  // One slot: nullish → required check or default; a scalar → wire check and
-  // conversion; anything else → the nested decoder with the path prefixed.
+  // One slot (a tuple's element, a collection's item, a map's or a
+  // dictionary's value): nullish → required check or default; otherwise what
+  // its kind says, with the path prefixed on an error.
   const slotDecoder = (node, required, def, format = at) => {
-    const scalar = node.kind === 'scalar';
-    const check = scalar && validate.decode ? node.check : null;
-    const convert = scalar ? converter(node) : null;
-    const decode = scalar ? null : decoder(node);
+    const field = { key: '', node };
+    const kind = kindOf(field);
+    const read = readerOf(field, kind);
     return (value, path, strict) => {
       if (value == null) {
         if (required && validate.decode) fail('required', format(path));
         return def;
       }
-      if (convert !== null) {
-        const out = convert(value);
+      if (kind === AS_IS) return value;
+      if (kind === CONVERTED) {
+        const out = read(value);
         if (out === undefined) fail(node.code, format(path), node.expected);
         return out;
       }
-      if (scalar) {
-        if (check !== null && !check(value)) fail(node.code, format(path), node.expected);
-        return node.unpack === null ? value : node.unpack(value);
+      if (kind === CHECKED) {
+        if (!read(value)) fail(node.code, format(path), node.expected);
+        return value;
       }
+      if (kind === UNCHECKED) return read(value);
       try {
-        return decode(value, strict);
+        return read(value, strict);
       } catch (error) {
         throw nest(error, format(path));
       }
     };
   };
 
-  // Objects start as a copy of a literal-shaped template so every decoded
-  // record has the same hidden class, as an object literal would. Scalars are
-  // handled in the loop; only nested values go through a call.
+  // The keys of a struct, their paths on an error and the bit of each in its
+  // sparse segment: computed once per node, for its encoder and its decoder.
+  const shapes = new WeakMap();
+  const shapeOf = (node) => {
+    let shape = shapes.get(node);
+    if (shape === undefined) {
+      const keys = node.fields.map((field) => field.key);
+      shape = {
+        keys,
+        paths: keys.map((key) => (key === null ? null : step(key))),
+        bits: Int32Array.from(keys, (key, i) => 1 << (i % WORD)),
+      };
+      shapes.set(node, shape);
+    }
+    return shape;
+  };
+
+  // Objects start as a copy of a template with every key of the schema in its
+  // order and every field at its default, so each decoded record has the same
+  // hidden class, as an object literal would, and a field that is missing
+  // costs no store. The loop reads each field by its kind, with one direct
+  // call for a nested value; codegen writes the same steps out per field.
   const structDecoder = (node) => {
     const { sparse, tag } = node;
-    // A field only the writer has (Schema.resolve) has no key: it is not read.
-    const keys = node.fields.map((field) => field.key);
+    const { keys, paths, bits } = shapeOf(node);
     const size = keys.length;
     const lead = tag === undefined ? 0 : 1;
-    const fields = node.fields.map((field) => {
-      const scalar = field.node.kind === 'scalar';
-      return {
-        path: field.key === null ? null : step(field.key),
-        required: field.required && validate.decode,
-        def: field.def,
-        check: scalar && validate.decode ? field.node.check : null,
-        code: field.node.code,
-        expected: field.node.expected,
-        checked: scalar ? converter(field.node) : null,
-        convert: scalar ? field.node.unpack : null,
-        decode: scalar ? null : slotDecoder(field.node, field.required, field.def),
-      };
-    });
+    const kinds = Uint8Array.from(node.fields, kindOf);
+    const readers = node.fields.map((field, i) => readerOf(field, kinds[i]));
+    const required = node.fields.map((field) => field.required && validate.decode);
+    const codes = node.fields.map((field) => field.node.code);
+    const expecteds = node.fields.map((field) => field.node.expected);
     // A branch's template has every key of the branch, its discriminator too;
     // a resolved record's has the reader's keys in its order, with the
     // reader's fields the writer does not have at their defaults.
     const order = node.order === undefined ? keys : node.order;
-    const template = literal(lead === 0 ? order : tag.keys, 'null');
+    const template = literal(lead === 0 ? order : tag.keys, null);
+    for (const field of node.fields) if (field.key !== null) put(template, field.key, field.def);
     if (node.extras !== undefined) for (const extra of node.extras) template[extra.key] = extra.def;
     return (array, strict, t) => {
       if (!Array.isArray(array)) fail('structure', '', 'array');
       const { length } = array;
       const object = { ...template };
       if (lead === 1) object[tag.key] = tag.values[t];
+      if (!sparse && strict && length > size + lead) fail('extra', '');
       let mask = 0;
       let next = 0;
-      if (!sparse && strict && length > size + lead) fail('extra', '');
+      // The field that opens the next sparse segment: the first mask is
+      // required, a later segment may be missing.
+      let boundary = 0;
       for (let i = 0; i < size; i++) {
-        const key = keys[i];
-        const field = fields[i];
-        let value = null;
+        let value;
         if (!sparse) value = i + lead < length ? array[i + lead] : null;
         else {
-          // The first mask is required; a later segment may be missing.
-          if (i % WORD === 0) {
+          if (i === boundary) {
             mask = i === 0 || next < length ? array[next++] : 0;
             if (typeof mask !== 'number' || (mask | 0) !== mask || mask < 0) {
               fail('structure', '', 'mask');
             }
+            boundary += WORD;
           }
-          if ((mask & (1 << (i % WORD))) !== 0) value = array[next++];
+          value = (mask & bits[i]) !== 0 ? array[next++] : null;
         }
-        if (key === null) continue;
-        if (field.decode !== null) {
-          object[key] = field.decode(value, field.path, strict);
-        } else if (value == null) {
-          if (field.required) fail('required', field.path);
-          object[key] = field.def;
-        } else if (field.checked !== null) {
-          const out = field.checked(value);
-          if (out === undefined) fail(field.code, field.path, field.expected);
-          object[key] = out;
-        } else {
-          if (field.check !== null && !field.check(value)) {
-            fail(field.code, field.path, field.expected);
+        const kind = kinds[i];
+        if (kind === SKIPPED) continue;
+        if (value == null) {
+          if (required[i]) fail('required', paths[i]);
+          continue;
+        }
+        if (kind === AS_IS) object[keys[i]] = value;
+        else if (kind === CONVERTED) {
+          const out = readers[i](value);
+          if (out === undefined) fail(codes[i], paths[i], expecteds[i]);
+          object[keys[i]] = out;
+        } else if (kind === CHECKED) {
+          if (!readers[i](value)) fail(codes[i], paths[i], expecteds[i]);
+          object[keys[i]] = value;
+        } else if (kind === UNCHECKED) object[keys[i]] = readers[i](value);
+        else {
+          try {
+            object[keys[i]] = readers[i](value, strict);
+          } catch (error) {
+            throw nest(error, paths[i]);
           }
-          object[key] = field.convert === null ? value : field.convert(value);
         }
       }
       if (sparse && strict && next !== length) fail('extra', '');

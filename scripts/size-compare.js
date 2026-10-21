@@ -67,6 +67,15 @@ const User = Schema.from(${json(USER.definition)}, { metaschema });
 export const roundTrip = (value) => User.parse(User.stringify(value));`,
   },
   {
+    id: 'protoarray-binary',
+    variant: 'binary wire, from a snapshot',
+    note: 'the core and the ./binary subpath, the schema built from its snapshot',
+    source: () => `import { Schema } from './browser.js';
+import { toBinary, fromBinary } from './binary.js';
+const User = Schema.from(${json(SNAPSHOT)});
+export const roundTrip = (value) => fromBinary(User, toBinary(User, value));`,
+  },
+  {
     id: 'protoarray-standalone',
     note: 'the module protoarray compile writes for this schema, with its inline runtime',
     source: () => `import User from ${json(standaloneModule())};

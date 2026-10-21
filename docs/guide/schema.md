@@ -200,7 +200,7 @@ by a reference keeps the options given for it in `entities`.
 | `delta` | `[]` | The paths of integer, number, date or decimals columns and lists that travel as differences. See [Types](/guide/types#delta) |
 | `intern` | `false` | `true` for every string, or the paths of strings: `[table, body]`. See [Types](/guide/types#interned-strings) |
 | `stringify` | `'auto'` | How `stringify` writes the text: `'auto'`, `'builder'` or `'native'`. See [Runtimes](/guide/runtimes#how-stringify-writes-the-text) |
-| `fingerprint` | FNV-1a 32-bit | `(signature) => string`, computes `id` from the schema's signature (below). See [Schema Evolution](/guide/evolution#your-own-fingerprint) |
+| `fingerprint` | `'fnv1a32'` | What `id` is of the schema's signature (below): `'fnv1a32'` (eight hex digits), `'fnv1a64'` (sixteen, for a registry of many schemas) or `(signature) => string`. See [Schema Evolution](/guide/evolution#a-wider-fingerprint) |
 | `maxDepth` | `Infinity` | The levels of a recursion one payload may nest: deeper is `DecodeError` `structure` or `EncodeError` `depth`, at the same depth on either backend. By default nothing is counted and the call stack is the limit, which differs between backends; `512` is a depth both reach everywhere. See [Errors](/guide/errors#depth) |
 | `references` | `'kind'` | How every reference travels: `'kind'`, `'embed'` or `'id'`. See [References](#references) |
 | `types` | `{}` | The wire type of each custom type with a check of its own: `{ decimal: 'string' }` |
@@ -269,7 +269,7 @@ changes nothing on the wire.
 ```js
 User.toString();
 // '{id:number,name:string,active:boolean,role:enum(admin|editor|viewer),address:{city:string,street:string,zip:?string},tags:[string],orders:[{sku:string,qty:number}],createdAt:date,perms:flags(read|write|admin),balance:?number=0,manager:?@User,email:?string}'
-User.id; // 'cecbac56' — FNV-1a of its signature, the same on both sides of the wire
+User.id; // 'cecbac56' — 32-bit FNV-1a of its signature, the same on both sides of the wire
 ```
 
 `id` is the fingerprint of the schema's **signature**: its canonical form, followed by
@@ -297,7 +297,8 @@ so does the optionality of a root scalar (`'?string'` prints as `?string`). The 
 the one protoarray 1.x gave the same shape, and so is the id of a schema that references no other
 entity, so a 2.0 schema and a 1.x schema agree on the wire; one that references another entity by
 name has a new id in 2.0 (1.x fingerprinted its canonical form alone). The `fingerprint` option
-replaces the hash (see [Schema Evolution](/guide/evolution#your-own-fingerprint)).
+names the hash, `'fnv1a64'` for a registry of many schemas, or replaces it with a function of
+the signature (see [Schema Evolution](/guide/evolution#a-wider-fingerprint)).
 
 ## A snapshot is input
 

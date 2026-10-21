@@ -4,15 +4,18 @@
  *   embedded by the README, where no script can render the interactive
  *   charts of the docs);
  * - the tables between `<!-- bench:<name>:start -->` and `:end -->` markers
- *   in README.md and docs/guide/benchmarks.md (the docs pages render the same
- *   models interactively above them).
+ *   in README.md, docs/guide/benchmarks.md (the docs pages render the same
+ *   models interactively above them) and docs/guide/runtimes.md (the cost of
+ *   a record by its width, from bench/results/sweep.json).
  * Both come from bench/report/model.mjs, so a chart and its table cannot
  * disagree. Text outside the markers is never touched.
  *
  * The inputs: bench/results/compare.json (pnpm bench:compare --save),
  * bench/results/size.json (pnpm size:compare --save),
- * bench/results/releases.json (pnpm bench:releases) and
- * bench/baseline.json (pnpm bench --save).
+ * bench/results/releases.json (pnpm bench:releases),
+ * bench/results/binary.json (the run of the binary-wire spike that decided
+ * the ./binary subpath, kept as it was, docs only), bench/results/sweep.json
+ * (pnpm bench:sweep --save) and bench/baseline.json (pnpm bench --save).
  *
  * Run: pnpm bench:report
  */
@@ -26,6 +29,7 @@ const IMAGE_BASE = 'https://protoarray.vercel.app/benchmarks';
 const TARGETS = {
   readme: path.join(ROOT, 'README.md'),
   docs: path.join(ROOT, 'docs', 'guide', 'benchmarks.md'),
+  runtimes: path.join(ROOT, 'docs', 'guide', 'runtimes.md'),
 };
 const HEADLINE = 'single';
 const GENERATED =
@@ -71,6 +75,8 @@ const main = async () => {
   const compare = readJson(path.join(RESULTS, 'compare.json'));
   const size = readJson(path.join(RESULTS, 'size.json'));
   const releases = readJson(path.join(RESULTS, 'releases.json'));
+  const binary = readJson(path.join(RESULTS, 'binary.json'));
+  const sweep = readJson(path.join(RESULTS, 'sweep.json'));
   const baseline = readJson(path.join(__dirname, 'baseline.json'));
 
   fs.rmSync(SVG_DIR, { recursive: true, force: true });
@@ -87,26 +93,18 @@ const main = async () => {
   // name → { readme, docs } markdown
   const regions = {};
 
-  if (compare) {
-    const caption = model.compareCaption(compare);
-    let headline = '';
-    const more = [];
-    const sizes = [];
-    for (const scenario of model.compareScenarios(compare)) {
-      const speed = model.compareModel(compare, scenario.id, 'roundtrip');
-      const img = chartImage(`compare-${scenario.id}.svg`, speed, caption);
-      if (scenario.id === HEADLINE) headline = img;
-      else more.push(img);
-      const bytes = model.compareModel(compare, scenario.id, 'bytes');
-      sizes.push(chartImage(`compare-${scenario.id}-bytes.svg`, bytes, caption));
-    }
-    const scenarios = compare.scenarios;
-    const ok = (result) => result !== undefined && result.error === undefined;
-    const roundTrip = (result) => 1 / (1 / result.encode.median + 1 / result.decode.median);
-    const summary = table(
+  const ok = (result) => result !== undefined && result.error === undefined;
+  const roundTrip = (result) => 1 / (1 / result.encode.median + 1 / result.decode.median);
+
+  // The tables of a comparison (compare.json, or the binary prototype's
+  // binary.json of the same shape): the round trips of every library on every
+  // scenario, and per scenario, encode, decode and the sizes.
+  const summaryTable = (report) => {
+    const scenarios = report.scenarios;
+    return table(
       ['Library', ...scenarios.map((scenario) => `${scenario.title}<br><sub>round trips/s</sub>`)],
       ['---', ...scenarios.map(() => '---:')],
-      compare.libraries
+      report.libraries
         .filter((library) => scenarios.some((scenario) => ok(scenario.results[library.id])))
         .map((library) => [
           libraryCell(library),
@@ -116,13 +114,15 @@ const main = async () => {
           }),
         ]),
     );
-    const note =
-      `_${caption}. A round trip is one encode and one decode of the payload; medians, ` +
-      'rounded to three significant figures; — where the scenario does not apply._';
-    const full = scenarios.map((scenario) => {
+  };
+  const summaryNote = (caption) =>
+    `_${caption}. A round trip is one encode and one decode of the payload; medians, ` +
+    'rounded to three significant figures; — where the scenario does not apply._';
+  const scenarioTables = (report) =>
+    report.scenarios.map((scenario) => {
       const json = scenario.results.json;
       const relative = (value, base) => (ok(json) ? ` (×${(value / base).toFixed(2)})` : '');
-      const rows = compare.libraries
+      const rows = report.libraries
         .filter((library) => ok(scenario.results[library.id]))
         .map((library) => {
           const result = scenario.results[library.id];
@@ -144,11 +144,29 @@ const main = async () => {
         ),
       ].join('\n\n');
     });
-    const fullNote =
-      `_${caption}. Medians; (×n) against JSON; bytes are the wire size of one payload ` +
-      `(binary formats before any text encoding), gzip at level ${compare.method.gzipLevel}, ` +
-      `brotli at quality ${compare.method.brotliQuality}. The spread of the rounds is in ` +
-      'bench/results/compare.json._';
+  const scenarioNote = (report, caption, file) =>
+    `_${caption}. Medians; (×n) against JSON; bytes are the wire size of one payload ` +
+    `(binary formats before any text encoding), gzip at level ${report.method.gzipLevel}, ` +
+    `brotli at quality ${report.method.brotliQuality}. The spread of the rounds is in ` +
+    `bench/results/${file}._`;
+
+  if (compare) {
+    const caption = model.compareCaption(compare);
+    let headline = '';
+    const more = [];
+    const sizes = [];
+    for (const scenario of model.compareScenarios(compare)) {
+      const speed = model.compareModel(compare, scenario.id, 'roundtrip');
+      const img = chartImage(`compare-${scenario.id}.svg`, speed, caption);
+      if (scenario.id === HEADLINE) headline = img;
+      else more.push(img);
+      const bytes = model.compareModel(compare, scenario.id, 'bytes');
+      sizes.push(chartImage(`compare-${scenario.id}-bytes.svg`, bytes, caption));
+    }
+    const summary = summaryTable(compare);
+    const note = summaryNote(caption);
+    const full = scenarioTables(compare);
+    const fullNote = scenarioNote(compare, caption, 'compare.json');
     regions.compare = {
       readme: [
         headline,
@@ -210,16 +228,17 @@ const main = async () => {
         ),
       );
     const rows = [];
-    for (const backend of ['codegen', 'closures']) {
+    for (const backend of model.RELEASE_BACKENDS) {
       for (const entry of model.releaseList(releases, backend)) {
+        const build = entry.results[releases.scenarios[0].id]?.build;
         rows.push([
-          `${entry.version}<br><sub>${backend}</sub>`,
+          `${entry.version}<br><sub>${backend === 'binary' ? 'binary wire' : backend}</sub>`,
           ...releases.scenarios.map((scenario) => {
             const result = entry.results[scenario.id];
             if (!result) return '—';
             return `${model.approx(result.encode.median)} / ${model.approx(result.decode.median)}`;
           }),
-          model.approx(entry.results[releases.scenarios[0].id].build.median),
+          build === undefined ? '—' : model.approx(build.median),
         ]);
       }
     }
@@ -232,7 +251,10 @@ const main = async () => {
       ['---', ...releases.scenarios.map(() => '---:'), '---:'],
       rows,
     );
-    const note = `_${caption}. ops/s of stringify / parse, medians; — where the release has no union._`;
+    const note =
+      `_${caption}. ops/s of stringify / parse (toBinary / fromBinary on the binary wire), ` +
+      'medians; — where the release has no union, and for the binary wire, which builds the ' +
+      'schema the text wire does._';
     regions.releases = {
       readme: [
         speedup,
@@ -244,13 +266,68 @@ const main = async () => {
     };
   }
 
+  // The binary-wire spike that decided the ./binary subpath, as it ran: its
+  // tables go to the docs only, under the criteria written there before it.
+  if (binary) {
+    const caption = model.compareCaption(binary);
+    regions.binary = {
+      docs: [
+        summaryTable(binary),
+        summaryNote(caption),
+        details('Every scenario: encode, decode and the payload sizes', [
+          ...scenarioTables(binary),
+          scenarioNote(binary, caption, 'binary.json'),
+        ]),
+      ].join('\n\n'),
+    };
+  }
+
+  // The cost of a record by its width (sweep.json): the table of the runtimes
+  // guide, a few of the widths measured, in the time of one operation.
+  if (sweep) {
+    const at = (backend, n) => sweep.points.find((p) => p.backend === backend && p.n === n);
+    const time = (ops) => {
+      const ns = 1e9 / ops;
+      return ns < 1000 ? `${Math.round(ns)} ns` : `${(ns / 1000).toFixed(1)} µs`;
+    };
+    const widths = [4, 16, 64, 128, 256].filter((n) => sweep.widths.includes(n));
+    const columns = ['decode', 'encode'].flatMap((op) =>
+      ['json', 'codegen', 'closures'].map((backend) => [backend, op]),
+    );
+    const rows = widths.map((n) => [
+      String(n),
+      ...columns.map(([backend, op]) => time(at(backend, n)[op])),
+    ]);
+    const header = [
+      'Fields',
+      '`JSON.parse`, keyed',
+      'parse, codegen',
+      'parse, closures',
+      '`JSON.stringify`, keyed',
+      'stringify, codegen',
+      'stringify, closures',
+    ];
+    regions.sweep = {
+      runtimes: table(
+        header,
+        header.map((title) => `${'-'.repeat(title.length - 1)}:`),
+        rows,
+      ),
+    };
+  }
+
   if (baseline) {
     const caption = model.engineCaption(baseline);
-    const images = model.ENGINE_OPS.map((op) =>
-      chartImage(`engine-${op.id}.svg`, model.engineModel(baseline, op.id), caption),
+    const images = model.ENGINE_WIRES.flatMap((wire) =>
+      model.ENGINE_OPS.map((op) => {
+        const chart = model.engineModel(baseline, op.id, wire.id);
+        return chartImage(`${chart.id}.svg`, chart, caption);
+      }),
     );
     images.push(chartImage('layouts.svg', model.layoutsModel(baseline), caption));
-    regions.engine = { readme: details('protoarray on its two backends, and its layouts', images) };
+    regions.engine = {
+      readme: details('protoarray on its two backends, on both wires, and its layouts', images),
+    };
   }
 
   for (const [target, file] of Object.entries(TARGETS)) {

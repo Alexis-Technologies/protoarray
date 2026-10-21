@@ -642,15 +642,23 @@ const generate = (plan, options) => {
   return { body, helpers };
 };
 
-const build = (plan, options) => {
-  const { body, helpers } = generate(plan, options);
+// The one place source text becomes a function: the body of a generated
+// codec, with its helpers `H` and the error functions `F`, `N` and `E` as
+// parameters. The binary wire's generator (src/binary/generate.js) compiles
+// through it too, so the platform test's count of `new Function` holds.
+const compile = (body) => {
   // oxlint-disable-next-line no-new-func
   const factory = new Function('H', 'F', 'N', 'E', body);
-  const codec = factory(helpers, fail, nest, refuse);
+  return (helpers) => factory(helpers, fail, nest, refuse);
+};
+
+const build = (plan, options) => {
+  const { body, helpers } = generate(plan, options);
+  const codec = compile(body)(helpers);
   // Off the public surface, for debugging through the codec symbol: generated
   // again when read, so a codec does not hold its source text.
   Object.defineProperty(codec, 'source', { get: () => generate(plan, options).body });
   return codec;
 };
 
-module.exports = { available, build, generate };
+module.exports = { available, build, compile, generate };

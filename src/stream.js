@@ -10,7 +10,7 @@
 // Kept out of the core entry; `register()` installs the functions as methods
 // of Schema for the programs that want them.
 
-const { Schema, ITEMS, each, iterable } = require('./schema.js');
+const { Schema, ITEMS, each, iterable, registrar } = require('./schema.js');
 const { SchemaDefinitionError, EncodeError, DecodeError, boundary, nest } = require('./errors.js');
 const { isSchema } = require('./plan.js');
 
@@ -415,37 +415,26 @@ const itemsOf = async function* (schema, items, chunks, options, max) {
 };
 
 // Installed like class members: not enumerable. Once per process.
-let registered = false;
-
-const register = () => {
-  if (registered) return;
-  registered = true;
-  const members = {
-    stringifyLines(values) {
-      return stringifyLines(this, values);
-    },
-    parseLines(source, options) {
-      return parseLines(this, source, options);
-    },
-    stringifyStream() {
-      return stringifyStream(this);
-    },
-    parseStream(options) {
-      return parseStream(this, options);
-    },
-    stringifyItems(values) {
-      return stringifyItems(this, values);
-    },
-    parseItems(source, options) {
-      return parseItems(this, source, options);
-    },
-  };
-  const descriptors = Object.getOwnPropertyDescriptors(members);
-  for (const name of Object.keys(descriptors)) {
-    descriptors[name].enumerable = false;
-    Object.defineProperty(Schema.prototype, name, descriptors[name]);
-  }
-};
+const register = registrar(Schema.prototype, {
+  stringifyLines(values) {
+    return stringifyLines(this, values);
+  },
+  parseLines(source, options) {
+    return parseLines(this, source, options);
+  },
+  stringifyStream() {
+    return stringifyStream(this);
+  },
+  parseStream(options) {
+    return parseStream(this, options);
+  },
+  stringifyItems(values) {
+    return stringifyItems(this, values);
+  },
+  parseItems(source, options) {
+    return parseItems(this, source, options);
+  },
+});
 
 module.exports = {
   stringifyLines,

@@ -78,7 +78,9 @@ on their own. protoarray is the fastest encoder on records, strings and tagged m
 the fastest round trip of one record, decodes faster than JSON on every payload and faster than
 every codec on long strings, and writes about half the bytes of JSON. msgpackr's shared
 structures decode faster on the other payloads, and mostly numeric ones are the honest
-exception, where avsc and msgpackr lead.
+exception of the text wire, where avsc and msgpackr lead. On the binary wire
+(`@alexify/protoarray/binary`, the `binary wire` rows) the same schema has the fastest round trip
+of every library on all seven payloads, the numeric one included.
 
 <BenchCompare />
 

@@ -1,0 +1,190 @@
+# The Binary Wire
+
+protoarray's wire is JSON text: a positional array the engines print and parse natively, which is
+what makes it fast on records, strings and tagged messages, readable in logs and at home on any
+channel that carries JSON. Where a channel carries bytes and the payload is numbers, booleans,
+enums and dates, text is the slower form: a double prints as up to 17 characters where 8 bytes
+would do, and every value is parsed back from decimal text. `@alexify/protoarray/binary` puts the
+same schema on a binary wire. Nothing about the schema changes: the same plan is compiled a second
+time, into a writer and a reader of bytes, with the same checks on decode and the same errors.
+
+```js
+import { Schema } from '@alexify/protoarray';
+import { toBinary, fromBinary } from '@alexify/protoarray/binary';
+import { Schema as Definition } from '@alexify/metaschema';
+
+const Reading = Schema.from(
+  new Definition('Reading', { sensor: 'string', at: 'date', values: { array: 'number' } }),
+);
+
+const bytes = toBinary(Reading, { sensor: 'a1', at: new Date(), values: [20.5, 20.7, 21.1] });
+// Uint8Array(…): the header, 'a1', the timestamp as a varint, three float64s
+fromBinary(Reading, bytes);
+// { sensor: 'a1', at: 2026-10-19T…, values: [20.5, 20.7, 21.1] }
+```
+
+`toBinary` gives a `Uint8Array` of its own, `fromBinary` takes one (a Node.js `Buffer` is one).
+The codec is compiled from the schema's plan on first use and kept on the schema, by the backend
+the schema runs: generated code, or closures where the runtime has none (see
+[Runtimes](/guide/runtimes)). `register()` installs the two as methods:
+
+```js
+import { register } from '@alexify/protoarray/binary';
+
+register(); // once per process
+Reading.toBinary(value);
+Reading.fromBinary(bytes);
+Reading.list.toBinary([value, value]); // the rows of a list, through the same codec
+```
+
+## When to use it
+
+The choice is the channel's and the payload's, not a question of which wire is "faster": over a
+round trip the binary wire is ahead of the text wire on every payload of the
+[comparison](/guide/benchmarks#compared-with-other-libraries), from ×1.15 on long strings and
+×1.2 on one record to ×6.3 on 32 doubles, and it has the fastest round trip of every library
+measured there on all seven payloads, the binary codecs written in JavaScript included. It writes
+fewer bytes than the text wire before compression on every payload but long strings, which past 21
+characters travel as UTF-16. What it does not speed up: a `json` (`any`) slot travels as its JSON text inside
+the bytes, at about half the speed of the text wire, and encoding a record of a few fields returns
+a `Uint8Array` of its own, about 25 ns that the text wire's string does not cost, so such a record
+encodes at ×0.7 to ×0.9 of the text wire
+([`pnpm bench`](/guide/benchmarks#protoarray-on-its-two-backends)). Decoding one pays no such
+price: a message of up to 128 bytes is copied into a buffer the reader keeps, whose `DataView` is
+made once, rather than given a view of its own, which costs about as much as reading sixteen
+doubles. What the text wire keeps is everything that makes it JSON.
+
+- **Text** when the payload has to be readable (logs, a debugger, a REST client), travels over a
+  channel that carries text (a JSON API, a WebSocket text frame, NDJSON, `localStorage`, a
+  JSON-RPC envelope), is read by a side that only has JSON and the schema, or streams: the
+  [registry](/guide/resolve#the-registry) and [streaming](/guide/streaming) are the text wire's.
+  Through a text channel the bytes would need base64, which costs a third more and the time to
+  write and read it, and after gzip or brotli the two wires are close in size (on a list of
+  records the text wire is even smaller).
+- **Binary** when the channel carries bytes (a WebSocket binary frame, `fetch` with an
+  `ArrayBuffer`, a file, an IPC pipe) and the payload is numeric, or many short records a second:
+  32 doubles are 260 bytes against 582 of text and six times the round trip; a record of enums,
+  booleans and dates 26 bytes against 36.
+- **In a browser** the text wire leans on the engine's native `JSON.parse`, while the binary
+  wire's strings go through `TextDecoder`; on records of strings the text wire stays ahead or
+  level there, and the binary wire wins on numbers. The numbers of the comparison are Node's,
+  where strings go through `Buffer`, as protobufjs and avsc do.
+
+## The wire
+
+The normative table is in [Wire Format](/guide/wire-format#the-binary-wire). In short, little-endian:
+
+- a **record** is a header bitset (a presence bit per field, then the value of every boolean
+  field) in whole bytes, and its present fields in declaration order; a `sparse` record is no
+  different, since every record has a header;
+- a **union** is its tag (a byte, a varint past 256 values) and the branch's record without the
+  discriminator;
+- a **collection** is its count, a presence bitmap when its items may be `null`, and its items; a
+  map its entries, a dictionary its keys and values, a tuple a bitmap and its elements;
+- a **`number`** is a float64; an `integer`, a `date` (milliseconds) and a `decimals` number
+  (scaled) are zigzag varints; an enum index is a byte (a varint past 256 values); a flags mask one
+  varint per 31 names; a boolean outside a record a byte;
+- a **string** travels behind its byte length, doubled, whose low bit says its form: UTF-8 for
+  one of up to 21 characters, UTF-16 for a longer one, copied rather than transcoded, which is what
+  keeps long strings within reach of the text wire; a lone surrogate is kept, as JSON keeps it;
+  `bytes` travel as they are behind their length, a `bigint` as its decimal digits, `json` as its
+  text; `null` writes nothing.
+
+## Both sides need the schema
+
+Positions, header bits and tags are the schema's, so the reader needs the writer's schema, as an
+Avro reader needs the writer's. There is no trimming of trailing optionals and nothing beyond the
+schema is tolerated: a message is read whole, a byte past it is a `DecodeError` `extra`, and a
+message of another version of the schema is a `DecodeError`, with or without validation, not a
+partially understood one. Hand the snapshot to the other side, or agree on it through `schema.id`
+in a handshake (see [Schema Evolution](/guide/evolution#telling-versions-apart)).
+
+A message of another version is read through [`resolve`](/guide/resolve), as on the text wire: the
+resolved schema has the writer's wire under the reader's keys, types and defaults, so it reads the
+writer's bytes into the reader's shape and writes a reader's object as the writer's bytes.
+
+```js
+import { resolve } from '@alexify/protoarray/resolve';
+
+const Read = resolve(V1, V2); // what V1 wrote, as V2 objects
+fromBinary(Read, toBinary(V1, v1)); // the reader's keys, order and defaults, conversions applied
+toBinary(Read, v2); // V1's wire, which a V1 peer reads
+```
+
+A field only the writer has is read and dropped, and absent when the reader's object is written
+(a V1 peer that requires it then refuses the message, as it refuses the `null` the text wire
+writes there); a field only the reader has takes its default; an `integer` reads as a `bigint`,
+an enum by value, flags by name, as [the table](/guide/resolve#how-fields-are-matched) says, with
+the same errors; a union value the reader dropped is a `DecodeError` `union`. The bytes carry no
+id, so the side that reads still has to know which version wrote a message: the `[id, payload]`
+envelope of the registry is the text wire's in this release.
+
+## Validation and errors
+
+Decode checks the structure of the wire on every message, whatever `validate` says, as the text
+wire checks its arrays: the bounds of every read (a truncated message is a `DecodeError`
+`structure`), that a count fits the bytes left (so a message of a few bytes cannot make the
+reader allocate past itself), a bitmap and a string their length, a presence byte and a union's
+tag their values, a varint its eight bytes at most, and that the text of a `json` or a `bigint`
+slot parses. Behind the schema's `validate` option (`true` by default) it checks the values: the
+range of an enum index, a date, a boolean, an integer within the safe range, the words of a flags
+mask, a required field's presence (`required`). Whatever the bytes, `fromBinary` throws
+`DecodeError` and nothing else, in time linear in their length, and builds no array longer than
+eight times it (a list of nullable items, a bit each). Errors carry the schema's name and a path,
+as `decode` writes them (`orders[1].sku`), and `offset`: where the reader stood when it refused
+the message, the start of the slot that did not fit or the byte after a wrong value. With
+`maxDepth` a recursive schema refuses a payload at the same depth on both wires and both backends;
+without it the call stack is the limit, as on the text wire (`structure`, `depth`).
+
+Encode trusts its values, as `encode` does (checking them is metaschema's), and throws
+`EncodeError` only for what has no form on the wire: `null` at the root (`required`), a record
+that is not an object, a collection that is not an array, a `Set` or a `Map` (`object`, `array`,
+`set`, `map`), a `null` item of a list of required items (`type`), a union value outside the
+union (`union`), a `decimals` number past the safe integers (`type`), and, unlike the text wire,
+which carries anything as it is, a string slot that does not hold a string, a `bytes` slot that
+does not hold a `Uint8Array` and an `integer` slot that does not hold a safe integer (`type`): an
+infinity would never end a varint, and a fraction or a larger integer would read back as another
+number. A value JSON has no text for in a `json` slot (a function) travels as `null`, as on the
+text wire. A `number` travels as its float64, `NaN`, the infinities and `-0` included, where the
+text wire writes `null` for the first two; a `bigint` travels as its decimal digits, as UTF-16
+past 21 of them like any string.
+
+The bytes are a contract, as the text wire's arrays are: `tests/fixtures/golden-binary.json`
+holds the bytes of every vector of the wire format and of the edges of this wire, and a change
+to them is a new major version of protoarray, never a patch.
+
+## What has no binary form
+
+The options that shape the text wire shape text: an interned string (`intern`), a list or a
+column of differences (`delta`) and the `flat` and `columns` layouts (a collection nested with a
+layout of its own included). `toBinary` and `fromBinary` of such a schema throw
+`SchemaDefinitionError` with code `ERR_NO_BINARY_FORM`, naming the place by its path, and so do
+those of a schema from `resolve` whose writer has one, since it reads the writer's wire:
+
+```js
+const Users = Schema.from(definition, { metaschema, layout: 'columns', intern: ['[].city'] });
+toBinary(Users, users);
+// SchemaDefinitionError [ERR_NO_BINARY_FORM]: The binary wire has no form for the columns layout
+```
+
+Numbers need no `delta` on this wire, booleans and small enums are already bits and bytes, and a
+`number` is eight bytes whatever its value.
+
+## Backends, runtimes and size
+
+The binary codec follows `schema.backend`: generated code where the schema has it, closures
+elsewhere, both writing the same bytes (the test suite holds them to each other on random
+schemas, as it does the text backends). Under a strict CSP the closures are what runs, unless a
+[standalone module](/guide/standalone#the-binary-wire) written with `--binary` brings the
+generated codec along: an import module's schemas then carry it for `toBinary` and `fromBinary`,
+an inline module's have the two as methods of their own. In Node.js the strings go through
+`Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
+runtime twin that handles base64. The subpath adds about 9.1 KB min+gzip to a bundle that uses
+it; the core is unchanged.
+
+Every benchmark of the repository measures the binary wire next to the text one: the
+[comparison](/guide/benchmarks#compared-with-other-libraries) with other libraries, the cold
+start and the bundle size (the `binary wire` rows), `pnpm bench` on both backends and every shape
+([protoarray on its two backends](/guide/benchmarks#protoarray-on-its-two-backends), the *Binary
+wire* switch, and the binary row of the layouts) and the
+[release over release](/guide/benchmarks#release-over-release) table from 2.1 on.

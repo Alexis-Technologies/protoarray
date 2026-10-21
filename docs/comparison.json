@@ -311,7 +311,7 @@
         },
         "wire": {
           "mark": "",
-          "text": "JSON text (positional arrays)"
+          "text": "JSON text (positional arrays); bytes through `./binary`"
         },
         "readable": {
           "mark": "✅",
@@ -400,7 +400,7 @@
         },
         "fingerprint": {
           "mark": "✅",
-          "text": "`schema.id`, FNV-1a of the canonical form"
+          "text": "`schema.id`, FNV-1a (32 or 64 bits) of the canonical form"
         },
         "envelope": {
           "mark": "✅",

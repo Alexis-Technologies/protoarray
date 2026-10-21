@@ -8,7 +8,7 @@ const {
 } = require('@alexify/protoarray');
 ```
 
-Four subpaths carry what the core does not need, so a program that does not use them does not
+Five subpaths carry what the core does not need, so a program that does not use them does not
 bundle them:
 
 | Subpath | Exports | Page |
@@ -17,9 +17,14 @@ bundle them:
 | `@alexify/protoarray/registry` | `SchemaRegistry` | [Migrations and the Registry](/guide/resolve#the-registry) |
 | `@alexify/protoarray/stream` | `stringifyLines`, `parseLines`, `stringifyStream`, `parseStream`, `stringifyItems`, `parseItems`, `register` | [Streaming](/guide/streaming) |
 | `@alexify/protoarray/standalone` | `toSource`, `runtime`, `register` | [Standalone Modules](/guide/standalone) |
+| `@alexify/protoarray/evolve` | `compatible`, `baseline`, `restore`, `register` | [Schema Evolution](/guide/evolution#checking-it-in-ci) |
+| `@alexify/protoarray/binary` | `toBinary`, `fromBinary`, `register` | [The Binary Wire](/guide/binary) |
 
 The package also installs a `protoarray` command: `protoarray compile <module>` (see
-[Standalone Modules](/guide/standalone#protoarray-compile)). None of it requires
+[Standalone Modules](/guide/standalone#protoarray-compile)), `protoarray snapshot <module>` and
+`protoarray check <module> --against <baseline.json>` (see
+[Checking it in CI](/guide/evolution#checking-it-in-ci); exit codes 0 done or compatible, 1
+incompatible, 2 a wrong command line, 3 the module or the baseline could not be used). None of it requires
 `@alexify/metaschema`; schemas are built from what metaschema writes (see
 [Defining a Schema](/guide/schema)).
 
@@ -77,14 +82,14 @@ interface SchemaOptions {
   intern?: boolean | readonly string[];               // every string, or the strings at these paths: [table, body]
   delta?: readonly string[];                          // integer, number, date or decimals lists and columns
   stringify?: 'auto' | 'builder' | 'native';          // how stringify writes the text
-  fingerprint?: (signature: string) => string;        // computes `id`; default: FNV-1a 32-bit, 8 hex digits
+  fingerprint?: 'fnv1a32' | 'fnv1a64' | ((signature: string) => string);  // what `id` is of the signature: FNV-1a, 8 or 16 hex digits, or a function
   maxDepth?: number;                                  // levels of a recursion a payload may nest; default: the stack
   references?: 'kind' | 'embed' | 'id';               // how references travel; 'kind' as metaschema's check reads them
   types?: Readonly<Record<string, WireType>>;         // the wire type of a custom type with a check of its own
   entity?: string;                                    // the entity of a snapshot to build
   entities?: Readonly<Record<string, SchemaOptions>>; // options of the entities references reach, by name
   metaschema?: MetaschemaModule;                      // require('@alexify/metaschema') or its ./definition
-  compiled?: { canonical: string; id?: string; codec: object };  // from a standalone module
+  compiled?: { canonical: string; id?: string; codec: object; binary?: object };  // from a standalone module
 }
 
 type ModelOptions = Omit<SchemaOptions, 'sparse' | 'layout' | 'intern' | 'delta' | 'entity' | 'compiled' | 'metaschema'>;
@@ -142,12 +147,50 @@ interface ResolveOptions {
 A schema that reads what `writer` wrote as `reader` objects and writes them back as `writer` does
 (see [Migrations](/guide/resolve)).
 
+## `compatible(previous, next, options?)`
+
+```ts
+import { compatible, baseline, restore, register } from '@alexify/protoarray/evolve';
+
+function compatible(previous: AnySchema, next: AnySchema, options?: CompatibleOptions): Compatibility;
+function baseline(schemas: Readonly<Record<string, AnySchema>>): Baseline;
+function restore(source: unknown): Readonly<Record<string, Schema>>;
+function register(): void; // installs Schema.compatible
+
+interface CompatibleOptions { strict?: boolean }  // a warning fails the check too
+interface Compatibility { ok: boolean; problems: readonly Problem[] }
+interface Problem {
+  path: string;        // as the errors spell it: 'address.city', 'orders[].sku', '' for the root
+  rule: Rule;          // 'inserted' | 'moved' | 'removed' | 'renamed' | 'required' | 'retired' | 'type'
+                       // | 'optional' | 'appended' | 'wire' | 'flat' | 'default' | 'fingerprint'
+  severity: Severity;  // 'error' | 'warning' | 'info'
+  message: string;
+  previous?: string;   // the canonical form of the node in `previous`, where there is one (once
+                       // per place for the values of an enum, flags or a union)
+  next?: string;       // the same in `next`
+}
+interface Baseline {
+  format: 1;
+  generator?: string;  // the protoarray that wrote it, '@alexify/protoarray@2.1.0'; not checked
+  snapshots: readonly Snapshot[];
+  schemas: Readonly<Record<string, BaselineEntry>>;  // sorted by name
+}
+interface BaselineEntry {
+  snapshot: number; entity: string; options: BaselineOptions;
+  canonical: string; signature: string; id: string;  // checked by restore
+}
+```
+
+Whether `next` reads what `previous` writes by position, with every rule a change breaks;
+`baseline` writes schemas as JSON and `restore` builds them again (see
+[Checking it in CI](/guide/evolution#checking-it-in-ci)).
+
 ## Errors
 
 ```ts
 class SchemaDefinitionError extends TypeError { code: SchemaErrorCode; schema: string; field: string }
 class EncodeError extends TypeError { code: EncodeErrorCode; path: string; schema: string }
-class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown }
+class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schema: string; cause?: unknown; offset?: number }
 ```
 
 ## Types
@@ -161,6 +204,7 @@ class DecodeError extends TypeError { code: DecodeErrorCode; path: string; schem
 | `AnySchema` | any `Schema` instance, what the functions and the registry accept |
 | `Collection<Output, Input>` | the type of `schema.list` |
 | `SchemaOptions`, `ModelOptions`, `EntityOptions`, `DecodeOptions`, `Backend`, `Layout`, `WireType`, `CompiledCodec`, `Codec` | options and their values |
+| `Compatibility`, `Problem`, `Rule`, `Severity`, `CompatibleOptions`, `Baseline`, `BaselineEntry`, `BaselineOptions` | what `@alexify/protoarray/evolve` gives and takes |
 | `SchemaErrorCode`, `EncodeErrorCode`, `DecodeErrorCode` | the `code` unions |
 
 See [TypeScript](/guide/typescript) for how a schema takes its types from metaschema.
@@ -177,3 +221,24 @@ See [TypeScript](/guide/typescript) for how a schema takes its types from metasc
 | `Infer`, `Input`, `Encoded`, `Definition` and the other definition types | `Schema<Output, Input>`, `Decoded`, `InputOf`, `OutputOf` |
 
 See [Migrating from 1.x](/guide/migrating-from-1).
+
+## `toBinary(schema, value)`, `fromBinary(schema, bytes)`
+
+```ts
+import { toBinary, fromBinary, register } from '@alexify/protoarray/binary';
+
+function toBinary<S extends AnySchema>(schema: S, value: Parameters<S['encode']>[0]): Uint8Array;
+function fromBinary<S extends AnySchema>(schema: S, bytes: Uint8Array): ReturnType<S['decode']>;
+function register(): void;   // installs schema.toBinary(value) and schema.fromBinary(bytes)
+```
+
+The same schema on the [binary wire](/guide/binary): `toBinary` gives a `Uint8Array` of the value,
+`fromBinary` the value back, for a schema or a collection (`schema.list`). The codec is compiled
+from the schema's plan on first use and kept on the schema, by the backend the schema runs, and
+checks the wire on decode as the schema's `validate` says. Throws `EncodeError` for a value with
+no form (`null` at the root, the wrong shape, a union value outside the union, a decimal past the
+safe integers, a string or `bytes` slot of another type), `DecodeError` for a message that is not
+of the schema (truncated, an index out of range, a required field missing; anything but a
+`Uint8Array` is `structure`), and `SchemaDefinitionError` `ERR_NO_BINARY_FORM` for a schema with
+interned strings, lists of differences, a `flat` or `columns` layout, or one from `resolve`. Both
+sides need the same schema.

@@ -14,6 +14,14 @@ export interface SourceOptions {
   readonly runtime?: 'import' | 'inline';
   /** `'cjs'` (the default) or `'esm'`. */
   readonly format?: 'cjs' | 'esm';
+  /**
+   * `true` writes each schema's codec of the binary wire (`@alexify/protoarray/binary`) next to
+   * its text codec: an import module's schemas carry it for `toBinary` and `fromBinary`, an inline
+   * module's get the two as methods. A schema with no binary form is refused
+   * (`SchemaDefinitionError` `ERR_NO_BINARY_FORM`). `false` by default: the module carries no
+   * bytes.
+   */
+  readonly binary?: boolean;
 }
 
 /** What an inline module exports for each schema. */
@@ -28,6 +36,10 @@ export interface StandaloneSchema {
   stringify(value: unknown): string;
   parse(text: string, options?: { readonly strict?: boolean }): unknown;
   toString(): string;
+  /** The bytes of a value on the binary wire; only in a module written with `binary: true`. */
+  toBinary?(value: unknown): Uint8Array;
+  /** The value of the bytes `toBinary` gave; only in a module written with `binary: true`. */
+  fromBinary?(bytes: Uint8Array): unknown;
 }
 
 /**

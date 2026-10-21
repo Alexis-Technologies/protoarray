@@ -10,6 +10,7 @@ import {
   parse,
   stringify,
   type Backend,
+  type Codec,
   type Decoded,
   type DecodeErrorCode,
   type EncodeErrorCode,
@@ -118,6 +119,9 @@ expectError(Schema.from(UserDefinition, { intern: 'tags' }));
 expectError(Schema.from(UserDefinition, { types: { money: 'float' } }));
 expectError(Schema.from(UserDefinition, { schemas: {} }));
 expectError(Schema.from(UserDefinition, { maxDepth: '512' }));
+Schema.from(UserDefinition, { fingerprint: 'fnv1a64' });
+Schema.from(UserDefinition, { fingerprint: 'fnv1a32' });
+expectError(Schema.from(UserDefinition, { fingerprint: 'sha1' }));
 
 // The free functions follow the schema's methods.
 expectType<unknown>(encode(User, decoded));
@@ -148,5 +152,9 @@ expectError(Schema.from({ format: 1, entities: {} }, { entities: { A: { entities
 expectType<Schema<unknown>>(
   Schema.from({ format: 1, entities: {} }, { entities: { A: { sparse: true } } }),
 );
-// A compiled codec is one with encode and decode.
+// A compiled codec is one with encode and decode, its binary one with write and read.
 expectError(Schema.from({ format: 1, entities: {} }, { compiled: { canonical: '', codec: {} } }));
+declare const codec: Codec;
+expectError(
+  Schema.from({ format: 1, entities: {} }, { compiled: { canonical: '', codec, binary: {} } }),
+);

@@ -38,9 +38,10 @@ flowchart LR
     REG["./registry · 2.5 KB<br/>SchemaRegistry · the [id, payload] envelope"] --> CORE
     RES["./resolve · 1.9 KB<br/>resolve(writer, reader)"] --> CORE
     STR["./stream · 1.8 KB<br/>NDJSON · TransformStreams · parseItems"] --> CORE
-    STA["./standalone · 2.4 KB<br/>toSource · the runtimes"] --> CORE
+    STA["./standalone · 8.2 KB<br/>toSource · the runtimes · both wires"] --> CORE
+    BIN["./binary · 8.6 KB<br/>toBinary · fromBinary"] --> CORE
     CLI["bin/protoarray.js<br/>protoarray compile"] --> STA
-    CORE["@alexify/protoarray · 21.5 KB<br/>Schema · encode · decode · stringify · parse<br/>both backends · every type and layout"]
+    CORE["@alexify/protoarray · 22.6 KB<br/>Schema · encode · decode · stringify · parse<br/>both backends · every type and layout"]
     MS["@alexify/metaschema<br/>(optional, injected)"] -.->|"{ metaschema } reads a definition"| CORE
 ```
 
@@ -121,7 +122,8 @@ flowchart TB
 The generated code writes array and object literals, so every decoded object has the hidden class
 a literal of the schema's keys would, and the engine keeps the call sites monomorphic. The
 closures compose the same steps without compiling anything; a decoded object starts as a copy of a
-template with the schema's keys, which keeps its hidden class stable too. The two backends are
+template with the schema's keys at their defaults, which keeps its hidden class stable too and
+makes a missing field free. The two backends are
 indistinguishable on the outside: the same wire, the same objects in the same key order and the
 same errors, which a property-based suite checks on random schemas, values and corrupted wires.
 Schema keys reach generated source only as `JSON.stringify(key)`, and generated code gets every
@@ -158,7 +160,8 @@ intermediate array (see [Runtimes](/guide/runtimes#how-stringify-writes-the-text
 The plan has a canonical form, a string that describes the wire and is the same for two schemas that
 write the same one: `schema.toString()`. A schema's **signature** is that form followed by the
 canonical form of every other entity it reaches by reference, and `schema.id` is its fingerprint
-(FNV-1a, or your own `fingerprint` function of it), so a changed referenced entity changes the id.
+(FNV-1a, 32 or 64 bits as the `fingerprint` option names, or your own function of it), so a
+changed referenced entity changes the id.
 For a schema without references, these are the strings and ids 1.x computed from its own spelling of
 the definition.
 

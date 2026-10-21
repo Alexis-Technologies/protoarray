@@ -327,6 +327,24 @@ const ADAPTERS = {
       return text(schema);
     },
   },
+  // The same schema on the binary wire (`@alexify/protoarray/binary`): the
+  // codec is built on the first call, which the cold start counts.
+  'protoarray-binary': {
+    name: 'protoarray',
+    variant: 'binary wire',
+    package: '@alexify/protoarray',
+    family: 'binary',
+    load: () => ({ ...loadProtoarray(), binary: require(path.join(ROOT, 'binary.js')) }),
+    setup: (scenario, lib) => {
+      const schema = fromDefinition(lib, scenario);
+      const { toBinary, fromBinary } = lib.binary;
+      return {
+        encode: (value) => toBinary(schema, value),
+        decode: (bytes) => fromBinary(schema, bytes),
+        normalize: plain,
+      };
+    },
+  },
   protobufjs: {
     name: 'protobufjs',
     variant: 'reflection, Root.fromJSON',

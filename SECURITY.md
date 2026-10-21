@@ -95,6 +95,29 @@ timeline once the report is confirmed.
   never the whole payload, and no more than `maxLength` characters of it (16 MiB by default): a
   longer one is `DecodeError` `structure` at its index. They give the guarantees of `decode`
   above. A stream that is read through `getReader()` is cancelled when the consumer stops early.
+- **Bytes are untrusted data.** `fromBinary` (`@alexify/protoarray/binary`) gives the guarantees
+  of `decode` for any `Uint8Array`, whatever `validate` is set to: the only error it throws is
+  `DecodeError`. The structure of a message is checked on every read (its bounds, that a count
+  fits the bytes left, a bitmap and a string their length, a varint its eight bytes at most, a
+  presence byte, a union's tag, the text of a `json` or a `bigint` slot), so a message of a few
+  bytes cannot make the reader allocate past itself or loop for long; a message is read whole and
+  a byte past it is refused; strings and `bytes` are copied out of it, never views of it; work is
+  linear in its length, and no array is longer than eight times it (a list of nullable items).
+  With `validate: false` the values are trusted as on the text wire. `maxDepth` applies to the
+  binary wire as to the text one, and the call stack is the limit without it (`structure`,
+  `depth`). A `DecodeError` carries `offset`, the reader's position, safe to log. Bound the size
+  of a message on the transport as you bound a payload's: a `bigint` or a `json` slot accepts a
+  string of any length. Encode refuses what the wire has no form for (a string slot without a
+  string, a `bytes` slot without a `Uint8Array`, an `integer` slot without a safe integer: an
+  infinity would never end a varint); a writer keeps a buffer of up to a mebibyte between
+  messages and lets a larger one go after the message.
+- **A baseline is data.** `restore` (`@alexify/protoarray/evolve`) reads a baseline as it reads a
+  snapshot: its format and every entry are checked, the snapshots in it go through the checks
+  above, only the options that shape the wire are taken from it, and each schema is rebuilt and
+  held to the canonical form, the signature and the id it was written with
+  (`ERR_INVALID_SNAPSHOT` otherwise, naming what differs). A baseline decides which schemas a CI
+  job compares the code against: commit it with the code and review its changes as you review
+  theirs.
 - **Code generation.** The codegen backend compiles source text with `new Function` in one place,
   `src/codegen.js`, and only once a schema may use it: a program that builds its schemas with
   `{ codegen: false }`, or loads them from a generated module, never tries (no CSP report).
@@ -106,8 +129,9 @@ timeline once the report is confirmed.
 - **Generated modules and the CLI.** A module `toSource` or `protoarray compile` writes is code:
   load it as you would any module of yours. Its `compiled` codecs are trusted as given, and
   `ERR_COMPILED_MISMATCH` says a module is stale (another schema, another version of
-  protoarray), not that it is intact. `protoarray compile` loads (and so runs) the module it is
-  given, with `require` or `import`: compile only modules you would run.
+  protoarray), not that it is intact. `protoarray compile`, `snapshot` and `check` load (and so
+  run) the module they are given, with `require` or `import`: give them only modules you would
+  run.
 - **Encoding** trusts the values it is given, the way 1.0 did: it checks shape, not types. A
   record that is not an object (an array is not one), a collection or tuple that is not an array,
   a set or a map of the wrong kind (told by its brand, not by a tag it claims), a union value whose

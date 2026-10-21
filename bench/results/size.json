@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T20:47:11.991Z",
+  "generatedAt": "2026-10-21T17:48:29.683Z",
   "scenario": "single",
   "libraries": [
     {
@@ -7,10 +7,10 @@
       "name": "protoarray",
       "variant": "codegen, from a snapshot",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "min": 62390,
-      "gzip": 22538,
+      "min": 64720,
+      "gzip": 23577,
       "note": "the schema built from its snapshot: a client without metaschema"
     },
     {
@@ -18,21 +18,32 @@
       "name": "protoarray",
       "variant": "codegen, metaschema definition",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "min": 122929,
-      "gzip": 43642,
+      "min": 125285,
+      "gzip": 44637,
       "note": "protoarray and @alexify/metaschema, which reads the definition and validates values"
+    },
+    {
+      "id": "protoarray-binary",
+      "name": "protoarray",
+      "variant": "binary wire, from a snapshot",
+      "package": "@alexify/protoarray",
+      "version": "2.1.0",
+      "family": "binary",
+      "min": 92876,
+      "gzip": 33159,
+      "note": "the core and the ./binary subpath, the schema built from its snapshot"
     },
     {
       "id": "protoarray-standalone",
       "name": "protoarray",
       "variant": "standalone module, no eval",
       "package": "@alexify/protoarray",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "family": "text",
-      "min": 18712,
-      "gzip": 7069,
+      "min": 19503,
+      "gzip": 7415,
       "note": "the module protoarray compile writes for this schema, with its inline runtime"
     },
     {

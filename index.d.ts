@@ -119,6 +119,12 @@ export interface Codec {
   stringify?(value: unknown): string;
 }
 
+/** A codec of the binary wire (see `@alexify/protoarray/binary`), generated or composed. */
+export interface BinaryCodec {
+  write(writer: object, value: unknown): void;
+  read(reader: object): unknown;
+}
+
 /** A schema's codec as a generated module passes it (see `@alexify/protoarray/standalone`). */
 export interface CompiledCodec {
   readonly canonical: string;
@@ -126,6 +132,8 @@ export interface CompiledCodec {
   readonly codec: Codec;
   /** The codec of one record of a rows collection, for the stream helpers. */
   readonly items?: Codec;
+  /** The codec of the binary wire, where the module carries one (`binary: true`). */
+  readonly binary?: BinaryCodec;
 }
 
 /**
@@ -164,11 +172,13 @@ export interface SchemaOptions {
    */
   readonly stringify?: 'auto' | 'builder' | 'native';
   /**
-   * Computes `id` from the schema's signature: its canonical form (`toString()`), then
-   * `;Name=<canonical form>` for every other entity it references, by name. The default is a
-   * 32-bit FNV-1a hash as eight hex digits. It must be synchronous and deterministic.
+   * What `id` is of the schema's signature: its canonical form (`toString()`), then
+   * `;Name=<canonical form>` for every other entity it references, by name. `'fnv1a32'` (the
+   * default) is a 32-bit FNV-1a hash as eight hex digits, enough for a handshake; `'fnv1a64'` the
+   * 64-bit one as sixteen, for a registry of many schemas; a function computes it from the
+   * signature, and must be synchronous and deterministic.
    */
-  readonly fingerprint?: (signature: string) => string;
+  readonly fingerprint?: 'fnv1a32' | 'fnv1a64' | ((signature: string) => string);
   /**
    * The levels of a recursion one payload may nest, a positive integer: deeper is `DecodeError`
    * `structure` or `EncodeError` `depth`, at the same level on either backend and in generated
@@ -409,4 +419,9 @@ export class DecodeError extends TypeError {
   readonly cause?: unknown;
   /** The id an envelope names, on a `schema` error: the payload's, kept out of the message. */
   readonly id?: string;
+  /**
+   * On an error of the binary wire (`fromBinary`): where the reader stood when it refused the
+   * message, the start of the slot that did not fit or the byte after a wrong value.
+   */
+  readonly offset?: number;
 }

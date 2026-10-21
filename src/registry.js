@@ -3,17 +3,17 @@
 // its payloads as any reader schema through Schema.resolve, and writes for a
 // peer on an older version the same way.
 
-const { Schema, SAME } = require('./schema.js');
+const { Schema, SAME, SETTINGS } = require('./schema.js');
 const { resolve } = require('./resolve.js');
 const { SchemaDefinitionError, DecodeError, boundary } = require('./errors.js');
-const { PLAN, isSchema } = require('./plan.js');
+const { isSchema, isResolved } = require('./plan.js');
 
 const expect = (schema) => {
   if (!isSchema(schema)) {
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', 'Schema instance expected');
   }
   // A resolved schema has its writer's id: it would stand for its writer.
-  if (schema[PLAN].text !== undefined) {
+  if (isResolved(schema)) {
     const text = 'A resolved schema is no version of its own: give its writer or its reader';
     throw new SchemaDefinitionError('ERR_SCHEMA_EXPECTED', text, schema.name);
   }
@@ -47,9 +47,16 @@ class SchemaRegistry {
     const { id } = schema;
     const known = this.#byId.get(id);
     if (known !== undefined && !known[SAME](schema)) {
+      // The remedy is a wider hash where the default one collided; schemas
+      // already on a wider or their own hash need another one.
+      const narrow = (s) => s[SETTINGS].fingerprint === 'fnv1a32';
+      const remedy =
+        narrow(known) && narrow(schema)
+          ? "use a wider fingerprint ({ fingerprint: 'fnv1a64' })"
+          : 'their fingerprint gives both one id, use a wider or another one';
       throw new SchemaDefinitionError(
         'ERR_ID_COLLISION',
-        `Schemas "${known.name}" and "${schema.name}" share the id ${id}: use a wider fingerprint`,
+        `Schemas "${known.name}" and "${schema.name}" share the id ${id}: ${remedy}`,
         schema.name,
       );
     }

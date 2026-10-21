@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="844" viewBox="0 0 760 844" role="img" aria-label="One record: payload size. One record: 10 fields, nested address, tags, 2 orders. The payload as sent, before compression, linear scale, lower is better. The line marks JSON.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="884" viewBox="0 0 760 884" role="img" aria-label="One record: payload size. One record: 10 fields, nested address, tags, 2 orders. The payload as sent, before compression, linear scale, lower is better. The line marks JSON.">
 <style>
   text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
   .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
@@ -33,18 +33,18 @@
 <text class="title" x="20" y="35">One record: payload size</text>
 <text class="subtitle" x="20" y="56">One record: 10 fields, nested address, tags, 2 orders. The payload as sent, before compression, linear scale,</text>
 <text class="subtitle" x="20" y="73">lower is better. The line marks JSON.</text>
-<line class="grid" x1="217" y1="88" x2="217" y2="768"/>
-<text class="tick" x="217" y="784" text-anchor="middle">0</text>
-<line class="grid" x1="331.75" y1="88" x2="331.75" y2="768"/>
-<text class="tick" x="331.75" y="784" text-anchor="middle">100 B</text>
-<line class="grid" x1="446.5" y1="88" x2="446.5" y2="768"/>
-<text class="tick" x="446.5" y="784" text-anchor="middle">200 B</text>
-<line class="grid" x1="561.25" y1="88" x2="561.25" y2="768"/>
-<text class="tick" x="561.25" y="784" text-anchor="middle">300 B</text>
-<line class="grid" x1="676" y1="88" x2="676" y2="768"/>
-<text class="tick" x="676" y="784" text-anchor="middle">400 B</text>
-<line class="axis" x1="217" y1="88" x2="217" y2="768"/>
-<line class="ref" x1="522.235" y1="88" x2="522.235" y2="768"/>
+<line class="grid" x1="217" y1="88" x2="217" y2="808"/>
+<text class="tick" x="217" y="824" text-anchor="middle">0</text>
+<line class="grid" x1="331.75" y1="88" x2="331.75" y2="808"/>
+<text class="tick" x="331.75" y="824" text-anchor="middle">100 B</text>
+<line class="grid" x1="446.5" y1="88" x2="446.5" y2="808"/>
+<text class="tick" x="446.5" y="824" text-anchor="middle">200 B</text>
+<line class="grid" x1="561.25" y1="88" x2="561.25" y2="808"/>
+<text class="tick" x="561.25" y="824" text-anchor="middle">300 B</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="808"/>
+<text class="tick" x="676" y="824" text-anchor="middle">400 B</text>
+<line class="axis" x1="217" y1="88" x2="217" y2="808"/>
+<line class="ref" x1="522.235" y1="88" x2="522.235" y2="808"/>
 <g><title>avsc · Type.forSchema
 97 bytes
 36% of the JSON bytes
@@ -81,122 +81,131 @@ protobufjs@8.8.1, writes bytes</title>
 <path class="bar" d="M217,221H344.9625A4,4 0 0 1 348.9625,225V231A4,4 0 0 1 344.9625,235H217Z"/>
 <text class="value" x="354.9625" y="234">115 B</text>
 </g>
+<g><title>protoarray · binary wire
+125 bytes
+47% of the JSON bytes
+@alexify/protoarray@2.1.0 (395129b), writes bytes</title>
+<text class="label secondary" x="20" y="265">protoarray</text>
+<text class="sublabel" x="20" y="280">binary wire</text>
+<path class="bar secondary" d="M217,261H356.4375A4,4 0 0 1 360.4375,265V271A4,4 0 0 1 356.4375,275H217Z"/>
+<text class="value" x="366.4375" y="274">125 B</text>
+</g>
 <g><title>protoarray · codegen
 135 bytes
 51% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label primary" x="20" y="265">protoarray</text>
-<text class="sublabel" x="20" y="280">codegen</text>
-<path class="bar primary" d="M217,261H367.9125A4,4 0 0 1 371.9125,265V271A4,4 0 0 1 367.9125,275H217Z"/>
-<text class="value" x="377.9125" y="274">135 B</text>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label primary" x="20" y="305">protoarray</text>
+<text class="sublabel" x="20" y="320">codegen</text>
+<path class="bar primary" d="M217,301H367.9125A4,4 0 0 1 371.9125,305V311A4,4 0 0 1 367.9125,315H217Z"/>
+<text class="value" x="377.9125" y="314">135 B</text>
 </g>
 <g><title>protoarray · closures, no eval
 135 bytes
 51% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="305">protoarray</text>
-<text class="sublabel" x="20" y="320">closures, no eval</text>
-<path class="bar secondary" d="M217,301H367.9125A4,4 0 0 1 371.9125,305V311A4,4 0 0 1 367.9125,315H217Z"/>
-<text class="value" x="377.9125" y="314">135 B</text>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label secondary" x="20" y="345">protoarray</text>
+<text class="sublabel" x="20" y="360">closures, no eval</text>
+<path class="bar secondary" d="M217,341H367.9125A4,4 0 0 1 371.9125,345V351A4,4 0 0 1 367.9125,355H217Z"/>
+<text class="value" x="377.9125" y="354">135 B</text>
 </g>
 <g><title>protoarray · standalone module, no eval
 135 bytes
 51% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="345">protoarray</text>
-<text class="sublabel" x="20" y="360">standalone module, no eval</text>
-<path class="bar secondary" d="M217,341H367.9125A4,4 0 0 1 371.9125,345V351A4,4 0 0 1 367.9125,355H217Z"/>
-<text class="value" x="377.9125" y="354">135 B</text>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label secondary" x="20" y="385">protoarray</text>
+<text class="sublabel" x="20" y="400">standalone module, no eval</text>
+<path class="bar secondary" d="M217,381H367.9125A4,4 0 0 1 371.9125,385V391A4,4 0 0 1 367.9125,395H217Z"/>
+<text class="value" x="377.9125" y="394">135 B</text>
 </g>
 <g><title>protoarray · codegen + metaschema check
 135 bytes
 51% of the JSON bytes
-@alexify/protoarray@2.0.0 (72941bf), writes JSON text</title>
-<text class="label secondary" x="20" y="385">protoarray</text>
-<text class="sublabel" x="20" y="400">codegen + metaschema check</text>
-<path class="bar secondary" d="M217,381H367.9125A4,4 0 0 1 371.9125,385V391A4,4 0 0 1 367.9125,395H217Z"/>
-<text class="value" x="377.9125" y="394">135 B</text>
+@alexify/protoarray@2.1.0 (7811039), writes JSON text</title>
+<text class="label secondary" x="20" y="425">protoarray</text>
+<text class="sublabel" x="20" y="440">codegen + metaschema check</text>
+<path class="bar secondary" d="M217,421H367.9125A4,4 0 0 1 371.9125,425V431A4,4 0 0 1 367.9125,435H217Z"/>
+<text class="value" x="377.9125" y="434">135 B</text>
 </g>
 <g><title>@msgpack/msgpack · Encoder · Decoder
 198 bytes
 74% of the JSON bytes
 @msgpack/msgpack@3.1.3, writes bytes</title>
-<text class="label" x="20" y="425">@msgpack/msgpack</text>
-<text class="sublabel" x="20" y="440">Encoder · Decoder</text>
-<path class="bar" d="M217,421H440.205A4,4 0 0 1 444.205,425V431A4,4 0 0 1 440.205,435H217Z"/>
-<text class="value" x="450.205" y="434">198 B</text>
+<text class="label" x="20" y="465">@msgpack/msgpack</text>
+<text class="sublabel" x="20" y="480">Encoder · Decoder</text>
+<path class="bar" d="M217,461H440.205A4,4 0 0 1 444.205,465V471A4,4 0 0 1 440.205,475H217Z"/>
+<text class="value" x="450.205" y="474">198 B</text>
 </g>
 <g><title>msgpackr · pack · unpack
 206 bytes
 77% of the JSON bytes
 msgpackr@2.1.0, writes bytes</title>
-<text class="label" x="20" y="465">msgpackr</text>
-<text class="sublabel" x="20" y="480">pack · unpack</text>
-<path class="bar" d="M217,461H449.385A4,4 0 0 1 453.385,465V471A4,4 0 0 1 449.385,475H217Z"/>
-<text class="value" x="459.385" y="474">206 B</text>
+<text class="label" x="20" y="505">msgpackr</text>
+<text class="sublabel" x="20" y="520">pack · unpack</text>
+<path class="bar" d="M217,501H449.385A4,4 0 0 1 453.385,505V511A4,4 0 0 1 449.385,515H217Z"/>
+<text class="value" x="459.385" y="514">206 B</text>
 </g>
 <g><title>cbor-x · records
 215 bytes
 81% of the JSON bytes
 cbor-x@1.6.6, writes bytes</title>
-<text class="label" x="20" y="505">cbor-x</text>
-<text class="sublabel" x="20" y="520">records</text>
-<path class="bar" d="M217,501H459.7125A4,4 0 0 1 463.7125,505V511A4,4 0 0 1 459.7125,515H217Z"/>
-<text class="value" x="469.7125" y="514">215 B</text>
+<text class="label" x="20" y="545">cbor-x</text>
+<text class="sublabel" x="20" y="560">records</text>
+<path class="bar" d="M217,541H459.7125A4,4 0 0 1 463.7125,545V551A4,4 0 0 1 459.7125,555H217Z"/>
+<text class="value" x="469.7125" y="554">215 B</text>
 </g>
 <g><title>v8.serialize · structured clone, Node only
 245 bytes
 92% of the JSON bytes
 node:v8, Node 24.14.1, writes bytes</title>
-<text class="label" x="20" y="545">v8.serialize</text>
-<text class="sublabel" x="20" y="560">structured clone, Node only</text>
-<path class="bar" d="M217,541H494.13750000000005A4,4 0 0 1 498.13750000000005,545V551A4,4 0 0 1 494.13750000000005,555H217Z"/>
-<text class="value" x="504.13750000000005" y="554">245 B</text>
+<text class="label" x="20" y="585">v8.serialize</text>
+<text class="sublabel" x="20" y="600">structured clone, Node only</text>
+<path class="bar" d="M217,581H494.13750000000005A4,4 0 0 1 498.13750000000005,585V591A4,4 0 0 1 494.13750000000005,595H217Z"/>
+<text class="value" x="504.13750000000005" y="594">245 B</text>
 </g>
 <g><title>JSON · stringify · parse
 266 bytes
 JSON (built in), Node 24.14.1, writes JSON text</title>
-<text class="label" x="20" y="585">JSON</text>
-<text class="sublabel" x="20" y="600">stringify · parse</text>
-<path class="bar" d="M217,581H518.235A4,4 0 0 1 522.235,585V591A4,4 0 0 1 518.235,595H217Z"/>
-<text class="value" x="528.235" y="594">266 B</text>
+<text class="label" x="20" y="625">JSON</text>
+<text class="sublabel" x="20" y="640">stringify · parse</text>
+<path class="bar" d="M217,621H518.235A4,4 0 0 1 522.235,625V631A4,4 0 0 1 518.235,635H217Z"/>
+<text class="value" x="528.235" y="634">266 B</text>
 </g>
 <g><title>fast-json-stringify · compiled stringify, JSON.parse
 266 bytes
 100% of the JSON bytes
 fast-json-stringify@7.1.0, writes JSON text</title>
-<text class="label" x="20" y="625">fast-json-stringify</text>
-<text class="sublabel" x="20" y="640">compiled stringify, JSON.parse</text>
-<path class="bar" d="M217,621H518.235A4,4 0 0 1 522.235,625V631A4,4 0 0 1 518.235,635H217Z"/>
-<text class="value" x="528.235" y="634">266 B</text>
+<text class="label" x="20" y="665">fast-json-stringify</text>
+<text class="sublabel" x="20" y="680">compiled stringify, JSON.parse</text>
+<path class="bar" d="M217,661H518.235A4,4 0 0 1 522.235,665V671A4,4 0 0 1 518.235,675H217Z"/>
+<text class="value" x="528.235" y="674">266 B</text>
 </g>
 <g><title>superjson · stringify · parse
 275 bytes
 103% of the JSON bytes
 superjson@2.2.6, writes JSON text</title>
-<text class="label" x="20" y="665">superjson</text>
-<text class="sublabel" x="20" y="680">stringify · parse</text>
-<path class="bar" d="M217,661H528.5625A4,4 0 0 1 532.5625,665V671A4,4 0 0 1 528.5625,675H217Z"/>
-<text class="value" x="538.5625" y="674">275 B</text>
+<text class="label" x="20" y="705">superjson</text>
+<text class="sublabel" x="20" y="720">stringify · parse</text>
+<path class="bar" d="M217,701H528.5625A4,4 0 0 1 532.5625,705V711A4,4 0 0 1 528.5625,715H217Z"/>
+<text class="value" x="538.5625" y="714">275 B</text>
 </g>
 <g><title>BSON · serialize · deserialize
 298 bytes
 112% of the JSON bytes
 bson@7.3.3, writes bytes</title>
-<text class="label" x="20" y="705">BSON</text>
-<text class="sublabel" x="20" y="720">serialize · deserialize</text>
-<path class="bar" d="M217,701H554.9549999999999A4,4 0 0 1 558.9549999999999,705V711A4,4 0 0 1 554.9549999999999,715H217Z"/>
-<text class="value" x="564.9549999999999" y="714">298 B</text>
+<text class="label" x="20" y="745">BSON</text>
+<text class="sublabel" x="20" y="760">serialize · deserialize</text>
+<path class="bar" d="M217,741H554.9549999999999A4,4 0 0 1 558.9549999999999,745V751A4,4 0 0 1 554.9549999999999,755H217Z"/>
+<text class="value" x="564.9549999999999" y="754">298 B</text>
 </g>
 <g><title>devalue · stringify · parse
 311 bytes
 117% of the JSON bytes
 devalue@6.0.3, writes JSON text</title>
-<text class="label" x="20" y="745">devalue</text>
-<text class="sublabel" x="20" y="760">stringify · parse</text>
-<path class="bar" d="M217,741H569.8725A4,4 0 0 1 573.8725,745V751A4,4 0 0 1 569.8725,755H217Z"/>
-<text class="value" x="579.8725" y="754">311 B</text>
+<text class="label" x="20" y="785">devalue</text>
+<text class="sublabel" x="20" y="800">stringify · parse</text>
+<path class="bar" d="M217,781H569.8725A4,4 0 0 1 573.8725,785V791A4,4 0 0 1 569.8725,795H217Z"/>
+<text class="value" x="579.8725" y="794">311 B</text>
 </g>
-<text class="caption" x="20" y="809">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
-<text class="caption" x="20" y="825">2026-10-16</text>
+<text class="caption" x="20" y="849">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each library and scenario in a fresh process ·</text>
+<text class="caption" x="20" y="865">2026-10-21</text>
 </svg>

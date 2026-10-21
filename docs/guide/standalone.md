@@ -32,6 +32,9 @@ const Ping = new Definition('Ping', { at: 'date' });
 module.exports = { model, Ping }; // compiles to the exports Address, User and Ping
 ```
 
+The same command writes and checks the baselines of the evolution guide, `protoarray snapshot` and
+`protoarray check` (see [Checking it in CI](/guide/evolution#checking-it-in-ci)).
+
 Options:
 
 | Option | |
@@ -40,6 +43,7 @@ Options:
 | `--format cjs \| esm` | the module format, `cjs` by default |
 | `--runtime import \| inline` | what the module needs at runtime, `import` by default (below) |
 | `--only A,B` | the named exports only |
+| `--binary` | the codec of the [binary wire](/guide/binary) next to the text codec of each schema (below) |
 
 A module whose export is one schema gives a module with that schema as its default export;
 otherwise the schemas keep their export names. The generated module needs no metaschema.
@@ -60,17 +64,19 @@ fs.writeFileSync('schemas.compiled.js', toSource({ User, Address }, { format: 'e
 ```
 
 The options a schema was built with travel with it (`sparse`, `layout`, `delta`, `intern`,
-`references`, `types`, `validate`, `stringify`).
+`references`, `types`, `validate`, `stringify`, `maxDepth`, and `fingerprint` when it names a
+built-in hash).
 
 `toSource(schema)` writes one schema as the default export, `toSource({ A, B })` named exports.
-`register()` from the same subpath adds `schema.toSource(options)`.
+The options are `runtime` and `format` as the command takes them, and `binary: true` for the
+binary wire. `register()` from the same subpath adds `schema.toSource(options)`.
 
 ## The two runtimes
 
 | `runtime` | The module | Exports |
 | --- | --- | --- |
 | `'import'` (default) | imports `@alexify/protoarray` and `@alexify/protoarray/standalone` | real `Schema` instances: the whole API, `instanceof` the package's errors |
-| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `backend`, `encode`, `decode`, `stringify`, `parse`, `toString` |
+| `'inline'` | carries the source of the package's error classes, type table, layouts and base64, and imports nothing | objects with `name`, `id`, `keys`, `layout`, `backend`, `encode`, `decode`, `stringify`, `parse`, `toString`, and `toBinary`, `fromBinary` with `--binary` |
 
 With `import`, the module embeds the snapshots its schemas were read from, cut to the entities its
 schemas reach (an entity nothing reaches is not read again), and builds each one from its
@@ -89,23 +95,53 @@ generation where it is allowed.
 `inline` suits a runtime where even the package itself is unwelcome. Its errors are classes of the
 module's own, so tell them by `name` and `code`, not by `instanceof`.
 
+## The binary wire
+
+By default a module carries the text wire alone, and `toBinary` and `fromBinary` of a schema it
+exports fall back to the closures backend where code generation is blocked, like any schema
+there. With `--binary` (`toSource(…, { binary: true })`) the module carries the generated codec
+of the [binary wire](/guide/binary) next to the text codec of every schema, so both wires run at
+the speed of generated code:
+
+```sh
+protoarray compile src/schemas.js --out src/schemas.compiled.js --binary
+```
+
+- With `import`, each schema carries it in its `compiled` option (`compiled.binary`), and
+  `toBinary` and `fromBinary` of `@alexify/protoarray/binary` run it as they are: nothing is
+  built, under a strict CSP or anywhere else. The module itself imports nothing more.
+- With `inline`, the module embeds the wire kernel too, and each schema has `toBinary(value)` and
+  `fromBinary(bytes)` of its own, with the binary wire's checks and errors.
+
+A schema with no binary form (`intern`, `delta`, a `flat` or `columns` layout, see
+[What has no binary form](/guide/binary#what-has-no-binary-form)) is refused when the module is
+written, `SchemaDefinitionError` `ERR_NO_BINARY_FORM` naming it, an entity it reaches by a
+reference included: write such schemas into a module of their own, without the flag. A module
+without the flag carries nothing of the binary wire: the inline module of a record of five fields
+is 6.5 KB min+gzip without it (6.1 KB in 2.0: the string functions of the runtime and the depth
+guard, which its kernels carry whole, are the difference) and 8.6 KB with it. A recursive schema's
+`maxDepth` counts on the module's binary codec as on its text one, slots included.
+
 Either way the module compiles no source text to load, and its schemas run at the speed of the codegen
-backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.85 faster to `parse`
+backend: on the benchmark's nested record, ×1.5 faster to `stringify` and ×1.8 faster to `parse`
 than `JSON` of the keyed object, where the closures backend a runtime without code generation
-would otherwise use is about as fast as `JSON` (×1.5 and ×2 slower than the module).
+would otherwise use is about as fast as `JSON` (×1.4 and ×2 slower than the module).
 
 ## What it does not write
 
 - A schema from `resolve`: it is built at runtime from two schemas; write the writer and the
   reader, and resolve them at runtime.
 - `schema.list`: write the schema, and take its `list` at runtime.
-- A custom `fingerprint` function: the module carries each schema's `id` as it was computed, and
-  the schemas it derives at runtime (`list`) use the default fingerprint.
+- A `fingerprint` function: the module carries each schema's `id` as it was computed, and the
+  schemas it derives at runtime (`list`) use the default fingerprint. A built-in hash
+  (`'fnv1a64'`) travels by name, and `list` hashes with it.
 - The metaschema schema: a standalone schema's `source` is `null`. Values are validated where
   metaschema runs, if anywhere; the module itself encodes and decodes.
 
-Regenerate the module whenever a definition changes and whenever protoarray is upgraded; the
-`ERR_COMPILED_MISMATCH` check is there for the times one forgets. Run `toSource` (or `protoarray
+Regenerate the module whenever a definition changes, and when protoarray is upgraded to take
+what the new version writes: a module of an earlier minor still loads (the ABI it checks moves
+only when something is added; a module of 2.0 loads on 2.1), and one written for a later ABI is
+refused with `ERR_COMPILED_MISMATCH`, which names both numbers. Run `toSource` (or `protoarray
 compile`) from the package as installed, not from a bundle of it: the inline runtime writes the
 source of the package's functions, which a bundler may rewrite with helpers of its own
 (`keepNames`, an older `target`) the module would not have.

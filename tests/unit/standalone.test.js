@@ -7,10 +7,14 @@ const { execFileSync } = require('node:child_process');
 const esbuild = require('esbuild');
 const { Schema, SchemaDefinitionError } = require('../../index.js');
 const standalone = require('../../standalone.js');
+const binary = require('../../binary.js');
 const errors = require('../../src/errors.js');
 const types = require('../../src/types.js');
 const layouts = require('../../src/layouts.js');
 const codegen = require('../../src/codegen.js');
+const binaryCodegen = require('../../src/binary/generate.js');
+const binaryWire = require('../../src/binary/wire.js');
+const { readsNumbers } = require('../../src/binary/inspect.js');
 const { codecOptions, SETTINGS, SHAPE, RECURSIVE } = require('../../src/schema.js');
 const { resolve } = require('../../resolve.js');
 const { VECTORS } = require('../support/vectors.js');
@@ -20,6 +24,7 @@ const { ms, define, named, model } = require('../support/schema.js');
 const ROOT = path.join(__dirname, '../..');
 const PLAN = Symbol.for('alexify.protoarray.plan');
 const CODEC = Symbol.for('alexify.protoarray.codec');
+const BINARY = Symbol.for('alexify.protoarray.binary');
 
 // A value compared across realms: classes by their tag, not their prototype.
 const plain = (value) => {
@@ -47,7 +52,8 @@ const outcome = (fn) => {
   try {
     return { value: plain(fn()) };
   } catch (error) {
-    return { name: error.name, code: error.code, path: error.path, message: error.message };
+    const { name, code, path: at, message, schema } = error;
+    return { name, code, path: at, message, schema };
   }
 };
 
@@ -59,7 +65,8 @@ const restricted = async () => {
     const result = await esbuild.build({
       stdin: {
         contents:
-          "module.exports = { core: require('./index.js'), standalone: require('./standalone.js') };",
+          "module.exports = { core: require('./index.js'), standalone: require('./standalone.js'), " +
+          "binary: require('./binary.js') };",
         resolveDir: ROOT,
       },
       bundle: true,
@@ -93,11 +100,22 @@ const run = (source, context) => {
 };
 
 // The kernel of an inline module, run in process: a collection nested in a
-// layout of its own is this process's.
-const kernel = () => standalone.inline(errors, types, layouts, () => standalone.runtime.nested);
+// layout of its own is this process's, the wire kernel the node runtime's.
+const kernel = () =>
+  standalone.inline(
+    errors,
+    types,
+    layouts,
+    () => standalone.runtime.nested,
+    standalone.inlineBinary(errors, types, layouts, binaryWire),
+  );
 
-// The same schema, compiled in process for the inline kernel.
-const inlineOf = (schema) => {
+// The same schema, compiled in process for the inline kernel, its binary
+// codec too when asked: a schema it reaches is an inline copy as well, made
+// when first called, so a recursion finds its own copy.
+const inlined = new WeakMap();
+const inlineOf = (schema, withBinary = false) => {
+  if (withBinary && inlined.has(schema)) return inlined.get(schema);
   const plan = schema[PLAN];
   const { target, interned, options } = codecOptions(plan, schema[SETTINGS]);
   const spec = {
@@ -114,8 +132,70 @@ const inlineOf = (schema) => {
   if (schema.layout === 'flat' || schema.layout === 'columns') spec.record = plan.item;
   const { maxDepth } = schema[SETTINGS];
   if (schema[RECURSIVE] && maxDepth !== Infinity) spec.maxDepth = maxDepth;
-  return kernel().define(spec);
+  if (withBinary) {
+    const context = {
+      validate: schema[SETTINGS].validate,
+      slot: (slot) => kernel().slot(() => inlineOf(slot.schema, true)),
+    };
+    spec.binary = binaryCodegen.build(plan, context);
+    spec.numbers = readsNumbers(schema);
+  }
+  const copy = kernel().define(spec);
+  if (withBinary) inlined.set(schema, copy);
+  return copy;
 };
+
+// The binary wire of a module's schema, through the subpath for an import
+// module's and the methods for an inline module's.
+const bytesOf = (copy, api) => ({
+  toBinary: (value) => (api === undefined ? copy.toBinary(value) : api.toBinary(copy, value)),
+  fromBinary: (bytes) => (api === undefined ? copy.fromBinary(bytes) : api.fromBinary(copy, bytes)),
+});
+
+// A copy of the message with one byte changed, at a position of the seed's.
+const flipped = (bytes, at) => {
+  const copy = Uint8Array.from(bytes);
+  copy[at % copy.length] ^= 0x55;
+  return copy;
+};
+
+// What a module's schema and the reference agree on over the binary wire: the
+// bytes, the value read back and every error, on good and broken input.
+const agreeBinary = (copy, reference, value, label, api) => {
+  const own = bytesOf(copy, api);
+  const bytes = binary.toBinary(reference, value);
+  assert.deepStrictEqual(
+    outcome(() => own.toBinary(value)),
+    outcome(() => bytes),
+    label,
+  );
+  assert.deepStrictEqual(
+    outcome(() => own.fromBinary(bytes)),
+    outcome(() => binary.fromBinary(reference, bytes)),
+    label,
+  );
+  for (const bad of [null, 1, [], {}, ['x', 'y'], { k: 'nope' }]) {
+    assert.deepStrictEqual(
+      outcome(() => own.toBinary(bad)),
+      outcome(() => binary.toBinary(reference, bad)),
+      label,
+    );
+  }
+  const cuts = [0, 1, bytes.length >> 1, bytes.length - 1];
+  const broken = cuts.map((cut) => bytes.subarray(0, cut));
+  for (let i = 0; i < 4 && bytes.length > 0; i++) broken.push(flipped(bytes, i * 7 + 1));
+  for (const garbage of [...broken, 'text', [1], Uint8Array.of(0xff, 0xff, 0xff, 0xff)]) {
+    assert.deepStrictEqual(
+      outcome(() => own.fromBinary(garbage)),
+      outcome(() => binary.fromBinary(reference, garbage)),
+      label,
+    );
+  }
+};
+
+// The options of the text wire a binary wire has no form for.
+const noBinaryForm = (options = {}) =>
+  options.intern !== undefined || options.delta !== undefined || options.layout !== undefined;
 
 // The options by path of a record, for a collection of such records.
 const within = (options) => {
@@ -325,10 +405,10 @@ test('Standalone: a collection inside a record in a layout of its own', async ()
 });
 
 // An import module of these schemas, run in this process.
-const local = (schemas) => {
+const local = (schemas, options) => {
   const module = { exports: {} };
   const load = vm.runInThisContext(
-    `(function (module, require) {${standalone.toSource(schemas)}\n})`,
+    `(function (module, require) {${standalone.toSource(schemas, options)}\n})`,
   );
   load(module, (id) =>
     require(id === '@alexify/protoarray' ? '../../index.js' : '../../standalone.js'),
@@ -364,11 +444,40 @@ test('Standalone: an import module runs in this process too', () => {
   agree(outer, Outer, { items: [{ s: 'a' }, { s: 'a', n: 2 }], tag: 'a' }, 'nested');
 });
 
+test('Standalone: a built-in fingerprint travels by name, a function by its id', () => {
+  const { FINGERPRINTS } = require('../../src/plan.js');
+  const entities = {
+    Address: { Struct: {}, city: 'string' },
+    User: { Struct: {}, home: 'Address', 'boss?': 'User' },
+  };
+  const { User } = model(entities, { fingerprint: 'fnv1a64' });
+  assert.match(standalone.toSource({ User }), /fingerprint:"fnv1a64"/);
+  const copy = local({ User }).User;
+  assert.strictEqual(copy.id, User.id);
+  assert.match(copy.id, /^[0-9a-f]{16}$/);
+  // What the module derives at runtime hashes with the same width.
+  assert.strictEqual(copy.list.id, User.list.id);
+  assert.match(copy.list.id, /^[0-9a-f]{16}$/);
+  // The default is not written, by name or not; a function has no source,
+  // so its id travels and what the module derives takes the default.
+  const base = model(entities).User;
+  assert.doesNotMatch(standalone.toSource({ base }), /fingerprint:/);
+  const narrow = model(entities, { fingerprint: 'fnv1a32' }).User;
+  assert.doesNotMatch(standalone.toSource({ narrow }), /fingerprint:/);
+  assert.strictEqual(local({ narrow }).narrow.list.id, base.list.id);
+  const custom = define({ a: 'integer' }, { fingerprint: (text) => `v${text.length}` });
+  const copied = local({ custom }).custom;
+  assert.strictEqual(copied.id, 'v11');
+  assert.strictEqual(copied.list.id, FINGERPRINTS.fnv1a32(copied.list.toString()));
+});
+
 test('Standalone: the inline kernel', () => {
   const { define: build, slot, nested, types: kernelTypes } = kernel();
-  const target = { codec: 'codec' };
+  const target = { codec: 'codec', binary: { write: 'write', read: 'read' } };
   const reference = slot(() => target);
   assert.strictEqual(reference.codec, 'codec');
+  assert.strictEqual(reference.write, 'write');
+  assert.strictEqual(reference.read, 'read');
   assert.strictEqual(nested, standalone.runtime.nested);
   assert.strictEqual(kernelTypes, types);
   assert.strictEqual(typeof build, 'function');
@@ -392,32 +501,97 @@ test('Standalone: the runtime of import modules', () => {
     'refuse',
     'slot',
     'nested',
+    'depth',
     'compiled',
     'check',
   ]);
   const A = define({ a: 'integer' });
   const slot = runtime.slot(() => A);
   assert.strictEqual(slot.codec, A[CODEC]);
-  // A module of another version refuses to load.
-  assert.match(standalone.toSource(A), /\nR\.check\(1\);\n/);
+  // The binary codec of a slot is the one the schema carries.
+  const carried = { write: () => {}, read: () => {} };
+  const compiled = { canonical: A.toString(), codec: A[CODEC], binary: carried };
+  const B = define({ a: 'integer' }, { compiled });
+  const both = runtime.slot(() => B);
+  assert.strictEqual(both.codec, B[CODEC]);
+  assert.strictEqual(both.write, carried.write);
+  assert.strictEqual(both.read, carried.read);
+  // A module of a later ABI refuses to load; one of an earlier ABI still
+  // loads, since the number moves only when something is added.
+  assert.match(standalone.toSource(A), /\nR\.check\(2\);\n/);
+  assert.strictEqual(runtime.check(2), undefined);
   assert.strictEqual(runtime.check(1), undefined);
-  assert.throws(
-    () => runtime.check(2),
-    (error) => {
-      assert.ok(error instanceof SchemaDefinitionError);
-      assert.strictEqual(error.code, 'ERR_COMPILED_MISMATCH');
-      assert.strictEqual(
-        error.message,
-        'The module was generated by another version of protoarray: generate it again',
-      );
-      return true;
+  for (const abi of [3, 0, -1, 1.5, '2', undefined]) {
+    assert.throws(
+      () => runtime.check(abi),
+      (error) => {
+        assert.ok(error instanceof SchemaDefinitionError);
+        assert.strictEqual(error.code, 'ERR_COMPILED_MISMATCH');
+        assert.strictEqual(
+          error.message,
+          `The module was generated for ABI ${abi} of protoarray, this version takes 1 to 2: ` +
+            'generate it again',
+        );
+        return true;
+      },
+      `${abi}`,
+    );
+  }
+});
+
+// A module written by 2.0.0 (tests/fixtures/standalone-abi1.js, ABI 1) loads
+// on this runtime and runs: what the ABI added since is nothing it calls.
+test('Standalone: a module written by 2.0 still loads and runs', () => {
+  const file = require('node:path').join(__dirname, '../fixtures/standalone-abi1.js');
+  const text = require('node:fs').readFileSync(file, 'utf8');
+  // Whatever line endings a checkout gave it (git on Windows writes CRLF
+  // where .gitattributes does not keep LF).
+  assert.match(text, /^R\.check\(1\);\r?$/m);
+  const module = { exports: {} };
+  const load = vm.runInThisContext(`(function (module, require) {${text}\n})`);
+  load(module, (id) =>
+    require(id === '@alexify/protoarray' ? '../../index.js' : '../../standalone.js'),
+  );
+  const { User, Address } = module.exports;
+  assert.ok(User instanceof Schema);
+  assert.ok(Address instanceof Schema);
+  assert.strictEqual(User.backend, 'standalone');
+  const entities = {
+    Address: { Struct: {}, city: 'string', zip: '?string' },
+    User: {
+      Struct: {},
+      id: 'integer',
+      name: 'string',
+      home: 'Address',
+      'boss?': 'User',
+      tags: { array: 'string' },
+      on: 'boolean',
     },
+  };
+  const { User: today } = model(entities);
+  const value = {
+    id: 1,
+    name: 'A',
+    home: { city: 'K' },
+    boss: { id: 2, name: 'B', home: { city: 'L', zip: '7' }, tags: [], on: false },
+    tags: ['x'],
+    on: true,
+  };
+  assert.strictEqual(User.id, today.id);
+  assert.deepStrictEqual(User.encode(value), today.encode(value));
+  assert.deepStrictEqual(User.decode(User.encode(value)), today.decode(today.encode(value)));
+  assert.deepStrictEqual(User.parse(User.stringify(value)), today.decode(today.encode(value)));
+  // The module carries no binary codec: one is built for its schemas on first use.
+  assert.deepStrictEqual(binary.toBinary(User, value), binary.toBinary(today, value));
+  assert.deepStrictEqual(
+    binary.fromBinary(User, binary.toBinary(today, value)),
+    today.decode(today.encode(value)),
   );
 });
 
 // What an import module compiles while it loads in this process: nothing,
 // however its schemas reach one another.
-const compiledWhileLoading = (schemas) => {
+const compiledWhileLoading = (schemas, options) => {
   const original = globalThis.Function;
   let calls = 0;
   globalThis.Function = new Proxy(original, {
@@ -427,7 +601,7 @@ const compiledWhileLoading = (schemas) => {
     },
   });
   try {
-    return { exports: local(schemas), calls };
+    return { exports: local(schemas, options), calls };
   } finally {
     globalThis.Function = original;
   }
@@ -565,12 +739,25 @@ test('Standalone: the compiled option', () => {
     { canonical: 'x', codec: null },
     { canonical: 'x', codec: { encode: () => 1 } },
     { canonical: 'x' },
+    { canonical: 'x', codec, binary: null },
+    { canonical: 'x', codec, binary: {} },
+    { canonical: 'x', codec, binary: { write: () => {} } },
+    { canonical: 'x', codec, binary: { write: 1, read: () => {} } },
     null,
   ]) {
     assert.throws(() => define({ a: 'integer' }, { compiled: bad }), {
       code: 'ERR_INVALID_OPTIONS',
     });
   }
+  // A binary codec in it is the one the binary wire runs, built or inspected no further.
+  binary.toBinary(A, { a: 1 });
+  const { write, read } = A[BINARY];
+  const C = define({ a: 'integer' }, { compiled: { ...compiled, binary: { write, read } } });
+  assert.deepStrictEqual(binary.toBinary(C, { a: 1 }), binary.toBinary(A, { a: 1 }));
+  assert.strictEqual(C[BINARY].write, write);
+  assert.strictEqual(C[BINARY].read, read);
+  assert.deepStrictEqual(binary.fromBinary(C, binary.toBinary(A, { a: 2 })), { a: 2 });
+  assert.throws(() => binary.fromBinary(C, Uint8Array.of(1)), { code: 'structure', path: 'a' });
 });
 
 test('Standalone: what toSource refuses', () => {
@@ -593,9 +780,43 @@ test('Standalone: what toSource refuses', () => {
   assert.throws(() => standalone.toSource(W, { runtime: 'remote' }), {
     message: 'Invalid option "runtime": import or inline',
   });
+  assert.throws(() => standalone.toSource(W, { binary: 'yes' }), {
+    message: 'Invalid option "binary": true or false',
+  });
   for (const options of [1, { other: 1 }, { runtime: 'remote' }, { format: 'umd' }]) {
     assert.throws(() => standalone.toSource(W, options), { code: 'ERR_INVALID_OPTIONS' });
   }
+  // With binary, a schema with no binary form is refused, a reached one by its name.
+  const Interned = named('Tags', { tags: { array: 'string' } }, { intern: ['tags[]'] });
+  for (const runtime of ['import', 'inline']) {
+    assert.throws(
+      () => standalone.toSource(Interned, { runtime, binary: true }),
+      {
+        code: 'ERR_NO_BINARY_FORM',
+        message: 'The binary wire has no form for an interned string at "tags[]"',
+        schema: 'Tags',
+        field: 'tags[]',
+      },
+      runtime,
+    );
+  }
+  const { Outer } = model(
+    { Tags: { Struct: {}, t: { array: 'string' } }, Outer: { Struct: {}, tags: 'Tags' } },
+    { entities: { Tags: { intern: ['t[]'] } } },
+  );
+  assert.throws(() => standalone.toSource({ Outer }, { binary: true }), {
+    code: 'ERR_NO_BINARY_FORM',
+    schema: 'Tags',
+    field: 't[]',
+  });
+  assert.doesNotThrow(() => standalone.toSource({ Outer }));
+  assert.throws(
+    () =>
+      standalone.toSource(define({ array: { a: 'number' } }, { layout: 'flat' }), {
+        binary: true,
+      }),
+    { code: 'ERR_NO_BINARY_FORM' },
+  );
   assert.throws(() => standalone.toSource(W, 1), {
     message: 'Invalid options: expected an object',
   });
@@ -621,20 +842,28 @@ test('Standalone: ES modules import and export by name', () => {
   fs.mkdirSync(dir, { recursive: true });
   const User = named('User', { id: 'integer', name: 'string' });
   const Note = define({ text: 'string' });
+  const bytes = Array.from(binary.toBinary(User, { id: 1, name: 'a' }));
   for (const runtime of ['import', 'inline']) {
     const file = path.join(dir, `module-${runtime}.mjs`);
-    fs.writeFileSync(file, standalone.toSource({ User, Note }, { runtime, format: 'esm' }));
+    const options = { runtime, format: 'esm', binary: true };
+    fs.writeFileSync(file, standalone.toSource({ User, Note }, options));
     const single = path.join(dir, `single-${runtime}.mjs`);
     fs.writeFileSync(single, standalone.toSource(Note, { runtime, format: 'esm' }));
+    // An import module's binary wire is the subpath's, an inline module's its own.
+    const toBytes =
+      runtime === 'import'
+        ? "import { toBinary } from '@alexify/protoarray/binary'; const bytes = toBinary(User, { id: 1, name: 'a' });"
+        : "const bytes = User.toBinary({ id: 1, name: 'a' });";
     const script = [
       `import { User, Note } from ${JSON.stringify(`./${path.basename(file)}`)};`,
       `import Single from ${JSON.stringify(`./${path.basename(single)}`)};`,
-      'process.stdout.write(JSON.stringify([User.encode({ id: 1, name: "a" }), Note.stringify({ text: "x" }), Single.decode(["y"])]));',
+      toBytes,
+      'process.stdout.write(JSON.stringify([User.encode({ id: 1, name: "a" }), Note.stringify({ text: "x" }), Single.decode(["y"]), Array.from(bytes)]));',
     ].join('\n');
     const entry = path.join(dir, `entry-${runtime}.mjs`);
     fs.writeFileSync(entry, script);
     const output = execFileSync(process.execPath, [entry], { cwd: ROOT, encoding: 'utf8' });
-    assert.deepStrictEqual(JSON.parse(output), [[1, 'a'], '["x"]', { text: 'y' }], runtime);
+    assert.deepStrictEqual(JSON.parse(output), [[1, 'a'], '["x"]', { text: 'y' }, bytes], runtime);
   }
 });
 
@@ -707,4 +936,304 @@ test('Standalone: maxDepth counts the levels of a recursion in a module too, an 
     outcome(() => Node.encode(deeper)),
   );
   agree(local({ Alias }).Alias, Alias, nested(3), 'in process');
+});
+
+// A module written with `binary` carries the codec of the binary wire next to
+// the text one: in the realm without code generation, an import module's
+// schemas run it through the subpath, an inline module's through their own
+// methods, both writing the bytes the schema writes in this process.
+test('Standalone: modules written with binary agree with the schemas on the vectors', async () => {
+  const context = await restricted();
+  const api = context.protoarray.binary;
+  for (const vector of VECTORS) {
+    const reference = define(vector.definition, vector.options);
+    if (noBinaryForm(vector.options)) {
+      assert.throws(
+        () => standalone.toSource(reference, { binary: true }),
+        { code: 'ERR_NO_BINARY_FORM' },
+        vector.name,
+      );
+      continue;
+    }
+    for (const runtime of ['import', 'inline']) {
+      const label = `${vector.name} (${runtime})`;
+      const source = standalone.toSource(reference, { runtime, binary: true });
+      const copy = run(source, context);
+      // The text wire is unchanged next to it.
+      agree(copy, reference, vector.value, label);
+      agreeBinary(copy, reference, vector.value, label, runtime === 'import' ? api : undefined);
+      if (runtime === 'import') {
+        assert.strictEqual(copy[BINARY].write, copy[SETTINGS].compiled.binary.write, label);
+      } else {
+        assert.strictEqual(typeof copy.toBinary, 'function', label);
+      }
+    }
+    agreeBinary(inlineOf(reference, true), reference, vector.value, `${vector.name} (in process)`);
+  }
+});
+
+test('Standalone: modules written with binary agree with the schemas on generated definitions', async () => {
+  const context = await restricted();
+  const api = context.protoarray.binary;
+  for (let seed = 1; seed <= 40; seed++) {
+    // The wire options of the shape (delta, intern) have no binary form: the definition alone.
+    const { definition, value } = generate(seed);
+    for (const options of [{}, { validate: false, sparse: true }]) {
+      const reference = define(definition, options);
+      const label = `seed ${seed} ${JSON.stringify(options)}`;
+      for (const runtime of ['import', 'inline']) {
+        const copy = run(standalone.toSource(reference, { runtime, binary: true }), context);
+        agreeBinary(copy, reference, value, label, runtime === 'import' ? api : undefined);
+      }
+      agreeBinary(inlineOf(reference, true), reference, value, label);
+    }
+  }
+});
+
+test('Standalone: the binary wire of a module of several schemas', async () => {
+  const context = await restricted();
+  const api = context.protoarray.binary;
+  const Embedded = ms.Schema.from({ city: 'string', zip: '?string' });
+  const { User, Address, Tag, Node, Alias } = model({
+    Address: { Struct: {}, city: 'string', zip: '?string' },
+    Tag: { union: [{ k: { enum: ['a'] }, n: 'integer' }], discriminator: 'k' },
+    User: {
+      Struct: {},
+      id: 'integer',
+      name: 'string',
+      home: Embedded,
+      'work?': 'Address',
+      'boss?': 'User',
+      tags: { array: 'Tag' },
+      on: 'boolean',
+      score: 'number',
+    },
+    Node: { Struct: {}, v: 'number', kids: { array: 'Node' } },
+    Alias: 'Node',
+  });
+  const Sparse = Schema.from(User, { sparse: true });
+  const value = {
+    id: 1,
+    name: 'A',
+    home: { city: 'K' },
+    work: { city: 'L', zip: '1' },
+    boss: { id: 2, name: 'B', home: { city: 'M' }, tags: [], on: false, score: 0.5 },
+    tags: [{ k: 'a', n: 3 }],
+    on: true,
+    score: 1.5,
+  };
+  const tree = {
+    v: 1,
+    kids: [
+      { v: 2, kids: [] },
+      { v: 3, kids: [{ v: 4, kids: [] }] },
+    ],
+  };
+  const schemas = { User, Address, Tag, Node, Alias, Sparse };
+  for (const runtime of ['import', 'inline']) {
+    const source = standalone.toSource(schemas, { runtime, binary: true });
+    const copies = run(source, context);
+    const own = runtime === 'import' ? api : undefined;
+    agreeBinary(copies.User, User, value, runtime, own);
+    agreeBinary(copies.Address, Address, { city: 'K' }, runtime, own);
+    agreeBinary(copies.Tag, Tag, { k: 'a', n: 1 }, runtime, own);
+    agreeBinary(copies.Node, Node, tree, runtime, own);
+    agreeBinary(copies.Alias, Alias, tree, runtime, own);
+    agreeBinary(copies.Sparse, Sparse, value, runtime, own);
+    // An error deep in a reached schema carries the path and the root's name.
+    const bytes = bytesOf(copies.User, own).toBinary(value);
+    const cut = bytesOf(copies.User, own);
+    assert.deepStrictEqual(
+      outcome(() => cut.fromBinary(bytes.subarray(0, 6))),
+      outcome(() => binary.fromBinary(User, bytes.subarray(0, 6))),
+      runtime,
+    );
+    assert.strictEqual(outcome(() => cut.fromBinary(bytes.subarray(0, 6))).schema, 'User');
+  }
+  // In process too, the inline kernel's slots reaching the inline copies.
+  agreeBinary(inlineOf(User, true), User, value, 'in process');
+  agreeBinary(inlineOf(Node, true), Node, tree, 'in process');
+  agreeBinary(inlineOf(Alias, true), Alias, tree, 'in process');
+  // An entity built again with options of its own carries the binary codec in
+  // its compiled option, and the members it reads from the module carry theirs.
+  const source = standalone.toSource({ User, Sparse }, { binary: true });
+  assert.strictEqual(source.match(/binary:\(function/g).length, 6);
+  assert.match(source, /compiled:R\.compiled\(S\d+\)/);
+  const { Sparse: alone } = local({ User, Sparse }, { binary: true });
+  assert.deepStrictEqual(binary.toBinary(alone, value), binary.toBinary(Sparse, value));
+  assert.deepStrictEqual(
+    plain(binary.fromBinary(alone, binary.toBinary(Sparse, value))),
+    plain(binary.fromBinary(Sparse, binary.toBinary(Sparse, value))),
+  );
+});
+
+// A module's binary codec of a recursive schema is counted against its
+// `maxDepth` where the module writes it, so a slot reaching it is counted too:
+// a payload is refused at the depth the schema refuses it, on both wires.
+test('Standalone: a module written with binary counts maxDepth as the schema does', async () => {
+  const context = await restricted();
+  const api = context.protoarray.binary;
+  const failure = (fn) => {
+    const out = outcome(fn);
+    return out.value === undefined ? out : 'ok';
+  };
+  const offsetOf = (fn) => {
+    try {
+      fn();
+    } catch (error) {
+      return error.offset;
+    }
+    return null;
+  };
+  const deep = (n) => ({ v: n, kids: n === 0 ? [] : [deep(n - 1)] });
+  const entities = { Node: { Struct: {}, v: 'number', kids: { array: 'Node' } } };
+  const { Node } = model(entities, { maxDepth: 3 });
+  const { Node: Free } = model(entities);
+  const copies = [];
+  for (const runtime of ['import', 'inline']) {
+    const source = standalone.toSource({ Node }, { runtime, binary: true });
+    if (runtime === 'import') assert.match(source, /binary:R\.depth\(\(function/);
+    const own = runtime === 'import' ? api : undefined;
+    copies.push([runtime, bytesOf(run(source, context).Node, own)]);
+  }
+  copies.push(['in process', inlineOf(Node, true)]);
+  // An import module in process too, whose `R.depth` counts the codec it carries.
+  copies.push(['local', bytesOf(local({ Node }, { binary: true }).Node, binary)]);
+  for (const [label, copy] of copies) {
+    for (let n = 1; n <= 5; n++) {
+      const value = deep(n);
+      assert.deepStrictEqual(
+        failure(() => copy.toBinary(value)),
+        failure(() => binary.toBinary(Node, value)),
+        `${label} ${n}`,
+      );
+      const bytes = binary.toBinary(Free, value);
+      assert.deepStrictEqual(
+        failure(() => copy.fromBinary(bytes)),
+        failure(() => binary.fromBinary(Node, bytes)),
+        `${label} ${n}`,
+      );
+    }
+    assert.strictEqual(failure(() => copy.toBinary(deep(4))).code, 'depth', label);
+    // A byte past the message is refused, and the error says where it broke.
+    const bytes = binary.toBinary(Node, deep(1));
+    assert.strictEqual(failure(() => copy.fromBinary(Uint8Array.of(...bytes, 1))).code, 'extra');
+    assert.strictEqual(
+      offsetOf(() => copy.fromBinary(bytes.subarray(0, 2))),
+      1,
+      label,
+    );
+    assert.strictEqual(
+      offsetOf(() => copy.fromBinary(Uint8Array.of(...bytes, 1))),
+      bytes.length,
+    );
+  }
+});
+
+test('Standalone: an inline module without binary carries nothing of the binary wire', () => {
+  const { User } = model({ User: { Struct: {}, name: 'string', 'boss?': 'User' } });
+  const without = standalone.toSource({ User }, { runtime: 'inline' });
+  for (const trace of ['toBinary', 'fromBinary', 'class Writer', 'kernelWire', 'binaryOf']) {
+    assert.ok(!without.includes(trace), trace);
+  }
+  const withIt = standalone.toSource({ User }, { runtime: 'inline', binary: true });
+  for (const trace of ['toBinary', 'fromBinary', 'binaryOf']) {
+    assert.ok(withIt.includes(trace), trace);
+  }
+  // The runtime's own binary part is apart from the text one, so a module
+  // without `binary` costs what a 2.0 module did, within a few bytes.
+  assert.ok(withIt.length - without.length > 2000, `${withIt.length - without.length}`);
+});
+
+test('Standalone: a module written with binary builds no binary codec at runtime', () => {
+  const { User } = model({
+    Address: { Struct: {}, city: 'string', n: 'number' },
+    User: { Struct: {}, home: 'Address', 'boss?': 'User', tags: { array: 'string' } },
+  });
+  const value = {
+    home: { city: 'K', n: 1.5 },
+    boss: { home: { city: 'L', n: 2 }, tags: [] },
+    tags: ['a'],
+  };
+  const loaded = compiledWhileLoading({ User }, { binary: true });
+  assert.strictEqual(loaded.calls, 0);
+  const copy = loaded.exports.User;
+  const original = globalThis.Function;
+  let calls = 0;
+  globalThis.Function = new Proxy(original, {
+    construct(target, args) {
+      calls += 1;
+      return Reflect.construct(target, args);
+    },
+  });
+  let bytes;
+  let back;
+  try {
+    bytes = binary.toBinary(copy, value);
+    back = binary.fromBinary(copy, bytes);
+  } finally {
+    globalThis.Function = original;
+  }
+  assert.strictEqual(calls, 0);
+  assert.deepStrictEqual(bytes, binary.toBinary(User, value));
+  assert.deepStrictEqual(back, binary.fromBinary(User, bytes));
+  assert.strictEqual(copy[BINARY].write, copy[SETTINGS].compiled.binary.write);
+  assert.strictEqual(copy[BINARY].numbers, true);
+  // The list of a schema is built at runtime over the schema's carried codec.
+  const list = binary.toBinary(copy.list, [value]);
+  assert.deepStrictEqual(list, binary.toBinary(User.list, [value]));
+  assert.deepStrictEqual(binary.fromBinary(copy.list, list), binary.fromBinary(User.list, list));
+  // Without the option a module carries no bytes, and the subpath builds the codec as usual.
+  const bare = local({ User }).User;
+  assert.strictEqual(bare[SETTINGS].compiled.binary, undefined);
+  assert.deepStrictEqual(binary.toBinary(bare, value), bytes);
+  assert.strictEqual(bare.backend, 'standalone');
+});
+
+test('Standalone: the inline kernel around a binary codec', () => {
+  const S = define({ j: 'json', n: 'number', b: 'bytes' });
+  const copy = inlineOf(S, true);
+  const other = { j: 'other', n: 2, b: new Uint8Array([1]) };
+  const expectedOther = binary.toBinary(S, other);
+  // A call made while the schema is encoding takes a writer and a reader of its own.
+  let inner;
+  const value = {
+    j: {
+      toJSON() {
+        inner = [copy.toBinary(other), copy.fromBinary(expectedOther)];
+        return 'outer';
+      },
+    },
+    n: 1,
+    b: new Uint8Array(0),
+  };
+  const bytes = copy.toBinary(value);
+  assert.deepStrictEqual(bytes, binary.toBinary(S, { ...value, j: 'outer' }));
+  assert.deepStrictEqual(plain(copy.fromBinary(bytes)), plain(binary.fromBinary(S, bytes)));
+  assert.deepStrictEqual(inner[0], expectedOther);
+  assert.deepStrictEqual(plain(inner[1]), plain(other));
+  // The errors are the binary wire's, with the schema's name.
+  assert.throws(() => copy.fromBinary('text'), {
+    name: 'DecodeError',
+    code: 'structure',
+    message: 'Value is not a Uint8Array',
+  });
+  assert.throws(() => copy.toBinary({ ...other, b: 'AQ==' }), {
+    name: 'EncodeError',
+    code: 'type',
+    path: 'b',
+  });
+  assert.throws(() => copy.fromBinary(bytes.subarray(0, 3)), { name: 'DecodeError' });
+  // An error that is not the data's passes through.
+  const broken = {
+    get n() {
+      throw new RangeError('not a depth problem');
+    },
+  };
+  assert.throws(() => copy.toBinary(broken), RangeError);
+  // A module without binary has no such methods.
+  const plainCopy = inlineOf(S);
+  assert.strictEqual(plainCopy.toBinary, undefined);
+  assert.strictEqual(plainCopy.fromBinary, undefined);
+  assert.strictEqual(plainCopy.binary, undefined);
 });

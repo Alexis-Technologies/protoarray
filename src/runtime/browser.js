@@ -1,7 +1,8 @@
 // Browser twin of ./node.js, mapped in by the package.json `browser` field:
 // the same interface over Uint8Array's own base64 where the platform has it,
-// btoa and atob elsewhere. Both are looked up on each call, not at load, so
-// the module loads in any realm.
+// btoa and atob elsewhere, and over TextDecoder for the strings of the binary
+// wire. Everything is looked up on each call, not at load, so the module loads
+// in any realm.
 
 const kernel = () => {
   // Characters per String.fromCharCode call, below any engine's argument limit.
@@ -38,12 +39,51 @@ const kernel = () => {
     return toBase64(bytes) === text ? bytes : null;
   };
 
-  return { toBase64, fromBase64 };
+  // The strings of the binary wire. `start` has room for two bytes a
+  // character; a write gives the bytes written. The decoder is made on first
+  // use, not at load, and keeps a byte order mark, as Buffer's decoder does:
+  // the two twins read the same bytes as the same string. The platform has
+  // no UTF-16 encoder, and its decoder replaces a lone surrogate, which the
+  // wire keeps: loops do both, the read in chunks below any engine's
+  // argument limit.
+  let decoder = null;
+  const readUtf8 = (bytes, start, end) => {
+    if (decoder === null) decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+    return decoder.decode(bytes.subarray(start, end));
+  };
+  const writeUtf16 = (bytes, text, start) => {
+    let pos = start;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      bytes[pos++] = c & 0xff;
+      bytes[pos++] = c >> 8;
+    }
+    return pos - start;
+  };
+  const readUtf16 = (bytes, start, end) => {
+    const units = new Array((end - start) >> 1);
+    for (let i = 0, pos = start; pos < end; i++, pos += 2) {
+      units[i] = bytes[pos] | (bytes[pos + 1] << 8);
+    }
+    let text = '';
+    for (let i = 0; i < units.length; i += CHUNK) {
+      text += String.fromCharCode.apply(null, units.slice(i, i + CHUNK));
+    }
+    return text;
+  };
+
+  return { toBase64, fromBase64, readUtf8, writeUtf16, readUtf16 };
 };
 
-const base64 = kernel();
+const runtime = kernel();
 
-module.exports = { toBase64: base64.toBase64, fromBase64: base64.fromBase64 };
+module.exports = {
+  toBase64: runtime.toBase64,
+  fromBase64: runtime.fromBase64,
+  readUtf8: runtime.readUtf8,
+  writeUtf16: runtime.writeUtf16,
+  readUtf16: runtime.readUtf16,
+};
 // The closed function itself, for standalone.js to embed; not enumerable, so
 // the twins still show the same keys.
 Object.defineProperty(module.exports, 'kernel', { value: kernel });

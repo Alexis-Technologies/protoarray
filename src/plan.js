@@ -23,6 +23,9 @@
  * @property {true} [delta] A column of a `columns` collection written as differences.
  * @property {boolean} [required] Only on a root scalar.
  * @property {boolean} [nullable] A slot that holds null as a value (json, null): never required.
+ * @property {Node} [writer] On a node from Schema.resolve whose own form is not the writer's
+ *   wire (a bridge, a value the reader drops, a collection of another optionality): the
+ *   writer's node, which the binary wire reads by.
  *
  * @typedef {object} Field
  * @property {string} key
@@ -196,10 +199,10 @@ const signature = (text, entities) => {
   return out;
 };
 
-// FNV-1a, 32-bit, over UTF-16 code units: enough to tell schema versions
-// apart in a handshake, and cheap enough to compute on every page load. It
-// hashes a text a piece at a time, so the default id of a signature is
-// computed without joining it.
+// FNV-1a over UTF-16 code units, 32-bit by default: enough to tell schema
+// versions apart in a handshake, and cheap enough to compute on every page
+// load. Both widths hash a text a piece at a time, so the id of a signature
+// is computed without joining it.
 const OFFSET = 0x811c9dc5;
 
 const hashed = (hash, text) => {
@@ -213,23 +216,76 @@ const hashed = (hash, text) => {
 
 const hex = (hash) => (hash >>> 0).toString(16).padStart(8, '0');
 
-const fingerprint = (text) => hex(hashed(OFFSET, text));
+// The 64-bit width, for a registry of many schemas, where 32 bits collide, on
+// two 32-bit halves `[hi, lo]`: a BigInt a code unit is eight times slower,
+// and a BigInt literal is syntax the core would ask of every bundler's
+// target. The prime is 2^40 + 0x1b3, so the product of the hash and the prime
+// is lo·0x1b3 (in 16-bit parts, for the carry into the high half), plus
+// hi·0x1b3 and lo·2^8 into the high half, everything above 2^64 dropped.
+const OFFSET64 = [0xcbf29ce4, 0x84222325];
+const PRIME64_LOW = 0x1b3;
 
-// The id of a schema: its fingerprint function of the signature, which the
-// default one hashes piece by piece.
-const identify = (text, entities, hash) => {
-  if (hash !== fingerprint) return hash(signature(text, entities));
-  let out = hashed(OFFSET, text);
-  for (const [name, schema] of entities) {
-    out = hashed(hashed(hashed(out, ';'), print(name)), '=');
-    out = hashed(out, String(schema));
+const hashed64 = (hash, text) => {
+  let hi = hash[0];
+  let lo = hash[1];
+  for (let i = 0; i < text.length; i++) {
+    lo = (lo ^ text.charCodeAt(i)) >>> 0;
+    const l0 = (lo & 0xffff) * PRIME64_LOW;
+    const l1 = (lo >>> 16) * PRIME64_LOW;
+    const low = l0 + (l1 & 0xffff) * 0x10000;
+    const carry = (l1 >>> 16) + Math.floor(low / 0x100000000);
+    hi = (Math.imul(hi, PRIME64_LOW) + (lo << 8) + carry) >>> 0;
+    lo = low >>> 0;
   }
-  return hex(out);
+  return [hi, lo];
 };
+
+const hex64 = (hash) => hex(hash[0]) + hex(hash[1]);
+
+// A built-in hash, by the name the `fingerprint` option takes: its seed, its
+// step over a piece of text and the hex digits of the result.
+const HASHES = Object.assign(Object.create(null), {
+  fnv1a32: { seed: OFFSET, step: hashed, digits: hex },
+  fnv1a64: { seed: OFFSET64, step: hashed64, digits: hex64 },
+});
+
+// The built-in fingerprints, each a function of the whole text.
+const FINGERPRINTS = Object.create(null);
+for (const name of Object.keys(HASHES)) {
+  const { seed, step, digits } = HASHES[name];
+  FINGERPRINTS[name] = (text) => digits(step(seed, text));
+}
+
+const fingerprint = FINGERPRINTS.fnv1a32;
+
+// The id of a schema: its fingerprint function of the signature, or the
+// built-in hash it names, which hashes the signature piece by piece.
+const identify = (text, entities, hash) => {
+  if (typeof hash === 'function') return hash(signature(text, entities));
+  const { seed, step, digits } = HASHES[hash];
+  let out = step(seed, text);
+  for (const [name, schema] of entities) {
+    out = step(step(step(out, ';'), print(name)), '=');
+    out = step(out, String(schema));
+  }
+  return digits(out);
+};
+
+// A slot of the json type, which takes anything, and of the null type, which
+// takes only null: how a retired slot is kept.
+const isJson = (node) => node.kind === 'scalar' && node.type === 'json';
+const isNull = (node) => node.kind === 'scalar' && node.type === 'null';
+
+// A schema from Schema.resolve (./resolve.js): its plan prints as its writer,
+// and it is no version of its own.
+const isResolved = (schema) => schema[PLAN].text !== undefined;
 
 module.exports = {
   BRAND,
   PLAN,
+  isJson,
+  isNull,
+  isResolved,
   CODEC,
   FALLBACK,
   FOREIGN,
@@ -240,6 +296,7 @@ module.exports = {
   canonical,
   referenced,
   signature,
+  FINGERPRINTS,
   fingerprint,
   identify,
 };

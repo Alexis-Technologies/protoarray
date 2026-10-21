@@ -23,7 +23,7 @@ const {
   canonical,
   referenced,
   signature,
-  fingerprint,
+  FINGERPRINTS,
   identify,
 } = require('./plan.js');
 const { SCALARS } = require('./types.js');
@@ -74,15 +74,25 @@ const isCodec = (value) =>
   typeof value.encode === 'function' &&
   typeof value.decode === 'function';
 
+// The binary codec of a plan (./binary), as a generated module passes it:
+// `write(w, v)` into a writer, `read(r)` from a reader.
+const isBinaryCodec = (value) =>
+  value !== null &&
+  typeof value === 'object' &&
+  typeof value.write === 'function' &&
+  typeof value.read === 'function';
+
 // What a generated module passes as `compiled`: the codec of the plan, the
-// canonical form it was generated from, and the codec of one record of a rows
-// collection, for the stream helpers.
+// canonical form it was generated from, the codec of one record of a rows
+// collection, for the stream helpers, and the binary codec where the module
+// carries one.
 const isCompiled = (value) =>
   value !== null &&
   typeof value === 'object' &&
   typeof value.canonical === 'string' &&
   isCodec(value.codec) &&
-  (value.items === undefined || isCodec(value.items));
+  (value.items === undefined || isCodec(value.items)) &&
+  (value.binary === undefined || isBinaryCodec(value.binary));
 const STRINGIFY = ['auto', 'builder', 'native'];
 const REFERENCES = ['kind', 'embed', 'id'];
 const isBoolean = (value) => typeof value === 'boolean';
@@ -111,7 +121,8 @@ const VALID = Object.assign(Object.create(null), {
   stringify: (value) => STRINGIFY.includes(value),
   compiled: isCompiled,
   layout: isLayouts,
-  fingerprint: (value) => typeof value === 'function',
+  fingerprint: (value) =>
+    typeof value === 'function' || (typeof value === 'string' && FINGERPRINTS[value] !== undefined),
   maxDepth: (value) => value === Infinity || (Number.isSafeInteger(value) && value > 0),
   references: (value) => REFERENCES.includes(value),
   types: isWireTypes,
@@ -133,6 +144,7 @@ const invalidOption = (key, value) => {
     const path = Object.keys(value).find((place) => !isLayouts(value[place]));
     return `Invalid option "layout" at "${path}": rows, flat or columns`;
   }
+  if (key === 'fingerprint') return 'Invalid option "fingerprint": fnv1a32, fnv1a64 or a function';
   return `Invalid option "${key}"`;
 };
 
@@ -145,7 +157,7 @@ const readOptions = (options, name) => {
     delta: [],
     stringify: 'auto',
     layout: 'rows',
-    fingerprint,
+    fingerprint: 'fnv1a32',
     maxDepth: Infinity,
     references: 'kind',
     types: Object.create(null),
@@ -1064,6 +1076,22 @@ class Schema {
   }
 }
 
+// The `register()` of a subpath: installs its methods on Schema (or its
+// prototype), non-enumerable like the class's own members, once per process
+// however often it is called.
+const registrar = (target, members) => {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    const descriptors = Object.getOwnPropertyDescriptors(members);
+    for (const name of Object.keys(descriptors)) {
+      descriptors[name].enumerable = false;
+      Object.defineProperty(target, name, descriptors[name]);
+    }
+  };
+};
+
 module.exports = {
   Schema,
   ITEMS,
@@ -1075,6 +1103,7 @@ module.exports = {
   inherited,
   SHAPE,
   RECURSIVE,
+  registrar,
   each,
   iterable,
   codecOptions,

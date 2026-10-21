@@ -544,7 +544,9 @@ test('Standalone: the runtime of import modules', () => {
 test('Standalone: a module written by 2.0 still loads and runs', () => {
   const file = require('node:path').join(__dirname, '../fixtures/standalone-abi1.js');
   const text = require('node:fs').readFileSync(file, 'utf8');
-  assert.match(text, /\nR\.check\(1\);\n/);
+  // Whatever line endings a checkout gave it (git on Windows writes CRLF
+  // where .gitattributes does not keep LF).
+  assert.match(text, /^R\.check\(1\);\r?$/m);
   const module = { exports: {} };
   const load = vm.runInThisContext(`(function (module, require) {${text}\n})`);
   load(module, (id) =>

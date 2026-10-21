@@ -48,8 +48,10 @@ small. The payload is still plain JSON.
 - **Faster, not slower.** A positional array is less work for `JSON.parse` and `JSON.stringify`,
   and the conversion between objects and arrays is generated code that costs tens of nanoseconds.
   End to end, on a record with ten fields, a nested address, tags and two orders: ×1.5 faster to
-  encode and ×1.8 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. See
-  [Benchmarks](/guide/benchmarks).
+  encode and ×1.8 faster to decode than `JSON.stringify`/`JSON.parse` of the keyed object. Where
+  a channel carries bytes, the [binary wire](/guide/binary) of the same schema is ×1.6 and ×2.1
+  on that record and six times the round trip of the text wire on 32 doubles, the fastest round
+  trip of every library measured on all seven payloads. See [Benchmarks](/guide/benchmarks).
 - **Typed, validated, evolvable.** The schema is a [metaschema](https://metaschema.vercel.app/)
   definition, which validates the values a program sends; protoarray checks the wire on decode,
   reports problems with a path, and lets you add fields without breaking older peers. Dates,

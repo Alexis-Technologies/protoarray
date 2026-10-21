@@ -228,16 +228,17 @@ const main = async () => {
         ),
       );
     const rows = [];
-    for (const backend of ['codegen', 'closures']) {
+    for (const backend of model.RELEASE_BACKENDS) {
       for (const entry of model.releaseList(releases, backend)) {
+        const build = entry.results[releases.scenarios[0].id]?.build;
         rows.push([
-          `${entry.version}<br><sub>${backend}</sub>`,
+          `${entry.version}<br><sub>${backend === 'binary' ? 'binary wire' : backend}</sub>`,
           ...releases.scenarios.map((scenario) => {
             const result = entry.results[scenario.id];
             if (!result) return '—';
             return `${model.approx(result.encode.median)} / ${model.approx(result.decode.median)}`;
           }),
-          model.approx(entry.results[releases.scenarios[0].id].build.median),
+          build === undefined ? '—' : model.approx(build.median),
         ]);
       }
     }
@@ -250,7 +251,10 @@ const main = async () => {
       ['---', ...releases.scenarios.map(() => '---:'), '---:'],
       rows,
     );
-    const note = `_${caption}. ops/s of stringify / parse, medians; — where the release has no union._`;
+    const note =
+      `_${caption}. ops/s of stringify / parse (toBinary / fromBinary on the binary wire), ` +
+      'medians; — where the release has no union, and for the binary wire, which builds the ' +
+      'schema the text wire does._';
     regions.releases = {
       readme: [
         speedup,
@@ -314,11 +318,16 @@ const main = async () => {
 
   if (baseline) {
     const caption = model.engineCaption(baseline);
-    const images = model.ENGINE_OPS.map((op) =>
-      chartImage(`engine-${op.id}.svg`, model.engineModel(baseline, op.id), caption),
+    const images = model.ENGINE_WIRES.flatMap((wire) =>
+      model.ENGINE_OPS.map((op) => {
+        const chart = model.engineModel(baseline, op.id, wire.id);
+        return chartImage(`${chart.id}.svg`, chart, caption);
+      }),
     );
     images.push(chartImage('layouts.svg', model.layoutsModel(baseline), caption));
-    regions.engine = { readme: details('protoarray on its two backends, and its layouts', images) };
+    regions.engine = {
+      readme: details('protoarray on its two backends, on both wires, and its layouts', images),
+    };
   }
 
   for (const [target, file] of Object.entries(TARGETS)) {

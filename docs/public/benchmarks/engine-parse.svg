@@ -48,144 +48,144 @@
 <text class="tick" x="676" y="509" text-anchor="middle">10M</text>
 <line class="axis" x1="202" y1="93" x2="202" y2="493"/>
 <g><title>Flat object · 4 fields
-JSON, keyed object 3,628,235 ops/s
-generated code 6,887,595 ops/s
-closures 4,342,440 ops/s
-generated code ×1.90 the speed of JSON, closures ×1.20</title>
+JSON, keyed object 3,607,134 ops/s
+generated code 6,938,844 ops/s
+closures 3,951,982 ops/s
+generated code ×1.92 the speed of JSON, closures ×1.10</title>
 <text class="label" x="20" y="110">Flat object</text>
 <text class="sublabel" x="20" y="125">4 fields</text>
-<path class="bar" d="M202,97.5H602.431874536549A4,4 0 0 1 606.431874536549,101.5V102.5A4,4 0 0 1 602.431874536549,106.5H202Z"/>
-<text class="value small" x="612.431874536549" y="105.5">3.63M</text>
-<path class="bar primary" d="M202,108.5H646.4146811297849A4,4 0 0 1 650.4146811297849,112.5V113.5A4,4 0 0 1 646.4146811297849,117.5H202Z"/>
-<text class="value small" x="656.4146811297849" y="116.5">6.89M</text>
-<path class="bar secondary" d="M202,119.5H614.7619445811663A4,4 0 0 1 618.7619445811663,123.5V124.5A4,4 0 0 1 614.7619445811663,128.5H202Z"/>
-<text class="value small" x="624.7619445811663" y="127.5">4.34M</text>
+<path class="bar" d="M202,97.5H602.0316396163207A4,4 0 0 1 606.0316396163207,101.5V102.5A4,4 0 0 1 602.0316396163207,106.5H202Z"/>
+<text class="value small" x="612.0316396163207" y="105.5">3.61M</text>
+<path class="bar primary" d="M202,108.5H646.9233655500651A4,4 0 0 1 650.9233655500651,112.5V113.5A4,4 0 0 1 646.9233655500651,117.5H202Z"/>
+<text class="value small" x="656.9233655500651" y="116.5">6.94M</text>
+<path class="bar secondary" d="M202,119.5H608.2967633401695A4,4 0 0 1 612.2967633401695,123.5V124.5A4,4 0 0 1 608.2967633401695,128.5H202Z"/>
+<text class="value small" x="618.2967633401695" y="127.5">3.95M</text>
 </g>
 <g><title>Nested object · records, a list of orders
-JSON, keyed object 918,392 ops/s
-generated code 1,620,347 ops/s
-closures 834,876 ops/s
+JSON, keyed object 936,086 ops/s
+generated code 1,651,386 ops/s
+closures 853,219 ops/s
 generated code ×1.76 the speed of JSON, closures ×0.91</title>
 <text class="label" x="20" y="150">Nested object</text>
 <text class="sublabel" x="20" y="165">records, a list of orders</text>
-<path class="bar" d="M202,137.5H508.15843853354204A4,4 0 0 1 512.158438533542,141.5V142.5A4,4 0 0 1 508.15843853354204,146.5H202Z"/>
-<text class="value small" x="518.158438533542" y="145.5">918k</text>
-<path class="bar primary" d="M202,148.5H547.1180686431306A4,4 0 0 1 551.1180686431306,152.5V153.5A4,4 0 0 1 547.1180686431306,157.5H202Z"/>
-<text class="value small" x="557.1180686431306" y="156.5">1.62M</text>
-<path class="bar secondary" d="M202,159.5H501.6162723128336A4,4 0 0 1 505.6162723128336,163.5V164.5A4,4 0 0 1 501.6162723128336,168.5H202Z"/>
-<text class="value small" x="511.6162723128336" y="167.5">835k</text>
+<path class="bar" d="M202,137.5H509.4678885048245A4,4 0 0 1 513.4678885048245,141.5V142.5A4,4 0 0 1 509.4678885048245,146.5H202Z"/>
+<text class="value small" x="519.4678885048245" y="145.5">936k</text>
+<path class="bar primary" d="M202,148.5H548.420078554367A4,4 0 0 1 552.420078554367,152.5V153.5A4,4 0 0 1 548.420078554367,157.5H202Z"/>
+<text class="value small" x="558.420078554367" y="156.5">1.65M</text>
+<path class="bar secondary" d="M202,159.5H503.10756184699073A4,4 0 0 1 507.10756184699073,163.5V164.5A4,4 0 0 1 503.10756184699073,168.5H202Z"/>
+<text class="value small" x="513.1075618469907" y="167.5">853k</text>
 </g>
 <g><title>Sparse object · 3 of 20 fields
-JSON, keyed object 4,337,716 ops/s
-generated code 6,962,282 ops/s
-closures 1,670,977 ops/s
-generated code ×1.61 the speed of JSON, closures ×0.39</title>
+JSON, keyed object 4,649,889 ops/s
+generated code 7,249,787 ops/s
+closures 1,706,697 ops/s
+generated code ×1.56 the speed of JSON, closures ×0.37</title>
 <text class="label" x="20" y="190">Sparse object</text>
 <text class="sublabel" x="20" y="205">3 of 20 fields</text>
-<path class="bar" d="M202,177.5H614.6872560712039A4,4 0 0 1 618.6872560712039,181.5V182.5A4,4 0 0 1 614.6872560712039,186.5H202Z"/>
-<text class="value small" x="624.6872560712039" y="185.5">4.34M</text>
-<path class="bar primary" d="M202,188.5H647.1547543723163A4,4 0 0 1 651.1547543723163,192.5V193.5A4,4 0 0 1 647.1547543723163,197.5H202Z"/>
-<text class="value small" x="657.1547543723163" y="196.5">6.96M</text>
-<path class="bar secondary" d="M202,199.5H549.2293345966154A4,4 0 0 1 553.2293345966154,203.5V204.5A4,4 0 0 1 549.2293345966154,208.5H202Z"/>
-<text class="value small" x="559.2293345966154" y="207.5">1.67M</text>
+<path class="bar" d="M202,177.5H619.4559285463905A4,4 0 0 1 623.4559285463905,181.5V182.5A4,4 0 0 1 619.4559285463905,186.5H202Z"/>
+<text class="value small" x="629.4559285463905" y="185.5">4.65M</text>
+<path class="bar primary" d="M202,188.5H649.931389043569A4,4 0 0 1 653.931389043569,192.5V193.5A4,4 0 0 1 649.931389043569,197.5H202Z"/>
+<text class="value small" x="659.931389043569" y="196.5">7.25M</text>
+<path class="bar secondary" d="M202,199.5H550.6807151647579A4,4 0 0 1 554.6807151647579,203.5V204.5A4,4 0 0 1 550.6807151647579,208.5H202Z"/>
+<text class="value small" x="560.6807151647579" y="207.5">1.71M</text>
 </g>
 <g><title>Wide sparse object · 3 of 70 fields
-JSON, keyed object 4,392,313 ops/s
-generated code 4,948,845 ops/s
-closures 463,535 ops/s
-generated code ×1.13 the speed of JSON, closures ×0.11</title>
+JSON, keyed object 4,578,745 ops/s
+generated code 5,136,206 ops/s
+closures 477,947 ops/s
+generated code ×1.12 the speed of JSON, closures ×0.10</title>
 <text class="label" x="20" y="230">Wide sparse object</text>
 <text class="sublabel" x="20" y="245">3 of 70 fields</text>
-<path class="bar" d="M202,217.5H615.5455383573758A4,4 0 0 1 619.5455383573758,221.5V222.5A4,4 0 0 1 615.5455383573758,226.5H202Z"/>
-<text class="value small" x="625.5455383573758" y="225.5">4.39M</text>
-<path class="bar primary" d="M202,228.5H623.7316085733648A4,4 0 0 1 627.7316085733648,232.5V233.5A4,4 0 0 1 623.7316085733648,237.5H202Z"/>
-<text class="value small" x="633.7316085733648" y="236.5">4.95M</text>
-<path class="bar secondary" d="M202,239.5H461.241040034425A4,4 0 0 1 465.241040034425,243.5V244.5A4,4 0 0 1 461.241040034425,248.5H202Z"/>
-<text class="value small" x="471.241040034425" y="247.5">464k</text>
+<path class="bar" d="M202,217.5H618.3979402727225A4,4 0 0 1 622.3979402727225,221.5V222.5A4,4 0 0 1 618.3979402727225,226.5H202Z"/>
+<text class="value small" x="628.3979402727225" y="225.5">4.58M</text>
+<path class="bar primary" d="M202,228.5H626.2815045473094A4,4 0 0 1 630.2815045473094,232.5V233.5A4,4 0 0 1 626.2815045473094,237.5H202Z"/>
+<text class="value small" x="636.2815045473094" y="236.5">5.14M</text>
+<path class="bar secondary" d="M202,239.5H463.3419989123568A4,4 0 0 1 467.3419989123568,243.5V244.5A4,4 0 0 1 463.3419989123568,248.5H202Z"/>
+<text class="value small" x="473.3419989123568" y="247.5">478k</text>
 </g>
 <g><title>Typed object · enum, flags, date
-JSON, keyed object 2,119,593 ops/s
-generated code 3,912,876 ops/s
-closures 2,008,281 ops/s
-generated code ×1.85 the speed of JSON, closures ×0.95</title>
+JSON, keyed object 2,146,134 ops/s
+generated code 3,995,528 ops/s
+closures 2,018,160 ops/s
+generated code ×1.86 the speed of JSON, closures ×0.94</title>
 <text class="label" x="20" y="270">Typed object</text>
 <text class="sublabel" x="20" y="285">enum, flags, date</text>
-<path class="bar" d="M202,257.5H565.547891299339A4,4 0 0 1 569.547891299339,261.5V262.5A4,4 0 0 1 565.547891299339,266.5H202Z"/>
-<text class="value small" x="575.547891299339" y="265.5">2.12M</text>
-<path class="bar primary" d="M202,268.5H607.6143814647783A4,4 0 0 1 611.6143814647783,272.5V273.5A4,4 0 0 1 607.6143814647783,277.5H202Z"/>
-<text class="value small" x="617.6143814647783" y="276.5">3.91M</text>
-<path class="bar secondary" d="M202,279.5H561.8462677601372A4,4 0 0 1 565.8462677601372,283.5V284.5A4,4 0 0 1 561.8462677601372,288.5H202Z"/>
-<text class="value small" x="571.8462677601372" y="287.5">2.01M</text>
+<path class="bar" d="M202,257.5H566.4017799128874A4,4 0 0 1 570.4017799128874,261.5V262.5A4,4 0 0 1 566.4017799128874,266.5H202Z"/>
+<text class="value small" x="576.4017799128874" y="265.5">2.15M</text>
+<path class="bar primary" d="M202,268.5H609.0487201993944A4,4 0 0 1 613.0487201993944,272.5V273.5A4,4 0 0 1 609.0487201993944,277.5H202Z"/>
+<text class="value small" x="619.0487201993944" y="276.5">4M</text>
+<path class="bar secondary" d="M202,279.5H562.1829838822656A4,4 0 0 1 566.1829838822656,283.5V284.5A4,4 0 0 1 562.1829838822656,288.5H202Z"/>
+<text class="value small" x="572.1829838822656" y="287.5">2.02M</text>
 </g>
 <g><title>Tagged union · a wrpc packet
-JSON, keyed object 2,225,292 ops/s
-generated code 4,193,021 ops/s
-closures 2,259,175 ops/s
-generated code ×1.88 the speed of JSON, closures ×1.02</title>
+JSON, keyed object 2,225,262 ops/s
+generated code 4,270,384 ops/s
+closures 2,295,410 ops/s
+generated code ×1.92 the speed of JSON, closures ×1.03</title>
 <text class="label" x="20" y="310">Tagged union</text>
 <text class="sublabel" x="20" y="325">a wrpc packet</text>
-<path class="bar" d="M202,297.5H568.8871470473007A4,4 0 0 1 572.8871470473007,301.5V302.5A4,4 0 0 1 568.8871470473007,306.5H202Z"/>
-<text class="value small" x="578.8871470473007" y="305.5">2.23M</text>
-<path class="bar primary" d="M202,308.5H612.3592719243196A4,4 0 0 1 616.3592719243196,312.5V313.5A4,4 0 0 1 612.3592719243196,317.5H202Z"/>
-<text class="value small" x="622.3592719243196" y="316.5">4.19M</text>
-<path class="bar secondary" d="M202,319.5H569.924080013227A4,4 0 0 1 573.924080013227,323.5V324.5A4,4 0 0 1 569.924080013227,328.5H202Z"/>
-<text class="value small" x="579.924080013227" y="327.5">2.26M</text>
+<path class="bar" d="M202,297.5H568.8862219688299A4,4 0 0 1 572.8862219688299,301.5V302.5A4,4 0 0 1 568.8862219688299,306.5H202Z"/>
+<text class="value small" x="578.8862219688299" y="305.5">2.23M</text>
+<path class="bar primary" d="M202,308.5H613.613774823058A4,4 0 0 1 617.613774823058,312.5V313.5A4,4 0 0 1 613.613774823058,317.5H202Z"/>
+<text class="value small" x="623.613774823058" y="316.5">4.27M</text>
+<path class="bar secondary" d="M202,319.5H571.0159225528384A4,4 0 0 1 575.0159225528384,323.5V324.5A4,4 0 0 1 571.0159225528384,328.5H202Z"/>
+<text class="value small" x="581.0159225528384" y="327.5">2.3M</text>
 </g>
 <g><title>Money · decimals
-JSON, keyed object 4,220,944 ops/s
-generated code 8,941,978 ops/s
-closures 4,676,806 ops/s
-generated code ×2.12 the speed of JSON, closures ×1.11</title>
+JSON, keyed object 4,182,892 ops/s
+generated code 8,919,245 ops/s
+closures 4,756,808 ops/s
+generated code ×2.13 the speed of JSON, closures ×1.14</title>
 <text class="label" x="20" y="350">Money</text>
 <text class="sublabel" x="20" y="365">decimals</text>
-<path class="bar" d="M202,337.5H612.8147152724584A4,4 0 0 1 616.8147152724584,341.5V342.5A4,4 0 0 1 612.8147152724584,346.5H202Z"/>
-<text class="value small" x="622.8147152724584" y="345.5">4.22M</text>
-<path class="bar primary" d="M202,348.5H664.3265083317056A4,4 0 0 1 668.3265083317056,352.5V353.5A4,4 0 0 1 664.3265083317056,357.5H202Z"/>
-<text class="value small" x="674.3265083317056" y="356.5">8.94M</text>
-<path class="bar secondary" d="M202,359.5H619.8519981187198A4,4 0 0 1 623.8519981187198,363.5V364.5A4,4 0 0 1 619.8519981187198,368.5H202Z"/>
-<text class="value small" x="629.8519981187198" y="367.5">4.68M</text>
+<path class="bar" d="M202,337.5H612.1933109334766A4,4 0 0 1 616.1933109334766,341.5V342.5A4,4 0 0 1 612.1933109334766,346.5H202Z"/>
+<text class="value small" x="622.1933109334766" y="345.5">4.18M</text>
+<path class="bar primary" d="M202,348.5H664.1518387872375A4,4 0 0 1 668.1518387872375,352.5V353.5A4,4 0 0 1 664.1518387872375,357.5H202Z"/>
+<text class="value small" x="674.1518387872375" y="356.5">8.92M</text>
+<path class="bar secondary" d="M202,359.5H621.0158683167583A4,4 0 0 1 625.0158683167583,363.5V364.5A4,4 0 0 1 621.0158683167583,368.5H202Z"/>
+<text class="value small" x="631.0158683167583" y="367.5">4.76M</text>
 </g>
 <g><title>Wide flags · 70 names
-JSON, keyed object 3,166,616 ops/s
-generated code 2,844,561 ops/s
-closures 2,161,607 ops/s
-generated code ×0.90 the speed of JSON, closures ×0.68</title>
+JSON, keyed object 3,282,872 ops/s
+generated code 2,901,538 ops/s
+closures 2,172,369 ops/s
+generated code ×0.88 the speed of JSON, closures ×0.66</title>
 <text class="label" x="20" y="390">Wide flags</text>
 <text class="sublabel" x="20" y="405">70 names</text>
-<path class="bar" d="M202,377.5H593.0940734846978A4,4 0 0 1 597.0940734846978,381.5V382.5A4,4 0 0 1 593.0940734846978,386.5H202Z"/>
-<text class="value small" x="603.0940734846978" y="385.5">3.17M</text>
-<path class="bar primary" d="M202,388.5H585.7344097216595A4,4 0 0 1 589.7344097216595,392.5V393.5A4,4 0 0 1 585.7344097216595,397.5H202Z"/>
-<text class="value small" x="595.7344097216595" y="396.5">2.84M</text>
-<path class="bar secondary" d="M202,399.5H566.8947246150167A4,4 0 0 1 570.8947246150167,403.5V404.5A4,4 0 0 1 566.8947246150167,408.5H202Z"/>
-<text class="value small" x="576.8947246150167" y="407.5">2.16M</text>
+<path class="bar" d="M202,377.5H595.5681240698259A4,4 0 0 1 599.5681240698259,381.5V382.5A4,4 0 0 1 595.5681240698259,386.5H202Z"/>
+<text class="value small" x="605.5681240698259" y="385.5">3.28M</text>
+<path class="bar primary" d="M202,388.5H587.0952655029046A4,4 0 0 1 591.0952655029046,392.5V393.5A4,4 0 0 1 587.0952655029046,397.5H202Z"/>
+<text class="value small" x="597.0952655029046" y="396.5">2.9M</text>
+<path class="bar secondary" d="M202,399.5H567.235508282345A4,4 0 0 1 571.235508282345,403.5V404.5A4,4 0 0 1 567.235508282345,408.5H202Z"/>
+<text class="value small" x="577.235508282345" y="407.5">2.17M</text>
 </g>
 <g><title>Wide object · 128 fields
-JSON, keyed object 75,016 ops/s
-generated code 296,751 ops/s
-closures 97,852 ops/s
-generated code ×3.96 the speed of JSON, closures ×1.30</title>
+JSON, keyed object 75,417 ops/s
+generated code 328,532 ops/s
+closures 101,848 ops/s
+generated code ×4.36 the speed of JSON, closures ×1.35</title>
 <text class="label" x="20" y="430">Wide object</text>
 <text class="sublabel" x="20" y="445">128 fields</text>
-<path class="bar" d="M202,417.5H336.2743166739946A4,4 0 0 1 340.2743166739946,421.5V422.5A4,4 0 0 1 336.2743166739946,426.5H202Z"/>
-<text class="value small" x="346.2743166739946" y="425.5">75k</text>
-<path class="bar primary" d="M202,428.5H430.63796619807397A4,4 0 0 1 434.63796619807397,432.5V433.5A4,4 0 0 1 430.63796619807397,437.5H202Z"/>
-<text class="value small" x="440.63796619807397" y="436.5">297k</text>
-<path class="bar secondary" d="M202,439.5H354.51001364956903A4,4 0 0 1 358.51001364956903,443.5V444.5A4,4 0 0 1 354.51001364956903,448.5H202Z"/>
-<text class="value small" x="364.51001364956903" y="447.5">97.9k</text>
+<path class="bar" d="M202,417.5H336.6401419245394A4,4 0 0 1 340.6401419245394,421.5V422.5A4,4 0 0 1 336.6401419245394,426.5H202Z"/>
+<text class="value small" x="346.6401419245394" y="425.5">75.4k</text>
+<path class="bar primary" d="M202,428.5H437.61927305105735A4,4 0 0 1 441.61927305105735,432.5V433.5A4,4 0 0 1 437.61927305105735,437.5H202Z"/>
+<text class="value small" x="447.61927305105735" y="436.5">329k</text>
+<path class="bar secondary" d="M202,439.5H357.2564958110173A4,4 0 0 1 361.2564958110173,443.5V444.5A4,4 0 0 1 357.2564958110173,448.5H202Z"/>
+<text class="value small" x="367.2564958110173" y="447.5">102k</text>
 </g>
 <g><title>Bytes · 1 KB, base64
-JSON, keyed object 980,244 ops/s
-generated code 726,270 ops/s
-closures 678,743 ops/s
-generated code ×0.74 the speed of JSON, closures ×0.69</title>
+JSON, keyed object 983,194 ops/s
+generated code 725,722 ops/s
+closures 686,826 ops/s
+generated code ×0.74 the speed of JSON, closures ×0.70</title>
 <text class="label" x="20" y="470">Bytes</text>
 <text class="sublabel" x="20" y="485">1 KB, base64</text>
-<path class="bar" d="M202,457.5H512.630802446036A4,4 0 0 1 516.630802446036,461.5V462.5A4,4 0 0 1 512.630802446036,466.5H202Z"/>
-<text class="value small" x="522.630802446036" y="465.5">980k</text>
-<path class="bar primary" d="M202,468.5H492.05350061379403A4,4 0 0 1 496.05350061379403,472.5V473.5A4,4 0 0 1 492.05350061379403,477.5H202Z"/>
-<text class="value small" x="502.05350061379403" y="476.5">726k</text>
-<path class="bar secondary" d="M202,479.5H487.40944745859974A4,4 0 0 1 491.40944745859974,483.5V484.5A4,4 0 0 1 487.40944745859974,488.5H202Z"/>
-<text class="value small" x="497.40944745859974" y="487.5">679k</text>
+<path class="bar" d="M202,457.5H512.8369966934058A4,4 0 0 1 516.8369966934058,461.5V462.5A4,4 0 0 1 512.8369966934058,466.5H202Z"/>
+<text class="value small" x="522.8369966934058" y="465.5">983k</text>
+<path class="bar primary" d="M202,468.5H492.00170562428104A4,4 0 0 1 496.00170562428104,472.5V473.5A4,4 0 0 1 492.00170562428104,477.5H202Z"/>
+<text class="value small" x="502.00170562428104" y="476.5">726k</text>
+<path class="bar secondary" d="M202,479.5H488.22178288895105A4,4 0 0 1 492.22178288895105,483.5V484.5A4,4 0 0 1 488.22178288895105,488.5H202Z"/>
+<text class="value small" x="498.22178288895105" y="487.5">687k</text>
 </g>
-<text class="caption" x="20" y="534">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-20</text>
+<text class="caption" x="20" y="534">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-21</text>
 </svg>

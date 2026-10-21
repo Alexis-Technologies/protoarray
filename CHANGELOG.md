@@ -112,6 +112,12 @@ ids of 2.0 do not change; a standalone module written by 2.0 still loads.
   field from 4 to 256 fields for JSON and both backends, each point in a fresh process
   (`bench/results/sweep.json`, which `pnpm bench:report` renders into the table of the runtimes
   guide).
+- **The benchmarks measure the binary wire next to the text one.** The comparison has a
+  `binary wire` row on every payload (the fastest round trip of every library on all seven), as
+  do the cold start and the bundle size; `pnpm bench` measures `toBinary` and `fromBinary` of
+  every shape on both backends and of the thousand records (the engine chart of the docs has a
+  text and a binary wire, the layouts chart a binary row), and `pnpm bench:releases` the binary
+  wire of a release that has one, on generated code.
 - The runtime twins (`src/runtime/node.js`, `browser.js`) carry the string functions of the
   binary wire next to base64 (Buffer's in Node.js, `TextDecoder` and loops in a browser; a
   runtime whose Buffer lacks one of Node's own string methods gets the browser twin's loops,

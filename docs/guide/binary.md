@@ -41,9 +41,16 @@ Reading.list.toBinary([value, value]); // the rows of a list, through the same c
 
 The choice is the channel's and the payload's, not a question of which wire is "faster": over a
 round trip the binary wire is ahead of the text wire on every payload of the
-[comparison](/guide/benchmarks#the-binary-wire-measured) except long strings, and ahead of the
-binary codecs written in JavaScript on most, at fewer bytes before compression. What the text wire
-keeps is everything that makes it JSON.
+[comparison](/guide/benchmarks#compared-with-other-libraries), from ×1.1 on one record and on long
+strings to ×6 on 32 doubles, and it has the fastest round trip of every library measured there on
+all seven payloads, the binary codecs written in JavaScript included. It writes fewer bytes than
+the text wire before compression on every payload but long strings, which past 21 characters
+travel as UTF-16. What it does not speed up: a `json` (`any`) slot travels as its JSON text inside
+the bytes, at about half the speed of the text wire, and a record of a few fields pays a fixed
+cost per message (the `Uint8Array` it returns, a `DataView` where it reads a float64) that the
+text wire, whose result is a string, does not: the flat record of four fields of
+[`pnpm bench`](/guide/benchmarks#protoarray-on-its-two-backends) decodes at ×0.6 to ×0.8 of the
+text wire. What the text wire keeps is everything that makes it JSON.
 
 - **Text** when the payload has to be readable (logs, a debugger, a REST client), travels over a
   channel that carries text (a JSON API, a WebSocket text frame, NDJSON, `localStorage`, a
@@ -172,3 +179,10 @@ an inline module's have the two as methods of their own. In Node.js the strings 
 `Buffer`'s own UTF-8 and UTF-16, in a browser through `TextDecoder` and a loop, by the same
 runtime twin that handles base64. The subpath adds about 9.1 KB min+gzip to a bundle that uses
 it; the core is unchanged.
+
+Every benchmark of the repository measures the binary wire next to the text one: the
+[comparison](/guide/benchmarks#compared-with-other-libraries) with other libraries, the cold
+start and the bundle size (the `binary wire` rows), `pnpm bench` on both backends and every shape
+([protoarray on its two backends](/guide/benchmarks#protoarray-on-its-two-backends), the *Binary
+wire* switch, and the binary row of the layouts) and the
+[release over release](/guide/benchmarks#release-over-release) table from 2.1 on.

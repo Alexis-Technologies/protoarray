@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="353" viewBox="0 0 760 353" role="img" aria-label="Layouts of a list of a thousand records. pnpm bench, generated code: lists a second, linear scale, higher is better.">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="393" viewBox="0 0 760 393" role="img" aria-label="Layouts of a list of a thousand records. pnpm bench, generated code: lists a second, linear scale, higher is better.">
 <style>
   text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
   .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
@@ -36,64 +36,74 @@
 <text class="legend" x="35" y="76">encode</text>
 <rect class="bar secondary" x="88.4" y="67" width="10" height="10" rx="2"/>
 <text class="legend" x="103.4" y="76">decode</text>
-<line class="grid" x1="300" y1="93" x2="300" y2="293"/>
-<text class="tick" x="300" y="309" text-anchor="middle">0</text>
-<line class="grid" x1="425.3333333333333" y1="93" x2="425.3333333333333" y2="293"/>
-<text class="tick" x="425.3333333333333" y="309" text-anchor="middle">1,000</text>
-<line class="grid" x1="550.6666666666666" y1="93" x2="550.6666666666666" y2="293"/>
-<text class="tick" x="550.6666666666666" y="309" text-anchor="middle">2,000</text>
-<line class="grid" x1="676" y1="93" x2="676" y2="293"/>
-<text class="tick" x="676" y="309" text-anchor="middle">3,000</text>
-<line class="axis" x1="300" y1="93" x2="300" y2="293"/>
+<line class="grid" x1="300" y1="93" x2="300" y2="333"/>
+<text class="tick" x="300" y="349" text-anchor="middle">0</text>
+<line class="grid" x1="425.3333333333333" y1="93" x2="425.3333333333333" y2="333"/>
+<text class="tick" x="425.3333333333333" y="349" text-anchor="middle">2,000</text>
+<line class="grid" x1="550.6666666666666" y1="93" x2="550.6666666666666" y2="333"/>
+<text class="tick" x="550.6666666666666" y="349" text-anchor="middle">4,000</text>
+<line class="grid" x1="676" y1="93" x2="676" y2="333"/>
+<text class="tick" x="676" y="349" text-anchor="middle">6,000</text>
+<line class="axis" x1="300" y1="93" x2="300" y2="333"/>
 <g><title>JSON · keyed objects
-encode 1,698 lists/s · 589 µs
-decode 1,258 lists/s · 795 µs</title>
+encode 1,794 lists/s · 557 µs
+decode 1,239 lists/s · 807 µs</title>
 <text class="label" x="20" y="110">JSON</text>
 <text class="sublabel" x="20" y="125">keyed objects</text>
-<path class="bar" d="M300,103H508.81600000000003A4,4 0 0 1 512.816,107V108A4,4 0 0 1 508.81600000000003,112H300Z"/>
-<text class="value small" x="518.816" y="111">1,698</text>
-<path class="bar" d="M300,114H453.6693333333333A4,4 0 0 1 457.6693333333333,118V119A4,4 0 0 1 453.6693333333333,123H300Z"/>
-<text class="value small" x="463.6693333333333" y="122">1,258</text>
+<path class="bar" d="M300,103H408.424A4,4 0 0 1 412.424,107V108A4,4 0 0 1 408.424,112H300Z"/>
+<text class="value small" x="418.424" y="111">1,794</text>
+<path class="bar" d="M300,114H373.644A4,4 0 0 1 377.644,118V119A4,4 0 0 1 373.644,123H300Z"/>
+<text class="value small" x="383.644" y="122">1,239</text>
 </g>
 <g><title>rows · an array of arrays, the default
-encode 2,256 lists/s · 443 µs
-decode 1,964 lists/s · 509 µs</title>
+encode 2,283 lists/s · 438 µs
+decode 1,934 lists/s · 517 µs</title>
 <text class="label primary" x="20" y="150">rows</text>
 <text class="sublabel" x="20" y="165">an array of arrays, the default</text>
-<path class="bar primary" d="M300,143H578.752A4,4 0 0 1 582.752,147V148A4,4 0 0 1 578.752,152H300Z"/>
-<text class="value small" x="588.752" y="151">2,256</text>
-<path class="bar secondary" d="M300,154H542.1546666666667A4,4 0 0 1 546.1546666666667,158V159A4,4 0 0 1 542.1546666666667,163H300Z"/>
-<text class="value small" x="552.1546666666667" y="162">1,964</text>
+<path class="bar primary" d="M300,143H439.068A4,4 0 0 1 443.068,147V148A4,4 0 0 1 439.068,152H300Z"/>
+<text class="value small" x="449.068" y="151">2,283</text>
+<path class="bar secondary" d="M300,154H417.19733333333335A4,4 0 0 1 421.19733333333335,158V159A4,4 0 0 1 417.19733333333335,163H300Z"/>
+<text class="value small" x="427.19733333333335" y="162">1,934</text>
 </g>
 <g><title>flat · one array, a fixed stride
-encode 2,113 lists/s · 473 µs
-decode 1,997 lists/s · 501 µs</title>
+encode 2,129 lists/s · 470 µs
+decode 1,933 lists/s · 517 µs</title>
 <text class="label primary" x="20" y="190">flat</text>
 <text class="sublabel" x="20" y="205">one array, a fixed stride</text>
-<path class="bar primary" d="M300,183H560.8293333333334A4,4 0 0 1 564.8293333333334,187V188A4,4 0 0 1 560.8293333333334,192H300Z"/>
-<text class="value small" x="570.8293333333334" y="191">2,113</text>
-<path class="bar secondary" d="M300,194H546.2906666666667A4,4 0 0 1 550.2906666666667,198V199A4,4 0 0 1 546.2906666666667,203H300Z"/>
-<text class="value small" x="556.2906666666667" y="202">1,997</text>
+<path class="bar primary" d="M300,183H429.4173333333333A4,4 0 0 1 433.4173333333333,187V188A4,4 0 0 1 429.4173333333333,192H300Z"/>
+<text class="value small" x="439.4173333333333" y="191">2,129</text>
+<path class="bar secondary" d="M300,194H417.13466666666665A4,4 0 0 1 421.13466666666665,198V199A4,4 0 0 1 417.13466666666665,203H300Z"/>
+<text class="value small" x="427.13466666666665" y="202">1,933</text>
 </g>
 <g><title>columns · an array per field
-encode 2,215 lists/s · 451 µs
-decode 1,978 lists/s · 506 µs</title>
+encode 2,226 lists/s · 449 µs
+decode 1,934 lists/s · 517 µs</title>
 <text class="label primary" x="20" y="230">columns</text>
 <text class="sublabel" x="20" y="245">an array per field</text>
-<path class="bar primary" d="M300,223H573.6133333333333A4,4 0 0 1 577.6133333333333,227V228A4,4 0 0 1 573.6133333333333,232H300Z"/>
-<text class="value small" x="583.6133333333333" y="231">2,215</text>
-<path class="bar secondary" d="M300,234H543.9093333333333A4,4 0 0 1 547.9093333333333,238V239A4,4 0 0 1 543.9093333333333,243H300Z"/>
-<text class="value small" x="553.9093333333333" y="242">1,978</text>
+<path class="bar primary" d="M300,223H435.496A4,4 0 0 1 439.496,227V228A4,4 0 0 1 435.496,232H300Z"/>
+<text class="value small" x="445.496" y="231">2,226</text>
+<path class="bar secondary" d="M300,234H417.19733333333335A4,4 0 0 1 421.19733333333335,238V239A4,4 0 0 1 417.19733333333335,243H300Z"/>
+<text class="value small" x="427.19733333333335" y="242">1,934</text>
 </g>
 <g><title>columns, delta + intern · ids as differences, cities and tags interned
-encode 2,361 lists/s · 424 µs
-decode 2,072 lists/s · 483 µs</title>
+encode 2,370 lists/s · 422 µs
+decode 2,021 lists/s · 495 µs</title>
 <text class="label primary" x="20" y="270">columns, delta + intern</text>
 <text class="sublabel" x="20" y="285">ids as differences, cities and tags interned</text>
-<path class="bar primary" d="M300,263H591.912A4,4 0 0 1 595.912,267V268A4,4 0 0 1 591.912,272H300Z"/>
-<text class="value small" x="601.912" y="271">2,361</text>
-<path class="bar secondary" d="M300,274H555.6906666666666A4,4 0 0 1 559.6906666666666,278V279A4,4 0 0 1 555.6906666666666,283H300Z"/>
-<text class="value small" x="565.6906666666666" y="282">2,072</text>
+<path class="bar primary" d="M300,263H444.52A4,4 0 0 1 448.52,267V268A4,4 0 0 1 444.52,272H300Z"/>
+<text class="value small" x="454.52" y="271">2,370</text>
+<path class="bar secondary" d="M300,274H422.64933333333335A4,4 0 0 1 426.64933333333335,278V279A4,4 0 0 1 422.64933333333335,283H300Z"/>
+<text class="value small" x="432.64933333333335" y="282">2,021</text>
 </g>
-<text class="caption" x="20" y="334">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-20</text>
+<g><title>binary wire · the rows as bytes (./binary)
+encode 4,151 lists/s · 241 µs
+decode 2,599 lists/s · 385 µs</title>
+<text class="label primary" x="20" y="310">binary wire</text>
+<text class="sublabel" x="20" y="325">the rows as bytes (./binary)</text>
+<path class="bar primary" d="M300,303H556.1293333333333A4,4 0 0 1 560.1293333333333,307V308A4,4 0 0 1 556.1293333333333,312H300Z"/>
+<text class="value small" x="566.1293333333333" y="311">4,151</text>
+<path class="bar secondary" d="M300,314H458.8706666666667A4,4 0 0 1 462.8706666666667,318V319A4,4 0 0 1 458.8706666666667,323H300Z"/>
+<text class="value small" x="468.8706666666667" y="322">2,599</text>
+</g>
+<text class="caption" x="20" y="374">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-21</text>
 </svg>

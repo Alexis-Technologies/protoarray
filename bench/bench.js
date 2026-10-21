@@ -12,7 +12,9 @@
  * part of CI. `pnpm bench:compare` is the comparison against other libraries.
  *
  * Every protoarray scenario has its JSON reference next to it: the same value
- * through JSON.stringify/JSON.parse as a keyed object.
+ * through JSON.stringify/JSON.parse as a keyed object. Every shape is measured
+ * on the binary wire too (`toBinary`/`fromBinary` of ./binary, both backends),
+ * against the same reference.
  */
 
 const { execFileSync } = require('node:child_process');
@@ -23,6 +25,7 @@ const vm = require('node:vm');
 const metaschema = require('@alexify/metaschema');
 const { Schema } = require('../index.js');
 const { resolve } = require('../resolve.js');
+const { toBinary, fromBinary } = require('../binary.js');
 const { toSource } = require('../standalone.js');
 const { parseItems } = require('../stream.js');
 const {
@@ -207,7 +210,8 @@ const benchAsync = async (name, fn, budget = 250) => {
 
 // Each entry: [label, schema definition, options, value, json reference value].
 // Encoding is measured as it is (the values trusted) and after metaschema's
-// check of the same schema (the values checked), for both backends.
+// check of the same schema (the values checked), for both backends, on the
+// text wire and on the binary one.
 const pairs = (label, definition, options, value, reference = value) => {
   const codegen = from(definition, { ...options, codegen: true });
   const closures = from(definition, { ...options, codegen: false });
@@ -217,15 +221,20 @@ const pairs = (label, definition, options, value, reference = value) => {
   };
   const text = JSON.stringify(reference);
   const wire = codegen.stringify(value);
+  const bytes = toBinary(codegen, value);
   return [
     [`${label}: JSON.stringify (keyed, reference)`, () => JSON.stringify(reference)],
     [`${label}: stringify (codegen)`, () => codegen.stringify(value)],
     [`${label}: check (metaschema) + stringify (codegen)`, checked(codegen)],
     [`${label}: stringify (closures)`, () => closures.stringify(value)],
     [`${label}: check (metaschema) + stringify (closures)`, checked(closures)],
+    [`${label}: toBinary (codegen)`, () => toBinary(codegen, value)],
+    [`${label}: toBinary (closures)`, () => toBinary(closures, value)],
     [`${label}: JSON.parse (keyed, reference)`, () => JSON.parse(text)],
     [`${label}: parse (codegen)`, () => codegen.parse(wire)],
     [`${label}: parse (closures)`, () => closures.parse(wire)],
+    [`${label}: fromBinary (codegen)`, () => fromBinary(codegen, bytes)],
+    [`${label}: fromBinary (closures)`, () => fromBinary(closures, bytes)],
   ];
 };
 
@@ -283,6 +292,7 @@ const main = async () => {
   const blobClosures = from({ id: 'number', data: 'bytes' }, { codegen: false });
   trusting.blob = from({ id: 'number', data: 'bytes' }, { validate: false });
   const blobText = blob.stringify({ id: 1, data: BLOB });
+  const blobBytes = toBinary(blob, { id: 1, data: BLOB });
   const blobKeyed = JSON.stringify({ id: 1, data: Buffer.from(BLOB).toString('base64') });
   const flat = from({ array: RECORD }, { layout: 'flat' });
   const columns = from({ array: RECORD }, { layout: 'columns' });
@@ -314,6 +324,7 @@ const main = async () => {
     rows: rows.stringify(RECORDS),
     flat: flat.stringify(RECORDS),
     columns: columns.stringify(RECORDS),
+    binary: toBinary(rows, RECORDS),
   };
   const scenarios = [
     ...pairs('flat object (4 fields)', FLAT, {}, FLAT_OBJECT),
@@ -335,6 +346,8 @@ const main = async () => {
     ],
     ['bytes (1 KB): stringify (codegen)', () => blob.stringify({ id: 1, data: BLOB })],
     ['bytes (1 KB): stringify (closures)', () => blobClosures.stringify({ id: 1, data: BLOB })],
+    ['bytes (1 KB): toBinary (codegen)', () => toBinary(blob, { id: 1, data: BLOB })],
+    ['bytes (1 KB): toBinary (closures)', () => toBinary(blobClosures, { id: 1, data: BLOB })],
     [
       'bytes (1 KB): JSON.parse + base64 (reference)',
       () => {
@@ -345,6 +358,8 @@ const main = async () => {
     ],
     ['bytes (1 KB): parse (codegen)', () => blob.parse(blobText)],
     ['bytes (1 KB): parse (closures)', () => blobClosures.parse(blobText)],
+    ['bytes (1 KB): fromBinary (codegen)', () => fromBinary(blob, blobBytes)],
+    ['bytes (1 KB): fromBinary (closures)', () => fromBinary(blobClosures, blobBytes)],
     ['bytes (1 KB): parse (codegen, validate: false)', () => trusting.blob.parse(blobText)],
     // The control: by default an encode is the trusting one.
     [
@@ -355,10 +370,13 @@ const main = async () => {
     ['1000 records: stringify (rows)', () => rows.stringify(RECORDS)],
     ['1000 records: stringify (flat)', () => flat.stringify(RECORDS)],
     ['1000 records: stringify (columns)', () => columns.stringify(RECORDS)],
+    // The binary wire has rows only: the layouts shape text.
+    ['1000 records: toBinary (rows)', () => toBinary(rows, RECORDS)],
     ['1000 records: JSON.parse (keyed, reference)', () => JSON.parse(recordsText)],
     ['1000 records: parse (rows)', () => rows.parse(wires.rows)],
     ['1000 records: parse (flat)', () => flat.parse(wires.flat)],
     ['1000 records: parse (columns)', () => columns.parse(wires.columns)],
+    ['1000 records: fromBinary (rows)', () => fromBinary(rows, wires.binary)],
     // The builder's text is read once, as sending it would: a string built by
     // concatenation is flattened then, which a fair comparison has to count.
     [

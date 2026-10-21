@@ -23,7 +23,8 @@ Key facts:
   superjson, devalue and fast-json-stringify (https://protoarray.vercel.app/guide/benchmarks): the
   fastest encoder on records, strings and tagged messages, the fastest decoder on long strings;
   msgpackr's shared structures decode the other payloads faster; binary codecs win on mostly
-  numeric payloads
+  numeric payloads against the text wire. The binary wire (`/binary`) of the same schema has the
+  fastest round trip of every library on all seven payloads, numeric included
 - Building a schema: `Schema.from(new (require('@alexify/metaschema').Schema)('User', definition))`
   (typed); `Schema.from(definition, { metaschema: require('@alexify/metaschema') })` (or
   `@alexify/metaschema/definition`, which builds without validating); `Schema.from(snapshot)` from
@@ -68,8 +69,10 @@ Key facts:
   to 21 characters and UTF-16 past them); both sides need the same schema, or one from `resolve`;
   the structure of a message is checked whatever `validate` says and a `DecodeError` carries
   `offset`; `intern`, `delta` and the `flat`/`columns` layouts have no binary form; a standalone
-  module written with `--binary` carries the codec; smaller and faster than the text wire on
-  numbers, booleans, enums and dates (https://protoarray.vercel.app/guide/binary)
+  module written with `--binary` carries the codec; over a round trip ahead of the text wire on
+  every payload of the comparison (×1.1 on one record and long strings to ×6 on 32 doubles),
+  ×1.6 encode and ×2.1 decode against JSON on one record, and fewer bytes on every payload but
+  long strings (https://protoarray.vercel.app/guide/binary)
 - Two backends: generated code (`new Function`) by default, composed closures where code
   generation is blocked (CSP without unsafe-eval, Cloudflare Workers, Vercel Edge); standalone
   modules (`/standalone`, `protoarray compile`) carry generated code and snapshots to such

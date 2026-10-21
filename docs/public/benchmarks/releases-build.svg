@@ -67,12 +67,12 @@
 <text class="value" x="242.66125" y="222">14.6k</text>
 </g>
 <g><title>2.1.0 · this release
-14,712 schemas/s
-68 µs per schema</title>
+14,986 schemas/s
+66.7 µs per schema</title>
 <text class="label primary" x="20" y="253">2.1.0</text>
 <text class="sublabel" x="20" y="268">this release</text>
-<path class="bar primary" d="M202,249H232.86744A4,4 0 0 1 236.86744,253V259A4,4 0 0 1 232.86744,263H202Z"/>
-<text class="value" x="242.86744" y="262">14.7k</text>
+<path class="bar primary" d="M202,249H233.51682A4,4 0 0 1 237.51682,253V259A4,4 0 0 1 233.51682,263H202Z"/>
+<text class="value" x="243.51682" y="262">15k</text>
 </g>
 <text class="group" x="20" y="294">CLOSURES, NO EVAL</text>
 <g><title>1.0.0
@@ -97,13 +97,13 @@
 <text class="value" x="264.87289" y="410">24k</text>
 </g>
 <g><title>2.1.0 · this release
-23,306 schemas/s
-42.9 µs per schema</title>
+23,908 schemas/s
+41.8 µs per schema</title>
 <text class="label primary" x="20" y="441">2.1.0</text>
 <text class="sublabel" x="20" y="456">this release</text>
-<path class="bar primary" d="M202,437H253.23522000000003A4,4 0 0 1 257.23522,441V447A4,4 0 0 1 253.23522000000003,451H202Z"/>
-<text class="value" x="263.23522" y="450">23.3k</text>
+<path class="bar primary" d="M202,437H254.66196000000002A4,4 0 0 1 258.66196,441V447A4,4 0 0 1 254.66196000000002,451H202Z"/>
+<text class="value" x="264.66196" y="450">23.9k</text>
 </g>
 <text class="caption" x="20" y="505">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh</text>
-<text class="caption" x="20" y="521">process · 2026-10-20</text>
+<text class="caption" x="20" y="521">process · 2026-10-21</text>
 </svg>

@@ -340,8 +340,14 @@ const versionKey = (version) => {
   return major * 1e4 + minor * 1e2 + patch;
 };
 
-const BACKEND = { codegen: 'Generated code', closures: 'Closures, no eval' };
-const BACKENDS = ['codegen', 'closures'];
+const BACKEND = {
+  codegen: 'Generated code',
+  closures: 'Closures, no eval',
+  binary: 'Binary wire, generated code',
+};
+// The binary wire (./binary, from 2.1 on) is measured on generated code.
+const BACKENDS = ['codegen', 'closures', 'binary'];
+export const RELEASE_BACKENDS = BACKENDS;
 
 /** Releases oldest first. */
 export const releaseList = (releases, backend) =>
@@ -376,6 +382,8 @@ export const releaseModel = (releases, scenarioId) => {
       if (!result) continue;
       const sublabel = entry.current ? 'this release' : null;
       if (build) {
+        // The binary wire builds the schema the text wire does: no build of its own.
+        if (result.build === undefined) continue;
         rows.push({
           id: entry.id,
           label: entry.version,
@@ -411,7 +419,8 @@ export const releaseModel = (releases, scenarioId) => {
     subtitle: build
       ? 'Building the schema from its definition (2.x: metaschema reads it first), schemas/s, ' +
         'linear scale, higher is better.'
-      : `${sentence(scenario.description)}. stringify and parse, ops/s, linear scale, higher is better.`,
+      : `${sentence(scenario.description)}. stringify and parse (toBinary and fromBinary on the ` +
+        'binary wire), ops/s, linear scale, higher is better.',
     unit: 'ops/s',
     scale: 'linear',
     legend: build ? undefined : OPS,
@@ -496,36 +505,65 @@ export const ENGINE_OPS = [
   { id: 'parse', title: 'Decode' },
 ];
 
-/** `pnpm bench` (bench/baseline.json): a row per shape, a bar per backend and JSON's. */
-export const engineModel = (baseline, op = 'stringify') => {
+// The two wires of a schema: JSON text (`stringify`, `parse`) and bytes
+// (`toBinary`, `fromBinary` of ./binary), measured on the same shapes.
+export const ENGINE_WIRES = [
+  { id: 'text', title: 'Text wire' },
+  { id: 'binary', title: 'Binary wire' },
+];
+
+const WIRE_OPS = {
+  text: { stringify: 'stringify', parse: 'parse' },
+  binary: { stringify: 'toBinary', parse: 'fromBinary' },
+};
+
+/**
+ * `pnpm bench` (bench/baseline.json): a row per shape, a bar per backend and JSON's, on the text
+ * wire or on the binary one.
+ */
+export const engineModel = (baseline, op = 'stringify', wire = 'text') => {
   const byName = new Map(baseline.results.map((row) => [row.name, row.opsPerSec]));
   const native = op === 'stringify' ? 'JSON.stringify' : 'JSON.parse';
+  const name = WIRE_OPS[wire][op];
+  const binary = wire === 'binary';
   const rows = [];
   for (const shape of ENGINE) {
     const json =
       byName.get(`${shape.prefix}: ${native} (keyed, reference)`) ??
       byName.get(`${shape.prefix}: ${native} + base64 (reference)`);
-    const codegen = byName.get(`${shape.prefix}: ${op} (codegen)`);
-    const closures = byName.get(`${shape.prefix}: ${op} (closures)`);
+    const codegen = byName.get(`${shape.prefix}: ${name} (codegen)`);
+    const closures = byName.get(`${shape.prefix}: ${name} (closures)`);
     if (json === undefined || codegen === undefined || closures === undefined) continue;
     const values = { json, codegen, closures };
+    const details = [
+      ...ENGINE_BARS.map((bar) => `${bar.label} ${grouped(values[bar.id])} ops/s`),
+      `generated code ×${(codegen / json).toFixed(2)} the speed of JSON, ` +
+        `closures ×${(closures / json).toFixed(2)}`,
+    ];
+    // On the binary wire, how it compares with the text wire of the same backend.
+    const text = (backend) => byName.get(`${shape.prefix}: ${op} (${backend})`);
+    if (binary && text('codegen') !== undefined && text('closures') !== undefined) {
+      details.push(
+        `against the text wire: generated code ×${(codegen / text('codegen')).toFixed(2)}, ` +
+          `closures ×${(closures / text('closures')).toFixed(2)}`,
+      );
+    }
     rows.push({
       id: shape.prefix,
       label: shape.label,
       sublabel: shape.sublabel,
       value: Math.max(json, codegen, closures),
       bars: ENGINE_BARS.map((bar) => ({ value: values[bar.id], tone: bar.tone })),
-      details: [
-        ...ENGINE_BARS.map((bar) => `${bar.label} ${grouped(values[bar.id])} ops/s`),
-        `generated code ×${(codegen / json).toFixed(2)} the speed of JSON, ` +
-          `closures ×${(closures / json).toFixed(2)}`,
-      ],
+      details,
     });
   }
-  const verb = op === 'stringify' ? 'stringify against JSON.stringify' : 'parse against JSON.parse';
+  const direction = op === 'stringify' ? 'encode' : 'decode';
+  const verb = `${name} against ${native}`;
   return {
-    id: `engine-${op}`,
-    title: `protoarray on its two backends: ${op === 'stringify' ? 'encode' : 'decode'}`,
+    id: binary ? `engine-binary-${op}` : `engine-${op}`,
+    title: binary
+      ? `protoarray's binary wire on its two backends: ${direction}`
+      : `protoarray on its two backends: ${direction}`,
     subtitle: `pnpm bench: ${verb} of the keyed object, ops/s, log scale, higher is better.`,
     unit: 'ops/s',
     scale: 'log',
@@ -564,6 +602,12 @@ const LAYOUTS = [
     label: 'columns, delta + intern',
     sublabel: 'ids as differences, cities and tags interned',
     names: ['stringify (columns, delta + intern)', 'parse (columns, delta + intern)'],
+  },
+  {
+    id: 'binary',
+    label: 'binary wire',
+    sublabel: 'the rows as bytes (./binary)',
+    names: ['toBinary (rows)', 'fromBinary (rows)'],
   },
 ];
 

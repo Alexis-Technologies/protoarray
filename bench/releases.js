@@ -1,7 +1,8 @@
 /**
  * Release over release: the scenarios of the comparison
  * (bench/compare/scenarios.js) through `stringify` and `parse` of one release
- * on both backends, and `Schema.from` of its definition, measured with
+ * on both backends, `toBinary` and `fromBinary` of its binary wire where it
+ * has one (2.1 on, generated code), and `Schema.from` of its definition, measured with
  * today's harness so every release is measured on one machine the same way.
  * A release is a tag checked out into a temporary directory (`git archive`):
  * protoarray has no dependencies, so its tree runs as it is.
@@ -26,7 +27,7 @@ const { describeMachine } = require('./machine.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(__dirname, 'results', 'releases.json');
-const BACKENDS = ['codegen', 'closures'];
+const BACKENDS = ['codegen', 'closures', 'binary'];
 
 const { values: args } = parseArgs({
   options: {
@@ -115,13 +116,17 @@ const main = () => {
           continue;
         }
         entry.results[scenario.name] = result;
+        const build =
+          result.build === undefined
+            ? ''
+            : `  Schema.from ${format(result.build.median).padStart(9)}`;
         console.log(
           `  ${scenario.title.padEnd(20)} encode ${format(result.encode.median).padStart(11)}` +
-            `  decode ${format(result.decode.median).padStart(11)}` +
-            `  Schema.from ${format(result.build.median).padStart(9)} ops/s`,
+            `  decode ${format(result.decode.median).padStart(11)}${build} ops/s`,
         );
       }
-      entries.push(entry);
+      // A release without the backend (the binary wire before 2.1) records nothing.
+      if (Object.keys(entry.results).length > 0) entries.push(entry);
     }
     if (!args['no-write']) writeResults(entries, machine);
   } finally {

@@ -229,8 +229,10 @@ _Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each
 - **Numbers** are the honest exception of the text wire: a double prints as up to 17 characters
   and parses back through a decimal conversion, where avsc and protobufjs read 8 bytes. The
   `binary wire` rows are [`@alexify/protoarray/binary`](/guide/binary), the same schema on bytes,
-  for channels that carry them: ahead of the text wire on every payload but long strings, where
-  the two are close, and ahead of the binary codecs on most (how it was decided is
+  for channels that carry them: over a round trip ahead of the text wire on every payload (×1.1
+  on one record and on long strings, ×6 on 32 doubles) and the fastest of every library on all
+  seven, the numeric one included; it decodes second or third behind msgpackr's shared structures
+  on lists, sparse and typed records (how it was decided is
   [recorded below](#the-binary-wire-measured)).
 - **Validation.** The wire is checked on decode and the values given to encode are trusted, so
   protoarray encodes the way protobufjs and msgpackr do, without checks, and decodes with them.
@@ -325,7 +327,9 @@ by esbuild for the browser (minified, tree-shaken) and checked to give the recor
 ## Release over release
 
 `pnpm bench:releases` measures the scenarios of the comparison through `stringify` and `parse` of
-every release, on both backends, with today's harness on one machine. 2.0 reads metaschema's
+every release, on both backends, with today's harness on one machine, and from 2.1 the binary wire
+too (`toBinary` and `fromBinary`, generated code); the speedup chart compares each backend with
+its oldest release, which the binary wire, new in 2.1, does not have yet. 2.0 reads metaschema's
 definitions instead of its own spelling of them and kept the wire, the canonical form and the speed
 of 1.x: with generated code every scenario is within 7% of the first release that has it, and typed
 records encode a fifth faster (the text builder); the closures are within 10%, a sparse record 7–9%
@@ -343,13 +347,14 @@ slower.
 | 1.0.0<br><sub>codegen</sub> | 2,030,000 / 1,650,000 | 1,960 / 1,500 | 7,200,000 / 7,340,000 | 3,850,000 / 4,770,000 | 1,790,000 / 1,660,000 | — | 403,000 / 734,000 | 36,200 |
 | 1.1.0<br><sub>codegen</sub> | 2,030,000 / 1,640,000 | 1,970 / 1,500 | 7,210,000 / 7,180,000 | 4,880,000 / 4,790,000 | 1,750,000 / 1,670,000 | 66,800 / 47,400 | 409,000 / 731,000 | 31,600 |
 | 2.0.0<br><sub>codegen</sub> | 2,040,000 / 1,690,000 | 1,970 / 1,480 | 7,020,000 / 7,460,000 | 4,670,000 / 4,780,000 | 1,800,000 / 1,700,000 | 67,600 / 50,600 | 427,000 / 731,000 | 14,600 |
-| 2.1.0<br><sub>codegen</sub> | 2,070,000 / 1,690,000 | 1,990 / 1,500 | 7,400,000 / 7,620,000 | 4,700,000 / 4,870,000 | 1,820,000 / 1,700,000 | 67,400 / 50,900 | 428,000 / 725,000 | 14,700 |
+| 2.1.0<br><sub>codegen</sub> | 2,090,000 / 1,740,000 | 2,000 / 1,480 | 7,360,000 / 7,520,000 | 4,700,000 / 4,820,000 | 1,850,000 / 1,750,000 | 67,900 / 51,000 | 425,000 / 751,000 | 15,000 |
 | 1.0.0<br><sub>closures</sub> | 1,550,000 / 971,000 | 1,420 / 937 | 3,180,000 / 2,590,000 | 2,950,000 / 2,850,000 | 1,670,000 / 1,540,000 | — | 360,000 / 573,000 | 172,000 |
 | 1.1.0<br><sub>closures</sub> | 1,470,000 / 1,040,000 | 1,380 / 976 | 2,930,000 / 2,460,000 | 3,540,000 / 3,110,000 | 1,680,000 / 1,550,000 | 47,800 / 26,000 | 364,000 / 568,000 | 98,400 |
 | 2.0.0<br><sub>closures</sub> | 1,470,000 / 1,060,000 | 1,390 / 978 | 2,950,000 / 2,360,000 | 3,450,000 / 3,090,000 | 1,690,000 / 1,560,000 | 48,100 / 26,800 | 359,000 / 567,000 | 24,000 |
-| 2.1.0<br><sub>closures</sub> | 1,530,000 / 1,050,000 | 1,420 / 971 | 3,190,000 / 4,180,000 | 3,520,000 / 3,100,000 | 1,710,000 / 1,600,000 | 47,600 / 26,100 | 378,000 / 574,000 | 23,300 |
+| 2.1.0<br><sub>closures</sub> | 1,560,000 / 1,060,000 | 1,420 / 969 | 3,210,000 / 4,250,000 | 3,540,000 / 3,140,000 | 1,720,000 / 1,600,000 | 48,000 / 25,900 | 364,000 / 575,000 | 23,900 |
+| 2.1.0<br><sub>binary wire</sub> | 2,120,000 / 2,030,000 | 3,110 / 2,310 | 12,200,000 / 7,980,000 | 6,580,000 / 6,330,000 | 1,890,000 / 2,230,000 | 111,000 / 68,800 | 2,460,000 / 4,990,000 | — |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-20. ops/s of stringify / parse, medians; — where the release has no union._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 400 ms rounds, each release, backend and scenario in a fresh process · 2026-10-21. ops/s of stringify / parse (toBinary / fromBinary on the binary wire), medians; — where the release has no union, and for the binary wire, which builds the schema the text wire does._
 
 <!-- bench:releases:end -->
 
@@ -371,11 +376,25 @@ cost of one keyed store per present field, ×1.6 to ×1.9 on decode: `pnpm bench
 cost from 4 to 256 fields, each backend in a fresh process (about 60 ns a field against 30, with
 no step at 128 fields; see [Runtimes and CSP](/guide/runtimes#what-the-fallback-costs)).
 
+The *Binary wire* switch shows the same shapes through `toBinary` and `fromBinary` of
+[`./binary`](/guide/binary). With generated code it is ahead of JSON on every shape but the two
+sparse records and the 70 flags, and ahead of the text wire where bytes save work: a record of
+128 fields ×2.4 to encode and ×2 to decode, 1 KB of bytes ×2 and ×3.6 (no base64), a nested
+record ×1.3 to decode. It is behind the text wire where they do not. The sparse records here are
+of `any`, which the binary wire carries as JSON text inside the bytes (about half the speed of the
+text wire); and a record of a few fields pays a fixed cost per message, the `Uint8Array` it
+returns and a `DataView` where it reads a float64, against a few nanoseconds of work: the flat
+record of four fields decodes at ×0.6 of the text wire, decimals at ×0.75. This harness runs
+every shape in one process; the comparison above runs each scenario in a fresh one, where the
+binary wire of the flat record decodes at ×0.8 of the text wire and encodes level with it.
+
 <BenchEngine />
 
 The layouts of a list of a thousand records: `rows` (an array per record, the default), `flat`
 (one array with a fixed stride), `columns` (an array per field) and columns with the ids as
 differences and the cities and tags interned. See [Collections and Layouts](/guide/collections).
+The binary wire has no layouts (they shape text): its row is the same records as bytes, ×1.8 the
+encode of the text rows and ×1.3 their decode.
 
 <BenchFigure chart="layouts" />
 

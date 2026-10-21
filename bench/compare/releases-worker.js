@@ -4,11 +4,14 @@
  * schema is built the way that release reads a definition (1.x its own
  * spelling of metaschema's, 2.x metaschema injected), the round trip is
  * checked, then `stringify`, `parse` and `Schema.from` are measured with the
- * comparison's harness. A scenario the release cannot express (a union before
- * 1.1) prints `{ unsupported }`.
+ * comparison's harness; on the `binary` backend `toBinary` and `fromBinary`
+ * of the release's `binary.js`, on generated code, and no `Schema.from`, which
+ * is the text wire's. A scenario the release cannot express (a union before
+ * 1.1, the binary wire before 2.1) prints `{ unsupported }`.
  *
  * Usage (spawned by bench/releases.js): node bench/compare/releases-worker.js '<json options>'
  */
+const fs = require('node:fs');
 const path = require('node:path');
 
 const { measure } = require('./measure.js');
@@ -34,13 +37,31 @@ const main = () => {
   const definition = scenario.list
     ? { array: scenario.schema.definition }
     : scenario.schema.definition;
-  const settings = { ...scenario.schema.options, codegen: options.backend === 'codegen' };
+  const binary = options.backend === 'binary';
+  if (binary && !fs.existsSync(path.join(options.src, 'binary.js'))) {
+    process.stdout.write(`${JSON.stringify({ unsupported: 'no binary wire' })}\n`);
+    return;
+  }
+  const settings = { ...scenario.schema.options, codegen: options.backend !== 'closures' };
   if (Number(version.split('.')[0]) >= 2) settings.metaschema = require('@alexify/metaschema');
   let schema;
   try {
     schema = Schema.from(definition, settings);
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ unsupported: error.message })}\n`);
+    return;
+  }
+  if (binary) {
+    const { toBinary, fromBinary } = require(path.join(options.src, 'binary.js'));
+    const bytes = toBinary(schema, scenario.value);
+    if (canonical(plain(fromBinary(schema, bytes))) !== canonical(plain(scenario.value))) {
+      throw new Error(`${version} does not round-trip ${scenario.name} on the binary wire`);
+    }
+    const measured = {
+      encode: measure(() => toBinary(schema, scenario.value), options.method),
+      decode: measure(() => fromBinary(schema, bytes), options.method),
+    };
+    process.stdout.write(`${JSON.stringify(measured)}\n`);
     return;
   }
   const wire = schema.stringify(scenario.value);
